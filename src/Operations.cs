@@ -6,7 +6,7 @@ public sealed class Add(Expr left, Expr right) : Expr
     public Expr Right { get; } = right;
 
     public override double Evaluate(double x) => Left.Evaluate(x) + Right.Evaluate(x);
-    public override Expr Differentiate() => new Add(Left.Differentiate(), Right.Differentiate());
+    public override Expr Differentiate() => new Add(Left.Differentiate(), Right.Differentiate()).Simplify();
     public override string ToString() => $"({Left} + {Right})";
     
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
@@ -18,7 +18,7 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     public Expr Right { get; } = right;
 
     public override double Evaluate(double x) => Left.Evaluate(x) - Right.Evaluate(x);
-    public override Expr Differentiate() => new Subtract(Left.Differentiate(), Right.Differentiate());
+    public override Expr Differentiate() => new Subtract(Left.Differentiate(), Right.Differentiate()).Simplify();
     public override string ToString() => $"({Left} - {Right})";
 
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
@@ -35,7 +35,7 @@ public sealed class Multiply(Expr left, Expr right) : Expr
         new Add(
             new Multiply(Left.Differentiate(), Right),
             new Multiply(Left, Right.Differentiate())
-        );
+        ).Simplify();
 
     public override string ToString() => $"({Left} * {Right})";
 
@@ -56,7 +56,7 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
                 new Multiply(Numerator, Denominator.Differentiate())
             ),
             new Power(Denominator, new Constant(2))
-        );
+        ).Simplify();
 
     public override string ToString() => $"({Numerator} / {Denominator})";
     
@@ -77,7 +77,7 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
             return new Multiply(
                 new Multiply(n, new Power(Base, new Constant(n.Value - 1))),
                 Base.Differentiate()
-            );
+            ).Simplify();
         }
 
         throw new NotImplementedException("Differentiation with non-constant exponent not yet supported.");
