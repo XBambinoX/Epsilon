@@ -123,6 +123,105 @@ public static class Simplifier
                         : new Multiply(new Constant(sum), term).Simplify();
                 }
 
+            case Sin(Constant c) when c.Value == 0:
+                return new Constant(0);
+
+            case Cos(Constant c) when c.Value == 0:
+                return new Constant(1);
+
+            case Tan(Constant c) when c.Value == 0:
+                return new Constant(0);
+
+            // sin(x)^2 + cos(x)^2 = 1
+            case Add(
+                Power(Sin(var x1), Constant e1),
+                Power(Cos(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Constant(1);
+
+            case Add(
+                Power(Cos(var x1), Constant e1),
+                Power(Sin(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Constant(1);
+
+            // tan(x) = sin(x) / cos(x)
+            case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
+                return new Tan(x).Simplify();
+
+            // cot(x) = cos(x) / sin(x)
+            case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
+                return new Cot(x).Simplify();
+
+            // tan(x) * cot(x) = 1
+            case Multiply(Tan(var x), Cot(var y)) when x.Equals(y):
+                return new Constant(1);
+
+            case Multiply(Cot(var x), Tan(var y)) when x.Equals(y):
+                return new Constant(1);
+
+            // sin(x) / cos(x) = tan(x)
+            case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
+                return new Tan(x);
+
+            // cos(x) / sin(x) = cot(x)
+            case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
+                return new Cot(x);
+
+            // sin(x)^2 / cos(x)^2 = tan(x)^2
+            case Divide(
+                Power(Sin(var x1), Constant e1),
+                Power(Cos(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Power(new Tan(x1), new Constant(2)).Simplify();
+
+            // cos(x)^2 / sin(x)^2 = cot(x)^2
+            case Divide(
+                Power(Cos(var x1), Constant e1),
+                Power(Sin(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Power(new Cot(x1), new Constant(2)).Simplify();
+
+            // 1 - sin(x)^2 = cos(x)^2
+            case Subtract(
+                Constant c,
+                Power(Sin(var x), Constant e))
+                when c.Value == 1 && e.Value == 2:
+                return new Power(new Cos(x), new Constant(2)).Simplify();
+
+            // 1 - cos(x)^2 = sin(x)^2
+            case Subtract(
+                Constant c,
+                Power(Cos(var x), Constant e))
+                when c.Value == 1 && e.Value == 2:
+                return new Power(new Sin(x), new Constant(2)).Simplify();
+
+            // sec(x)^2 - tan(x)^2 = 1
+            case Subtract(
+                Power(Sec(var x1), Constant e1),
+                Power(Tan(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Constant(1);
+
+            // csc(x)^2 - cot(x)^2 = 1
+            case Subtract(
+                Power(Csc(var x1), Constant e1),
+                Power(Cot(var x2), Constant e2))
+                when e1.Value == 2 &&
+                    e2.Value == 2 &&
+                    x1.Equals(x2):
+                return new Constant(1);
+
             default:
                 return expr;
         }
