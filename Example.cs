@@ -6,7 +6,7 @@ namespace Example
     {
         public static void Main()
         {
-            Greeter.Greet();
+            Console.WriteLine("Welcome to the Epsilon Math Library!");
         }
     }
 }
