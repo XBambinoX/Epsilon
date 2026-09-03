@@ -4,6 +4,8 @@ public abstract class Expr
 {
     public abstract double Evaluate(double x);
     public abstract Expr Differentiate();
+    public override bool Equals(object? obj) => obj is Expr other && ToString() == other.ToString();
+    public override int GetHashCode() => ToString().GetHashCode();
 }
 
 public sealed class Constant(double value) : Expr

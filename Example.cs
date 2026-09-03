@@ -8,8 +8,7 @@ namespace Example
         {
             Console.WriteLine("Welcome to the Epsilon Math Library!");
 
-            RunDemo("x^2 + 3*x - 1", 2);
-            RunDemo("(x + 1) / (x - 1)", 3);
+            RunDemo("x - x + 3 - 2 ", 2);
         }
 
         private static void RunDemo(string expression, double point)
@@ -20,9 +19,10 @@ namespace Example
                 Expr df = f.Differentiate();
 
                 Console.WriteLine($"f(x)     = {f}");
+                Console.WriteLine($"f(x) = {f.Simplify()} (Simplified)");
                 Console.WriteLine($"f'(x)    = {df}");
+                Console.WriteLine($"f'({point}) = {df.Evaluate(point)}");
                 Console.WriteLine($"f({point})    = {f.Evaluate(point)}");
-                Console.WriteLine($"f'({point})   = {df.Evaluate(point)}");
                 Console.WriteLine();
             }
             catch (FormatException ex)

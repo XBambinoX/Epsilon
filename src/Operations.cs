@@ -8,6 +8,8 @@ public sealed class Add(Expr left, Expr right) : Expr
     public override double Evaluate(double x) => Left.Evaluate(x) + Right.Evaluate(x);
     public override Expr Differentiate() => new Add(Left.Differentiate(), Right.Differentiate());
     public override string ToString() => $"({Left} + {Right})";
+    
+    public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
 }
 
 public sealed class Subtract(Expr left, Expr right) : Expr
@@ -18,6 +20,8 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     public override double Evaluate(double x) => Left.Evaluate(x) - Right.Evaluate(x);
     public override Expr Differentiate() => new Subtract(Left.Differentiate(), Right.Differentiate());
     public override string ToString() => $"({Left} - {Right})";
+
+    public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
 }
 
 public sealed class Multiply(Expr left, Expr right) : Expr
@@ -34,6 +38,8 @@ public sealed class Multiply(Expr left, Expr right) : Expr
         );
 
     public override string ToString() => $"({Left} * {Right})";
+
+    public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
 }
 
 public sealed class Divide(Expr numerator, Expr denominator) : Expr
@@ -53,6 +59,8 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
         );
 
     public override string ToString() => $"({Numerator} / {Denominator})";
+    
+    public void Deconstruct(out Expr numerator, out Expr denominator) => (numerator, denominator) = (Numerator, Denominator);
 }
 
 public sealed class Power(Expr baseExpr, Expr exponent) : Expr
@@ -76,4 +84,6 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
     }
 
     public override string ToString() => $"({Base} ^ {Exponent})";
+
+    public void Deconstruct(out Expr baseExpr, out Expr exponent) => (baseExpr, exponent) = (Base, Exponent);
 }
