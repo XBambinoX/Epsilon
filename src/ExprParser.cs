@@ -147,6 +147,38 @@ public static class ExprParser
                 return new Variable();
             }
 
+            if (char.IsLetter(token[0]))
+            {
+                Consume(); // consume function name
+
+                if (Current != "(")
+                    throw new FormatException($"Expected '(' after function name '{token}'.");
+
+                Consume(); // consume '('
+                Expr argument = ParseExpression();
+
+                if (Current != ")")
+                    throw new FormatException($"Expected closing ')' after arguments of '{token}'.");
+                Consume();
+
+                return token switch
+                {
+                    "sin" => new Sin(argument),
+                    "cos" => new Cos(argument),
+                    "tan" => new Tan(argument),
+                    "cot" => new Cot(argument),
+                    "sec" => new Sec(argument),
+                    "csc" => new Csc(argument),
+                    "asin" => new Asin(argument),
+                    "acos" => new Acos(argument),
+                    "atan" => new Atan(argument),
+                    "sinh" => new Sinh(argument),
+                    "cosh" => new Cosh(argument),
+                    "tanh" => new Tanh(argument),
+                    _ => throw new FormatException($"Unknown function '{token}'.")
+                };
+            }
+    
             throw new FormatException($"Unexpected token '{token}'.");
         }
     }

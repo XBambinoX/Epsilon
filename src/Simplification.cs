@@ -28,6 +28,18 @@ public static class Simplifier
             Multiply(var l, var r) => new Multiply(l.Simplify(), r.Simplify()),
             Divide(var n, var d) => new Divide(n.Simplify(), d.Simplify()),
             Power(var b, var e) => new Power(b.Simplify(), e.Simplify()),
+            Sin(var a) => new Sin(a.Simplify()),
+            Cos(var a) => new Cos(a.Simplify()),
+            Tan(var a) => new Tan(a.Simplify()),
+            Cot(var a) => new Cot(a.Simplify()),
+            Sec(var a) => new Sec(a.Simplify()),
+            Csc(var a) => new Csc(a.Simplify()),
+            Asin(var a) => new Asin(a.Simplify()),
+            Acos(var a) => new Acos(a.Simplify()),
+            Atan(var a) => new Atan(a.Simplify()),
+            Sinh(var a) => new Sinh(a.Simplify()),
+            Cosh(var a) => new Cosh(a.Simplify()),
+            Tanh(var a) => new Tanh(a.Simplify()),
             _ => expr
         };
 
