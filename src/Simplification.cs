@@ -99,8 +99,28 @@ public static class Simplifier
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
                 return new Power(b1, new Constant(2)).Simplify();
 
+            case Add(var l, var r) when
+                !(l is Constant) && !(r is Constant) &&
+                ExtractCoefficient(l).Term.Equals(ExtractCoefficient(r).Term):
+                {
+                    var (c1, term) = ExtractCoefficient(l);
+                    var (c2, _) = ExtractCoefficient(r);
+                    double sum = c1 + c2;
+                    return sum == 1
+                        ? term
+                        : new Multiply(new Constant(sum), term).Simplify();
+                }
+
             default:
                 return expr;
         }
     }
+
+    // Helper method to extract the coefficient and the term from an expression
+    private static (double Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
+    {
+        Multiply(Constant c, var t) => (c.Value, t),
+        Multiply(var t, Constant c) => (c.Value, t),
+        _ => (1, expr)
+    };
 }
