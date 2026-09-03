@@ -77,10 +77,27 @@ public static class Simplifier
 
             case Power(var b, var e) when e.Equals(new Constant(0)):
                 return new Constant(1);
+
             case Power(var b, var e) when e.Equals(new Constant(1)):
                 return b;
+
             case Power(var b, var e) when b.Equals(new Constant(0)):
                 return new Constant(0);
+
+            case Power(Power(var b, var e1), var e2):
+                return new Power(b, new Multiply(e1, e2)).Simplify();
+
+            case Multiply(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
+                return new Power(b1, new Add(e1, e2)).Simplify();
+
+            case Multiply(var b, Power(var b2, var e)) when b.Equals(b2):
+                return new Power(b, new Add(e, new Constant(1))).Simplify();
+
+            case Multiply(Power(var b, var e), var b2) when b.Equals(b2):
+                return new Power(b, new Add(e, new Constant(1))).Simplify();
+
+            case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
+                return new Power(b1, new Constant(2)).Simplify();
 
             default:
                 return expr;
