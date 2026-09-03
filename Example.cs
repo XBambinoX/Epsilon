@@ -8,18 +8,17 @@ namespace Example
         {
             Console.WriteLine("Welcome to the Epsilon Math Library!");
 
-            RunDemo("x - x + 3 - 2 ", 2);
+            RunDemo("x - x + 3 + 2 - (2 - 1)", 2);
         }
 
         private static void RunDemo(string expression, double point)
         {
             try
             {
-                Expr f = ExprParser.Parse(expression);
+                Expr f = ExprParser.Parse(expression).Simplify();
                 Expr df = f.Differentiate();
 
                 Console.WriteLine($"f(x)     = {f}");
-                Console.WriteLine($"f(x) = {f.Simplify()} (Simplified)");
                 Console.WriteLine($"f'(x)    = {df}");
                 Console.WriteLine($"f'({point}) = {df.Evaluate(point)}");
                 Console.WriteLine($"f({point})    = {f.Evaluate(point)}");

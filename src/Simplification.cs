@@ -4,7 +4,23 @@ public static class Simplifier
 {
     public static Expr Simplify(this Expr expr)
     {
-        // Post-order: recursively simplify children first, then this node
+        Expr current = expr;
+
+        for (int i = 0; i < 100; i++)
+        {
+            Expr next = SimplifyOnce(current);
+
+            if (next.Equals(current))
+                return next;
+
+            current = next;
+        }
+
+        throw new InvalidOperationException("Simplification did not converge after 100 iterations — possible rule cycle.");
+    }
+
+    private static Expr SimplifyOnce(Expr expr)
+    {
         Expr simplified = expr switch
         {
             Add(var l, var r) => new Add(l.Simplify(), r.Simplify()),
@@ -12,7 +28,7 @@ public static class Simplifier
             Multiply(var l, var r) => new Multiply(l.Simplify(), r.Simplify()),
             Divide(var n, var d) => new Divide(n.Simplify(), d.Simplify()),
             Power(var b, var e) => new Power(b.Simplify(), e.Simplify()),
-            _ => expr // Constant, Variable — nothing to simplify
+            _ => expr
         };
 
         return ApplyRules(simplified);
