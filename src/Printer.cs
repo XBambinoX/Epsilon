@@ -31,6 +31,16 @@ public static class Printer
             // Right-associative: reversed — left needs +1, right keeps same
             Power(var b, var e) => $"{PrintInternal(b, myPrecedence + 1)} ^ {PrintInternal(e, myPrecedence)}",
 
+            Cot(var a) => $"cot({PrintInternal(a, 0)})",
+            Sec(var a) => $"sec({PrintInternal(a, 0)})",
+            Csc(var a) => $"csc({PrintInternal(a, 0)})",
+            Asin(var a) => $"asin({PrintInternal(a, 0)})",
+            Acos(var a) => $"acos({PrintInternal(a, 0)})",
+            Atan(var a) => $"atan({PrintInternal(a, 0)})",
+            Sinh(var a) => $"sinh({PrintInternal(a, 0)})",
+            Cosh(var a) => $"cosh({PrintInternal(a, 0)})",
+            Tanh(var a) => $"tanh({PrintInternal(a, 0)})",
+
             _ => expr.ToString() ?? string.Empty
         };
 
