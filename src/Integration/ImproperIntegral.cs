@@ -30,11 +30,15 @@ public static class ImproperIntegrator
         double b,
         double tolerance = DefaultTolerance)
     {
-        if (!AnalyzeConvergence(expr, a, b, tolerance))
+        if (!expr.IsConvergent(a, b, tolerance))
             throw new InvalidOperationException(
                 $"Improper integral does not converge on [{a}, {b}].");
 
-        return ComputeImproperIntegral(expr, a, b, tolerance);
+        return ImproperNumericalIntegrator.Integrate(
+            expr,
+            a,
+            b,
+            tolerance);
     }
 
     public static (double? Value, bool IsConvergent) TryIntegrateImproper(
@@ -43,18 +47,16 @@ public static class ImproperIntegrator
         double b,
         double tolerance = DefaultTolerance)
     {
-        if (!AnalyzeConvergence(expr, a, b, tolerance))
+        if (!expr.IsConvergent(a, b, tolerance))
             return (null, false);
 
-        try
-        {
-            double value = ComputeImproperIntegral(expr, a, b, tolerance);
-            return (value, true);
-        }
-        catch
-        {
-            return (null, true);
-        }
+        double value = ImproperNumericalIntegrator.Integrate(
+            expr,
+            a,
+            b,
+            tolerance);
+
+        return (value, true);
     }
 
     private static bool AnalyzeConvergence(
