@@ -1,4 +1,4 @@
-namespace Epsilon;
+namespace Epsilon.Core;
 
 public sealed class Sin(Expr argument) : Expr
 {

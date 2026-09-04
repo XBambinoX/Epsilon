@@ -1,4 +1,6 @@
-namespace Epsilon;
+using Epsilon.Core;
+
+namespace Epsilon.Calculus;
 
 public static class NumericIntegration
 {
