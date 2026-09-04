@@ -10,6 +10,9 @@ internal static class Substitution
         if (TryProductSubstitution(expr, out Expr product))
             return product;
 
+        if (TryUDuSubstitution(expr, out Expr uDu))
+            return uDu;
+
         throw new NotSupportedException($"No substitution rule for '{expr.Print()}'.");
     }
 
@@ -32,6 +35,40 @@ internal static class Substitution
             default:
                 argument = null!; rebuild = null!; return false;
         }
+    }
+
+    private static bool TryUDuSubstitution(Expr expr, out Expr result)
+    {
+        result = null!;
+
+        Expr a, b;
+        if (expr is Multiply(var l, var r)) { a = l; b = r; }
+        else if (expr is Divide(var num, var den)) { a = num; b = new Divide(new Constant(1), den); }
+        else return false;
+
+        return TryMatchUDu(a, b, out result) || TryMatchUDu(b, a, out result);
+    }
+
+    private static bool TryMatchUDu(Expr u, Expr maybeDerivative, out Expr result)
+    {
+        result = null!;
+
+        if (u is Variable or Constant)
+            return false;
+
+        Expr uPrime = u.Differentiate().Simplify();
+
+        var (coefA, termA) = ExtractCoefficient(maybeDerivative);
+        var (coefB, termB) = ExtractCoefficient(uPrime);
+
+        if (!termA.Equals(termB))
+            return false;
+
+        double ratio = coefA / coefB;
+
+        Expr uSquaredOverTwo = new Divide(new Power(u, new Constant(2)), new Constant(2));
+        result = ratio == 1 ? uSquaredOverTwo : new Multiply(new Constant(ratio), uSquaredOverTwo);
+        return true;
     }
 
     // Recognizes ax+b (or bare x, a=1 b=0). Returns (0, _) if not linear.
