@@ -14,6 +14,23 @@ public static class SymbolicIntegrator
         }
     }
 
+
+    private static Expr AntiDerivative(this Expr expr, int depth)
+    {
+        if (depth > 50)
+            throw new InvalidOperationException(
+                $"Integration recursion exceeded 50 levels for '{expr.Print()}' — likely a non-converging by-parts chain.");
+
+        try
+        {
+            return TableRule(expr);
+        }
+        catch (NotSupportedException)
+        {
+            return TryByParts(expr, depth + 1);
+        }
+    }
+
     private static Expr TableRule(Expr expr) => expr switch
     {
         Constant c => new Multiply(c, new Variable()),
@@ -25,6 +42,8 @@ public static class SymbolicIntegrator
 
         Multiply(Constant c, var f) => new Multiply(c, f.AntiDerivative()),
         Multiply(var f, Constant c) => new Multiply(c, f.AntiDerivative()),
+
+        Divide(var f, Constant c) => new Divide(f.AntiDerivative(), c),
 
         Power(Variable, Constant n) when n.Value != -1 =>
             new Divide(new Power(new Variable(), new Constant(n.Value + 1)), new Constant(n.Value + 1)),
@@ -49,10 +68,12 @@ public static class SymbolicIntegrator
         Variable or Power(Variable, Constant) => 2,
         Sin or Cos or Tan => 3,
         Exp => 4,
+        Multiply(Constant, var inner) => LiatePriority(inner),
+        Multiply(var inner, Constant) => LiatePriority(inner),
         _ => 5
     };
 
-    private static Expr TryByParts(Expr expr)
+    private static Expr TryByParts(Expr expr, int depth = 0)
     {
         // Special case: ln(x) alone -> u = ln(x), dv = dx, du = 1/x dx, v = x
         if (expr is Ln(Variable))
@@ -61,7 +82,7 @@ public static class SymbolicIntegrator
             Expr v = new Variable();
             Expr du = expr.Differentiate();
             Expr integrand = new Multiply(v, du).Simplify();
-            return new Subtract(new Multiply(u, v), integrand.AntiDerivative());
+            return new Subtract(new Multiply(u, v), integrand.AntiDerivative(depth + 1));
         }
 
         if (expr is not Multiply(var left, var right))
@@ -76,10 +97,10 @@ public static class SymbolicIntegrator
             : (right, left);
 
         Expr du2 = u2.Differentiate();
-        Expr v2 = dv.AntiDerivative(); // may itself throw NotSupportedException — that's fine, propagates up
+        Expr v2 = dv.AntiDerivative(depth + 1); // may itself throw NotSupportedException — that's fine, propagates up
 
         Expr remainder = new Multiply(v2, du2).Simplify();
-        Expr integratedRemainder = remainder.AntiDerivative(); // recursive — may need by-parts again
+        Expr integratedRemainder = remainder.AntiDerivative(depth + 1); // recursive — may need by-parts again
 
         return new Subtract(new Multiply(u2, v2), integratedRemainder);
     }
