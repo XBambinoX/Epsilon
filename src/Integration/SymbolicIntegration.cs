@@ -82,6 +82,13 @@ public static class SymbolicIntegrator
         Cosh(Variable) => new Sinh(new Variable()),
         Tanh(Variable) => new Ln(new Cosh(new Variable())),
 
+        Divide(Constant one, Sqrt(Subtract(Constant c, Power(Variable, Constant n))))
+            when one.Value == 1 && c.Value == 1 && n.Value == 2 => new Asin(new Variable()),
+
+        Divide(Constant one, Sqrt(Subtract(Power(Variable, Constant n), Constant c)))
+            when one.Value == 1 && c.Value == 1 && n.Value == 2 =>
+                new Ln(new Add(new Variable(), new Sqrt(new Subtract(new Power(new Variable(), new Constant(2)), new Constant(1))))),
+
         // Rational standard integrals
 
         Divide(Constant one, Add(Power(Variable, Constant n), Constant c))
