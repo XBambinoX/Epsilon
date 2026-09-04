@@ -149,6 +149,11 @@ public static class Simplifier
                     x1.Equals(x2):
                 return new Constant(1);
 
+            case Ln(Exp(var a)):
+                return a;
+            case Exp(Ln(var a)):
+                return a;
+
             // tan(x) = sin(x) / cos(x)
             case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
                 return new Tan(x).Simplify();

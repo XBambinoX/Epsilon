@@ -147,6 +147,18 @@ public static class ExprParser
                 return new Variable();
             }
 
+            if (token == "pi")
+            {
+                Consume();
+                return new Pi();
+            }
+
+            if (token == "e")
+            {
+                Consume();
+                return new E();
+            }
+
             if (char.IsLetter(token[0]))
             {
                 Consume(); // consume function name
@@ -175,6 +187,9 @@ public static class ExprParser
                     "sinh" => new Sinh(argument),
                     "cosh" => new Cosh(argument),
                     "tanh" => new Tanh(argument),
+
+                    "exp" => new Exp(argument),
+                    "ln" => new Ln(argument),
                     _ => throw new FormatException($"Unknown function '{token}'.")
                 };
             }
