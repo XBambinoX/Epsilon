@@ -34,15 +34,11 @@ public static class SymbolicIntegrator
     private static Expr TableRule(Expr expr) => expr switch
     {
         Constant c => new Multiply(c, new Variable()),
-
         Variable => new Divide(new Power(new Variable(), new Constant(2)), new Constant(2)),
-
         Add(var l, var r) => new Add(l.AntiDerivative(), r.AntiDerivative()),
         Subtract(var l, var r) => new Subtract(l.AntiDerivative(), r.AntiDerivative()),
-
         Multiply(Constant c, var f) => new Multiply(c, f.AntiDerivative()),
         Multiply(var f, Constant c) => new Multiply(c, f.AntiDerivative()),
-
         Divide(var f, Constant c) => new Divide(f.AntiDerivative(), c),
 
         Power(Variable, Constant n) when n.Value != -1 =>
@@ -50,15 +46,54 @@ public static class SymbolicIntegrator
         Power(Variable, Constant n) when n.Value == -1 => new Ln(new Variable()),
         Divide(Constant one, Variable) when one.Value == 1 => new Ln(new Variable()),
 
+        // Exponential / logarithmic
+
+        Exp(Variable) => new Exp(new Variable()),
+        Ln(Variable) => TryByParts(expr),
+
+        // Trigonometric
+
         Sin(Variable) => new Subtract(new Constant(0), new Cos(new Variable())),
         Cos(Variable) => new Sin(new Variable()),
-        Exp(Variable) => new Exp(new Variable()),
+        Tan(Variable) => new Subtract(new Constant(0), new Ln(new Cos(new Variable()))),
+        Cot(Variable) => new Ln(new Sin(new Variable())),
+        Sec(Variable) => new Ln(new Add(new Sec(new Variable()), new Tan(new Variable()))),
+        Csc(Variable) => new Subtract(new Constant(0), new Ln(new Add(new Csc(new Variable()), new Cot(new Variable())))),
 
-        Ln(Variable) => TryByParts(expr), // ln(x) itself needs by-parts (u=ln x, dv=dx)
+        // Inverse trigonometric
+
+        Asin(Variable) => new Add(
+            new Multiply(new Variable(), new Asin(new Variable())),
+            new Multiply(new Constant(-1), new Sqrt(
+                new Subtract(new Constant(1), new Power(new Variable(), new Constant(2)))))),
+
+        Acos(Variable) => new Add(
+            new Multiply(new Variable(), new Acos(new Variable())),
+            new Sqrt(new Subtract(new Constant(1), new Power(new Variable(), new Constant(2))))),
+
+        Atan(Variable) => new Subtract(
+            new Multiply(new Variable(), new Atan(new Variable())),
+            new Multiply(new Constant(0.5), new Ln(
+                new Add(new Constant(1), new Power(new Variable(), new Constant(2)))))),
+
+        // Hyperbolic
+
+        Sinh(Variable) => new Cosh(new Variable()),
+        Cosh(Variable) => new Sinh(new Variable()),
+        Tanh(Variable) => new Ln(new Cosh(new Variable())),
+
+        // Rational standard integrals
+
+        Divide(Constant one, Add(Power(Variable, Constant n), Constant c))
+            when one.Value == 1 && n.Value == 2 && c.Value == 1 => new Atan(new Variable()),
+
+        Divide(Constant one, Add(Constant c, Power(Variable, Constant n)))
+            when one.Value == 1 && n.Value == 2 && c.Value == 1 => new Atan(new Variable()),
 
         _ => throw new NotSupportedException(
             $"No table rule for '{expr.Print()}'.")
     };
+
 
     // LIATE priority: lower number = more likely to be chosen as 'u'
     private static int LiatePriority(Expr e) => e switch
