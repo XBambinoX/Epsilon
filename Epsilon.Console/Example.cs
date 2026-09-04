@@ -1,4 +1,5 @@
-﻿using Epsilon;
+﻿using Epsilon.Core;
+using Epsilon.Calculus;
 
 namespace Example
 {

@@ -1,4 +1,4 @@
-namespace Epsilon;
+namespace Epsilon.Core;
 
 public static class ExprParser
 {

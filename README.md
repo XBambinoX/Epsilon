@@ -5,9 +5,9 @@ A math library for C#/.NET. Currently in develop.
 ## Getting started
 
 ```bash
-git clone git@github.com:XBambinoX/Epsilon.git
+git clone https://github.com/XBambinoX/Epsilon.git
 cd Epsilon
-dotnet run --project Epsilon.csproj
+dotnet run --project Epsilon.Console
 ```
 
 ## License

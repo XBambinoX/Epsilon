@@ -1,4 +1,6 @@
-namespace Epsilon;
+using Epsilon.Core;
+
+namespace Epsilon.Calculus;
 
 internal static class Substitution
 {
