@@ -38,7 +38,7 @@ public static class ExprParser
                 continue;
             }
 
-            if ("+-*/^()".Contains(c))
+            if ("+-*/^(),".Contains(c))
             {
                 tokens.Add(c.ToString());
                 i++;
@@ -167,7 +167,13 @@ public static class ExprParser
                     throw new FormatException($"Expected '(' after function name '{token}'.");
 
                 Consume(); // consume '('
-                Expr argument = ParseExpression();
+
+                var arguments = new List<Expr> { ParseExpression() };
+                while (Current == ",")
+                {
+                    Consume(); // consume ','
+                    arguments.Add(ParseExpression());
+                }
 
                 if (Current != ")")
                     throw new FormatException($"Expected closing ')' after arguments of '{token}'.");
@@ -175,21 +181,23 @@ public static class ExprParser
 
                 return token switch
                 {
-                    "sin" => new Sin(argument),
-                    "cos" => new Cos(argument),
-                    "tan" => new Tan(argument),
-                    "cot" => new Cot(argument),
-                    "sec" => new Sec(argument),
-                    "csc" => new Csc(argument),
-                    "asin" => new Asin(argument),
-                    "acos" => new Acos(argument),
-                    "atan" => new Atan(argument),
-                    "sinh" => new Sinh(argument),
-                    "cosh" => new Cosh(argument),
-                    "tanh" => new Tanh(argument),
-
-                    "exp" => new Exp(argument),
-                    "ln" => new Ln(argument),
+                    "sin" => new Sin(arguments[0]),
+                    "cos" => new Cos(arguments[0]),
+                    "tan" => new Tan(arguments[0]),
+                    "cot" => new Cot(arguments[0]),
+                    "sec" => new Sec(arguments[0]),
+                    "csc" => new Csc(arguments[0]),
+                    "asin" => new Asin(arguments[0]),
+                    "acos" => new Acos(arguments[0]),
+                    "atan" => new Atan(arguments[0]),
+                    "sinh" => new Sinh(arguments[0]),
+                    "cosh" => new Cosh(arguments[0]),
+                    "tanh" => new Tanh(arguments[0]),
+                    "exp" => new Exp(arguments[0]),
+                    "ln" => new Ln(arguments[0]),
+                    "sqrt" => new Sqrt(arguments[0]),
+                    "nthroot" when arguments.Count == 2 => new NthRoot(arguments[0], arguments[1]),
+                    "nthroot" => throw new FormatException("nthroot requires exactly 2 arguments: nthroot(x, n)."),
                     _ => throw new FormatException($"Unknown function '{token}'.")
                 };
             }

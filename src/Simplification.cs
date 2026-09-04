@@ -40,6 +40,8 @@ public static class Simplifier
             Sinh(var a) => new Sinh(a.Simplify()),
             Cosh(var a) => new Cosh(a.Simplify()),
             Tanh(var a) => new Tanh(a.Simplify()),
+            Sqrt(var a) => new Sqrt(a.Simplify()),
+            NthRoot(var a, var n) => new NthRoot(a.Simplify(), n.Simplify()),
             _ => expr
         };
 
@@ -226,6 +228,15 @@ public static class Simplifier
                     e2.Value == 2 &&
                     x1.Equals(x2):
                 return new Constant(1);
+
+            case Sqrt(Constant c) when c.Value >= 0:
+                return new Constant(Math.Sqrt(c.Value));
+
+            case Sqrt(Power(var b, Constant e)) when e.Value == 2:
+                return b; // sqrt(x^2) = x (ignoring |x| domain nuance)
+
+            case NthRoot(Constant c, Constant n):
+                return new Constant(Math.Pow(c.Value, 1.0 / n.Value));
 
             default:
                 return expr;
