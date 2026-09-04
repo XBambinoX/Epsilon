@@ -51,6 +51,14 @@ public static class SymbolicIntegrator
         Exp(Variable) => new Exp(new Variable()),
         Ln(Variable) => TryByParts(expr),
 
+        Sqrt(Variable) => new Multiply(new Constant(2.0/3.0), new Power(new Variable(), new Constant(1.5))),
+
+        NthRoot(Variable, Constant n) when n.Value != -1 =>
+            new Divide(
+                new Power(new Variable(), new Add(new Divide(new Constant(1), n), new Constant(1))),
+                new Add(new Divide(new Constant(1), n), new Constant(1))
+            ),
+
         // Trigonometric
 
         Sin(Variable) => new Subtract(new Constant(0), new Cos(new Variable())),
