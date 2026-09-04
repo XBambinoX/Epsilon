@@ -42,9 +42,10 @@ public static class Printer
             Sinh(var a) => $"sinh({PrintInternal(a, 0)})",
             Cosh(var a) => $"cosh({PrintInternal(a, 0)})",
             Tanh(var a) => $"tanh({PrintInternal(a, 0)})",
-            
             Exp(var a) => $"exp({PrintInternal(a, 0)})",
             Ln(var a) => $"ln({PrintInternal(a, 0)})",
+            Sqrt(var a) => $"sqrt({PrintInternal(a, 0)})",
+            NthRoot(var a, var n) => $"nthroot({PrintInternal(a, 0)}, {PrintInternal(n, 0)})",
             _ => expr.ToString() ?? string.Empty
         };
 

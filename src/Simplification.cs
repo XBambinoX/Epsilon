@@ -40,6 +40,8 @@ public static class Simplifier
             Sinh(var a) => new Sinh(a.Simplify()),
             Cosh(var a) => new Cosh(a.Simplify()),
             Tanh(var a) => new Tanh(a.Simplify()),
+            Sqrt(var a) => new Sqrt(a.Simplify()),
+            NthRoot(var a, var n) => new NthRoot(a.Simplify(), n.Simplify()),
             _ => expr
         };
 
@@ -110,6 +112,23 @@ public static class Simplifier
 
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
                 return new Power(b1, new Constant(2)).Simplify();
+
+            case Multiply(Divide(var a, var b), Divide(var c, var d)):
+                return new Divide(new Multiply(a, c), new Multiply(b, d)).Simplify();
+
+            case Multiply(Divide(var a, var b), var c) when c is not Divide:
+                return new Divide(new Multiply(a, c), b).Simplify();
+
+            case Multiply(var c, Divide(var a, var b)) when c is not Divide:
+                return new Divide(new Multiply(c, a), b).Simplify();
+
+            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2)) when b1.Equals(b2):
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
+            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c)) when b1.Equals(b2):
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
+
+            case Divide(Divide(var a, var b), var c):
+                return new Divide(a, new Multiply(b, c)).Simplify();
 
             case Add(var l, var r) when
                 !(l is Constant) && !(r is Constant) &&
@@ -226,6 +245,15 @@ public static class Simplifier
                     e2.Value == 2 &&
                     x1.Equals(x2):
                 return new Constant(1);
+
+            case Sqrt(Constant c) when c.Value >= 0:
+                return new Constant(Math.Sqrt(c.Value));
+
+            case Sqrt(Power(var b, Constant e)) when e.Value == 2:
+                return b; // sqrt(x^2) = x (ignoring |x| domain nuance)
+
+            case NthRoot(Constant c, Constant n):
+                return new Constant(Math.Pow(c.Value, 1.0 / n.Value));
 
             default:
                 return expr;
