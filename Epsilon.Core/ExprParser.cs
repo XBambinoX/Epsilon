@@ -8,7 +8,7 @@ public static class ExprParser
         var parser = new Parser(tokens);
         Expr result = parser.ParseExpression();
         parser.ExpectEnd();
-        return result;
+        return result.Canonicalize();
     }
 
     private static List<string> Tokenize(string input)

@@ -4,7 +4,7 @@ public static class Simplifier
 {
     public static Expr Simplify(this Expr expr)
     {
-        Expr current = expr;
+        Expr current = expr.Canonicalize();
 
         for (int i = 0; i < 100; i++)
         {
@@ -45,7 +45,7 @@ public static class Simplifier
             _ => expr
         };
 
-        return ApplyRules(simplified);
+        return ApplyRules(simplified).Canonicalize();
     }
 
     private static Expr ApplyRules(Expr expr)
