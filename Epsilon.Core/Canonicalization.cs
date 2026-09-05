@@ -4,8 +4,8 @@ public static class Canonicalizer
 {
     public static Expr Canonicalize(this Expr expr) => expr switch
     {
-        Add(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), AddRank, static (a, b) => new Add(a, b)),
-        Multiply(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), MultiplyRank, static (a, b) => new Multiply(a, b)),
+        Add(var l, var r) => CanonicalizeAddChain(l, r),
+        Multiply(var l, var r) => CanonicalizeMultiplyChain(l, r),
 
         Subtract(var l, var r) => new Subtract(l.Canonicalize(), r.Canonicalize()),
         Divide(var n, var d) => new Divide(n.Canonicalize(), d.Canonicalize()),
@@ -31,31 +31,87 @@ public static class Canonicalizer
         _ => expr
     };
 
-    private static Expr OrderCommutative(Expr a, Expr b, Func<Expr, Expr, Expr> build)
+    // ---- Add: flatten -> canonicalize each term -> sort globally -> rebuild ----
+
+    private static Expr CanonicalizeAddChain(Expr left, Expr right)
     {
-        int rankA = CanonicalRank(a);
-        int rankB = CanonicalRank(b);
+        var rawTerms = new List<Expr>();
+        FlattenAdd(left, rawTerms);
+        FlattenAdd(right, rawTerms);
 
-        if (rankA > rankB)
-            return build(b, a);
+        var terms = rawTerms.Select(t => t.Canonicalize()).ToList();
 
-        if (rankA == rankB)
-        {
-            // Same category (e.g. both non-constant, or both constant)
-            int comparison = string.CompareOrdinal(a.ToString(), b.ToString());
-            if (comparison > 0)
-                return build(b, a);
-        }
+        var ordered = terms
+            .OrderBy(AddRank)
+            .ThenBy(t => t.ToString(), StringComparer.Ordinal)
+            .ToList();
 
-        return build(a, b);
+        return RebuildLeftAssociative(ordered, static (a, b) => new Add(a, b));
     }
 
-    // Lower rank sorts first: variable terms before pure constants
-    private static int CanonicalRank(Expr e) => e switch
+    private static void FlattenAdd(Expr expr, List<Expr> terms)
     {
-        Constant => 0,   // numeric coefficients always come first
-        Pi or E => 2,
-        _ when IsPureConstant(e) => 2,
+        if (expr is Add(var l, var r))
+        {
+            FlattenAdd(l, terms);
+            FlattenAdd(r, terms);
+        }
+        else
+        {
+            terms.Add(expr);
+        }
+    }
+
+    // ---- Multiply: same idea ----
+
+    private static Expr CanonicalizeMultiplyChain(Expr left, Expr right)
+    {
+        var rawFactors = new List<Expr>();
+        FlattenMultiply(left, rawFactors);
+        FlattenMultiply(right, rawFactors);
+
+        var factors = rawFactors.Select(t => t.Canonicalize()).ToList();
+
+        var ordered = factors
+            .OrderBy(MultiplyRank)
+            .ThenBy(t => t.ToString(), StringComparer.Ordinal)
+            .ToList();
+
+        return RebuildLeftAssociative(ordered, static (a, b) => new Multiply(a, b));
+    }
+
+    private static void FlattenMultiply(Expr expr, List<Expr> factors)
+    {
+        if (expr is Multiply(var l, var r))
+        {
+            FlattenMultiply(l, factors);
+            FlattenMultiply(r, factors);
+        }
+        else
+        {
+            factors.Add(expr);
+        }
+    }
+
+    private static Expr RebuildLeftAssociative(List<Expr> items, Func<Expr, Expr, Expr> build)
+    {
+        Expr result = items[0];
+        for (int i = 1; i < items.Count; i++)
+            result = build(result, items[i]);
+        return result;
+    }
+
+    // ---- Ranking (unchanged rules, now applied globally instead of pairwise) ----
+
+    // Lower rank sorts first: variable terms, then real constants, then terms containing i
+    private static int AddRank(Expr e) =>
+        !IsPureConstant(e) ? 0 :
+        ContainsImaginaryUnit(e) ? 2 :
+        1;
+
+    private static int MultiplyRank(Expr e) => e switch
+    {
+        Constant => 0,
         _ => 1
     };
 
@@ -64,6 +120,7 @@ public static class Canonicalizer
         Constant => true,
         Pi => true,
         E => true,
+        ImaginaryUnit => true,
         Add(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
         Subtract(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
         Multiply(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
@@ -72,29 +129,14 @@ public static class Canonicalizer
         _ => false
     };
 
-    private static Expr OrderCommutative(Expr a, Expr b, Func<Expr, int> rank, Func<Expr, Expr, Expr> build)
+    private static bool ContainsImaginaryUnit(Expr e) => e switch
     {
-        int rankA = rank(a);
-        int rankB = rank(b);
-
-        if (rankA > rankB)
-            return build(b, a);
-
-        if (rankA == rankB)
-        {
-            int comparison = string.CompareOrdinal(a.ToString(), b.ToString());
-            if (comparison > 0)
-                return build(b, a);
-        }
-
-        return build(a, b);
-    }
-
-    private static int AddRank(Expr e) => IsPureConstant(e) ? 1 : 0;
-    
-    private static int MultiplyRank(Expr e) => e switch
-    {
-        Constant => 0,
-        _ => 1
+        ImaginaryUnit => true,
+        Add(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
+        Subtract(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
+        Multiply(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
+        Divide(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
+        Power(var b, var ex) => ContainsImaginaryUnit(b) || ContainsImaginaryUnit(ex),
+        _ => false
     };
 }
