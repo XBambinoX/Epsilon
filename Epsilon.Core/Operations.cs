@@ -10,6 +10,8 @@ public sealed class Add(Expr left, Expr right) : Expr
     public override string ToString() => $"({Left} + {Right})";
     
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
+
+    public override Complex EvaluateComplex(Complex x) => Left.EvaluateComplex(x) + Right.EvaluateComplex(x);
 }
 
 public sealed class Subtract(Expr left, Expr right) : Expr
@@ -22,6 +24,8 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     public override string ToString() => $"({Left} - {Right})";
 
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
+
+    public override Complex EvaluateComplex(Complex x) => Left.EvaluateComplex(x) - Right.EvaluateComplex(x);
 }
 
 public sealed class Multiply(Expr left, Expr right) : Expr
@@ -40,6 +44,8 @@ public sealed class Multiply(Expr left, Expr right) : Expr
     public override string ToString() => $"({Left} * {Right})";
 
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
+
+    public override Complex EvaluateComplex(Complex x) => Left.EvaluateComplex(x) * Right.EvaluateComplex(x);
 }
 
 public sealed class Divide(Expr numerator, Expr denominator) : Expr
@@ -61,6 +67,7 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
     public override string ToString() => $"({Numerator} / {Denominator})";
     
     public void Deconstruct(out Expr numerator, out Expr denominator) => (numerator, denominator) = (Numerator, Denominator);
+    public override Complex EvaluateComplex(Complex x) => Numerator.EvaluateComplex(x) / Denominator.EvaluateComplex(x);
 }
 
 public sealed class Power(Expr baseExpr, Expr exponent) : Expr
@@ -86,4 +93,8 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
     public override string ToString() => $"({Base} ^ {Exponent})";
 
     public void Deconstruct(out Expr baseExpr, out Expr exponent) => (baseExpr, exponent) = (Base, Exponent);
+
+    public override Complex EvaluateComplex(Complex x) =>
+        Complex.Pow(Base.EvaluateComplex(x), Exponent.EvaluateComplex(x));
+
 }
