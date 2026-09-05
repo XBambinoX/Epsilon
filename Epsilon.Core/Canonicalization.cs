@@ -51,7 +51,13 @@ public static class Canonicalizer
     }
 
     // Lower rank sorts first: variable terms before pure constants
-    private static int CanonicalRank(Expr e) => IsPureConstant(e) ? 1 : 0;
+    private static int CanonicalRank(Expr e) => e switch
+    {
+        Constant => 0,   // numeric coefficients always come first
+        Pi or E => 2,
+        _ when IsPureConstant(e) => 2,
+        _ => 1
+    };
 
     private static bool IsPureConstant(Expr e) => e switch
     {
