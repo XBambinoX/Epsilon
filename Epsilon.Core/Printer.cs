@@ -25,6 +25,9 @@ public static class Printer
 
             // Left-associative: left child keeps same precedence (no parens needed),
             // right child needs +1 to force parens on equal precedence (a - (b - c) != a - b - c)
+            Multiply(Constant c, var t) when c.Value == -1 => $"-{PrintInternal(t, Precedence(expr) + 1)}",
+            Multiply(var t, Constant c) when c.Value == -1 => $"-{PrintInternal(t, Precedence(expr) + 1)}",
+
             Add(var l, var r) => $"{PrintInternal(l, myPrecedence)} + {PrintInternal(r, myPrecedence + 1)}",
             Subtract(var l, var r) => $"{PrintInternal(l, myPrecedence)} - {PrintInternal(r, myPrecedence + 1)}",
             Multiply(var l, var r) => $"{PrintInternal(l, myPrecedence)} * {PrintInternal(r, myPrecedence + 1)}",

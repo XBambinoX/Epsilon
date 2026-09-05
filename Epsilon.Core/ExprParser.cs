@@ -94,7 +94,7 @@ public static class ExprParser
             return left;
         }
 
-        // power := unary ('^' power)?   -- right-associative
+        // power := primary ('^' unary)?
         private Expr ParsePower()
         {
             Expr baseExpr = ParsePrimary();

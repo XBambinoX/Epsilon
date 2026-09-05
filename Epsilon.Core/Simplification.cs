@@ -55,8 +55,6 @@ public static class Simplifier
             case Add(Constant a, Constant b):
                 return new Constant(a.Value + b.Value);
 
-            case Add(var l, var r) when l.Equals(new Constant(0)):
-                return r;
             case Add(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
@@ -65,6 +63,10 @@ public static class Simplifier
 
             case Subtract(var l, var r) when l.Equals(r):
                 return new Constant(0);
+
+            case Subtract(Constant zero, var x) when zero.Value == 0:
+                return new Multiply(new Constant(-1), x).Simplify();
+
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
@@ -73,8 +75,6 @@ public static class Simplifier
 
             case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
                 return new Constant(0);
-            case Multiply(var l, var r) when l.Equals(new Constant(1)):
-                return r;
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
 
@@ -152,14 +152,6 @@ public static class Simplifier
                 return new Constant(0);
 
             // sin(x)^2 + cos(x)^2 = 1
-            case Add(
-                Power(Sin(var x1), Constant e1),
-                Power(Cos(var x2), Constant e2))
-                when e1.Value == 2 &&
-                    e2.Value == 2 &&
-                    x1.Equals(x2):
-                return new Constant(1);
-
             case Add(
                 Power(Cos(var x1), Constant e1),
                 Power(Sin(var x2), Constant e2))
