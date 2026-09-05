@@ -50,6 +50,11 @@ public static class Simplifier
 
     private static Expr ApplyRules(Expr expr)
     {
+
+        Expr flattened = FlattenAndCombine(expr);
+        if (!flattened.Equals(expr))
+            return flattened.Canonicalize();
+            
         switch (expr)
         {
             case Add(Constant a, Constant b):
@@ -66,6 +71,12 @@ public static class Simplifier
 
             case Subtract(Constant zero, var x) when zero.Value == 0:
                 return new Multiply(new Constant(-1), x).Simplify();
+
+            // a - (-1 * b) = a + b   (double negation via subtraction)
+            case Subtract(var a, Multiply(Constant c, var b)) when c.Value == -1:
+                return new Add(a, b).Simplify();
+            case Subtract(var a, Multiply(var b, Constant c)) when c.Value == -1:
+                return new Add(a, b).Simplify();
 
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
@@ -259,4 +270,69 @@ public static class Simplifier
         Multiply(var t, Constant c) => (c.Value, t),
         _ => (1, expr)
     };
+
+    // Flattens a chain of Add/Subtract into a flat list of (coefficient, term) pairs.
+    private static void CollectTerms(Expr expr, double sign, List<(double Coefficient, Expr Term)> terms)
+    {
+        switch (expr)
+        {
+            case Add(var l, var r):
+                CollectTerms(l, sign, terms);
+                CollectTerms(r, sign, terms);
+                break;
+            case Subtract(var l, var r):
+                CollectTerms(l, sign, terms);
+                CollectTerms(r, -sign, terms);
+                break;
+            default:
+                var (coef, term) = ExtractCoefficient(expr);
+                terms.Add((coef * sign, term));
+                break;
+        }
+    }
+
+    // Combines like terms across an entire Add/Subtract chain, then rebuilds it.
+    private static Expr FlattenAndCombine(Expr expr)
+    {
+        if (expr is not (Add or Subtract))
+            return expr;
+
+        var raw = new List<(double Coefficient, Expr Term)>();
+        CollectTerms(expr, 1, raw);
+
+        var combined = new List<(double Coefficient, Expr Term)>();
+        foreach (var (coef, term) in raw)
+        {
+            int existingIndex = combined.FindIndex(t => t.Term.Equals(term));
+            if (existingIndex >= 0)
+            {
+                var (existingCoef, existingTerm) = combined[existingIndex];
+                combined[existingIndex] = (existingCoef + coef, existingTerm);
+            }
+            else
+            {
+                combined.Add((coef, term));
+            }
+        }
+
+        // Drop terms that cancelled out to zero.
+        combined.RemoveAll(t => t.Coefficient == 0);
+
+        if (combined.Count == 0)
+            return new Constant(0);
+
+        Expr Rebuild(double coef, Expr term) =>
+            coef == 1 ? term : new Multiply(new Constant(coef), term);
+
+        Expr result = Rebuild(combined[0].Coefficient, combined[0].Term);
+        for (int i = 1; i < combined.Count; i++)
+        {
+            var (coef, term) = combined[i];
+            result = coef < 0
+                ? new Subtract(result, Rebuild(-coef, term))
+                : new Add(result, Rebuild(coef, term));
+        }
+
+        return result;
+    }
 }
