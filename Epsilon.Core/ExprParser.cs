@@ -33,8 +33,18 @@ public static class ExprParser
             if (char.IsLetter(c))
             {
                 int start = i;
-                while (i < input.Length && char.IsLetter(input[i])) i++;
-                tokens.Add(input[start..i]);
+                while (i < input.Length && char.IsLetter(input[i]) && input[i] != 'x') i++;
+
+                if (i == start)
+                {
+                    // The current character itself is 'x'.
+                    tokens.Add("x");
+                    i++;
+                }
+                else
+                {
+                    tokens.Add(input[start..i]);
+                }
                 continue;
             }
 
@@ -81,19 +91,37 @@ public static class ExprParser
             return left;
         }
 
-        // term := factor (('*' | '/') factor)*
+        // term := unary (('*' | '/') unary | unary)*
         private Expr ParseTerm()
         {
             Expr left = ParseUnary();
-            while (Current is "*" or "/")
+
+            while (true)
             {
-                string op = Consume();
-                Expr right = ParseUnary();
-                left = op == "*" ? new Multiply(left, right) : new Divide(left, right);
+                if (Current is "*" or "/")
+                {
+                    string op = Consume();
+                    Expr right = ParseUnary();
+                    left = op == "*" ? new Multiply(left, right) : new Divide(left, right);
+                }
+                else if (StartsImplicitFactor(Current))
+                {
+                    // No explicit operator, but the next token can start a new factor -
+                    // treat as implicit multiplication (e.g. "2x", "10sin(x)", "(x+1)(x-1)").
+                    Expr right = ParseUnary();
+                    left = new Multiply(left, right);
+                }
+                else
+                {
+                    break;
+                }
             }
+
             return left;
         }
 
+        private static bool StartsImplicitFactor(string? token) =>
+            token is not null && (token == "(" || char.IsDigit(token[0]) || char.IsLetter(token[0]));
         // power := primary ('^' unary)?
         private Expr ParsePower()
         {
