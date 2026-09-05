@@ -4,8 +4,8 @@ public static class Canonicalizer
 {
     public static Expr Canonicalize(this Expr expr) => expr switch
     {
-        Add(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), static (a, b) => new Add(a, b)),
-        Multiply(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), static (a, b) => new Multiply(a, b)),
+        Add(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), AddRank, static (a, b) => new Add(a, b)),
+        Multiply(var l, var r) => OrderCommutative(l.Canonicalize(), r.Canonicalize(), MultiplyRank, static (a, b) => new Multiply(a, b)),
 
         Subtract(var l, var r) => new Subtract(l.Canonicalize(), r.Canonicalize()),
         Divide(var n, var d) => new Divide(n.Canonicalize(), d.Canonicalize()),
@@ -70,5 +70,31 @@ public static class Canonicalizer
         Divide(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
         Power(var b, var ex) => IsPureConstant(b) && IsPureConstant(ex),
         _ => false
+    };
+
+    private static Expr OrderCommutative(Expr a, Expr b, Func<Expr, int> rank, Func<Expr, Expr, Expr> build)
+    {
+        int rankA = rank(a);
+        int rankB = rank(b);
+
+        if (rankA > rankB)
+            return build(b, a);
+
+        if (rankA == rankB)
+        {
+            int comparison = string.CompareOrdinal(a.ToString(), b.ToString());
+            if (comparison > 0)
+                return build(b, a);
+        }
+
+        return build(a, b);
+    }
+
+    private static int AddRank(Expr e) => IsPureConstant(e) ? 1 : 0;
+    
+    private static int MultiplyRank(Expr e) => e switch
+    {
+        Constant => 0,
+        _ => 1
     };
 }
