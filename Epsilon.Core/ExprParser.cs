@@ -84,11 +84,11 @@ public static class ExprParser
         // term := factor (('*' | '/') factor)*
         private Expr ParseTerm()
         {
-            Expr left = ParsePower();
+            Expr left = ParseUnary();
             while (Current is "*" or "/")
             {
                 string op = Consume();
-                Expr right = ParsePower();
+                Expr right = ParseUnary();
                 left = op == "*" ? new Multiply(left, right) : new Divide(left, right);
             }
             return left;
@@ -97,11 +97,11 @@ public static class ExprParser
         // power := unary ('^' power)?   -- right-associative
         private Expr ParsePower()
         {
-            Expr baseExpr = ParseUnary();
+            Expr baseExpr = ParsePrimary();
             if (Current == "^")
             {
                 Consume();
-                Expr exponent = ParsePower(); // recurse right for right-associativity
+                Expr exponent = ParseUnary();
                 return new Power(baseExpr, exponent);
             }
             return baseExpr;
@@ -115,7 +115,7 @@ public static class ExprParser
                 Consume();
                 return new Subtract(new Constant(0), ParseUnary());
             }
-            return ParsePrimary();
+            return ParsePower();
         }
 
         // primary := NUMBER | 'x' | '(' expression ')'
