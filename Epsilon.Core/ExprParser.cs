@@ -5,7 +5,7 @@ public static class ExprParser
     private static readonly string[] KnownIdentifiers = new[]
     {
         "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "x"
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i", "x"
     }.OrderByDescending(s => s.Length).ToArray();
 
     public static Expr Parse(string input)
@@ -185,6 +185,12 @@ public static class ExprParser
             {
                 Consume();
                 return new E();
+            }
+
+            if (token == "i")
+            {
+                Consume();
+                return new ImaginaryUnit();
             }
 
             if (char.IsLetter(token[0]))

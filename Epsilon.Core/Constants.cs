@@ -17,3 +17,17 @@ public sealed class E : Expr
     public void Deconstruct() { }
     public override string ToString() => "e";
 }
+
+public sealed class ImaginaryUnit : Expr
+{
+    public override double Evaluate(double x) =>
+        throw new InvalidOperationException("The imaginary unit has no real value; use EvaluateComplex instead.");
+
+    public override Complex EvaluateComplex(Complex x) => Complex.ImaginaryUnit;
+
+    public override Expr Differentiate() => new Constant(0);
+
+    public void Deconstruct() { }
+
+    public override string ToString() => "i";
+}
