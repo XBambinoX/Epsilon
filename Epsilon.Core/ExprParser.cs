@@ -2,6 +2,12 @@ namespace Epsilon.Core;
 
 public static class ExprParser
 {
+    private static readonly string[] KnownIdentifiers = new[]
+    {
+        "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "x"
+    }.OrderByDescending(s => s.Length).ToArray();
+
     public static Expr Parse(string input)
     {
         var tokens = Tokenize(input);
@@ -33,18 +39,12 @@ public static class ExprParser
             if (char.IsLetter(c))
             {
                 int start = i;
-                while (i < input.Length && char.IsLetter(input[i]) && input[i] != 'x') i++;
+                while (i < input.Length && char.IsLetter(input[i])) i++;
+                string run = input[start..i];
 
-                if (i == start)
-                {
-                    // The current character itself is 'x'.
-                    tokens.Add("x");
-                    i++;
-                }
-                else
-                {
-                    tokens.Add(input[start..i]);
-                }
+                foreach (var token in SplitIdentifierRun(run, start))
+                    tokens.Add(token);
+
                 continue;
             }
 
@@ -232,5 +232,26 @@ public static class ExprParser
     
             throw new FormatException($"Unexpected token '{token}'.");
         }
+    }
+
+    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos)
+    {
+        int pos = 0;
+        var result = new List<string>();
+
+        while (pos < run.Length)
+        {
+            string? match = KnownIdentifiers.FirstOrDefault(id =>
+                pos + id.Length <= run.Length &&
+                string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
+
+            if (match is null)
+                throw new FormatException($"Unknown identifier '{run[pos..]}' at position {startPos + pos}.");
+
+            result.Add(match);
+            pos += match.Length;
+        }
+
+        return result;
     }
 }

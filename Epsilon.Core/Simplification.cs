@@ -54,7 +54,7 @@ public static class Simplifier
         Expr flattened = FlattenAndCombine(expr);
         if (!flattened.Equals(expr))
             return flattened.Canonicalize();
-            
+
         switch (expr)
         {
             case Add(Constant a, Constant b):
@@ -140,6 +140,18 @@ public static class Simplifier
 
             case Divide(Divide(var a, var b), var c):
                 return new Divide(a, new Multiply(b, c)).Simplify();
+
+            // x^n / x^m = x^(n-m)
+            case Divide(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
+                return new Power(b1, new Subtract(e1, e2)).Simplify();
+
+            // x^n / x = x^(n-1)
+            case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2):
+                return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
+
+            // x / x^n = x^(1-n)
+            case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
+                return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
 
             case Add(var l, var r) when
                 !(l is Constant) && !(r is Constant) &&
