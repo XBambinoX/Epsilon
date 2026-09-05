@@ -5,6 +5,7 @@ public sealed class Exp(Expr argument) : Expr
     public Expr Argument { get; } = argument;
 
     public override double Evaluate(double x) => Math.Exp(Argument.Evaluate(x));
+    public override Complex EvaluateComplex(Complex x) => Complex.Exp(Argument.EvaluateComplex(x));
 
     // d/dx e^f(x) = e^f(x) * f'(x)
     public override Expr Differentiate() =>
@@ -19,6 +20,7 @@ public sealed class Ln(Expr argument) : Expr
     public Expr Argument { get; } = argument;
 
     public override double Evaluate(double x) => Math.Log(Argument.Evaluate(x));
+    public override Complex EvaluateComplex(Complex x) => Complex.Log(Argument.EvaluateComplex(x));
 
     // d/dx ln(f(x)) = f'(x) / f(x)
     public override Expr Differentiate() =>

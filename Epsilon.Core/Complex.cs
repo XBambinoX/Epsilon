@@ -65,4 +65,30 @@ public readonly struct Complex : IEquatable<Complex>
         if (Real == 0) return $"{Imaginary}i";
         return Imaginary > 0 ? $"{Real} + {Imaginary}i" : $"{Real} - {Math.Abs(Imaginary)}i";
     }
+    
+    //Trigonometry
+    public static Complex Sin(Complex z) =>
+    new(Math.Sin(z.Real) * Math.Cosh(z.Imaginary), Math.Cos(z.Real) * Math.Sinh(z.Imaginary));
+
+    public static Complex Cos(Complex z) =>
+        new(Math.Cos(z.Real) * Math.Cosh(z.Imaginary), -Math.Sin(z.Real) * Math.Sinh(z.Imaginary));
+
+    public static Complex Tan(Complex z) => Sin(z) / Cos(z);
+
+    public static Complex Sinh(Complex z) =>
+        new(Math.Sinh(z.Real) * Math.Cos(z.Imaginary), Math.Cosh(z.Real) * Math.Sin(z.Imaginary));
+
+    public static Complex Cosh(Complex z) =>
+        new(Math.Cosh(z.Real) * Math.Cos(z.Imaginary), Math.Sinh(z.Real) * Math.Sin(z.Imaginary));
+
+    public static Complex Tanh(Complex z) => Sinh(z) / Cosh(z);
+
+    public static Complex Asin(Complex z) =>
+        -ImaginaryUnit * Log(ImaginaryUnit * z + Sqrt(One - z * z));
+
+    public static Complex Acos(Complex z) =>
+        -ImaginaryUnit * Log(z + ImaginaryUnit * Sqrt(One - z * z));
+
+    public static Complex Atan(Complex z) =>
+        (ImaginaryUnit / new Complex(2)) * Log((One - ImaginaryUnit * z) / (One + ImaginaryUnit * z));
 }

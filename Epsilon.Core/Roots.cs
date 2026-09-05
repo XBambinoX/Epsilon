@@ -5,6 +5,7 @@ public sealed class Sqrt(Expr argument) : Expr
     public Expr Argument { get; } = argument;
 
     public override double Evaluate(double x) => Math.Sqrt(Argument.Evaluate(x));
+    public override Complex EvaluateComplex(Complex x) => Complex.Sqrt(Argument.EvaluateComplex(x));
 
     // d/dx sqrt(f(x)) = f'(x) / (2 * sqrt(f(x)))
     public override Expr Differentiate() =>
@@ -24,6 +25,9 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
 
     public override double Evaluate(double x) =>
         Math.Pow(Argument.Evaluate(x), 1.0 / Degree.Evaluate(x));
+        
+    public override Complex EvaluateComplex(Complex x) =>
+        Complex.Pow(Argument.EvaluateComplex(x), Complex.One / Degree.EvaluateComplex(x));
 
     public override Expr Differentiate()
     {
