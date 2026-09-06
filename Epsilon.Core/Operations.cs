@@ -118,6 +118,12 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
 
     public override Expr Differentiate(string variable)
     {
+        bool baseDepends = Base.GetVariables().Contains(variable);
+        bool exponentDepends = Exponent.GetVariables().Contains(variable);
+
+        if (!baseDepends && !exponentDepends)
+            return new Constant(0);
+
         if (Exponent is Constant n)
         {
             return new Multiply(
@@ -126,8 +132,14 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
             ).Simplify();
         }
 
-        throw new NotImplementedException(
-            $"Differentiation with non-constant exponent not yet supported (variable: {variable}).");
+        // d/dv (f^g) = f^g * (g' * ln(f) + g * f'/f)
+        Expr fPrime = Base.Differentiate(variable);
+        Expr gPrime = Exponent.Differentiate(variable);
+
+        Expr term1 = new Multiply(gPrime, new Ln(Base));
+        Expr term2 = new Multiply(Exponent, new Divide(fPrime, Base));
+
+        return new Multiply(this, new Add(term1, term2)).Simplify();
     }
 
     public override IReadOnlySet<string> GetVariables() =>
