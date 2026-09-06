@@ -6,6 +6,15 @@ public abstract class Expr
 
     public double Evaluate(double x) => Evaluate(SingleBinding(GetSingleVariable(), x));
 
+    public double Evaluate(params (string Name, double Value)[] bindings)
+    {
+        var dict = new Dictionary<string, double>(bindings.Length);
+        foreach (var (name, value) in bindings)
+            dict[name] = value;
+
+        return Evaluate(dict);
+    }
+
     public abstract Expr Differentiate(string variable);
 
     public Expr Differentiate() => Differentiate(GetSingleVariable());
@@ -14,6 +23,15 @@ public abstract class Expr
         throw new NotImplementedException($"{GetType().Name} does not yet support complex evaluation.");
 
     public Complex EvaluateComplex(Complex x) => EvaluateComplex(SingleBinding(GetSingleVariable(), x));
+
+    public Complex EvaluateComplex(params (string Name, Complex Value)[] bindings)
+    {
+        var dict = new Dictionary<string, Complex>(bindings.Length);
+        foreach (var (name, value) in bindings)
+            dict[name] = value;
+
+        return EvaluateComplex(dict);
+    }
 
     public abstract IReadOnlySet<string> GetVariables();
 
