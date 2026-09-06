@@ -35,6 +35,8 @@ public abstract class Expr
 
     public abstract IReadOnlySet<string> GetVariables();
 
+    public virtual bool DependsOn(string variable) => GetVariables().Contains(variable);
+
     public abstract Expr Substitute(string variable, Expr replacement);
 
     public string GetSingleVariable()
