@@ -16,16 +16,17 @@ public static class ExprParser
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln"
     });
 
-    public static Expr Parse(string input)
+    public static Expr Parse(string input, IEnumerable<string>? variableNames = null)
     {
-        var tokens = Tokenize(input);
-        var parser = new Parser(tokens);
+        var knownVariables = variableNames?.ToHashSet() ?? new HashSet<string>();
+        var tokens = Tokenize(input, knownVariables);
+        var parser = new Parser(tokens, knownVariables);
         Expr result = parser.ParseExpression();
         parser.ExpectEnd();
         return result.Canonicalize();
     }
 
-    private static List<string> Tokenize(string input)
+    private static List<string> Tokenize(string input, IReadOnlySet<string> knownVariables)
     {
         var tokens = new List<string>();
         int i = 0;
@@ -50,7 +51,7 @@ public static class ExprParser
                 while (i < input.Length && char.IsLetter(input[i])) i++;
                 string run = input[start..i];
 
-                foreach (var token in SplitIdentifierRun(run, start))
+                foreach (var token in SplitIdentifierRun(run, start, knownVariables))
                     tokens.Add(token);
 
                 continue;
@@ -69,7 +70,7 @@ public static class ExprParser
         return tokens;
     }
 
-    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos)
+    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos, IReadOnlySet<string> knownVariables)
     {
         int pos = 0;
         var result = new List<string>();
@@ -80,6 +81,16 @@ public static class ExprParser
                 pos + id.Length <= run.Length &&
                 string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
 
+            // If no reserved word matched, try the longest declared variable name at this position.
+            if (match is null && knownVariables.Count > 0)
+            {
+                match = knownVariables
+                    .Where(v => pos + v.Length <= run.Length &&
+                                string.CompareOrdinal(run, pos, v, 0, v.Length) == 0)
+                    .OrderByDescending(v => v.Length)
+                    .FirstOrDefault();
+            }
+
             if (match is not null)
             {
                 result.Add(match);
@@ -87,6 +98,7 @@ public static class ExprParser
                 continue;
             }
 
+            // Fallback: single-letter implicit-multiplication behavior, unchanged.
             result.Add(run[pos].ToString());
             pos += 1;
         }
@@ -94,7 +106,7 @@ public static class ExprParser
         return result;
     }
 
-    private sealed class Parser(List<string> tokens)
+    private sealed class Parser(List<string> tokens, IReadOnlySet<string> knownVariables)
     {
         private int _pos = 0;
 
@@ -266,6 +278,13 @@ public static class ExprParser
                 Consume();
                 return new Variable(token);
             }
+
+            if (knownVariables.Contains(token) || (token.Length == 1 && char.IsLetter(token[0])))
+            {
+                Consume();
+                return new Variable(token);
+            }
+
 
             throw new FormatException($"Unexpected token '{token}'.");
         }
