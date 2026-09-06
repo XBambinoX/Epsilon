@@ -160,6 +160,14 @@ public static class Simplifier
             case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2):
                 return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
 
+            // (x^n * c) / x = c * x^(n-1)
+            case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+
+            // (c * x^n) / x = c * x^(n-1)
+            case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+
             // x / x^n = x^(1-n)
             case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
                 return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
