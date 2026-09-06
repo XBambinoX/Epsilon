@@ -2,11 +2,37 @@ namespace Epsilon.Core;
 
 public abstract class Expr
 {
-    public abstract double Evaluate(double x);
-    public abstract Expr Differentiate();
+    public abstract double Evaluate(IReadOnlyDictionary<string, double> bindings);
 
-    public virtual Complex EvaluateComplex(Complex x) =>
+    public double Evaluate(double x) => Evaluate(SingleBinding(GetSingleVariable(), x));
+
+    public abstract Expr Differentiate(string variable);
+
+    public Expr Differentiate() => Differentiate(GetSingleVariable());
+
+    public virtual Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         throw new NotImplementedException($"{GetType().Name} does not yet support complex evaluation.");
+
+    public Complex EvaluateComplex(Complex x) => EvaluateComplex(SingleBinding(GetSingleVariable(), x));
+
+    public abstract IReadOnlySet<string> GetVariables();
+
+    public abstract Expr Substitute(string variable, Expr replacement);
+
+    public string GetSingleVariable()
+    {
+        var vars = GetVariables();
+
+        if (vars.Count != 1)
+            throw new InvalidOperationException(
+                $"Expected exactly 1 variable, found {vars.Count}: [{string.Join(", ", vars)}]. " +
+                "Use the explicit-variable overload for multivariable expressions.");
+
+        return vars.First();
+    }
+
+    private static IReadOnlyDictionary<string, T> SingleBinding<T>(string variable, T value) =>
+        new Dictionary<string, T> { [variable] = value };
 
     public override bool Equals(object? obj) => obj is Expr other && ToString() == other.ToString();
     public override int GetHashCode() => ToString().GetHashCode();
@@ -16,16 +42,41 @@ public sealed class Constant(double value) : Expr
 {
     public double Value { get; } = value;
 
-    public override double Evaluate(double x) => Value;
-    public override Complex EvaluateComplex(Complex x) => new Complex(Value);
-    public override Expr Differentiate() => new Constant(0);
+    private static readonly IReadOnlySet<string> NoVariables = new HashSet<string>();
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Value;
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => new Complex(Value);
+    public override Expr Differentiate(string variable) => new Constant(0);
+    public override IReadOnlySet<string> GetVariables() => NoVariables;
+    public override Expr Substitute(string variable, Expr replacement) => this;
     public override string ToString() => Value.ToString();
 }
 
-public sealed class Variable : Expr
+public sealed class Variable(string name) : Expr
 {
-    public override double Evaluate(double x) => x;
-    public override Complex EvaluateComplex(Complex x) => x;
-    public override Expr Differentiate() => new Constant(1);
-    public override string ToString() => "x";
+    public string Name { get; } = name;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings)
+    {
+        if (!bindings.TryGetValue(Name, out double value))
+            throw new ArgumentException($"No binding provided for variable '{Name}'.");
+
+        return value;
+    }
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings)
+    {
+        if (!bindings.TryGetValue(Name, out Complex value))
+            throw new ArgumentException($"No binding provided for variable '{Name}'.");
+
+        return value;
+    }
+
+    public override Expr Differentiate(string variable) => new Constant(variable == Name ? 1 : 0);
+
+    public override IReadOnlySet<string> GetVariables() => new HashSet<string> { Name };
+
+    public override Expr Substitute(string variable, Expr replacement) => variable == Name ? replacement : this;
+
+    public override string ToString() => Name;
 }

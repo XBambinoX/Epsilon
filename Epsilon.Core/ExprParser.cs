@@ -2,11 +2,17 @@ namespace Epsilon.Core;
 
 public static class ExprParser
 {
-    private static readonly string[] KnownIdentifiers = new[]
+    private static readonly string[] ReservedIdentifiers = new[]
     {
         "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i", "x"
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i"
     }.OrderByDescending(s => s.Length).ToArray();
+
+    private static readonly HashSet<string> FunctionNames = new(new[]
+    {
+        "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln"
+    });
 
     public static Expr Parse(string input)
     {
@@ -61,6 +67,31 @@ public static class ExprParser
         return tokens;
     }
 
+    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos)
+    {
+        int pos = 0;
+        var result = new List<string>();
+
+        while (pos < run.Length)
+        {
+            string? match = ReservedIdentifiers.FirstOrDefault(id =>
+                pos + id.Length <= run.Length &&
+                string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
+
+            if (match is not null)
+            {
+                result.Add(match);
+                pos += match.Length;
+                continue;
+            }
+
+            result.Add(run[pos].ToString());
+            pos += 1;
+        }
+
+        return result;
+    }
+
     private sealed class Parser(List<string> tokens)
     {
         private int _pos = 0;
@@ -106,8 +137,6 @@ public static class ExprParser
                 }
                 else if (StartsImplicitFactor(Current))
                 {
-                    // No explicit operator, but the next token can start a new factor -
-                    // treat as implicit multiplication (e.g. "2x", "10sin(x)", "(x+1)(x-1)").
                     Expr right = ParseUnary();
                     left = new Multiply(left, right);
                 }
@@ -146,7 +175,7 @@ public static class ExprParser
             return ParsePower();
         }
 
-        // primary := NUMBER | 'x' | '(' expression ')'
+        // primary := NUMBER | VARIABLE | 'pi' | 'e' | 'i' | FUNCTION '(' args ')' | '(' expression ')'
         private Expr ParsePrimary()
         {
             string? token = Current;
@@ -169,12 +198,6 @@ public static class ExprParser
                 return new Constant(number);
             }
 
-            if (token == "x")
-            {
-                Consume();
-                return new Variable();
-            }
-
             if (token == "pi")
             {
                 Consume();
@@ -193,19 +216,19 @@ public static class ExprParser
                 return new ImaginaryUnit();
             }
 
-            if (char.IsLetter(token[0]))
+            if (FunctionNames.Contains(token))
             {
-                Consume(); // consume function name
+                Consume();
 
                 if (Current != "(")
                     throw new FormatException($"Expected '(' after function name '{token}'.");
 
-                Consume(); // consume '('
+                Consume();
 
                 var arguments = new List<Expr> { ParseExpression() };
                 while (Current == ",")
                 {
-                    Consume(); // consume ','
+                    Consume();
                     arguments.Add(ParseExpression());
                 }
 
@@ -235,29 +258,14 @@ public static class ExprParser
                     _ => throw new FormatException($"Unknown function '{token}'.")
                 };
             }
-    
+
+            if (token.Length == 1 && char.IsLetter(token[0]))
+            {
+                Consume();
+                return new Variable(token);
+            }
+
             throw new FormatException($"Unexpected token '{token}'.");
         }
-    }
-
-    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos)
-    {
-        int pos = 0;
-        var result = new List<string>();
-
-        while (pos < run.Length)
-        {
-            string? match = KnownIdentifiers.FirstOrDefault(id =>
-                pos + id.Length <= run.Length &&
-                string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
-
-            if (match is null)
-                throw new FormatException($"Unknown identifier '{run[pos..]}' at position {startPos + pos}.");
-
-            result.Add(match);
-            pos += match.Length;
-        }
-
-        return result;
     }
 }
