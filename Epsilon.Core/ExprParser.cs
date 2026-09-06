@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Epsilon.Core;
 
 public static class ExprParser
@@ -192,7 +194,7 @@ public static class ExprParser
                 return inner;
             }
 
-            if (double.TryParse(token, out double number))
+            if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
             {
                 Consume();
                 return new Constant(number);
