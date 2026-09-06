@@ -1,3 +1,6 @@
+#if false
+//TODO: refactor this code for multivariable core
+
 using Epsilon.Core;
 
 namespace Epsilon.Calculus;
@@ -107,3 +110,4 @@ public static class SymbolicIntegrator
         _ => throw new NotSupportedException($"No table rule for '{expr.Print()}'.")
     };
 }
+#endif

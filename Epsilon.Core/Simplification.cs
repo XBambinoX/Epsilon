@@ -63,6 +63,9 @@ public static class Simplifier
             case Add(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
+            case Add(var l, var r) when l.Equals(new Constant(0)):
+                return r;
+
             case Subtract(Constant a, Constant b):
                 return new Constant(a.Value - b.Value);
 
@@ -86,11 +89,19 @@ public static class Simplifier
 
             case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
                 return new Constant(0);
+
+            case Multiply(Constant one, var r) when one.Value == 1:
+                return r;
+
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
 
             case Divide(Constant a, Constant b) when b.Value != 0:
                 return new Constant(a.Value / b.Value);
+
+            // 0 / var = 0
+            case Divide(Constant zero, var d) when zero.Value == 0:
+                return new Constant(0);
 
             case Divide(var n, var d) when n.Equals(d):
                 return new Constant(1);
@@ -148,6 +159,14 @@ public static class Simplifier
             // x^n / x = x^(n-1)
             case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2):
                 return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
+
+            // (x^n * c) / x = c * x^(n-1)
+            case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+
+            // (c * x^n) / x = c * x^(n-1)
+            case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
 
             // x / x^n = x^(1-n)
             case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
@@ -315,6 +334,9 @@ public static class Simplifier
         var combined = new List<(double Coefficient, Expr Term)>();
         foreach (var (coef, term) in raw)
         {
+            if (term.Equals(new Constant(0)))
+                continue;
+
             int existingIndex = combined.FindIndex(t => t.Term.Equals(term));
             if (existingIndex >= 0)
             {
