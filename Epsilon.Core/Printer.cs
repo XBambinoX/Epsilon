@@ -19,7 +19,7 @@ public static class Printer
         string result = expr switch
         {
             Constant c => c.Value.ToString(),
-            Variable => "x",
+            Variable v => v.Name,
             Pi => "π",
             E => "e",
 
