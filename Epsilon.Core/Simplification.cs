@@ -331,11 +331,16 @@ public static class Simplifier
         var raw = new List<(double Coefficient, Expr Term)>();
         CollectTerms(expr, 1, raw);
 
+        double constantSum = 0;
         var combined = new List<(double Coefficient, Expr Term)>();
+
         foreach (var (coef, term) in raw)
         {
-            if (term.Equals(new Constant(0)))
+            if (term is Constant c)
+            {
+                constantSum += coef * c.Value;
                 continue;
+            }
 
             int existingIndex = combined.FindIndex(t => t.Term.Equals(term));
             if (existingIndex >= 0)
@@ -349,14 +354,13 @@ public static class Simplifier
             }
         }
 
-        // Drop terms that cancelled out to zero.
         combined.RemoveAll(t => t.Coefficient == 0);
-
-        if (combined.Count == 0)
-            return new Constant(0);
 
         Expr Rebuild(double coef, Expr term) =>
             coef == 1 ? term : new Multiply(new Constant(coef), term);
+
+        if (combined.Count == 0)
+            return new Constant(constantSum);
 
         Expr result = Rebuild(combined[0].Coefficient, combined[0].Term);
         for (int i = 1; i < combined.Count; i++)
@@ -365,6 +369,13 @@ public static class Simplifier
             result = coef < 0
                 ? new Subtract(result, Rebuild(-coef, term))
                 : new Add(result, Rebuild(coef, term));
+        }
+
+        if (constantSum != 0)
+        {
+            result = constantSum < 0
+                ? new Subtract(result, new Constant(-constantSum))
+                : new Add(result, new Constant(constantSum));
         }
 
         return result;
