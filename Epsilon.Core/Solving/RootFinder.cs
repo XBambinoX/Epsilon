@@ -145,6 +145,13 @@ public static class RootFinder
         return Math.Abs(finalF) < tolerance * 100 ? mid : null;
     }
 
+    internal static double? BisectFallback(
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings, double a, double b)
+    {
+        return Bisect(expr, variable, a, b, fixedBindings);
+    }
+
+    // Old overload — keep for single-variable convenience call sites
     internal static double? BisectFallback(Expr expr, double a, double b)
     {
         string variable = expr.GetSingleVariable();

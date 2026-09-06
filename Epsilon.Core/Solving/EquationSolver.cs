@@ -12,16 +12,20 @@ public static class RootFindingExtensions
     public static IReadOnlyList<double> FindRealRoots(
         this Expr left,
         Expr right,
+        string variable,
+        IReadOnlyDictionary<string, double>? fixedBindings = null,
         double leftLimit = double.NegativeInfinity,
         double rightLimit = double.PositiveInfinity,
         int scanSteps = DefaultRealScanSteps)
     {
         Expr diff = new Subtract(left, right).Simplify();
-        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
+        return diff.FindRealRoots(variable, fixedBindings, leftLimit, rightLimit, scanSteps);
     }
 
     public static IReadOnlyList<double> FindRealRoots(
         this Expr expr,
+        string variable,
+        IReadOnlyDictionary<string, double>? fixedBindings = null,
         double leftLimit = double.NegativeInfinity,
         double rightLimit = double.PositiveInfinity,
         int scanSteps = DefaultRealScanSteps)
@@ -39,11 +43,32 @@ public static class RootFindingExtensions
         bool rightInf = double.IsPositiveInfinity(rightLimit);
 
         if (!leftInf && !rightInf)
-            return FindRealRootsFinite(expr, leftLimit, rightLimit, scanSteps);
+            return FindRealRootsFinite(expr, variable, fixedBindings, leftLimit, rightLimit, scanSteps);
 
         Func<double, double> mapToX = MakeInfiniteMapping(leftLimit, rightLimit, leftInf, rightInf, out double tMin, out double tMax);
 
-        return FindRealRootsMapped(expr, mapToX, tMin, tMax, scanSteps);
+        return FindRealRootsMapped(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
+    }
+
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr left,
+        Expr right,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps)
+    {
+        Expr diff = new Subtract(left, right).Simplify();
+        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
+    }
+
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr expr,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps)
+    {
+        string variable = expr.GetSingleVariable();
+        return expr.FindRealRoots(variable, null, leftLimit, rightLimit, scanSteps);
     }
 
     private static Func<double, double> MakeInfiniteMapping(
@@ -74,20 +99,21 @@ public static class RootFindingExtensions
     }
 
     private static IReadOnlyList<double> FindRealRootsMapped(
-        Expr expr, Func<double, double> mapToX, double tMin, double tMax, int scanSteps)
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings,
+        Func<double, double> mapToX, double tMin, double tMax, int scanSteps)
     {
         var roots = new List<double>();
         double tStep = (tMax - tMin) / scanSteps;
 
         double prevT = tMin;
         double prevX = mapToX(prevT);
-        double prevF = SafeEvaluate(expr, prevX);
+        double prevF = SafeEvaluate(expr, variable, fixedBindings, prevX);
 
         for (int i = 1; i <= scanSteps; i++)
         {
             double t = tMin + i * tStep;
             double x = mapToX(t);
-            double f = SafeEvaluate(expr, x);
+            double f = SafeEvaluate(expr, variable, fixedBindings, x);
 
             if (double.IsNaN(f) || double.IsInfinity(f))
             {
@@ -106,7 +132,7 @@ public static class RootFindingExtensions
                 {
                     double tFar = Math.Clamp(t + direction * tStep * 3, tMin, tMax);
                     double xFar = mapToX(tFar);
-                    double fFar = SafeEvaluate(expr, xFar);
+                    double fFar = SafeEvaluate(expr, variable, fixedBindings, xFar);
 
                     if (!IsAsymptoticApproach(f, fFar))
                         TryAdd(roots, x);
@@ -115,13 +141,13 @@ public static class RootFindingExtensions
             else if (IsSignChange(prevF, f))
             {
                 double guessX = (prevX + x) / 2;
-                var (root, found) = expr.TryFindRoot(guessX);
+                var (root, found) = expr.TryFindRoot(variable, guessX, fixedBindings);
 
                 if (found && root is double r && IsBetween(r, prevX, x))
                 {
                     TryAdd(roots, r);
                 }
-                else if (RootFinder.BisectFallback(expr, Math.Min(prevX, x), Math.Max(prevX, x)) is double br)
+                else if (RootFinder.BisectFallback(expr, variable, fixedBindings, Math.Min(prevX, x), Math.Max(prevX, x)) is double br)
                 {
                     TryAdd(roots, br);
                 }
@@ -135,18 +161,19 @@ public static class RootFindingExtensions
     }
 
     private static IReadOnlyList<double> FindRealRootsFinite(
-        Expr expr, double leftLimit, double rightLimit, int scanSteps)
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings,
+        double leftLimit, double rightLimit, int scanSteps)
     {
         var roots = new List<double>();
         double step = (rightLimit - leftLimit) / scanSteps;
 
         double previousX = leftLimit;
-        double previousF = SafeEvaluate(expr, previousX);
+        double previousF = SafeEvaluate(expr, variable, fixedBindings, previousX);
 
         for (int i = 1; i <= scanSteps; i++)
         {
             double x = leftLimit + i * step;
-            double f = SafeEvaluate(expr, x);
+            double f = SafeEvaluate(expr, variable, fixedBindings, x);
 
             if (double.IsNaN(f) || double.IsInfinity(f))
             {
@@ -166,7 +193,7 @@ public static class RootFindingExtensions
                 else
                 {
                     double xFar = Math.Clamp(x + direction * step * 3, leftLimit, rightLimit);
-                    double fFar = SafeEvaluate(expr, xFar);
+                    double fFar = SafeEvaluate(expr, variable, fixedBindings, xFar);
 
                     if (!IsAsymptoticApproach(f, fFar))
                         TryAdd(roots, x);
@@ -175,13 +202,13 @@ public static class RootFindingExtensions
             else if (IsSignChange(previousF, f))
             {
                 double guess = (previousX + x) / 2;
-                var (root, found) = expr.TryFindRoot(guess);
+                var (root, found) = expr.TryFindRoot(variable, guess, fixedBindings);
 
                 if (found && root is double r && r >= previousX && r <= x)
                 {
                     TryAdd(roots, r);
                 }
-                else if (RootFinder.BisectFallback(expr, previousX, x) is double br)
+                else if (RootFinder.BisectFallback(expr, variable, fixedBindings, previousX, x) is double br)
                 {
                     TryAdd(roots, br);
                 }
@@ -197,6 +224,8 @@ public static class RootFindingExtensions
 
     public static IReadOnlyList<Complex> FindComplexRoots(
         this Expr expr,
+        string variable,
+        IReadOnlyDictionary<string, Complex>? fixedBindings,
         double reMin, double reMax,
         double imMin, double imMax,
         int gridSteps = DefaultComplexGridSteps)
@@ -220,7 +249,7 @@ public static class RootFindingExtensions
                 double im = imMin + j * imStep;
 
                 var guess = new Complex(re, im);
-                var (root, found) = expr.TryFindComplexRoot(guess);
+                var (root, found) = expr.TryFindComplexRoot(variable, guess, fixedBindings);
 
                 if (found && root is Complex r && IsWithinBounds(r, reMin, reMax, imMin, imMax))
                     TryAddComplex(roots, r);
@@ -228,6 +257,16 @@ public static class RootFindingExtensions
         }
 
         return roots;
+    }
+
+    public static IReadOnlyList<Complex> FindComplexRoots(
+        this Expr expr,
+        double reMin, double reMax,
+        double imMin, double imMax,
+        int gridSteps = DefaultComplexGridSteps)
+    {
+        string variable = expr.GetSingleVariable();
+        return expr.FindComplexRoots(variable, null, reMin, reMax, imMin, imMax, gridSteps);
     }
 
     public static IReadOnlyList<Complex> FindComplexRoots(
@@ -264,9 +303,16 @@ public static class RootFindingExtensions
         return sameSignOrZero && stillSmall;
     }
 
-    private static double SafeEvaluate(Expr expr, double x)
+    private static double SafeEvaluate(Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings, double x)
     {
-        try { return expr.Evaluate(x); }
+        try
+        {
+            var dict = fixedBindings is null
+                ? new Dictionary<string, double>()
+                : new Dictionary<string, double>(fixedBindings);
+            dict[variable] = x;
+            return expr.Evaluate(dict);
+        }
         catch { return double.NaN; }
     }
 
