@@ -306,3 +306,96 @@ public class ComplexNumberTests
         Assert.Contains(roots, r => Math.Abs(r.Real - 0) < 1e-4 && Math.Abs(r.Imaginary + 1) < 1e-4);
     }
 }
+
+public class RootFindingEdgeCaseTests
+{
+    [Fact]
+    public void Finds_roots_over_infinite_interval()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 4");
+        var roots = expr.FindRealRoots(double.NegativeInfinity, double.PositiveInfinity);
+        Assert.Equal(2, roots.Count);
+        Assert.Contains(roots, r => Math.Abs(r - 2.0) < 1e-4);
+        Assert.Contains(roots, r => Math.Abs(r + 2.0) < 1e-4);
+    }
+
+    [Fact]
+    public void Finds_root_on_right_infinite_interval()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 4");
+        var roots = expr.FindRealRoots(0, double.PositiveInfinity);
+        Assert.Single(roots);
+        Assert.True(Math.Abs(roots[0] - 2.0) < 1e-4);
+    }
+
+    [Fact]
+    public void Returns_empty_when_no_real_roots_exist()
+    {
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        var roots = expr.FindRealRoots(-100, 100);
+        Assert.Empty(roots);
+    }
+
+    [Fact]
+    public void Solves_equation_in_left_equals_right_form()
+    {
+        // x^2 = 4  =>  x = ±2
+        Expr left = ExprParser.Parse("x^2");
+        Expr right = ExprParser.Parse("4");
+        var roots = left.FindRealRoots(right, -10, 10);
+        Assert.Equal(2, roots.Count);
+    }
+
+    [Fact]
+    public void Throws_when_left_limit_not_less_than_right_limit()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 4");
+        Assert.Throws<ArgumentException>(() => expr.FindRealRoots(5, 5));
+        Assert.Throws<ArgumentException>(() => expr.FindRealRoots(10, -10));
+    }
+
+    [Fact]
+    public void Throws_when_bounds_are_nan()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 4");
+        Assert.Throws<ArgumentException>(() => expr.FindRealRoots(double.NaN, 10));
+    }
+
+    [Fact]
+    public void Throws_when_scan_steps_too_low()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 4");
+        Assert.Throws<ArgumentOutOfRangeException>(() => expr.FindRealRoots(-10, 10, scanSteps: 1));
+    }
+
+    [Fact]
+    public void Newton_fails_gracefully_at_stationary_point()
+    {
+        // x^2 + 5 has no real root, but its derivative (2x) is exactly zero at x=0.
+        Expr expr = ExprParser.Parse("x^2 + 5");
+        var (root, found) = expr.TryFindRoot(0.0);
+        Assert.False(found);
+        Assert.Null(root);
+    }
+
+    [Fact]
+    public void Does_not_mistake_asymptote_for_root()
+    {
+        // 1/x has no real root anywhere — it approaches infinity near x=0 but never crosses zero.
+        Expr expr = ExprParser.Parse("1 / x");
+        var roots = expr.FindRealRoots(-10, 10);
+        Assert.Empty(roots);
+    }
+
+    [Fact]
+    public void Finds_complex_roots_with_two_expression_form()
+    {
+        // x^2 = -4  =>  x = ±2i
+        Expr left = ExprParser.Parse("x^2");
+        Expr right = ExprParser.Parse("0 - 4");
+        var roots = left.FindComplexRoots(right, -5, 5, -5, 5, gridSteps: 8);
+
+        Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary - 2.0) < 1e-3);
+        Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary + 2.0) < 1e-3);
+    }
+}
