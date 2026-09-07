@@ -152,3 +152,157 @@ public class RootFindingTests
         Assert.Contains(roots, r => Math.Abs(r + 2.0) < 1e-6);
     }
 }
+
+public class ComplexNumberTests
+{
+    [Fact]
+    public void Adds_complex_numbers()
+    {
+        var a = new Complex(1, 2);
+        var b = new Complex(3, -1);
+        var result = a + b;
+        Assert.Equal(4, result.Real, precision: 10);
+        Assert.Equal(1, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Multiplies_complex_numbers()
+    {
+        // (2 + 3i) * (1 - i) = 2 - 2i + 3i - 3i^2 = 2 + i + 3 = 5 + i
+        var a = new Complex(2, 3);
+        var b = new Complex(1, -1);
+        var result = a * b;
+        Assert.Equal(5, result.Real, precision: 10);
+        Assert.Equal(1, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Divides_complex_numbers()
+    {
+        var a = new Complex(4, 2);
+        var b = new Complex(2, 0);
+        var result = a / b;
+        Assert.Equal(2, result.Real, precision: 10);
+        Assert.Equal(1, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Computes_magnitude_correctly()
+    {
+        var z = new Complex(3, 4);
+        Assert.Equal(5, z.Magnitude, precision: 10);
+    }
+
+    [Fact]
+    public void Imaginary_unit_squared_equals_negative_one()
+    {
+        var i = Complex.ImaginaryUnit;
+        var result = i * i;
+        Assert.Equal(-1, result.Real, precision: 10);
+        Assert.Equal(0, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Sqrt_of_negative_one_equals_imaginary_unit()
+    {
+        var result = Complex.Sqrt(new Complex(-1, 0));
+        Assert.Equal(0, result.Real, precision: 10);
+        Assert.Equal(1, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Exp_of_i_pi_equals_negative_one()
+    {
+        // Euler's identity: e^(i*pi) = -1
+        var z = new Complex(0, Math.PI);
+        var result = Complex.Exp(z);
+        Assert.Equal(-1, result.Real, precision: 10);
+        Assert.Equal(0, result.Imaginary, precision: 10);
+    }
+
+    // Parsing 'i' from strings
+
+    [Fact]
+    public void Parses_imaginary_unit_from_string()
+    {
+        Expr expr = ExprParser.Parse("2 + 3i");
+        Complex result = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        Assert.Equal(2, result.Real, precision: 10);
+        Assert.Equal(3, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Parses_pure_imaginary_expression()
+    {
+        Expr expr = ExprParser.Parse("i * i");
+        Complex result = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        Assert.Equal(-1, result.Real, precision: 10);
+        Assert.Equal(0, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Evaluating_imaginary_expression_as_real_throws()
+    {
+        Expr expr = ExprParser.Parse("i");
+        Assert.Throws<InvalidOperationException>(() => expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    // Complex evaluation of ordinary real-variable expressions
+
+    [Fact]
+    public void Evaluates_polynomial_at_complex_point()
+    {
+        // f(x) = x^2 + 1, at x = i: i^2 + 1 = -1 + 1 = 0
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        Complex result = expr.EvaluateComplex(Complex.ImaginaryUnit);
+        Assert.Equal(0, result.Real, precision: 10);
+        Assert.Equal(0, result.Imaginary, precision: 10);
+    }
+
+    [Fact]
+    public void Evaluates_sin_at_complex_point()
+    {
+        Expr expr = ExprParser.Parse("sin(x)");
+        Complex result = expr.EvaluateComplex(new Complex(0, 1));
+        // sin(i) = i * sinh(1)
+        Assert.Equal(0, result.Real, precision: 10);
+        Assert.Equal(Math.Sinh(1), result.Imaginary, precision: 10);
+    }
+
+    //Complex root finding
+
+    [Fact]
+    public void Finds_complex_root_of_x_squared_plus_one()
+    {
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        var (root, found) = expr.TryFindComplexRoot(new Complex(0, 1));
+        Assert.True(found);
+        Assert.Equal(0, root!.Value.Real, precision: 6);
+        Assert.Equal(1, root.Value.Imaginary, precision: 6);
+    }
+
+    [Fact]
+    public void Finds_complex_root_with_fixed_parameter()
+    {
+        // x^2 + a = 0, a = 1  =>  x = i (or -i)
+        Expr expr = new Add(new Power(new Variable("x"), new Constant(2)), new Variable("a"));
+        var (root, found) = expr.TryFindComplexRoot(
+            "x", new Complex(0, 1),
+            new Dictionary<string, Complex> { ["a"] = new Complex(1, 0) });
+
+        Assert.True(found);
+        Assert.Equal(0, root!.Value.Real, precision: 6);
+        Assert.Equal(1, root.Value.Imaginary, precision: 6);
+    }
+
+    [Fact]
+    public void Finds_all_complex_roots_in_grid()
+    {
+        // x^2 + 1 = 0 has roots i and -i
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        var roots = expr.FindComplexRoots(-2, 2, -2, 2, gridSteps: 8);
+
+        Assert.Contains(roots, r => Math.Abs(r.Real - 0) < 1e-4 && Math.Abs(r.Imaginary - 1) < 1e-4);
+        Assert.Contains(roots, r => Math.Abs(r.Real - 0) < 1e-4 && Math.Abs(r.Imaginary + 1) < 1e-4);
+    }
+}
