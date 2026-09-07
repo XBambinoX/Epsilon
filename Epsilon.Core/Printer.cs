@@ -36,6 +36,8 @@ public static class Printer
             // Right-associative: reversed — left needs +1, right keeps same
             Power(var b, var e) => $"{PrintInternal(b, myPrecedence + 1)} ^ {PrintInternal(e, myPrecedence)}",
 
+            Sin(var a) => $"sin({PrintInternal(a, 0)})",
+            Cos(var a) => $"cos({PrintInternal(a, 0)})",
             Cot(var a) => $"cot({PrintInternal(a, 0)})",
             Sec(var a) => $"sec({PrintInternal(a, 0)})",
             Csc(var a) => $"csc({PrintInternal(a, 0)})",
