@@ -77,19 +77,23 @@ public static class ExprParser
 
         while (pos < run.Length)
         {
-            string? match = ReservedIdentifiers.FirstOrDefault(id =>
+            string? reservedMatch = ReservedIdentifiers.FirstOrDefault(id =>
                 pos + id.Length <= run.Length &&
                 string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
 
-            // If no reserved word matched, try the longest declared variable name at this position.
-            if (match is null && knownVariables.Count > 0)
-            {
-                match = knownVariables
+            string? variableMatch = knownVariables.Count > 0
+                ? knownVariables
                     .Where(v => pos + v.Length <= run.Length &&
                                 string.CompareOrdinal(run, pos, v, 0, v.Length) == 0)
                     .OrderByDescending(v => v.Length)
-                    .FirstOrDefault();
-            }
+                    .FirstOrDefault()
+                : null;
+
+            // Longest match wins, regardless of pool — a declared variable like "second"
+            // must not be shadowed by the shorter reserved prefix "sec".
+            string? match = (reservedMatch?.Length ?? 0) >= (variableMatch?.Length ?? 0)
+                ? reservedMatch
+                : variableMatch;
 
             if (match is not null)
             {
