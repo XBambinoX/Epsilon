@@ -630,3 +630,112 @@ public class DifferentiationTests
         Assert.Equal(numeric, derivative.Evaluate(atPoint), precision: 3);
     }
 }
+
+public class PrinterTests
+{
+    [Fact]
+    public void Prints_simple_addition_without_parentheses()
+    {
+        Expr expr = ExprParser.Parse("x + 1");
+        Assert.Equal("x + 1", expr.Print());
+    }
+
+    [Fact]
+    public void Prints_unary_minus_compactly()
+    {
+        Expr expr = ExprParser.Parse("0 - x").Simplify();
+        Assert.Equal("-x", expr.Print());
+    }
+
+    [Fact]
+    public void Prints_sin_without_double_parentheses()
+    {
+        Expr expr = ExprParser.Parse("sin(x + 1)");
+        Assert.Equal("sin(x + 1)", expr.Print());
+    }
+
+    [Fact]
+    public void Prints_cos_without_double_parentheses()
+    {
+        Expr expr = ExprParser.Parse("cos(x + 1)");
+        Assert.Equal("cos(x + 1)", expr.Print());
+    }
+
+    [Fact]
+    public void Prints_negated_sin_argument_cleanly()
+    {
+        Expr expr = ExprParser.Parse("sin(0 - x)").Simplify();
+        Assert.Equal("sin(-x)", expr.Print());
+    }
+
+    [Fact]
+    public void Wraps_addition_in_parentheses_when_multiplied()
+    {
+        // (x + 1) * 2 must keep parens — without them, "x + 1 * 2" means something else
+        Expr expr = ExprParser.Parse("(x + 1) * 2");
+        string result = expr.Print();
+        Assert.Contains("(x + 1)", result);
+    }
+
+    [Fact]
+    public void Does_not_add_unnecessary_parentheses_for_left_associative_subtraction()
+    {
+        // (x - x) - 1 should NOT keep parens around the left side; a - b - c is standard
+        Expr expr = ExprParser.Parse("(x - x) - 1").Simplify();
+        Assert.DoesNotContain("(", expr.Print());
+    }
+
+    [Fact]
+    public void Requires_parentheses_for_non_associative_subtraction_on_the_right()
+    {
+        // x - (x - 1) is NOT the same as x - x - 1, so parens must be preserved
+        Expr expr = ExprParser.Parse("x - (x - 1)");
+        string result = expr.Print();
+        Assert.Contains("(", result);
+    }
+
+    [Fact]
+    public void Requires_parentheses_for_right_associative_power_on_the_left()
+    {
+        //(x^2)^3 != x^(2^3), so left side must keep parens under right-associative ^
+        Expr expr = ExprParser.Parse("(x^2)^3");
+        string result = expr.Print();
+        Assert.Contains("(", result);
+    }
+
+    [Fact]
+    public void Prints_pi_and_e_as_symbols()
+    {
+        Expr piExpr = new Pi();
+        Expr eExpr = new E();
+        Assert.Equal("π", piExpr.Print());
+        Assert.Equal("e", eExpr.Print());
+    }
+
+    [Fact]
+    public void Prints_named_multiletter_variable()
+    {
+        Expr expr = ExprParser.Parse("radius^2", variableNames: new[] { "radius" });
+        Assert.Contains("radius", expr.Print());
+    }
+
+    [Fact]
+    public void Prints_all_trig_functions_with_correct_names()
+    {
+        Assert.Equal("cot(x)", ExprParser.Parse("cot(x)").Print());
+        Assert.Equal("sec(x)", ExprParser.Parse("sec(x)").Print());
+        Assert.Equal("csc(x)", ExprParser.Parse("csc(x)").Print());
+        Assert.Equal("asin(x)", ExprParser.Parse("asin(x)").Print());
+        Assert.Equal("acos(x)", ExprParser.Parse("acos(x)").Print());
+        Assert.Equal("atan(x)", ExprParser.Parse("atan(x)").Print());
+    }
+
+    [Fact]
+    public void Prints_sqrt_and_nthroot()
+    {
+        Expr sqrtExpr = ExprParser.Parse("sqrt(x)");
+        Expr nthRootExpr = ExprParser.Parse("nthroot(x, 3)");
+        Assert.Equal("sqrt(x)", sqrtExpr.Print());
+        Assert.Equal("nthroot(x, 3)", nthRootExpr.Print());
+    }
+}
