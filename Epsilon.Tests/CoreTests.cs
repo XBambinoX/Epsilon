@@ -739,3 +739,121 @@ public class PrinterTests
         Assert.Equal("nthroot(x, 3)", nthRootExpr.Print());
     }
 }
+
+public class ParserErrorTests
+{
+    [Theory]
+    [InlineData("2 +")]
+    [InlineData("* 2")]
+    [InlineData("sin(")]
+    [InlineData("sin)")]
+    [InlineData("(2 + 3")]
+    [InlineData("2 + 3)")]
+    [InlineData("sin(x))")]
+    public void Throws_FormatException_for_malformed_expressions(string input)
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+    }
+
+    [Fact]
+    public void Throws_when_function_name_not_followed_by_parenthesis()
+    {
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse("sin x"));
+        Assert.Contains("(", ex.Message);
+    }
+
+    [Fact]
+    public void Unknown_multiletter_word_decomposes_into_single_letter_variables()
+    {
+        Expr expr = ExprParser.Parse("abc");
+        Assert.Equal(3, expr.GetVariables().Count);
+    }
+
+    [Fact]
+    public void Same_word_becomes_single_variable_when_declared()
+    {
+        // The same input parses as ONE variable when explicitly declared.
+        Expr expr = ExprParser.Parse("abc", variableNames: new[] { "abc" });
+        Assert.Single(expr.GetVariables());
+        Assert.Contains("abc", expr.GetVariables());
+    }
+
+    [Fact]
+    public void Throws_when_nthroot_has_wrong_argument_count()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse("nthroot(x)"));
+        Assert.Throws<FormatException>(() => ExprParser.Parse("nthroot(x, 2, 3)"));
+    }
+
+    [Fact]
+    public void Throws_for_unexpected_character()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse("x @ 2"));
+    }
+
+    [Fact]
+    public void Throws_for_empty_input()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse(""));
+    }
+
+    [Fact]
+    public void Throws_for_trailing_tokens_after_valid_expression()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse("x + 1 )"));
+    }
+}
+
+public class EvaluationErrorTests
+{
+    [Fact]
+    public void Throws_when_variable_binding_missing()
+    {
+        Expr expr = ExprParser.Parse("x + y");
+        var ex = Assert.Throws<ArgumentException>(() =>
+            expr.Evaluate(new Dictionary<string, double> { ["x"] = 1 }));
+        Assert.Contains("y", ex.Message);
+    }
+
+    [Fact]
+    public void Throws_when_calling_single_variable_evaluate_on_multivariable_expr()
+    {
+        Expr expr = ExprParser.Parse("x + y");
+        var ex = Assert.Throws<InvalidOperationException>(() => expr.Evaluate(5.0));
+        Assert.Contains("2", ex.Message); // message should mention it found 2 variables
+    }
+
+    [Fact]
+    public void Throws_when_calling_single_variable_evaluate_on_zero_variable_expr()
+    {
+        Expr expr = new Constant(42);
+        Assert.Throws<InvalidOperationException>(() => expr.Evaluate(5.0));
+    }
+
+    [Fact]
+    public void Throws_when_evaluating_imaginary_unit_as_real()
+    {
+        Expr expr = new ImaginaryUnit();
+        Assert.Throws<InvalidOperationException>(() =>
+            expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Throws_when_complex_binding_missing()
+    {
+        Expr expr = ExprParser.Parse("x + y");
+        var ex = Assert.Throws<ArgumentException>(() =>
+            expr.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = new Complex(1, 0) }));
+        Assert.Contains("y", ex.Message);
+    }
+
+    [Fact]
+    public void GetSingleVariable_message_lists_all_found_variables()
+    {
+        Expr expr = ExprParser.Parse("x + y + z");
+        var ex = Assert.Throws<InvalidOperationException>(() => expr.Differentiate());
+        Assert.Contains("x", ex.Message);
+        Assert.Contains("y", ex.Message);
+        Assert.Contains("z", ex.Message);
+    }
+}
