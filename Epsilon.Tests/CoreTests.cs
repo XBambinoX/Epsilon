@@ -857,3 +857,134 @@ public class EvaluationErrorTests
         Assert.Contains("z", ex.Message);
     }
 }
+
+public class AdvancedSimplifierTests
+{
+    [Fact]
+    public void Simplifies_ln_of_exp_to_identity()
+    {
+        Expr expr = ExprParser.Parse("ln(exp(x))").Simplify();
+        Assert.Equal(5, expr.Evaluate(5.0));
+    }
+
+    [Fact]
+    public void Simplifies_exp_of_ln_to_identity()
+    {
+        Expr expr = ExprParser.Parse("exp(ln(x))").Simplify();
+        Assert.Equal(5, expr.Evaluate(5.0), precision: 8);
+    }
+
+    [Fact]
+    public void Simplifies_sin_over_cos_to_tan()
+    {
+        Expr expr = ExprParser.Parse("sin(x) / cos(x)").Simplify();
+        Assert.Equal("tan(x)", expr.Print());
+    }
+
+    [Fact]
+    public void Simplifies_cos_over_sin_to_cot()
+    {
+        Expr expr = ExprParser.Parse("cos(x) / sin(x)").Simplify();
+        Assert.Equal("cot(x)", expr.Print());
+    }
+
+    [Fact]
+    public void Simplifies_tan_times_cot_to_one()
+    {
+        Expr expr = ExprParser.Parse("tan(x) * cot(x)").Simplify();
+        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_sin_squared_over_cos_squared_to_tan_squared()
+    {
+        Expr expr = ExprParser.Parse("sin(x)^2 / cos(x)^2").Simplify();
+        double atPoint = 0.7;
+        double expected = Math.Pow(Math.Tan(atPoint), 2);
+        Assert.Equal(expected, expr.Evaluate(atPoint), precision: 6);
+    }
+
+    [Fact]
+    public void Simplifies_one_minus_sin_squared_to_cos_squared()
+    {
+        Expr expr = ExprParser.Parse("1 - sin(x)^2").Simplify();
+        double atPoint = 0.8;
+        double expected = Math.Pow(Math.Cos(atPoint), 2);
+        Assert.Equal(expected, expr.Evaluate(atPoint), precision: 8);
+    }
+
+    [Fact]
+    public void Simplifies_one_minus_cos_squared_to_sin_squared()
+    {
+        Expr expr = ExprParser.Parse("1 - cos(x)^2").Simplify();
+        double atPoint = 0.8;
+        double expected = Math.Pow(Math.Sin(atPoint), 2);
+        Assert.Equal(expected, expr.Evaluate(atPoint), precision: 8);
+    }
+
+    [Fact]
+    public void Simplifies_sec_squared_minus_tan_squared_to_one()
+    {
+        Expr expr = ExprParser.Parse("sec(x)^2 - tan(x)^2").Simplify();
+        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_csc_squared_minus_cot_squared_to_one()
+    {
+        Expr expr = ExprParser.Parse("csc(x)^2 - cot(x)^2").Simplify();
+        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_sqrt_of_perfect_square_constant()
+    {
+        Expr expr = ExprParser.Parse("sqrt(4)").Simplify();
+        Assert.Equal(2, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_sqrt_of_square_expression_to_base()
+    {
+        Expr expr = ExprParser.Parse("sqrt(x^2)").Simplify();
+        Assert.Equal(5, expr.Evaluate(5.0));
+    }
+
+    [Fact]
+    public void Simplifies_nthroot_of_constant()
+    {
+        Expr expr = ExprParser.Parse("nthroot(27, 3)").Simplify();
+        Assert.Equal(3, expr.Evaluate(new Dictionary<string, double>()), precision: 8);
+    }
+
+    [Fact]
+    public void Simplifies_division_of_identical_powers_to_one()
+    {
+        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify();
+        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_zero_divided_by_variable_to_zero()
+    {
+        Expr expr = ExprParser.Parse("0 / x").Simplify();
+        Assert.Equal(0, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Simplifies_nested_fraction_multiplication()
+    {
+        // (a/b) * (c/d) = (a*c)/(b*d)
+        Expr expr = ExprParser.Parse("(x / 2) * (y / 3)").Simplify();
+        double result = expr.Evaluate(new Dictionary<string, double> { ["x"] = 6, ["y"] = 9 });
+        Assert.Equal((6.0 / 2) * (9.0 / 3), result, precision: 8);
+    }
+
+    [Fact]
+    public void Simplifies_nested_division_by_multiplying_denominators()
+    {
+        // (a/b)/c = a/(b*c)
+        Expr expr = ExprParser.Parse("(x / 2) / 3").Simplify();
+        Assert.Equal(6.0 / 6, expr.Evaluate(6.0), precision: 8);
+    }
+}
