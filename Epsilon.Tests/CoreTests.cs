@@ -496,3 +496,137 @@ public class SubstituteAndDependsOnTests
         Assert.Empty(expr.GetVariables());
     }
 }
+
+public class DifferentiationTests
+{
+    private const double H = 1e-6; // step for numerical cross-check
+    private const double Tolerance = 1e-4;
+
+    // Numerically verifies a symbolic derivative against central-difference approximation,
+    // catching cases where the symbolic rule is subtly wrong but still "compiles and runs".
+    private static void AssertDerivativeMatchesNumeric(string input, double atPoint)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Expr derivative = expr.Differentiate();
+
+        double symbolic = derivative.Evaluate(atPoint);
+        double numeric = (expr.Evaluate(atPoint + H) - expr.Evaluate(atPoint - H)) / (2 * H);
+
+        Assert.Equal(numeric, symbolic, precision: 3);
+    }
+
+    [Theory]
+    [InlineData("x^2", 3.0)]
+    [InlineData("x^3", 2.0)]
+    [InlineData("sin(x)", 1.0)]
+    [InlineData("cos(x)", 1.0)]
+    [InlineData("tan(x)", 0.5)]
+    [InlineData("cot(x)", 1.0)]
+    [InlineData("sec(x)", 0.5)]
+    [InlineData("csc(x)", 1.0)]
+    [InlineData("exp(x)", 1.0)]
+    [InlineData("ln(x)", 2.0)]
+    [InlineData("sqrt(x)", 4.0)]
+    [InlineData("sinh(x)", 1.0)]
+    [InlineData("cosh(x)", 1.0)]
+    [InlineData("tanh(x)", 0.5)]
+    [InlineData("asin(x)", 0.3)]
+    [InlineData("acos(x)", 0.3)]
+    [InlineData("atan(x)", 1.0)]
+    public void Derivative_matches_numerical_approximation(string input, double atPoint)
+    {
+        AssertDerivativeMatchesNumeric(input, atPoint);
+    }
+
+    [Fact]
+    public void Chain_rule_applies_to_composite_argument()
+    {
+        // d/dx sin(x^2) = cos(x^2) * 2x
+        Expr expr = ExprParser.Parse("sin(x^2)");
+        Expr derivative = expr.Differentiate();
+        double atPoint = 1.5;
+        double expected = Math.Cos(atPoint * atPoint) * 2 * atPoint;
+        Assert.Equal(expected, derivative.Evaluate(atPoint), precision: 8);
+    }
+
+    [Fact]
+    public void Product_rule_applies_correctly()
+    {
+        // d/dx (x * sin(x)) = sin(x) + x*cos(x)
+        Expr expr = ExprParser.Parse("x * sin(x)");
+        Expr derivative = expr.Differentiate();
+        double atPoint = 2.0;
+        double expected = Math.Sin(atPoint) + atPoint * Math.Cos(atPoint);
+        Assert.Equal(expected, derivative.Evaluate(atPoint), precision: 8);
+    }
+
+    [Fact]
+    public void Quotient_rule_applies_correctly()
+    {
+        // d/dx (sin(x) / x) = (cos(x)*x - sin(x)) / x^2
+        Expr expr = ExprParser.Parse("sin(x) / x");
+        Expr derivative = expr.Differentiate();
+        double atPoint = 1.5;
+        double expected = (Math.Cos(atPoint) * atPoint - Math.Sin(atPoint)) / (atPoint * atPoint);
+        Assert.Equal(expected, derivative.Evaluate(atPoint), precision: 6);
+    }
+
+    [Fact]
+    public void Derivative_of_constant_is_zero()
+    {
+        Expr expr = new Constant(42);
+        Expr derivative = expr.Differentiate("x");
+        Assert.Equal(0, derivative.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Derivative_with_respect_to_unrelated_variable_is_zero()
+    {
+        // d/dy (x^2) = 0, since the expression doesn't depend on y
+        Expr expr = ExprParser.Parse("x^2");
+        Expr derivative = expr.Differentiate("y");
+        Assert.Equal(0, derivative.Evaluate(new Dictionary<string, double> { ["x"] = 5 }));
+    }
+
+    [Fact]
+    public void Partial_derivative_treats_other_variables_as_constants()
+    {
+        // d/dx (x^2 * y) = 2xy
+        Expr expr = ExprParser.Parse("x^2 * y");
+        Expr derivative = expr.Differentiate("x");
+        double result = derivative.Evaluate(new Dictionary<string, double> { ["x"] = 3, ["y"] = 4 });
+        Assert.Equal(24, result, precision: 8); // 2*3*4
+    }
+
+    [Fact]
+    public void Power_rule_handles_variable_exponent_via_logarithmic_differentiation()
+    {
+        // d/dx (x^x) = x^x * (ln(x) + 1)
+        Expr expr = ExprParser.Parse("x^x");
+        Expr derivative = expr.Differentiate();
+        double atPoint = 2.0;
+        double expected = Math.Pow(atPoint, atPoint) * (Math.Log(atPoint) + 1);
+        Assert.Equal(expected, derivative.Evaluate(atPoint), precision: 6);
+    }
+
+    [Fact]
+    public void Second_derivative_via_double_differentiation()
+    {
+        // f(x) = x^3, f'(x) = 3x^2, f''(x) = 6x
+        Expr expr = ExprParser.Parse("x^3");
+        Expr firstDerivative = expr.Differentiate();
+        Expr secondDerivative = firstDerivative.Differentiate();
+        Assert.Equal(12, secondDerivative.Evaluate(2.0), precision: 8);
+    }
+
+    [Fact]
+    public void NthRoot_derivative_matches_numerical_approximation()
+    {
+        // d/dx nthroot(x, 3) = (1/3) * x^(-2/3)
+        Expr expr = ExprParser.Parse("nthroot(x, 3)");
+        Expr derivative = expr.Differentiate();
+        double atPoint = 8.0;
+        double numeric = (expr.Evaluate(atPoint + H) - expr.Evaluate(atPoint - H)) / (2 * H);
+        Assert.Equal(numeric, derivative.Evaluate(atPoint), precision: 3);
+    }
+}
