@@ -4,4 +4,5 @@
   </Folder>
   <Project Path="Epsilon.Calculus/Epsilon.Calculus.csproj" />
   <Project Path="Epsilon.Core/Epsilon.Core.csproj" />
+  <Project Path="Epsilon.Tests/Epsilon.Tests.csproj" />
 </Solution>
