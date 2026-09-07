@@ -16,9 +16,9 @@ public static class ExprParser
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln"
     });
 
-    public static Expr Parse(string input, IEnumerable<string>? variableNames = null)
+    public static Expr Parse(string input, params string[] variableNames)
     {
-        var knownVariables = variableNames?.ToHashSet() ?? new HashSet<string>();
+        var knownVariables = variableNames.ToHashSet();
         var tokens = Tokenize(input, knownVariables);
         var parser = new Parser(tokens, knownVariables);
         Expr result = parser.ParseExpression();
