@@ -399,3 +399,100 @@ public class RootFindingEdgeCaseTests
         Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary + 2.0) < 1e-3);
     }
 }
+
+public class CanonicalizationTests
+{
+    [Fact]
+    public void Add_is_order_independent_regardless_of_written_form()
+    {
+        Expr a = ExprParser.Parse("3 + x");
+        Expr b = ExprParser.Parse("x + 3");
+        Assert.Equal(a, b);
+        Assert.Equal(a.ToString(), b.ToString());
+    }
+
+    [Fact]
+    public void Multiply_places_numeric_coefficient_consistently()
+    {
+        Expr a = ExprParser.Parse("x * 2");
+        Expr b = ExprParser.Parse("2 * x");
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Trig_identity_terms_canonicalize_to_same_order()
+    {
+        Expr a = ExprParser.Parse("sin(x)^2 + cos(x)^2");
+        Expr b = ExprParser.Parse("cos(x)^2 + sin(x)^2");
+        Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Canonicalization_is_idempotent()
+    {
+        Expr expr = ExprParser.Parse("x + 3 + y");
+        Expr once = expr.Canonicalize();
+        Expr twice = once.Canonicalize();
+        Assert.Equal(once, twice);
+    }
+
+    [Fact]
+    public void Subtract_operands_are_not_reordered()
+    {
+        // Subtraction is non-commutative — canonicalization must not swap operands.
+        Expr expr = ExprParser.Parse("x - 3");
+        Assert.Equal(-3.0, expr.Evaluate(0.0));
+    }
+}
+
+public class SubstituteAndDependsOnTests
+{
+    [Fact]
+    public void Substitute_replaces_variable_with_expression()
+    {
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        Expr substituted = expr.Substitute("x", ExprParser.Parse("y + 1"));
+        Assert.Equal(new HashSet<string> { "y" }, substituted.GetVariables());
+        Assert.Equal(5, substituted.Evaluate(new Dictionary<string, double> { ["y"] = 1 })); // (1+1)^2+1=5
+    }
+
+    [Fact]
+    public void Substitute_leaves_other_variables_untouched()
+    {
+        Expr expr = ExprParser.Parse("x + y");
+        Expr substituted = expr.Substitute("x", new Constant(10));
+        Assert.Equal(new HashSet<string> { "y" }, substituted.GetVariables());
+        Assert.Equal(15, substituted.Evaluate(new Dictionary<string, double> { ["y"] = 5 }));
+    }
+
+    [Fact]
+    public void Substitute_into_function_argument_works()
+    {
+        Expr expr = ExprParser.Parse("sin(x)");
+        Expr substituted = expr.Substitute("x", ExprParser.Parse("x^2"));
+        Assert.Equal(Math.Sin(4), substituted.Evaluate(2.0), precision: 10);
+    }
+
+    [Fact]
+    public void DependsOn_detects_variable_presence()
+    {
+        Expr expr = ExprParser.Parse("x^2 + y");
+        Assert.True(expr.DependsOn("x"));
+        Assert.True(expr.DependsOn("y"));
+        Assert.False(expr.DependsOn("z"));
+    }
+
+    [Fact]
+    public void DependsOn_is_false_for_constant_expression()
+    {
+        Expr expr = new Constant(42);
+        Assert.False(expr.DependsOn("x"));
+    }
+
+    [Fact]
+    public void GetVariables_on_pi_and_e_returns_empty()
+    {
+        Expr expr = ExprParser.Parse("pi + e");
+        Assert.Empty(expr.GetVariables());
+    }
+}
