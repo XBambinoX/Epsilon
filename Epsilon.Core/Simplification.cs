@@ -172,18 +172,6 @@ public static class Simplifier
             case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
                 return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
 
-            case Add(var l, var r) when
-                !(l is Constant) && !(r is Constant) &&
-                ExtractCoefficient(l).Term.Equals(ExtractCoefficient(r).Term):
-                {
-                    var (c1, term) = ExtractCoefficient(l);
-                    var (c2, _) = ExtractCoefficient(r);
-                    double sum = c1 + c2;
-                    return sum == 1
-                        ? term
-                        : new Multiply(new Constant(sum), term).Simplify();
-                }
-
             case Sin(Constant c) when c.Value == 0:
                 return new Constant(0);
 
@@ -221,14 +209,6 @@ public static class Simplifier
 
             case Multiply(Cot(var x), Tan(var y)) when x.Equals(y):
                 return new Constant(1);
-
-            // sin(x) / cos(x) = tan(x)
-            case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
-                return new Tan(x);
-
-            // cos(x) / sin(x) = cot(x)
-            case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
-                return new Cot(x);
 
             // sin(x)^2 / cos(x)^2 = tan(x)^2
             case Divide(
@@ -286,13 +266,19 @@ public static class Simplifier
             case Sqrt(Power(var b, Constant e)) when e.Value == 2:
                 return b; // sqrt(x^2) = x (ignoring |x| domain nuance)
 
-            case NthRoot(Constant c, Constant n):
+            case NthRoot(Constant c, Constant n) when c.Value >= 0:
                 return new Constant(Math.Pow(c.Value, 1.0 / n.Value));
+
+            case NthRoot(Constant c, Constant n) when c.Value < 0 && IsOddInteger(n.Value):
+                return new Constant(-Math.Pow(-c.Value, 1.0 / n.Value));
 
             default:
                 return expr;
         }
     }
+
+    private static bool IsOddInteger(double value) =>
+        value == Math.Floor(value) && (long)value % 2 != 0;
 
     // Helper method to extract the coefficient and the term from an expression
     private static (double Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
