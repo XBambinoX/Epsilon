@@ -2,9 +2,9 @@ namespace Epsilon.Core;
 
 public static class HessianExtensions
 {
-    public static Matrix<Expr> Hessian(this Expr expr, IReadOnlyList<string> variables)
+    public static Matrix<Expr> Hessian(this Expr expr, params string[] variables)
     {
-        int n = variables.Count;
+        int n = variables.Length;
         var values = new Expr[n, n];
 
         for (int i = 0; i < n; i++)
@@ -18,17 +18,26 @@ public static class HessianExtensions
     }
 
     public static Matrix<Expr> Hessian(this Expr expr) =>
-        expr.Hessian(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToList());
+        expr.Hessian(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray());
 
-    public static Matrix<double> HessianAt(this Expr expr, IReadOnlyList<string> variables, IReadOnlyDictionary<string, double> point) =>
-        expr.Hessian(variables).EvaluateAt(point);
+    public static Matrix<double> HessianAt(this Expr expr, string[] variables, params (string Name, double Value)[] point) =>
+        expr.Hessian(variables).EvaluateAt(ToDictionary(point));
 
-    public static Matrix<double> HessianAt(this Expr expr, IReadOnlyDictionary<string, double> point) =>
-        expr.HessianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToList(), point);
+    public static Matrix<double> HessianAt(this Expr expr, params (string Name, double Value)[] point) =>
+        expr.HessianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 
-    public static Expr Laplacian(this Expr expr, IReadOnlyList<string> variables) =>
+    private static Dictionary<string, double> ToDictionary((string Name, double Value)[] bindings)
+    {
+        var dict = new Dictionary<string, double>(bindings.Length);
+        foreach (var (name, value) in bindings)
+            dict[name] = value;
+
+        return dict;
+    }
+
+    public static Expr Laplacian(this Expr expr, params string[] variables) =>
         expr.Hessian(variables).TraceSymbolic();
 
     public static Expr Laplacian(this Expr expr) =>
-        expr.Laplacian(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToList());
+        expr.Laplacian(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray());
 }
