@@ -40,6 +40,7 @@ public static class Simplifier
             Sinh(var a) => new Sinh(a.Simplify()),
             Cosh(var a) => new Cosh(a.Simplify()),
             Tanh(var a) => new Tanh(a.Simplify()),
+            Abs(var a) => new Abs(a.Simplify()),
             Sqrt(var a) => new Sqrt(a.Simplify()),
             NthRoot(var a, var n) => new NthRoot(a.Simplify(), n.Simplify()),
             _ => expr
@@ -271,6 +272,12 @@ public static class Simplifier
 
             case NthRoot(Constant c, Constant n) when c.Value < 0 && IsOddInteger(n.Value):
                 return new Constant(-Math.Pow(-c.Value, 1.0 / n.Value));
+
+            case Abs(Constant c):
+                return new Constant(Math.Abs(c.Value));
+
+            case Abs(var a) when a is Abs:
+                return a;    
 
             default:
                 return expr;

@@ -6,13 +6,13 @@ public static class ExprParser
 {
     private static readonly string[] ReservedIdentifiers = new[]
     {
-        "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+        "nthroot", "sqrt", "abs", "asin", "acos", "atan", "sinh", "cosh", "tanh",
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i"
     }.OrderByDescending(s => s.Length).ToArray();
 
     private static readonly HashSet<string> FunctionNames = new(new[]
     {
-        "nthroot", "sqrt", "asin", "acos", "atan", "sinh", "cosh", "tanh",
+        "nthroot", "sqrt", "abs", "asin", "acos", "atan", "sinh", "cosh", "tanh",
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln"
     });
 
@@ -271,6 +271,7 @@ public static class ExprParser
                     "exp" => new Exp(arguments[0]),
                     "ln" => new Ln(arguments[0]),
                     "sqrt" => new Sqrt(arguments[0]),
+                    "abs" => new Abs(arguments[0]),
                     "nthroot" when arguments.Count == 2 => new NthRoot(arguments[0], arguments[1]),
                     "nthroot" => throw new FormatException("nthroot requires exactly 2 arguments: nthroot(x, n)."),
                     _ => throw new FormatException($"Unknown function '{token}'.")

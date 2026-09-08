@@ -25,6 +25,7 @@ public static class Canonicalizer
         Tanh(var a) => new Tanh(a.Canonicalize()),
         Exp(var a) => new Exp(a.Canonicalize()),
         Ln(var a) => new Ln(a.Canonicalize()),
+        Abs(var a) => new Abs(a.Canonicalize()),
         Sqrt(var a) => new Sqrt(a.Canonicalize()),
         NthRoot(var a, var n) => new NthRoot(a.Canonicalize(), n.Canonicalize()),
 

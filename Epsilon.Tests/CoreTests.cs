@@ -69,6 +69,45 @@ public class ParserTests
         Expr expr = ExprParser.Parse("exp(x)");
         Assert.Equal(Math.E, expr.Evaluate(1.0), precision: 10);
     }
+
+    [Fact]
+    public void Parser_ParsesAbs()
+    {
+        Expr expr = ExprParser.Parse("abs(x)", "x");
+
+        Assert.IsType<Abs>(expr);
+    }
+
+    [Fact]
+    public void Parser_ParsesAbsWithExpression()
+    {
+        Expr expr = ExprParser.Parse("abs(x + 1)", "x");
+
+        var abs = Assert.IsType<Abs>(expr);
+
+        Assert.Equal(
+            ExprParser.Parse("x + 1", "x"),
+            abs.Argument
+        );
+    }
+
+    [Fact]
+    public void Parser_AbsEvaluatesNegativeConstant()
+    {
+        Expr expr = ExprParser.Parse("abs(-5)");
+
+        Assert.Equal(5, expr.Evaluate(
+            new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Parser_ParsesNestedAbs()
+    {
+        Expr expr = ExprParser.Parse("abs(abs(x))", "x");
+
+        var outer = Assert.IsType<Abs>(expr);
+        Assert.IsType<Abs>(outer.Argument);
+    }
 }
 
 public class SimplifierTests
@@ -119,6 +158,26 @@ public class SimplifierTests
         Expr a = ExprParser.Parse("3 + x");
         Expr b = ExprParser.Parse("x + 3");
         Assert.Equal(a, b);
+    }
+
+    [Fact]
+    public void Simplify_AbsOfConstant()
+    {
+        Expr expr = new Abs(new Constant(-5));
+
+        Assert.Equal(
+            new Constant(5),
+            expr.Simplify());
+    }
+
+    [Fact]
+    public void Simplify_AbsOfZero()
+    {
+        Expr expr = new Abs(new Constant(0));
+
+        Assert.Equal(
+            new Constant(0),
+            expr.Simplify());
     }
 }
 
