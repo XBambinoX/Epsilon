@@ -988,3 +988,125 @@ public class AdvancedSimplifierTests
         Assert.Equal(6.0 / 6, expr.Evaluate(6.0), precision: 8);
     }
 }
+
+public class PolynomialFactoringTests
+{
+    [Fact]
+    public void Factors_simple_quadratic_with_two_real_roots()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 5*x + 6");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.True(success);
+        for (double x = -3; x <= 5; x += 1)
+            Assert.Equal(expr.Evaluate(x), factored.Evaluate(x), precision: 6);
+    }
+
+    [Fact]
+    public void Factors_produce_clean_integer_roots_not_floating_point_noise()
+    {
+        Expr expr = ExprParser.Parse("x^2 - 5*x + 6");
+        var (factored, _) = expr.TryFactorReal("x");
+        string printed = factored.Print();
+
+        Assert.DoesNotContain("00000", printed); // no floating-point noise like 2.0000000004
+    }
+
+    [Fact]
+    public void Fails_to_factor_over_reals_when_no_real_roots_exist()
+    {
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.False(success);
+        Assert.Equal(expr, factored); // original expression returned unchanged
+    }
+
+    [Fact]
+    public void Factors_over_complex_numbers_when_no_real_roots_exist()
+    {
+        Expr expr = ExprParser.Parse("x^2 + 1");
+        var (factored, success) = expr.TryFactorComplex("x");
+
+        Assert.True(success);
+        // (x - i)(x + i) evaluated at x=i should be 0
+        Complex result = factored.EvaluateComplex(Complex.ImaginaryUnit);
+        Assert.Equal(0, result.Real, precision: 6);
+        Assert.Equal(0, result.Imaginary, precision: 6);
+    }
+
+    [Fact]
+    public void Handles_repeated_root_multiplicity_correctly()
+    {
+        // (x-2)^2 = x^2 - 4x + 4
+        Expr expr = ExprParser.Parse("x^2 - 4*x + 4");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.True(success);
+        for (double x = -2; x <= 6; x += 1)
+            Assert.Equal(expr.Evaluate(x), factored.Evaluate(x), precision: 6);
+    }
+
+    [Fact]
+    public void Factors_cubic_with_three_real_roots()
+    {
+        // (x-1)(x-2)(x-3) = x^3 - 6x^2 + 11x - 6
+        Expr expr = ExprParser.Parse("x^3 - 6*x^2 + 11*x - 6");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.True(success);
+        for (double x = -2; x <= 5; x += 0.5)
+            Assert.Equal(expr.Evaluate(x), factored.Evaluate(x), precision: 4);
+    }
+
+    [Fact]
+    public void Fails_for_constant_expression()
+    {
+        Expr expr = new Constant(5);
+        var (_, success) = expr.TryFactorReal("x");
+        Assert.False(success);
+    }
+
+    [Fact]
+    public void Fails_for_non_polynomial_expression()
+    {
+        Expr expr = ExprParser.Parse("sin(x) + x");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.False(success);
+        Assert.Equal(expr, factored);
+    }
+
+    [Fact]
+    public void Complex_factoring_returns_conjugate_pair_for_negative_discriminant_quadratic()
+    {
+        // x^2 + 4 has roots ±2i
+        Expr expr = ExprParser.Parse("x^2 + 4");
+        var (factored, success) = expr.TryFactorComplex("x");
+
+        Assert.True(success);
+        Complex atI = factored.EvaluateComplex(new Complex(0, 2));
+        Assert.Equal(0, atI.Real, precision: 4);
+        Assert.Equal(0, atI.Imaginary, precision: 4);
+    }
+
+    [Fact]
+    public void Factors_polynomial_with_leading_coefficient()
+    {
+        // 2x^2 - 8 = 2(x-2)(x+2)
+        Expr expr = ExprParser.Parse("2*x^2 - 8");
+        var (factored, success) = expr.TryFactorReal("x");
+
+        Assert.True(success);
+        for (double x = -3; x <= 3; x += 1)
+            Assert.Equal(expr.Evaluate(x), factored.Evaluate(x), precision: 6);
+    }
+
+    [Fact]
+    public void Fails_for_multivariable_expression_with_wrong_variable_name()
+    {
+        Expr expr = ExprParser.Parse("y^2 - 4"); // polynomial in y, asking to factor by x
+        var (_, success) = expr.TryFactorReal("x");
+        Assert.False(success);
+    }
+}
