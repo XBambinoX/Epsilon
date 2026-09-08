@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
 /// <summary>
-/// A minimal square matrix indexed by variable name pairs, generic over the cell type.
-/// Plain data container — no linear algebra operations (determinant,
-/// inverse, multiplication) yet; those can be added later as needed.
+/// A generic N × M matrix.
 /// </summary>
 public sealed class Matrix<T>
 {
@@ -12,6 +10,9 @@ public sealed class Matrix<T>
     public IReadOnlyList<string> Variables { get; }
     public int Size => Variables.Count;
 
+    public int Rows => _values.GetLength(0);
+    public int Columns => _values.GetLength(1);
+
     public Matrix(IReadOnlyList<string> variables, T[,] values)
     {
         if (values.GetLength(0) != variables.Count || values.GetLength(1) != variables.Count)
@@ -19,6 +20,18 @@ public sealed class Matrix<T>
 
         Variables = variables;
         _values = values;
+    }
+
+    public Matrix(int rows, int columns)
+    {
+        if (rows < 0)
+            throw new ArgumentOutOfRangeException(nameof(rows));
+
+        if (columns < 0)
+            throw new ArgumentOutOfRangeException(nameof(columns));
+
+        _values = new T[rows, columns];
+        Variables = Array.Empty<string>();
     }
 
     public T this[string row, string col]
@@ -44,11 +57,11 @@ public sealed class Matrix<T>
 
     public override string ToString()
     {
-        var rows = new string[Size];
-        for (int i = 0; i < Size; i++)
+        var rows = new string[Rows];
+        for (int i = 0; i < Rows; i++)
         {
-            var cells = new string[Size];
-            for (int j = 0; j < Size; j++)
+            var cells = new string[Columns];
+            for (int j = 0; j < Columns; j++)
                 cells[j] = _values[i, j]?.ToString() ?? "null";
             rows[i] = string.Join("  ", cells);
         }
