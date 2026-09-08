@@ -205,9 +205,11 @@ public static class PolynomialFactoring
 
         foreach (double root in linearRoots)
         {
-            Expr factor = Math.Abs(root) < CoefficientTolerance
+            double roundedRoot = RoundIfNearInteger(root);
+
+            Expr factor = Math.Abs(roundedRoot) < CoefficientTolerance
                 ? new Variable(variable)
-                : new Subtract(new Variable(variable), new Constant(root));
+                : new Subtract(new Variable(variable), new Constant(roundedRoot));
 
             result = new Multiply(factor, result);
         }
@@ -221,14 +223,16 @@ public static class PolynomialFactoring
 
         foreach (Complex root in roots)
         {
-            // (x - (a + bi)) = (x - a) - b*i
-            Expr realPart = Math.Abs(root.Real) < CoefficientTolerance
-                ? new Variable(variable)
-                : new Subtract(new Variable(variable), new Constant(root.Real));
+            double realPart = RoundIfNearInteger(root.Real);
+            double imagPart = RoundIfNearInteger(root.Imaginary);
 
-            Expr factor = Math.Abs(root.Imaginary) < CoefficientTolerance
-                ? realPart
-                : new Subtract(realPart, new Multiply(new Constant(root.Imaginary), new ImaginaryUnit()));
+            Expr realExpr = Math.Abs(realPart) < CoefficientTolerance
+                ? new Variable(variable)
+                : new Subtract(new Variable(variable), new Constant(realPart));
+
+            Expr factor = Math.Abs(imagPart) < CoefficientTolerance
+                ? realExpr
+                : new Subtract(realExpr, new Multiply(new Constant(imagPart), new ImaginaryUnit()));
 
             result = new Multiply(result, factor);
         }
@@ -254,5 +258,11 @@ public static class PolynomialFactoring
         }
 
         return result;
+    }
+
+    private static double RoundIfNearInteger(double value, double tolerance = 1e-6)
+    {
+        double rounded = Math.Round(value);
+        return Math.Abs(value - rounded) < tolerance ? rounded : value;
     }
 }
