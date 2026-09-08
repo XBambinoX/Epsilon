@@ -1110,3 +1110,32 @@ public class PolynomialFactoringTests
         Assert.False(success);
     }
 }
+
+public class AbsValueTests
+{
+    [Fact]
+    public void Abs_EvaluatesPositive()
+    {
+        var expr = new Abs(new Constant(-5));
+
+        Assert.Equal(5, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Abs_EvaluatesZero()
+    {
+        var expr = new Abs(new Constant(0));
+
+        Assert.Equal(0, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void Abs_EvaluatesSymbolically()
+    {
+        var x = new Variable("x");
+        var expr = new Abs(x);
+
+        Assert.Equal(5, expr.Evaluate(
+            new Dictionary<string, double> { ["x"] = -5 }));
+    }
+}
