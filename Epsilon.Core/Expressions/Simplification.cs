@@ -326,6 +326,7 @@ public static class Simplifier
     // Helper method to extract the coefficient and the term from an expression
     private static (double Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
     {
+        Negate(var t) => (-1, t),
         Multiply(Constant c, var t) => (c.Value, t),
         Multiply(var t, Constant c) => (c.Value, t),
         _ => (1, expr)
