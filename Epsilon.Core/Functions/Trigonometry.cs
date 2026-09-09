@@ -18,7 +18,7 @@ public sealed class Cos(Expr argument) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Cos(Argument.Evaluate(bindings));
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Cos(Argument.EvaluateComplex(bindings));
     public override Expr Differentiate(string variable) =>
-        new Multiply(new Subtract(new Constant(0), new Sin(Argument)), Argument.Differentiate(variable));
+        new Multiply(new Negate(new Sin(Argument)), Argument.Differentiate(variable));
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
     public override Expr Substitute(string variable, Expr replacement) => new Cos(Argument.Substitute(variable, replacement));
     public void Deconstruct(out Expr argument) => argument = Argument;
@@ -45,7 +45,7 @@ public sealed class Cot(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.One / Complex.Tan(Argument.EvaluateComplex(bindings));
     public override Expr Differentiate(string variable) =>
         new Divide(
-            new Subtract(new Constant(0), Argument.Differentiate(variable)),
+            new Negate(Argument.Differentiate(variable)),
             new Power(new Sin(Argument), new Constant(2))
         );
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
@@ -74,7 +74,7 @@ public sealed class Csc(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.One / Complex.Sin(Argument.EvaluateComplex(bindings));
     public override Expr Differentiate(string variable) =>
         new Multiply(
-            new Subtract(new Constant(0), new Multiply(new Csc(Argument), new Cot(Argument))),
+            new Negate(new Multiply(new Csc(Argument), new Cot(Argument))),
             Argument.Differentiate(variable)
         );
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
@@ -106,7 +106,7 @@ public sealed class Acos(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Acos(Argument.EvaluateComplex(bindings));
     public override Expr Differentiate(string variable) =>
         new Divide(
-            new Subtract(new Constant(0), Argument.Differentiate(variable)),
+            new Negate(Argument.Differentiate(variable)),
             new Power(new Subtract(new Constant(1), new Power(Argument, new Constant(2))), new Constant(0.5))
         );
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
@@ -253,7 +253,7 @@ public sealed class Coth(Expr argument) : Expr
     // d/dx coth(u) = -u' / sinh^2(u)
     public override Expr Differentiate(string variable) =>
         new Divide(
-            new Subtract(new Constant(0), Argument.Differentiate(variable)),
+            new Negate(Argument.Differentiate(variable)),
             new Power(new Sinh(Argument), new Constant(2))
         );
 
@@ -278,7 +278,7 @@ public sealed class Sech(Expr argument) : Expr
     // d/dx sech(u) = -u' * sech(u) * tanh(u)
     public override Expr Differentiate(string variable) =>
         new Multiply(
-            new Multiply(new Subtract(new Constant(0), Argument.Differentiate(variable)), new Sech(Argument)),
+            new Multiply(new Negate(Argument.Differentiate(variable)), new Sech(Argument)),
             new Tanh(Argument)
         );
 
@@ -303,7 +303,7 @@ public sealed class Csch(Expr argument) : Expr
     // d/dx csch(u) = -u' * csch(u) * coth(u)
     public override Expr Differentiate(string variable) =>
         new Multiply(
-            new Multiply(new Subtract(new Constant(0), Argument.Differentiate(variable)), new Csch(Argument)),
+            new Multiply(new Negate(Argument.Differentiate(variable)), new Csch(Argument)),
             new Coth(Argument)
         );
 
