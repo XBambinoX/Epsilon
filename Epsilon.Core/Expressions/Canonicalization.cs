@@ -28,6 +28,13 @@ public static class Canonicalizer
         Abs(var a) => new Abs(a.Canonicalize()),
         Sqrt(var a) => new Sqrt(a.Canonicalize()),
         NthRoot(var a, var n) => new NthRoot(a.Canonicalize(), n.Canonicalize()),
+        
+        Sign(var a) => new Sign(a.Canonicalize()),
+        Floor(var a) => new Floor(a.Canonicalize()),
+        Ceiling(var a) => new Ceiling(a.Canonicalize()),
+        Round(var a) => new Round(a.Canonicalize()),
+        Min(var l, var r) => new Min(l.Canonicalize(), r.Canonicalize()),
+        Max(var l, var r) => new Max(l.Canonicalize(), r.Canonicalize()),
 
         _ => expr
     };

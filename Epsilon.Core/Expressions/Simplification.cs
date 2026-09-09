@@ -48,6 +48,12 @@ public static class Simplifier
             Csch(var a) => new Csch(a.Simplify()),
             Abs(var a) => new Abs(a.Simplify()),
             Sqrt(var a) => new Sqrt(a.Simplify()),
+            Sign(var a) => new Sign(a.Simplify()),
+            Floor(var a) => new Floor(a.Simplify()),
+            Ceiling(var a) => new Ceiling(a.Simplify()),
+            Round(var a) => new Round(a.Simplify()),
+            Min(var l, var r) => new Min(l.Simplify(), r.Simplify()),
+            Max(var l, var r) => new Max(l.Simplify(), r.Simplify()),
             NthRoot(var a, var n) => new NthRoot(a.Simplify(), n.Simplify()),
             _ => expr
         };
@@ -284,6 +290,24 @@ public static class Simplifier
 
             case Abs(var a) when a is Abs:
                 return a;    
+
+            case Sign(Constant c):
+                return new Constant(Math.Sign(c.Value));
+
+            case Floor(Constant c):
+                return new Constant(Math.Floor(c.Value));
+
+            case Ceiling(Constant c):
+                return new Constant(Math.Ceiling(c.Value));
+
+            case Round(Constant c):
+                return new Constant(Math.Round(c.Value));
+
+            case Min(Constant a, Constant b):
+                return new Constant(Math.Min(a.Value, b.Value));
+
+            case Max(Constant a, Constant b):
+                return new Constant(Math.Max(a.Value, b.Value));
 
             default:
                 return expr;
