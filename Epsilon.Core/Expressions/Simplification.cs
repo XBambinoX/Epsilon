@@ -55,6 +55,8 @@ public static class Simplifier
             Min(var l, var r) => new Min(l.Simplify(), r.Simplify()),
             Max(var l, var r) => new Max(l.Simplify(), r.Simplify()),
             NthRoot(var a, var n) => new NthRoot(a.Simplify(), n.Simplify()),
+            Negate(var a) => new Negate(a.Simplify()),
+
             _ => expr
         };
 
@@ -86,7 +88,13 @@ public static class Simplifier
                 return new Constant(0);
 
             case Subtract(Constant zero, var x) when zero.Value == 0:
-                return new Multiply(new Constant(-1), x).Simplify();
+                return new Negate(x).Simplify();
+
+            case Negate(Constant c):
+                return new Constant(-c.Value);
+
+            case Negate(Negate(var a)):
+                return a;
 
             // a - (-1 * b) = a + b   (double negation via subtraction)
             case Subtract(var a, Multiply(Constant c, var b)) when c.Value == -1:
