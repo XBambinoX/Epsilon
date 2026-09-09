@@ -192,7 +192,7 @@ public static class ExprParser
             if (Current == "-")
             {
                 Consume();
-                return new Subtract(new Constant(0), ParseUnary());
+                return new Negate(ParseUnary());
             }
             return ParsePower();
         }
