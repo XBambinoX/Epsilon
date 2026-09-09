@@ -61,7 +61,9 @@ public static class ExprParser
                 continue;
             }
 
-            if ("+-*/^(),".Contains(c))
+            // '|' is included alongside the other single-char operator/grouping
+            // tokens so it can act as the open/close delimiter for |x| (abs sugar).
+            if ("+-*/^(),|".Contains(c))
             {
                 tokens.Add(c.ToString());
                 i++;
@@ -118,6 +120,13 @@ public static class ExprParser
     {
         private int _pos = 0;
 
+        // True while parsing the contents of a |...| group. While inside one,
+        // an encountered '|' can only be the closing delimiter of *this* group,
+        // never the start of a new implicit-multiplication factor — otherwise
+        // the term loop misreads the closing bar as opening another group and
+        // runs off the end of the input (see ParsePrimary's '|' branch).
+        private bool _inBar = false;
+
         private string? Current => _pos < tokens.Count ? tokens[_pos] : null;
 
         private string Consume()
@@ -171,8 +180,8 @@ public static class ExprParser
             return left;
         }
 
-        private static bool StartsImplicitFactor(string? token) =>
-            token is not null && (token == "(" || char.IsDigit(token[0]) || char.IsLetter(token[0]));
+        private bool StartsImplicitFactor(string? token) =>
+            token is not null && (token == "(" || (token == "|" && !_inBar) || char.IsDigit(token[0]) || char.IsLetter(token[0]));
         // power := primary ('^' unary)?
         private Expr ParsePower()
         {
@@ -197,7 +206,8 @@ public static class ExprParser
             return ParsePower();
         }
 
-        // primary := NUMBER | VARIABLE | 'pi' | 'e' | 'i' | FUNCTION '(' args ')' | '(' expression ')'
+        // primary := NUMBER | VARIABLE | 'pi' | 'e' | 'i' | FUNCTION '(' args ')'
+        //          | '(' expression ')' | '|' expression '|'
         private Expr ParsePrimary()
         {
             string? token = Current;
@@ -212,6 +222,27 @@ public static class ExprParser
                 if (Current != ")") throw new FormatException("Expected closing ')'.");
                 Consume();
                 return inner;
+            }
+
+            // |x| sugar over abs(x). Not re-entrant for nested bars like "|x + |y||" —
+            // the first closing '|' encountered always ends the current group.
+            if (token == "|")
+            {
+                Consume();
+                bool wasInBar = _inBar;
+                _inBar = true;
+                Expr inner;
+                try
+                {
+                    inner = ParseExpression();
+                }
+                finally
+                {
+                    _inBar = wasInBar;
+                }
+                if (Current != "|") throw new FormatException("Expected closing '|' for absolute value.");
+                Consume();
+                return new Abs(inner);
             }
 
             if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
