@@ -28,6 +28,8 @@ public static class Canonicalizer
         Abs(var a) => new Abs(a.Canonicalize()),
         Sqrt(var a) => new Sqrt(a.Canonicalize()),
         NthRoot(var a, var n) => new NthRoot(a.Canonicalize(), n.Canonicalize()),
+
+        Negate(var a) => new Negate(a.Canonicalize()),
         
         Sign(var a) => new Sign(a.Canonicalize()),
         Floor(var a) => new Floor(a.Canonicalize()),
@@ -129,6 +131,7 @@ public static class Canonicalizer
         Pi => true,
         E => true,
         ImaginaryUnit => true,
+        Negate(var a) => IsPureConstant(a),
         Add(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
         Subtract(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
         Multiply(var l, var r) => IsPureConstant(l) && IsPureConstant(r),
@@ -140,6 +143,7 @@ public static class Canonicalizer
     private static bool ContainsImaginaryUnit(Expr e) => e switch
     {
         ImaginaryUnit => true,
+        Negate(var a) => ContainsImaginaryUnit(a),
         Add(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
         Subtract(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
         Multiply(var l, var r) => ContainsImaginaryUnit(l) || ContainsImaginaryUnit(r),
