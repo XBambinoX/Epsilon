@@ -164,3 +164,153 @@ public sealed class Tanh(Expr argument) : Expr
     public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"tanh({Argument})";
 }
+
+public sealed class Asinh(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        Math.Asinh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Asinh(Argument.EvaluateComplex(bindings));
+
+    // d/dx asinh(u) = u' / sqrt(u^2 + 1)
+    public override Expr Differentiate(string variable) =>
+        new Divide(
+            Argument.Differentiate(variable),
+            new Power(new Add(new Power(Argument, new Constant(2)), new Constant(1)), new Constant(0.5))
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Asinh(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"asinh({Argument})";
+}
+
+public sealed class Acosh(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        Math.Acosh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Acosh(Argument.EvaluateComplex(bindings));
+
+    // d/dx acosh(u) = u' / sqrt(u^2 - 1)   (domain: u > 1)
+    public override Expr Differentiate(string variable) =>
+        new Divide(
+            Argument.Differentiate(variable),
+            new Power(new Subtract(new Power(Argument, new Constant(2)), new Constant(1)), new Constant(0.5))
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Acosh(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"acosh({Argument})";
+}
+
+public sealed class Atanh(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        Math.Atanh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Atanh(Argument.EvaluateComplex(bindings));
+
+    // d/dx atanh(u) = u' / (1 - u^2)   (domain: |u| < 1)
+    public override Expr Differentiate(string variable) =>
+        new Divide(
+            Argument.Differentiate(variable),
+            new Subtract(new Constant(1), new Power(Argument, new Constant(2)))
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Atanh(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"atanh({Argument})";
+}
+
+public sealed class Coth(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        1.0 / Math.Tanh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Coth(Argument.EvaluateComplex(bindings));
+
+    // d/dx coth(u) = -u' / sinh^2(u)
+    public override Expr Differentiate(string variable) =>
+        new Divide(
+            new Subtract(new Constant(0), Argument.Differentiate(variable)),
+            new Power(new Sinh(Argument), new Constant(2))
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Coth(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"coth({Argument})";
+}
+
+public sealed class Sech(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        1.0 / Math.Cosh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Sech(Argument.EvaluateComplex(bindings));
+
+    // d/dx sech(u) = -u' * sech(u) * tanh(u)
+    public override Expr Differentiate(string variable) =>
+        new Multiply(
+            new Multiply(new Subtract(new Constant(0), Argument.Differentiate(variable)), new Sech(Argument)),
+            new Tanh(Argument)
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Sech(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"sech({Argument})";
+}
+
+public sealed class Csch(Expr argument) : Expr
+{
+    public Expr Argument { get; } = argument;
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        1.0 / Math.Sinh(Argument.Evaluate(bindings));
+
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+        Complex.Csch(Argument.EvaluateComplex(bindings));
+
+    // d/dx csch(u) = -u' * csch(u) * coth(u)
+    public override Expr Differentiate(string variable) =>
+        new Multiply(
+            new Multiply(new Subtract(new Constant(0), Argument.Differentiate(variable)), new Csch(Argument)),
+            new Coth(Argument)
+        );
+
+    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    public override Expr Substitute(string variable, Expr replacement) =>
+        new Csch(Argument.Substitute(variable, replacement));
+
+    public void Deconstruct(out Expr argument) => argument = Argument;
+    public override string ToString() => $"csch({Argument})";
+}

@@ -91,4 +91,17 @@ public readonly struct Complex : IEquatable<Complex>
 
     public static Complex Atan(Complex z) =>
         (ImaginaryUnit / new Complex(2)) * Log((One - ImaginaryUnit * z) / (One + ImaginaryUnit * z));
+
+    // asinh(z) = ln(z + sqrt(z^2 + 1))
+    public static Complex Asinh(Complex z) => Log(z + Sqrt(z * z + One));
+
+    // acosh(z) = ln(z + sqrt(z^2 - 1))
+    public static Complex Acosh(Complex z) => Log(z + Sqrt(z * z - One));
+
+    // atanh(z) = (1/2) * ln((1+z) / (1-z))
+    public static Complex Atanh(Complex z) => Log((One + z) / (One - z)) / new Complex(2);
+
+    public static Complex Coth(Complex z) => Cosh(z) / Sinh(z);
+    public static Complex Sech(Complex z) => One / Cosh(z);
+    public static Complex Csch(Complex z) => One / Sinh(z);
 }
