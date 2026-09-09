@@ -96,10 +96,8 @@ public static class Simplifier
             case Negate(Negate(var a)):
                 return a;
 
-            // a - (-1 * b) = a + b   (double negation via subtraction)
-            case Subtract(var a, Multiply(Constant c, var b)) when c.Value == -1:
-                return new Add(a, b).Simplify();
-            case Subtract(var a, Multiply(var b, Constant c)) when c.Value == -1:
+            // a - (-b) = a + b
+            case Subtract(var a, Negate(var b)):
                 return new Add(a, b).Simplify();
 
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
