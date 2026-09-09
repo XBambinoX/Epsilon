@@ -387,7 +387,9 @@ public static class Simplifier
         combined.RemoveAll(t => t.Coefficient == 0);
 
         Expr Rebuild(double coef, Expr term) =>
-            coef == 1 ? term : new Multiply(new Constant(coef), term);
+            coef == 1 ? term :
+            coef == -1 ? new Negate(term) :
+            new Multiply(new Constant(coef), term);
 
         if (combined.Count == 0)
             return new Constant(constantSum);
