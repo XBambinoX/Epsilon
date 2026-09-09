@@ -116,7 +116,7 @@ public static class Simplifier
                 return l;
 
             case Divide(Constant a, Constant b) when b.Value != 0:
-                return new Constant(a.Value / b.Value);
+                return ReduceConstantFraction(a.Value, b.Value);
 
             // 0 / var = 0
             case Divide(Constant zero, var d) when zero.Value == 0:
@@ -322,6 +322,46 @@ public static class Simplifier
 
     private static bool IsOddInteger(double value) =>
         value == Math.Floor(value) && (long)value % 2 != 0;
+
+    private static bool IsInteger(double value) =>
+        !double.IsInfinity(value) && !double.IsNaN(value) && value == Math.Floor(value);
+
+    private static double Gcd(double a, double b)
+    {
+        a = Math.Abs(a);
+        b = Math.Abs(b);
+
+        while (b > 1e-9)
+        {
+            double t = b;
+            b = a % b;
+            a = t;
+        }
+
+        return a;
+    }
+
+    private static Expr ReduceConstantFraction(double a, double b)
+    {
+        if (!IsInteger(a) || !IsInteger(b))
+            return new Constant(a / b);
+
+        double gcd = Gcd(a, b);
+        if (gcd == 0) gcd = 1;
+
+        double reducedA = a / gcd;
+        double reducedB = b / gcd;
+
+        if (reducedB < 0)
+        {
+            reducedA = -reducedA;
+            reducedB = -reducedB;
+        }
+
+        return reducedB == 1
+            ? new Constant(reducedA)
+            : new Divide(new Constant(reducedA), new Constant(reducedB));
+    }
 
     // Helper method to extract the coefficient and the term from an expression
     private static (double Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
