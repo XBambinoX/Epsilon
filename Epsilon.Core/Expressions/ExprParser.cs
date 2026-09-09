@@ -9,7 +9,7 @@ public static class ExprParser
         "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
         "sinh", "cosh", "tanh", "coth", "sech", "csch",
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i", "x",
-        "sign", "floor", "ceiling", "round", "min", "max", "log"
+        "sign", "floor", "ceiling", "round", "min", "max", "log", "abs"
     }.OrderByDescending(s => s.Length).ToArray();
 
     private static readonly HashSet<string> FunctionNames = new(new[]
@@ -17,7 +17,7 @@ public static class ExprParser
         "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
         "sinh", "cosh", "tanh", "coth", "sech", "csch",
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln",
-        "sign", "floor", "ceiling", "round", "min", "max", "log"
+        "sign", "floor", "ceiling", "round", "min", "max", "log", "abs"
     });
 
     public static Expr Parse(string input, params string[] variableNames)
@@ -281,6 +281,17 @@ public static class ExprParser
                     "exp" => new Exp(arguments[0]),
                     "ln" => new Ln(arguments[0]),
                     "sqrt" => new Sqrt(arguments[0]),
+                    "sign" => new Sign(arguments[0]),
+                    "floor" => new Floor(arguments[0]),
+                    "ceiling" => new Ceiling(arguments[0]),
+                    "round" => new Round(arguments[0]),
+                    "min" when arguments.Count == 2 => new Min(arguments[0], arguments[1]),
+                    "min" => throw new FormatException("min requires exactly 2 arguments: min(a, b)."),
+                    "max" when arguments.Count == 2 => new Max(arguments[0], arguments[1]),
+                    "max" => throw new FormatException("max requires exactly 2 arguments: max(a, b)."),
+                    // log(x, n) = ln(x) / ln(n) - sugar over existing nodes
+                    "log" when arguments.Count == 2 => new Divide(new Ln(arguments[0]), new Ln(arguments[1])),
+                    "log" => throw new FormatException("log requires exactly 2 arguments: log(x, base)."),
                     "abs" => new Abs(arguments[0]),
                     "nthroot" when arguments.Count == 2 => new NthRoot(arguments[0], arguments[1]),
                     "nthroot" => throw new FormatException("nthroot requires exactly 2 arguments: nthroot(x, n)."),
