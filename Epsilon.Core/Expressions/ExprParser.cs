@@ -6,14 +6,18 @@ public static class ExprParser
 {
     private static readonly string[] ReservedIdentifiers = new[]
     {
-        "nthroot", "sqrt", "abs", "asin", "acos", "atan", "sinh", "cosh", "tanh",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i"
+        "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
+        "sinh", "cosh", "tanh", "coth", "sech", "csch",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i", "x",
+        "sign", "floor", "ceiling", "round", "min", "max", "log"
     }.OrderByDescending(s => s.Length).ToArray();
 
     private static readonly HashSet<string> FunctionNames = new(new[]
     {
-        "nthroot", "sqrt", "abs", "asin", "acos", "atan", "sinh", "cosh", "tanh",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln"
+        "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
+        "sinh", "cosh", "tanh", "coth", "sech", "csch",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln",
+        "sign", "floor", "ceiling", "round", "min", "max", "log"
     });
 
     public static Expr Parse(string input, params string[] variableNames)
@@ -268,6 +272,12 @@ public static class ExprParser
                     "sinh" => new Sinh(arguments[0]),
                     "cosh" => new Cosh(arguments[0]),
                     "tanh" => new Tanh(arguments[0]),
+                    "asinh" => new Asinh(arguments[0]),
+                    "acosh" => new Acosh(arguments[0]),
+                    "atanh" => new Atanh(arguments[0]),
+                    "coth" => new Coth(arguments[0]),
+                    "sech" => new Sech(arguments[0]),
+                    "csch" => new Csch(arguments[0]),
                     "exp" => new Exp(arguments[0]),
                     "ln" => new Ln(arguments[0]),
                     "sqrt" => new Sqrt(arguments[0]),
