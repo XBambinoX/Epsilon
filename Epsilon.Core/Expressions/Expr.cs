@@ -17,7 +17,19 @@ public abstract class Expr
 
     public abstract Expr Differentiate(string variable);
 
-    public Expr Differentiate() => Differentiate(GetSingleVariable());
+    public Expr Differentiate()
+    {
+        var vars = GetVariables();
+        if (vars.Count == 0)
+            return new Constant(0);
+
+        if (vars.Count == 1)
+            return Differentiate(vars.First());
+
+        throw new InvalidOperationException(
+            $"Expected exactly 1 variable, found {vars.Count}: [{string.Join(", ", vars)}]. " +
+            "Use the explicit-variable overload for multivariable expressions.");
+    }
 
     public virtual Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         throw new NotImplementedException($"{GetType().Name} does not yet support complex evaluation.");
