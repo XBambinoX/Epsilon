@@ -5,9 +5,7 @@ public static class Simplifier
     public static Expr Simplify(this Expr expr)
     {
         Expr powered = ToPowers(expr.Canonicalize());
-
         Expr simplified = SimplifyPowers(powered);
-
         return PreferRoots(simplified).Canonicalize();
     }
 
@@ -65,7 +63,7 @@ public static class Simplifier
             Min(var l, var r) => new Min(SimplifyPowers(l), SimplifyPowers(r)),
             Max(var l, var r) => new Max(SimplifyPowers(l), SimplifyPowers(r)),
 
-            Sqrt(var a) => new Power(SimplifyPowers(a), new Constant(0.5)),
+            Sqrt(var a) => new Power(SimplifyPowers(a), new Divide(new Constant(1), new Constant(2))),
             NthRoot(var a, var n) => new Power(SimplifyPowers(a), new Divide(new Constant(1), SimplifyPowers(n))),
 
             _ => expr
@@ -76,7 +74,7 @@ public static class Simplifier
 
     private static Expr ToPowers(Expr expr) => expr switch
     {
-        Sqrt(var a) => new Power(ToPowers(a), new Constant(0.5)),
+        Sqrt(var a) => new Power(ToPowers(a), new Divide(new Constant(1), new Constant(2))),
         NthRoot(var a, var n) => new Power(ToPowers(a), new Divide(new Constant(1), ToPowers(n))),
 
         Add(var l, var r) => new Add(ToPowers(l), ToPowers(r)),
@@ -117,15 +115,12 @@ public static class Simplifier
 
     private static Expr PreferRoots(Expr expr) => expr switch
     {
-        // x^0.5 → √x
         Power(var b, Constant e) when Math.Abs(e.Value - 0.5) < 1e-12 =>
             new Sqrt(PreferRoots(b)),
 
-        // x^(1/2) → √x
         Power(var b, Divide(Constant one, Constant two)) when one.Value == 1 && two.Value == 2 =>
             new Sqrt(PreferRoots(b)),
 
-        // x^(1/n) → ⁿ√x
         Power(var b, Divide(Constant one, Constant n)) when one.Value == 1 && IsInteger(n.Value) && n.Value > 0 =>
             new NthRoot(PreferRoots(b), n),
 
@@ -178,23 +173,55 @@ public static class Simplifier
             case Add(Constant a, Constant b):
                 return new Constant(a.Value + b.Value);
 
+            case Subtract(Constant a, Constant b):
+                return new Constant(a.Value - b.Value);
+
+            case Multiply(Constant a, Constant b):
+                return new Constant(a.Value * b.Value);
+
+            case Divide(Constant a, Constant b) when b.Value != 0:
+                return ReduceConstantFraction(a.Value, b.Value);
+
+            // Constant +- (p/q)
+            case Add(Constant a, Divide(Constant b, Constant c)) when c.Value != 0:
+                return new Constant(a.Value + b.Value / c.Value);
+
+            case Add(Divide(Constant a, Constant b), Constant c) when b.Value != 0:
+                return new Constant(a.Value / b.Value + c.Value);
+
+            case Subtract(Constant a, Divide(Constant b, Constant c)) when c.Value != 0:
+                return new Constant(a.Value - b.Value / c.Value);
+
+            case Subtract(Divide(Constant a, Constant b), Constant c) when b.Value != 0:
+                return new Constant(a.Value / b.Value - c.Value);
+
+            // (p/q) +- (r/s)
+            case Add(Divide(Constant a, Constant b), Divide(Constant c, Constant d))
+                when b.Value != 0 && d.Value != 0:
+                return ReduceConstantFraction(a.Value * d.Value + c.Value * b.Value, b.Value * d.Value);
+
+            case Subtract(Divide(Constant a, Constant b), Divide(Constant c, Constant d))
+                when b.Value != 0 && d.Value != 0:
+                return ReduceConstantFraction(a.Value * d.Value - c.Value * b.Value, b.Value * d.Value);
+
+            // Negate of simple numeric
+            case Negate(Constant c):
+                return new Constant(-c.Value);
+
+            case Negate(Divide(Constant a, Constant b)) when b.Value != 0:
+                return ReduceConstantFraction(-a.Value, b.Value);
+
             case Add(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
             case Add(var l, var r) when l.Equals(new Constant(0)):
                 return r;
 
-            case Subtract(Constant a, Constant b):
-                return new Constant(a.Value - b.Value);
-
             case Subtract(var l, var r) when l.Equals(r):
                 return new Constant(0);
 
             case Subtract(Constant zero, var x) when zero.Value == 0:
                 return new Negate(x);
-
-            case Negate(Constant c):
-                return new Constant(-c.Value);
 
             case Negate(Negate(var a)):
                 return a;
@@ -205,9 +232,6 @@ public static class Simplifier
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
-            case Multiply(Constant a, Constant b):
-                return new Constant(a.Value * b.Value);
-
             case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
                 return new Constant(0);
 
@@ -216,9 +240,6 @@ public static class Simplifier
 
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
-
-            case Divide(Constant a, Constant b) when b.Value != 0:
-                return ReduceConstantFraction(a.Value, b.Value);
 
             case Divide(Constant zero, var d) when zero.Value == 0:
                 return new Constant(0);
@@ -290,7 +311,7 @@ public static class Simplifier
             case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
-            // x / x^n = x^(1 - n)          ← саме це правило ловить x / x^0.5
+            // x / x^n = x^(1 - n)
             case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
