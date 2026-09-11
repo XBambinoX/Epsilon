@@ -36,15 +36,6 @@ public static class Printer
             Add(var l, Constant r) when r.Value < 0 =>
                 $"{PrintInternal(l, myPrecedence)} - {PrintInternal(new Constant(-r.Value), myPrecedence + 1)}",
 
-            Multiply(Constant c, var r) when r is not Constant && c.Value == 1 =>
-                PrintInternal(r, parentPrecedence),
-
-            Multiply(Constant c, var r) when r is not Constant && c.Value == -1 =>
-                $"-{PrintInternal(r, myPrecedence + 1)}",
-
-            Multiply(Constant c, var r) when r is not Constant =>
-                $"{c.Value.ToString(CultureInfo.InvariantCulture)}{PrintInternal(r, myPrecedence + 1)}",
-
             Add(var l, var r) =>
                 $"{PrintInternal(l, myPrecedence)} + {PrintInternal(r, myPrecedence + 1)}",
 
@@ -112,24 +103,41 @@ public static class Printer
 
     private static string PrintMultiply(Expr left, Expr right, int parentPrecedence)
     {
-        var factors = new List<Expr>();
+        const int multiplyPrecedence = 2;
 
+        var factors = new List<Expr>();
         FlattenMultiply(left, factors);
         FlattenMultiply(right, factors);
 
-        if (factors.All(CanBeImplicitFactor))
-        {
-            string result = string.Concat(
-                factors.Select(f => PrintInternal(f, Precedence(f)))
-            );
+        var constants = factors.Where(f => f is Constant).Cast<Constant>().ToList();
+        var rest = factors.Where(f => f is not Constant).ToList();
 
-            return Precedence(new Multiply(left, right)) < parentPrecedence
-                ? $"({result})"
-                : result;
+        bool canUseImplicit = constants.Count <= 1 && rest.All(CanBeImplicitFactor);
+
+        string result;
+
+        if (canUseImplicit)
+        {
+            double coefficient = constants.Count == 1 ? constants[0].Value : 1;
+            string sign = coefficient < 0 ? "-" : "";
+            double absCoefficient = Math.Abs(coefficient);
+
+            string coefficientPart = absCoefficient == 1 && rest.Count > 0
+                ? ""
+                : absCoefficient.ToString(CultureInfo.InvariantCulture);
+
+            string restPart = string.Concat(rest.Select(f => PrintInternal(f, Precedence(f))));
+
+            result = rest.Count == 0
+                ? $"{sign}{absCoefficient.ToString(CultureInfo.InvariantCulture)}"
+                : $"{sign}{coefficientPart}{restPart}";
+        }
+        else
+        {
+            result = string.Join(" * ", factors.Select(f => PrintInternal(f, multiplyPrecedence + 1)));
         }
 
-        // Otherwise preserve explicit multiplication.
-        return $"{PrintInternal(left, 2)} * {PrintInternal(right, 3)}";
+        return multiplyPrecedence < parentPrecedence ? $"({result})" : result;
     }
 
     private static void FlattenMultiply(Expr expr, List<Expr> factors)
@@ -148,7 +156,6 @@ public static class Printer
     private static bool CanBeImplicitFactor(Expr expr) => expr switch
     {
         Variable => true,
-        Power => true,
 
         Sin or Cos or Tan or Cot or Sec or Csc
             or Asin or Acos or Atan
