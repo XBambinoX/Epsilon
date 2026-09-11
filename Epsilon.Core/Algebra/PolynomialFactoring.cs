@@ -148,6 +148,12 @@ public static class PolynomialFactoring
                     return (d, c.Value * co);
                 }
 
+            case Negate(var inner):
+                {
+                    var (d, co) = ExtractTerm(inner, variable);
+                    return (d, -co);
+                }
+
             default:
                 throw new NotSupportedException($"'{expr.Print()}' is not a recognized polynomial term.");
         }
