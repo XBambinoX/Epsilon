@@ -139,6 +139,25 @@ public static class Simplifier
             case Power(var b, var e) when b.Equals(new Constant(0)):
                 return new Constant(0);
 
+            // x^(1/2) = sqrt(x)   (exponent as an unreduced rational fraction, e.g. from x^(1/2) literally)
+            case Power(var b, Divide(Constant one, Constant two)) when one.Value == 1 && two.Value == 2:
+                return new Sqrt(b).Simplify();
+
+            // x^0.5 = sqrt(x)   (exponent as a plain decimal constant, e.g. from x^0.5)
+            case Power(var b, Constant e) when e.Value == 0.5:
+                return new Sqrt(b).Simplify();
+
+            // sqrt(x) / x = 1 / sqrt(x)   (rationalizes the "ugly" derivative-of-sqrt form)
+            case Divide(Sqrt(var b1), var b2) when b1.Equals(b2):
+                return new Divide(new Constant(1), new Sqrt(b1)).Simplify();
+
+            // sqrt(x) / (c * x) = 1 / (c * sqrt(x))
+            case Divide(Sqrt(var b1), Multiply(Constant c, var b2)) when b1.Equals(b2):
+                return new Divide(new Constant(1), new Multiply(c, new Sqrt(b1))).Simplify();
+
+            case Divide(Sqrt(var b1), Multiply(var b2, Constant c)) when b1.Equals(b2):
+                return new Divide(new Constant(1), new Multiply(c, new Sqrt(b1))).Simplify();
+
             case Power(Power(var b, var e1), var e2):
                 return new Power(b, new Multiply(e1, e2)).Simplify();
 
