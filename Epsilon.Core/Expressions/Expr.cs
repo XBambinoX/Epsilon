@@ -70,14 +70,18 @@ public abstract class Expr
     public override int GetHashCode() => ToString().GetHashCode();
 }
 
-public sealed class Constant(double value) : Expr
+public sealed class Constant : Expr
 {
-    public double Value { get; } = value;
+    public Rational Value { get; }
 
     private static readonly IReadOnlySet<string> NoVariables = new HashSet<string>();
 
-    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Value;
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => new Complex(Value);
+    public Constant(Rational value) => Value = value;
+    public Constant(double value) : this(Rational.FromDouble(value)) { }
+    public Constant(int value) : this(new Rational(value)) { }
+
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Value.ToDouble();
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => new Complex(Value.ToDouble());
     public override Expr Differentiate(string variable) => new Constant(0);
     public override IReadOnlySet<string> GetVariables() => NoVariables;
     public override Expr Substitute(string variable, Expr replacement) => this;

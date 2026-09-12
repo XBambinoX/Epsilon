@@ -36,7 +36,7 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     {
         if (Degree is Constant n)
         {
-            Expr exponent = new Constant(1.0 / n.Value);
+            Expr exponent = new Constant(Rational.One / n.Value);
             return new Multiply(
                 new Multiply(exponent, new Power(Argument, new Subtract(exponent, new Constant(1)))),
                 Argument.Differentiate(variable)

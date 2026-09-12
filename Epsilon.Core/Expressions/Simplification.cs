@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Epsilon.Core;
 
 public static class Simplifier
@@ -115,13 +117,13 @@ public static class Simplifier
 
     private static Expr PreferRoots(Expr expr) => expr switch
     {
-        Power(var b, Constant e) when Math.Abs(e.Value - 0.5) < 1e-12 =>
+        Power(var b, Constant e) when e.Value == new Rational(1, 2) =>
             new Sqrt(PreferRoots(b)),
 
-        Power(var b, Divide(Constant one, Constant two)) when one.Value == 1 && two.Value == 2 =>
+        Power(var b, Divide(Constant one, Constant two)) when one.Value.IsOne && two.Value == 2 =>
             new Sqrt(PreferRoots(b)),
 
-        Power(var b, Divide(Constant one, Constant n)) when one.Value == 1 && IsInteger(n.Value) && n.Value > 0 =>
+        Power(var b, Divide(Constant one, Constant n)) when one.Value.IsOne && n.Value.IsInteger && n.Value.Sign > 0 =>
             new NthRoot(PreferRoots(b), n),
 
         Add(var l, var r) => new Add(PreferRoots(l), PreferRoots(r)),
@@ -180,7 +182,7 @@ public static class Simplifier
                 return new Constant(a.Value * b.Value);
 
             case Divide(Constant a, Constant b) when b.Value != 0:
-                return ReduceConstantFraction(a.Value, b.Value);
+                return new Constant(a.Value / b.Value);
 
             // Constant +- (p/q)
             case Add(Constant a, Divide(Constant b, Constant c)) when c.Value != 0:
@@ -198,18 +200,17 @@ public static class Simplifier
             // (p/q) +- (r/s)
             case Add(Divide(Constant a, Constant b), Divide(Constant c, Constant d))
                 when b.Value != 0 && d.Value != 0:
-                return ReduceConstantFraction(a.Value * d.Value + c.Value * b.Value, b.Value * d.Value);
+                return new Constant((a.Value * d.Value + c.Value * b.Value) / (b.Value * d.Value));
 
             case Subtract(Divide(Constant a, Constant b), Divide(Constant c, Constant d))
                 when b.Value != 0 && d.Value != 0:
-                return ReduceConstantFraction(a.Value * d.Value - c.Value * b.Value, b.Value * d.Value);
+                return new Constant((a.Value * d.Value - c.Value * b.Value) / (b.Value * d.Value));
 
-            // Negate of simple numeric
             case Negate(Constant c):
                 return new Constant(-c.Value);
 
             case Negate(Divide(Constant a, Constant b)) when b.Value != 0:
-                return ReduceConstantFraction(-a.Value, b.Value);
+                return new Constant(-a.Value / b.Value);
 
             case Add(var l, var r) when r.Equals(new Constant(0)):
                 return l;
@@ -250,8 +251,15 @@ public static class Simplifier
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
 
-            case Power(Constant b, Constant e):
-                return new Constant(Math.Pow(b.Value, e.Value));
+            case Power(Constant b, Constant e) when e.Value.IsInteger && !(b.Value.IsZero && e.Value.Sign < 0):
+                return new Constant(b.Value.Pow((int)e.Value.Numerator));
+
+            case Power(Constant b, Constant e)
+                when BigInteger.Abs(e.Value.Numerator) == 1 &&
+                     TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
+                return e.Value.Numerator.Sign > 0
+                    ? new Constant(rootValue)
+                    : new Constant(Rational.One / rootValue);
 
             case Power(var b, var e) when e.Equals(new Constant(0)):
                 return new Constant(1);
@@ -385,86 +393,84 @@ public static class Simplifier
                 return new Constant(1);
 
             case Abs(Constant c):
-                return new Constant(Math.Abs(c.Value));
+                return new Constant(c.Value.Abs());
 
             case Abs(var a) when a is Abs:
                 return a;
 
             case Sign(Constant c):
-                return new Constant(Math.Sign(c.Value));
+                return new Constant(c.Value.Sign);
 
             case Floor(Constant c):
-                return new Constant(Math.Floor(c.Value));
+                return new Constant(c.Value.Floor());
 
             case Ceiling(Constant c):
-                return new Constant(Math.Ceiling(c.Value));
+                return new Constant(c.Value.Ceiling());
 
             case Round(Constant c):
-                return new Constant(Math.Round(c.Value));
+                return new Constant(c.Value.Round());
 
             case Min(Constant a, Constant b):
-                return new Constant(Math.Min(a.Value, b.Value));
+                return new Constant(a.Value < b.Value ? a.Value : b.Value);
 
             case Max(Constant a, Constant b):
-                return new Constant(Math.Max(a.Value, b.Value));
+                return new Constant(a.Value > b.Value ? a.Value : b.Value);
 
             default:
                 return expr;
         }
     }
 
-    private static bool IsOddInteger(double value) =>
-        value == Math.Floor(value) && (long)value % 2 != 0;
-
-    private static bool IsInteger(double value) =>
-        !double.IsInfinity(value) && !double.IsNaN(value) && value == Math.Floor(value);
-
-    private static double Gcd(double a, double b)
+    private static bool TryIntegerNthRoot(BigInteger value, int n, out BigInteger root)
     {
-        a = Math.Abs(a);
-        b = Math.Abs(b);
+        root = BigInteger.Zero;
+        if (value.Sign < 0 || n <= 0) return false;
+        if (value.IsZero) return true;
+        if (n == 1) { root = value; return true; }
 
-        while (b > 1e-9)
+        BigInteger low = 0, high = value;
+        while (low <= high)
         {
-            double t = b;
-            b = a % b;
-            a = t;
+            BigInteger mid = (low + high) / 2;
+            BigInteger midPow = BigInteger.Pow(mid, n);
+
+            if (midPow == value) { root = mid; return true; }
+            if (midPow < value) low = mid + 1;
+            else high = mid - 1;
         }
 
-        return a;
+        return false;
     }
 
-    private static Expr ReduceConstantFraction(double a, double b)
+    private static bool TryExactRoot(Rational value, BigInteger n, out Rational root)
     {
-        if (!IsInteger(a) || !IsInteger(b))
-            return new Constant(a / b);
+        root = default;
 
-        double gcd = Gcd(a, b);
-        if (gcd == 0) gcd = 1;
+        if (n <= 0) return false;
+        int nn;
+        try { nn = (int)n; }
+        catch (OverflowException) { return false; }
 
-        double reducedA = a / gcd;
-        double reducedB = b / gcd;
+        bool negative = value.Sign < 0;
+        if (negative && nn % 2 == 0) return false;
 
-        if (reducedB < 0)
-        {
-            reducedA = -reducedA;
-            reducedB = -reducedB;
-        }
+        if (!TryIntegerNthRoot(BigInteger.Abs(value.Numerator), nn, out BigInteger numRoot)) return false;
+        if (!TryIntegerNthRoot(value.Denominator, nn, out BigInteger denRoot)) return false;
 
-        return reducedB == 1
-            ? new Constant(reducedA)
-            : new Divide(new Constant(reducedA), new Constant(reducedB));
+        Rational result = new Rational(numRoot, denRoot);
+        root = negative ? -result : result;
+        return true;
     }
 
-    private static (double Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
+    private static (Rational Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
     {
-        Negate(var t) => (-1, t),
+        Negate(var t) => (Rational.MinusOne, t),
         Multiply(Constant c, var t) => (c.Value, t),
         Multiply(var t, Constant c) => (c.Value, t),
-        _ => (1, expr)
+        _ => (Rational.One, expr)
     };
 
-    private static void CollectTerms(Expr expr, double sign, List<(double Coefficient, Expr Term)> terms)
+    private static void CollectTerms(Expr expr, Rational sign, List<(Rational Coefficient, Expr Term)> terms)
     {
         switch (expr)
         {
@@ -488,11 +494,11 @@ public static class Simplifier
         if (expr is not (Add or Subtract))
             return expr;
 
-        var raw = new List<(double Coefficient, Expr Term)>();
-        CollectTerms(expr, 1, raw);
+        var raw = new List<(Rational Coefficient, Expr Term)>();
+        CollectTerms(expr, Rational.One, raw);
 
-        double constantSum = 0;
-        var combined = new List<(double Coefficient, Expr Term)>();
+        Rational constantSum = Rational.Zero;
+        var combined = new List<(Rational Coefficient, Expr Term)>();
 
         foreach (var (coef, term) in raw)
         {
@@ -514,11 +520,11 @@ public static class Simplifier
             }
         }
 
-        combined.RemoveAll(t => t.Coefficient == 0);
+        combined.RemoveAll(t => t.Coefficient.IsZero);
 
-        Expr Rebuild(double coef, Expr term) =>
-            coef == 1 ? term :
-            coef == -1 ? new Negate(term) :
+        Expr Rebuild(Rational coef, Expr term) =>
+            coef.IsOne ? term :
+            coef.Equals(Rational.MinusOne) ? new Negate(term) :
             new Multiply(new Constant(coef), term);
 
         if (combined.Count == 0)
@@ -528,14 +534,14 @@ public static class Simplifier
         for (int i = 1; i < combined.Count; i++)
         {
             var (coef, term) = combined[i];
-            result = coef < 0
+            result = coef.Sign < 0
                 ? new Subtract(result, Rebuild(-coef, term))
                 : new Add(result, Rebuild(coef, term));
         }
 
-        if (constantSum != 0)
+        if (!constantSum.IsZero)
         {
-            result = constantSum < 0
+            result = constantSum.Sign < 0
                 ? new Subtract(result, new Constant(-constantSum))
                 : new Add(result, new Constant(constantSum));
         }

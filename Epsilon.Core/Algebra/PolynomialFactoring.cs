@@ -128,24 +128,24 @@ public static class PolynomialFactoring
         switch (expr)
         {
             case Constant c:
-                return (0, c.Value);
+                return (0, c.Value.ToDouble());
 
             case Variable v when v.Name == variable:
                 return (1, 1);
 
             case Power(Variable v, Constant n) when v.Name == variable && IsNonNegativeInteger(n.Value):
-                return ((int)n.Value, 1);
+                return ((int)n.Value.Numerator, 1);
 
             case Multiply(Constant c, var rest):
                 {
                     var (d, co) = ExtractTerm(rest, variable);
-                    return (d, c.Value * co);
+                    return (d, c.Value.ToDouble() * co);
                 }
 
             case Multiply(var rest, Constant c):
                 {
                     var (d, co) = ExtractTerm(rest, variable);
-                    return (d, c.Value * co);
+                    return (d, c.Value.ToDouble() * co);
                 }
 
             case Negate(var inner):
@@ -159,8 +159,8 @@ public static class PolynomialFactoring
         }
     }
 
-    private static bool IsNonNegativeInteger(double value) =>
-        value >= 0 && Math.Abs(value - Math.Round(value)) < 1e-9;
+    private static bool IsNonNegativeInteger(Rational value) =>
+        value.Sign >= 0 && value.IsInteger;
 
     // Numeric helpers
 

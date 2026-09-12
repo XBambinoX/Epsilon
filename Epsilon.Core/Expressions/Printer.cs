@@ -21,7 +21,7 @@ public static class Printer
 
         string result = expr switch
         {
-            Constant c => c.Value.ToString(CultureInfo.InvariantCulture),
+            Constant c => c.Value.ToString(),
             Variable v => v.Name,
             Pi => "π",
             E => "e",
@@ -118,18 +118,18 @@ public static class Printer
 
         if (canUseImplicit)
         {
-            double coefficient = constants.Count == 1 ? constants[0].Value : 1;
-            string sign = coefficient < 0 ? "-" : "";
-            double absCoefficient = Math.Abs(coefficient);
+            Rational coefficient = constants.Count == 1 ? constants[0].Value : Rational.One;
+            string sign = coefficient.Sign < 0 ? "-" : "";
+            Rational absCoefficient = coefficient.Abs();
 
-            string coefficientPart = absCoefficient == 1 && rest.Count > 0
+            string coefficientPart = absCoefficient.IsOne && rest.Count > 0
                 ? ""
-                : absCoefficient.ToString(CultureInfo.InvariantCulture);
+                : absCoefficient.ToString();
 
             string restPart = string.Concat(rest.Select(f => PrintInternal(f, Precedence(f))));
 
             result = rest.Count == 0
-                ? $"{sign}{absCoefficient.ToString(CultureInfo.InvariantCulture)}"
+                ? $"{sign}{absCoefficient}"
                 : $"{sign}{coefficientPart}{restPart}";
         }
         else
