@@ -120,6 +120,9 @@ public static class Simplifier
         Power(var b, Constant e) when e.Value == new Rational(1, 2) =>
             new Sqrt(PreferRoots(b)),
 
+        Power(var b, Constant e) when e.Value == new Rational(-1, 2) =>
+            new Divide(new Constant(1), new Sqrt(PreferRoots(b))),
+
         Power(var b, Divide(Constant one, Constant two)) when one.Value.IsOne && two.Value == 2 =>
             new Sqrt(PreferRoots(b)),
 
