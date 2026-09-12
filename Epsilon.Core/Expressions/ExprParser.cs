@@ -182,6 +182,13 @@ public static class ExprParser
 
         private bool StartsImplicitFactor(string? token) =>
             token is not null && (token == "(" || (token == "|" && !_inBar) || char.IsDigit(token[0]) || char.IsLetter(token[0]));
+
+        private static bool IsNumericLiteral(string token) =>
+            token.Length > 0 &&
+            token.All(c => char.IsDigit(c) || c == '.') &&
+            token.Count(c => c == '.') <= 1 &&
+            token.Any(char.IsDigit);
+
         // power := primary ('^' unary)?
         private Expr ParsePower()
         {
@@ -245,10 +252,10 @@ public static class ExprParser
                 return new Abs(inner);
             }
 
-            if (double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
+            if (IsNumericLiteral(token))
             {
                 Consume();
-                return new Constant(number);
+                return new Constant(Rational.FromDecimalString(token));
             }
 
             if (token == "pi")
