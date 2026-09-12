@@ -129,6 +129,7 @@ public static class Canonicalizer
     private static int MultiplyRank(Expr e) => e switch
     {
         Constant => 0,
+        Negate(Constant) => 0,
         _ => 1
     };
 
