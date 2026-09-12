@@ -1,6 +1,6 @@
 namespace Epsilon.Core;
 
-public abstract class Expr
+public abstract class Expr : IEquatable<Expr>
 {
     public abstract double Evaluate(IReadOnlyDictionary<string, double> bindings);
 
@@ -66,8 +66,8 @@ public abstract class Expr
     private static IReadOnlyDictionary<string, T> SingleBinding<T>(string variable, T value) =>
         new Dictionary<string, T> { [variable] = value };
 
-    public override bool Equals(object? obj) =>
-            obj is Expr other && StructurallyEquals(this, other);
+    public bool Equals(Expr? other) => other is not null && StructurallyEquals(this, other);
+    public override bool Equals(object? obj) => obj is Expr other && Equals(other);
 
     public override int GetHashCode() => StructuralHash(this);
 
