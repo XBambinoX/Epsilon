@@ -7,8 +7,8 @@ public readonly struct Complex : IEquatable<Complex>
 
     public Complex(double real, double imaginary = 0)
     {
-        Real = real;
-        Imaginary = imaginary;
+        Real = real == 0 ? 0.0 : real;
+        Imaginary = imaginary == 0 ? 0.0 : imaginary;
     }
 
     public static readonly Complex Zero = new(0, 0);
