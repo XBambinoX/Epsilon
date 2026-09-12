@@ -29,6 +29,13 @@ public static class Canonicalizer
         Sqrt(var a) => new Sqrt(a.Canonicalize()),
         NthRoot(var a, var n) => new NthRoot(a.Canonicalize(), n.Canonicalize()),
 
+        Asinh(var a) => new Asinh(a.Canonicalize()),
+        Acosh(var a) => new Acosh(a.Canonicalize()),
+        Atanh(var a) => new Atanh(a.Canonicalize()),
+        Coth(var a) => new Coth(a.Canonicalize()),
+        Sech(var a) => new Sech(a.Canonicalize()),
+        Csch(var a) => new Csch(a.Canonicalize()),
+
         Negate(var a) => new Negate(a.Canonicalize()),
         
         Sign(var a) => new Sign(a.Canonicalize()),
