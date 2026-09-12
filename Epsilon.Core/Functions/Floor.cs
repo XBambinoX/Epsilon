@@ -10,7 +10,10 @@ public sealed class Floor(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         throw new NotImplementedException("floor(z) has no standard definition over the complex numbers.");
 
-    public override Expr Differentiate(string variable) => new Constant(0);
+    public override Expr Differentiate(string variable) => 
+        throw new NotImplementedException(
+            "floor has a branch-dependent derivative and can't be represented " +
+            "without a Piecewise/conditional Expr node.");
 
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
 

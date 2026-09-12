@@ -13,7 +13,10 @@ public sealed class Sign(Expr argument) : Expr
     // Piecewise-constant a.e.; derivative is 0 everywhere except at the root of
     // Argument, where it's a Dirac delta in the distributional sense - not
     // representable as a plain Expr.
-    public override Expr Differentiate(string variable) => new Constant(0);
+    public override Expr Differentiate(string variable) => 
+        throw new NotImplementedException(
+            "Sign(x) has a branch-dependent derivative and can't be represented " +
+            "without a Piecewise/conditional Expr node.");
 
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
 
