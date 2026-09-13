@@ -30,142 +30,110 @@ public static class Simplifier
 
     private static Expr SimplifyOncePowers(Expr expr)
     {
-        Expr simplified = expr switch
-        {
-            Add(var l, var r) => new Add(SimplifyPowers(l), SimplifyPowers(r)),
-            Subtract(var l, var r) => new Subtract(SimplifyPowers(l), SimplifyPowers(r)),
-            Multiply(var l, var r) => new Multiply(SimplifyPowers(l), SimplifyPowers(r)),
-            Divide(var n, var d) => new Divide(SimplifyPowers(n), SimplifyPowers(d)),
-            Power(var b, var e) => new Power(SimplifyPowers(b), SimplifyPowers(e)),
-            Negate(var a) => new Negate(SimplifyPowers(a)),
-
-            Sin(var a) => new Sin(SimplifyPowers(a)),
-            Cos(var a) => new Cos(SimplifyPowers(a)),
-            Tan(var a) => new Tan(SimplifyPowers(a)),
-            Cot(var a) => new Cot(SimplifyPowers(a)),
-            Sec(var a) => new Sec(SimplifyPowers(a)),
-            Csc(var a) => new Csc(SimplifyPowers(a)),
-            Asin(var a) => new Asin(SimplifyPowers(a)),
-            Acos(var a) => new Acos(SimplifyPowers(a)),
-            Atan(var a) => new Atan(SimplifyPowers(a)),
-            Sinh(var a) => new Sinh(SimplifyPowers(a)),
-            Cosh(var a) => new Cosh(SimplifyPowers(a)),
-            Tanh(var a) => new Tanh(SimplifyPowers(a)),
-            Asinh(var a) => new Asinh(SimplifyPowers(a)),
-            Acosh(var a) => new Acosh(SimplifyPowers(a)),
-            Atanh(var a) => new Atanh(SimplifyPowers(a)),
-            Coth(var a) => new Coth(SimplifyPowers(a)),
-            Sech(var a) => new Sech(SimplifyPowers(a)),
-            Csch(var a) => new Csch(SimplifyPowers(a)),
-            Abs(var a) => new Abs(SimplifyPowers(a)),
-            Sign(var a) => new Sign(SimplifyPowers(a)),
-            Floor(var a) => new Floor(SimplifyPowers(a)),
-            Ceiling(var a) => new Ceiling(SimplifyPowers(a)),
-            Round(var a) => new Round(SimplifyPowers(a)),
-            Min(var l, var r) => new Min(SimplifyPowers(l), SimplifyPowers(r)),
-            Max(var l, var r) => new Max(SimplifyPowers(l), SimplifyPowers(r)),
-
-            Sqrt(var a) => new Power(SimplifyPowers(a), new Divide(new Constant(1), new Constant(2))),
-            NthRoot(var a, var n) => new Power(SimplifyPowers(a), new Divide(new Constant(1), SimplifyPowers(n))),
-
-            _ => expr
-        };
-
-        return ApplyRules(simplified).Canonicalize();
+        Expr recursed = Rewrite(expr, static _ => null, SimplifyPowers);
+        return ApplyRules(recursed).Canonicalize();
     }
 
-    private static Expr ToPowers(Expr expr) => expr switch
+    private static Expr Rewrite(Expr expr, Func<Expr, Expr?> leafRule, Func<Expr, Expr>? postProcessChild = null)
     {
-        Sqrt(var a) => new Power(ToPowers(a), new Divide(new Constant(1), new Constant(2))),
-        NthRoot(var a, var n) => new Power(ToPowers(a), new Divide(new Constant(1), ToPowers(n))),
+        Expr? replaced = leafRule(expr);
+        if (replaced is not null)
+            return Rewrite(replaced, leafRule, postProcessChild);
 
-        Add(var l, var r) => new Add(ToPowers(l), ToPowers(r)),
-        Subtract(var l, var r) => new Subtract(ToPowers(l), ToPowers(r)),
-        Multiply(var l, var r) => new Multiply(ToPowers(l), ToPowers(r)),
-        Divide(var n, var d) => new Divide(ToPowers(n), ToPowers(d)),
-        Power(var b, var e) => new Power(ToPowers(b), ToPowers(e)),
-        Negate(var a) => new Negate(ToPowers(a)),
+        Func<Expr, Expr> recurse = postProcessChild ?? (child => Rewrite(child, leafRule));
 
-        Sin(var a) => new Sin(ToPowers(a)),
-        Cos(var a) => new Cos(ToPowers(a)),
-        Tan(var a) => new Tan(ToPowers(a)),
-        Cot(var a) => new Cot(ToPowers(a)),
-        Sec(var a) => new Sec(ToPowers(a)),
-        Csc(var a) => new Csc(ToPowers(a)),
-        Asin(var a) => new Asin(ToPowers(a)),
-        Acos(var a) => new Acos(ToPowers(a)),
-        Atan(var a) => new Atan(ToPowers(a)),
-        Sinh(var a) => new Sinh(ToPowers(a)),
-        Cosh(var a) => new Cosh(ToPowers(a)),
-        Tanh(var a) => new Tanh(ToPowers(a)),
-        Asinh(var a) => new Asinh(ToPowers(a)),
-        Acosh(var a) => new Acosh(ToPowers(a)),
-        Atanh(var a) => new Atanh(ToPowers(a)),
-        Coth(var a) => new Coth(ToPowers(a)),
-        Sech(var a) => new Sech(ToPowers(a)),
-        Csch(var a) => new Csch(ToPowers(a)),
-        Abs(var a) => new Abs(ToPowers(a)),
-        Sign(var a) => new Sign(ToPowers(a)),
-        Floor(var a) => new Floor(ToPowers(a)),
-        Ceiling(var a) => new Ceiling(ToPowers(a)),
-        Round(var a) => new Round(ToPowers(a)),
-        Min(var l, var r) => new Min(ToPowers(l), ToPowers(r)),
-        Max(var l, var r) => new Max(ToPowers(l), ToPowers(r)),
+        return expr switch
+        {
+            Add(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Add(a, b)),
+            Subtract(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Subtract(a, b)),
+            Multiply(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Multiply(a, b)),
+            Divide(var n, var d) => RebuildBinary(expr, n, d, recurse, static (a, b) => new Divide(a, b)),
+            Power(var b, var e) => RebuildBinary(expr, b, e, recurse, static (a, b) => new Power(a, b)),
+            Negate(var a) => RebuildUnary(expr, a, recurse, static x => new Negate(x)),
 
-        _ => expr
-    };
+            Sin(var a) => RebuildUnary(expr, a, recurse, static x => new Sin(x)),
+            Cos(var a) => RebuildUnary(expr, a, recurse, static x => new Cos(x)),
+            Tan(var a) => RebuildUnary(expr, a, recurse, static x => new Tan(x)),
+            Cot(var a) => RebuildUnary(expr, a, recurse, static x => new Cot(x)),
+            Sec(var a) => RebuildUnary(expr, a, recurse, static x => new Sec(x)),
+            Csc(var a) => RebuildUnary(expr, a, recurse, static x => new Csc(x)),
+            Asin(var a) => RebuildUnary(expr, a, recurse, static x => new Asin(x)),
+            Acos(var a) => RebuildUnary(expr, a, recurse, static x => new Acos(x)),
+            Atan(var a) => RebuildUnary(expr, a, recurse, static x => new Atan(x)),
+            Sinh(var a) => RebuildUnary(expr, a, recurse, static x => new Sinh(x)),
+            Cosh(var a) => RebuildUnary(expr, a, recurse, static x => new Cosh(x)),
+            Tanh(var a) => RebuildUnary(expr, a, recurse, static x => new Tanh(x)),
+            Asinh(var a) => RebuildUnary(expr, a, recurse, static x => new Asinh(x)),
+            Acosh(var a) => RebuildUnary(expr, a, recurse, static x => new Acosh(x)),
+            Atanh(var a) => RebuildUnary(expr, a, recurse, static x => new Atanh(x)),
+            Coth(var a) => RebuildUnary(expr, a, recurse, static x => new Coth(x)),
+            Sech(var a) => RebuildUnary(expr, a, recurse, static x => new Sech(x)),
+            Csch(var a) => RebuildUnary(expr, a, recurse, static x => new Csch(x)),
+            Exp(var a) => RebuildUnary(expr, a, recurse, static x => new Exp(x)),
+            Ln(var a) => RebuildUnary(expr, a, recurse, static x => new Ln(x)),
+            Sqrt(var a) => RebuildUnary(expr, a, recurse, static x => new Sqrt(x)),
+            Abs(var a) => RebuildUnary(expr, a, recurse, static x => new Abs(x)),
+            Sign(var a) => RebuildUnary(expr, a, recurse, static x => new Sign(x)),
+            Floor(var a) => RebuildUnary(expr, a, recurse, static x => new Floor(x)),
+            Ceiling(var a) => RebuildUnary(expr, a, recurse, static x => new Ceiling(x)),
+            Round(var a) => RebuildUnary(expr, a, recurse, static x => new Round(x)),
 
-    private static Expr PreferRoots(Expr expr) => expr switch
+            Min(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Min(a, b)),
+            Max(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Max(a, b)),
+            NthRoot(var a, var n) => RebuildBinary(expr, a, n, recurse, static (a2, b) => new NthRoot(a2, b)),
+
+            // Constant, Variable, Pi, E, ImaginaryUnit — leaves, nothing to recurse into
+            _ => expr
+        };
+    }
+
+    private static Expr RebuildUnary(Expr original, Expr child, Func<Expr, Expr> recurse, Func<Expr, Expr> build)
     {
-        Power(var b, Constant e) when e.Value == new Rational(1, 2) =>
-            new Sqrt(PreferRoots(b)),
+        Expr newChild = recurse(child);
+        return ReferenceEquals(newChild, child) ? original : build(newChild);
+    }
 
-        Power(var b, Constant e) when e.Value == new Rational(-1, 2) =>
-            new Divide(new Constant(1), new Sqrt(PreferRoots(b))),
+    private static Expr RebuildBinary(Expr original, Expr left, Expr right, Func<Expr, Expr> recurse, Func<Expr, Expr, Expr> build)
+    {
+        Expr newLeft = recurse(left);
+        Expr newRight = recurse(right);
+        return ReferenceEquals(newLeft, left) && ReferenceEquals(newRight, right)
+            ? original
+            : build(newLeft, newRight);
+    }
+
+    // Rewrites Sqrt/NthRoot into an equivalent Power, so the general
+    // Power-combination rules in ApplyRules can operate on them uniformly.
+    private static Expr ToPowers(Expr expr) => Rewrite(expr, static e => e switch
+    {
+        Sqrt(var a) => new Power(a, new Divide(new Constant(1), new Constant(2))),
+        NthRoot(var a, var n) => new Power(a, new Divide(new Constant(1), n)),
+        _ => null
+    });
+
+    // Rewrites Power nodes with a root-like exponent (1/2, -1/2, 1/n) back into
+    // Sqrt/NthRoot for display and further simplification — the inverse of ToPowers.
+    private static Expr PreferRoots(Expr expr) => Rewrite(expr, static e => e switch
+    {
+        Power(var b, Constant exp) when exp.Value == new Rational(1, 2) =>
+            new Sqrt(b),
+
+        Power(var b, Constant exp) when exp.Value == new Rational(-1, 2) =>
+            new Divide(new Constant(1), new Sqrt(b)),
 
         Power(var b, Divide(Constant one, Constant two)) when one.Value.IsOne && two.Value == 2 =>
-            new Sqrt(PreferRoots(b)),
+            new Sqrt(b),
 
         Power(var b, Divide(Constant one, Constant n)) when one.Value.IsOne && n.Value.IsInteger && n.Value.Sign > 0 =>
-            new NthRoot(PreferRoots(b), n),
+            new NthRoot(b, n),
 
-        Add(var l, var r) => new Add(PreferRoots(l), PreferRoots(r)),
-        Subtract(var l, var r) => new Subtract(PreferRoots(l), PreferRoots(r)),
-        Multiply(var l, var r) => new Multiply(PreferRoots(l), PreferRoots(r)),
-        Divide(var n, var d) => new Divide(PreferRoots(n), PreferRoots(d)),
-        Power(var b, var e) => new Power(PreferRoots(b), PreferRoots(e)),
-        Negate(var a) => new Negate(PreferRoots(a)),
+        _ => null
+    });
 
-        Sin(var a) => new Sin(PreferRoots(a)),
-        Cos(var a) => new Cos(PreferRoots(a)),
-        Tan(var a) => new Tan(PreferRoots(a)),
-        Cot(var a) => new Cot(PreferRoots(a)),
-        Sec(var a) => new Sec(PreferRoots(a)),
-        Csc(var a) => new Csc(PreferRoots(a)),
-        Asin(var a) => new Asin(PreferRoots(a)),
-        Acos(var a) => new Acos(PreferRoots(a)),
-        Atan(var a) => new Atan(PreferRoots(a)),
-        Sinh(var a) => new Sinh(PreferRoots(a)),
-        Cosh(var a) => new Cosh(PreferRoots(a)),
-        Tanh(var a) => new Tanh(PreferRoots(a)),
-        Asinh(var a) => new Asinh(PreferRoots(a)),
-        Acosh(var a) => new Acosh(PreferRoots(a)),
-        Atanh(var a) => new Atanh(PreferRoots(a)),
-        Coth(var a) => new Coth(PreferRoots(a)),
-        Sech(var a) => new Sech(PreferRoots(a)),
-        Csch(var a) => new Csch(PreferRoots(a)),
-        Abs(var a) => new Abs(PreferRoots(a)),
-        Sign(var a) => new Sign(PreferRoots(a)),
-        Floor(var a) => new Floor(PreferRoots(a)),
-        Ceiling(var a) => new Ceiling(PreferRoots(a)),
-        Round(var a) => new Round(PreferRoots(a)),
-        Min(var l, var r) => new Min(PreferRoots(l), PreferRoots(r)),
-        Max(var l, var r) => new Max(PreferRoots(l), PreferRoots(r)),
-        Sqrt(var a) => new Sqrt(PreferRoots(a)),
-        NthRoot(var a, var n) => new NthRoot(PreferRoots(a), PreferRoots(n)),
-
-        _ => expr
-    };
+    // Direct pattern checks instead of allocating new Constant(0)/new Constant(1)
+    // just to compare against them via Equals.
+    private static bool IsZero(this Expr e) => e is Constant c && c.Value.IsZero;
+    private static bool IsOne(this Expr e) => e is Constant c && c.Value.IsOne;
 
     private static Expr ApplyRules(Expr expr)
     {
@@ -215,10 +183,10 @@ public static class Simplifier
             case Negate(Divide(Constant a, Constant b)) when b.Value != 0:
                 return new Constant(-a.Value / b.Value);
 
-            case Add(var l, var r) when r.Equals(new Constant(0)):
+            case Add(var l, var r) when r.IsZero():
                 return l;
 
-            case Add(var l, var r) when l.Equals(new Constant(0)):
+            case Add(var l, var r) when l.IsZero():
                 return r;
 
             case Subtract(var l, var r) when l.Equals(r):
@@ -233,16 +201,16 @@ public static class Simplifier
             case Subtract(var a, Negate(var b)):
                 return new Add(a, b);
 
-            case Subtract(var l, var r) when r.Equals(new Constant(0)):
+            case Subtract(var l, var r) when r.IsZero():
                 return l;
 
-            case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
+            case Multiply(var l, var r) when l.IsZero() || r.IsZero():
                 return new Constant(0);
 
-            case Multiply(Constant one, var r) when one.Value == 1:
+            case Multiply(Constant one, var r) when one.Value.IsOne:
                 return r;
 
-            case Multiply(var l, var r) when r.Equals(new Constant(1)):
+            case Multiply(var l, var r) when r.IsOne():
                 return l;
 
             case Divide(Constant zero, var d) when zero.Value == 0:
@@ -251,12 +219,15 @@ public static class Simplifier
             case Divide(var n, var d) when n.Equals(d):
                 return new Constant(1);
 
-            case Divide(var n, var d) when d.Equals(new Constant(1)):
+            case Divide(var n, var d) when d.IsOne():
                 return n;
 
+            // Integer exponent — exact BigInteger power, no floating-point rounding
             case Power(Constant b, Constant e) when e.Value.IsInteger && !(b.Value.IsZero && e.Value.Sign < 0):
                 return new Constant(b.Value.Pow((int)e.Value.Numerator));
 
+            // Root exponent (+-1/n) — exact result only if the base is a perfect
+            // n-th power.
             case Power(Constant b, Constant e)
                 when BigInteger.Abs(e.Value.Numerator) == 1 &&
                      TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
@@ -264,13 +235,13 @@ public static class Simplifier
                     ? new Constant(rootValue)
                     : new Constant(Rational.One / rootValue);
 
-            case Power(var b, var e) when e.Equals(new Constant(0)):
+            case Power(var b, var e) when e.IsZero():
                 return new Constant(1);
 
-            case Power(var b, var e) when e.Equals(new Constant(1)):
+            case Power(var b, var e) when e.IsOne():
                 return b;
 
-            case Power(var b, var e) when b.Equals(new Constant(0)):
+            case Power(var b, var e) when b.IsZero():
                 return new Constant(0);
 
             case Power(Power(var b, var e1), var e2):
@@ -424,6 +395,8 @@ public static class Simplifier
         }
     }
 
+    // Exact integer n-th root via binary search on BigInteger.
+    // Returns false if `value` is not a perfect n-th power.
     private static bool TryIntegerNthRoot(BigInteger value, int n, out BigInteger root)
     {
         root = BigInteger.Zero;
@@ -445,6 +418,8 @@ public static class Simplifier
         return false;
     }
 
+    // Exact n-th root of a rational number: numerator and denominator (coprime
+    // by Rational's construction) must each be a perfect n-th power.
     private static bool TryExactRoot(Rational value, BigInteger n, out Rational root)
     {
         root = default;
@@ -455,7 +430,7 @@ public static class Simplifier
         catch (OverflowException) { return false; }
 
         bool negative = value.Sign < 0;
-        if (negative && nn % 2 == 0) return false;
+        if (negative && nn % 2 == 0) return false; // even root of a negative number isn't real
 
         if (!TryIntegerNthRoot(BigInteger.Abs(value.Numerator), nn, out BigInteger numRoot)) return false;
         if (!TryIntegerNthRoot(value.Denominator, nn, out BigInteger denRoot)) return false;
@@ -492,6 +467,8 @@ public static class Simplifier
         }
     }
 
+    // Combines like terms across an Add/Subtract chain. Uses a Dictionary keyed
+    // by the term's structural hash for O(1) average lookup instead of a linear List
     private static Expr FlattenAndCombine(Expr expr)
     {
         if (expr is not (Add or Subtract))
@@ -502,6 +479,7 @@ public static class Simplifier
 
         Rational constantSum = Rational.Zero;
         var combined = new List<(Rational Coefficient, Expr Term)>();
+        var termIndex = new Dictionary<Expr, int>();
 
         foreach (var (coef, term) in raw)
         {
@@ -511,14 +489,14 @@ public static class Simplifier
                 continue;
             }
 
-            int existingIndex = combined.FindIndex(t => t.Term.Equals(term));
-            if (existingIndex >= 0)
+            if (termIndex.TryGetValue(term, out int existingIndex))
             {
                 var (existingCoef, existingTerm) = combined[existingIndex];
                 combined[existingIndex] = (existingCoef + coef, existingTerm);
             }
             else
             {
+                termIndex[term] = combined.Count;
                 combined.Add((coef, term));
             }
         }
