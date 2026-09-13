@@ -1,9 +1,9 @@
+using System.Numerics;
+
 namespace Epsilon.Core;
 
 public static class PolynomialFactoring
 {
-    private const double CoefficientTolerance = 1e-9;
-
     /// <summary>
     /// Attempts to factor a univariate polynomial into real linear factors
     /// by finding real roots and performing synthetic division to deflate the degree.
@@ -13,33 +13,46 @@ public static class PolynomialFactoring
     /// </summary>
     public static (Expr Factored, bool Success) TryFactorReal(this Expr expr, string variable)
     {
-        double[]? coefficients = TryGetPolynomialCoefficients(expr, variable);
-        if (coefficients is null)
+        Rational[]? exactCoefficients = TryGetPolynomialCoefficients(expr, variable);
+        if (exactCoefficients is null)
             return (expr, false);
 
-        int degree = coefficients.Length - 1;
+        int degree = exactCoefficients.Length - 1;
         if (degree < 1)
-            return (expr, false);
+            return (expr, false); // constant - nothing to factor
+
+        // Root-finding and synthetic division are inherently numeric (Newton's method
+        // works with irrational roots in general), so we convert to double here -
+        // but the extraction step above stayed exact, avoiding any precision loss
+        // while reading the polynomial's coefficients out of the expression tree.
+        double[] coefficients = ToDoubleArray(exactCoefficients);
 
         double bound = CauchyRootBound(coefficients);
         var roots = expr.FindRealRoots(variable, null, -bound, bound, scanSteps: Math.Max(200, degree * 50));
 
         if (roots.Count == 0)
-            return (expr, false); // no real roots found — cannot factor over the reals
+            return (expr, false); // no real roots found - cannot factor over the reals
 
-        double[] remaining = (double[])coefficients.Clone();
+        // No need to clone: TrySyntheticDivide always allocates a new array for its
+        // quotient rather than mutating its input, so 'coefficients' itself is never
+        // touched after this point - 'remaining' can just start out pointing at it.
+        double[] remaining = coefficients;
         var linearFactors = new List<double>(); // each entry r contributes a factor (x - r)
 
         foreach (double root in roots)
         {
-            while (remaining.Length > 1 && Math.Abs(EvaluatePolynomial(remaining, root)) < 1e-4)
+            double scale = MaxAbsCoefficient(remaining);
+
+            // Deflate repeatedly while the root still divides evenly (handles multiplicity).
+            while (remaining.Length > 1 && IsNegligible(EvaluatePolynomial(remaining, root), scale))
             {
-                double[]? deflated = TrySyntheticDivide(remaining, root);
+                double[]? deflated = TrySyntheticDivide(remaining, root, scale);
                 if (deflated is null)
                     break;
 
                 remaining = deflated;
                 linearFactors.Add(root);
+                scale = MaxAbsCoefficient(remaining);
             }
         }
 
@@ -58,18 +71,21 @@ public static class PolynomialFactoring
     /// </summary>
     public static (Expr Factored, bool Success) TryFactorComplex(this Expr expr, string variable)
     {
-        double[]? coefficients = TryGetPolynomialCoefficients(expr, variable);
-        if (coefficients is null)
+        Rational[]? exactCoefficients = TryGetPolynomialCoefficients(expr, variable);
+        if (exactCoefficients is null)
             return (expr, false);
 
-        int degree = coefficients.Length - 1;
+        int degree = exactCoefficients.Length - 1;
         if (degree < 1)
             return (expr, false);
+
+        double[] coefficients = ToDoubleArray(exactCoefficients);
 
         double bound = CauchyRootBound(coefficients) + 1;
         var complexRoots = expr.FindComplexRoots(variable, null, -bound, bound, -bound, bound, gridSteps: Math.Max(12, degree * 4));
 
-        // A degree-n polynomial has exactly n roots counted with multiplicity
+        // A degree-n polynomial has exactly n roots counted with multiplicity;
+        // if the grid search didn't find that many, we can't guarantee a full split.
         if (complexRoots.Count < degree)
             return (expr, false);
 
@@ -78,21 +94,25 @@ public static class PolynomialFactoring
         return (factored, true);
     }
 
-    //Polynomial extraction
+    // Polynomial extraction (exact, Rational-based)
 
-    private static double[]? TryGetPolynomialCoefficients(Expr expr, string variable)
+    private static Rational[]? TryGetPolynomialCoefficients(Expr expr, string variable)
     {
         try
         {
             Expr simplified = expr.Simplify();
-            var coeffs = new Dictionary<int, double>();
-            CollectPolynomialTerms(simplified, variable, 1.0, coeffs);
+            var coeffs = new Dictionary<int, Rational>();
+            CollectPolynomialTerms(simplified, variable, Rational.One, coeffs);
 
             if (coeffs.Count == 0)
-                return new double[] { 0 };
+                return new[] { Rational.Zero };
 
             int maxDegree = coeffs.Keys.Max();
-            var result = new double[maxDegree + 1];
+
+            var result = new Rational[maxDegree + 1];
+            for (int i = 0; i < result.Length; i++)
+                result[i] = Rational.Zero;
+
             foreach (var (degree, coef) in coeffs)
                 result[degree] += coef;
 
@@ -104,7 +124,7 @@ public static class PolynomialFactoring
         }
     }
 
-    private static void CollectPolynomialTerms(Expr expr, string variable, double sign, Dictionary<int, double> coeffs)
+    private static void CollectPolynomialTerms(Expr expr, string variable, Rational sign, Dictionary<int, Rational> coeffs)
     {
         switch (expr)
         {
@@ -118,51 +138,126 @@ public static class PolynomialFactoring
                 break;
             default:
                 var (degree, coef) = ExtractTerm(expr, variable);
-                coeffs[degree] = coeffs.GetValueOrDefault(degree) + sign * coef;
+                coeffs[degree] = coeffs.GetValueOrDefault(degree, Rational.Zero) + sign * coef;
                 break;
         }
     }
 
-    private static (int Degree, double Coefficient) ExtractTerm(Expr expr, string variable)
+    private static (int Degree, Rational Coefficient) ExtractTerm(Expr expr, string variable)
     {
-        switch (expr)
+        // term / c  ->  same degree, coefficient divided by c. This is common after
+        // Simplify() now that the engine keeps exact fractions (e.g. "x/2", "x^2/3")
+        // instead of folding them into decimal constants - the old two-level
+        // pattern-matching approach didn't handle this shape at all.
+        if (expr is Divide(var numerator, Constant divisor))
         {
-            case Constant c:
-                return (0, c.Value.ToDouble());
+            if (divisor.Value.IsZero)
+                throw new NotSupportedException($"'{expr.Print()}' divides by zero and is not a valid polynomial term.");
 
-            case Variable v when v.Name == variable:
-                return (1, 1);
+            var (deg, coef) = ExtractTerm(numerator, variable);
+            return (deg, coef / divisor.Value);
+        }
 
-            case Power(Variable v, Constant n) when v.Name == variable && IsNonNegativeInteger(n.Value):
-                return ((int)n.Value.Numerator, 1);
+        if (expr is Negate(var inner))
+        {
+            var (deg, coef) = ExtractTerm(inner, variable);
+            return (deg, -coef);
+        }
 
-            case Multiply(Constant c, var rest):
+        if (expr is Multiply)
+        {
+            // Flatten an arbitrarily nested/ordered Multiply chain into a flat list of
+            // factors, then fold all constant factors together and identify the single
+            // remaining variable-bearing factor. This replaces the old approach of
+            // matching only two fixed shapes (Multiply(Constant, X) / Multiply(X, Constant)),
+            // which silently failed on anything deeper - e.g. Multiply(Multiply(c1, c2), x).
+            var factors = new List<Expr>();
+            FlattenMultiply(expr, factors);
+
+            Rational coefficient = Rational.One;
+            int? degree = null;
+
+            foreach (Expr factor in factors)
+            {
+                if (factor is Constant c)
                 {
-                    var (d, co) = ExtractTerm(rest, variable);
-                    return (d, c.Value.ToDouble() * co);
+                    coefficient *= c.Value;
+                    continue;
                 }
 
-            case Multiply(var rest, Constant c):
-                {
-                    var (d, co) = ExtractTerm(rest, variable);
-                    return (d, c.Value.ToDouble() * co);
-                }
+                if (degree is not null)
+                    throw new NotSupportedException(
+                        $"'{expr.Print()}' has more than one variable-bearing factor and is not a polynomial term.");
 
-            case Negate(var inner):
-                {
-                    var (d, co) = ExtractTerm(inner, variable);
-                    return (d, -co);
-                }
+                var (factorDegree, factorCoefficient) = ExtractTerm(factor, variable);
+                degree = factorDegree;
+                coefficient *= factorCoefficient;
+            }
 
-            default:
-                throw new NotSupportedException($"'{expr.Print()}' is not a recognized polynomial term.");
+            return (degree ?? 0, coefficient);
+        }
+
+        return expr switch
+        {
+            Constant c => (0, c.Value),
+
+            Variable v when v.Name == variable => (1, Rational.One),
+
+            Power(Variable v, Constant n) when v.Name == variable && IsNonNegativeInteger(n.Value) =>
+                (ToSafeInt32(n.Value.Numerator, expr), Rational.One),
+
+            _ => throw new NotSupportedException($"'{expr.Print()}' is not a recognized polynomial term.")
+        };
+    }
+
+    private static void FlattenMultiply(Expr expr, List<Expr> factors)
+    {
+        if (expr is Multiply(var l, var r))
+        {
+            FlattenMultiply(l, factors);
+            FlattenMultiply(r, factors);
+        }
+        else
+        {
+            factors.Add(expr);
         }
     }
 
     private static bool IsNonNegativeInteger(Rational value) =>
         value.Sign >= 0 && value.IsInteger;
 
-    // Numeric helpers
+    // Guards against a degree exponent too large to fit in an int (which would
+    // otherwise silently overflow/wrap on a raw cast and corrupt the coefficient array).
+    private static int ToSafeInt32(BigInteger value, Expr context)
+    {
+        if (value > int.MaxValue)
+            throw new NotSupportedException($"'{context.Print()}' has a degree too large to represent.");
+
+        return (int)value;
+    }
+
+    //Numeric helpers (double-based - root-finding is inherently approximate)
+
+    private static double[] ToDoubleArray(Rational[] coefficients)
+    {
+        var result = new double[coefficients.Length];
+        for (int i = 0; i < coefficients.Length; i++)
+            result[i] = coefficients[i].ToDouble();
+        return result;
+    }
+
+    private static double MaxAbsCoefficient(double[] coefficients)
+    {
+        double max = 0;
+        foreach (double c in coefficients)
+            max = Math.Max(max, Math.Abs(c));
+        return max;
+    }
+
+    // Relative-to-scale tolerance check, replacing a fixed absolute threshold that
+    // was either too loose (large-coefficient polynomials) or too tight (small ones).
+    private static bool IsNegligible(double value, double scale) =>
+        Math.Abs(value) < 1e-6 * Math.Max(1.0, scale);
 
     private static double EvaluatePolynomial(double[] coefficients, double x)
     {
@@ -172,9 +267,7 @@ public static class PolynomialFactoring
         return result;
     }
 
-    // Synthetic division: divides coefficients by (x - root), returns the quotient
-    // coefficients if the remainder is negligible, or null otherwise.
-    private static double[]? TrySyntheticDivide(double[] coefficients, double root)
+    private static double[]? TrySyntheticDivide(double[] coefficients, double root, double scale)
     {
         int n = coefficients.Length;
         var quotient = new double[n - 1];
@@ -189,7 +282,7 @@ public static class PolynomialFactoring
         }
 
         double remainder = coefficients[0] + carry * root;
-        return Math.Abs(remainder) < 1e-4 ? quotient : null;
+        return IsNegligible(remainder, scale) ? quotient : null;
     }
 
     // Cauchy's bound: all real (and complex) roots of a polynomial lie within this radius of zero.
@@ -211,11 +304,11 @@ public static class PolynomialFactoring
 
         foreach (double root in linearRoots)
         {
-            double roundedRoot = RoundIfNearInteger(root);
+            Rational rationalizedRoot = RationalizeRoot(root);
 
-            Expr factor = Math.Abs(roundedRoot) < CoefficientTolerance
+            Expr factor = rationalizedRoot.IsZero
                 ? new Variable(variable)
-                : new Subtract(new Variable(variable), new Constant(roundedRoot));
+                : new Subtract(new Variable(variable), new Constant(rationalizedRoot));
 
             result = new Multiply(factor, result);
         }
@@ -225,18 +318,18 @@ public static class PolynomialFactoring
 
     private static Expr BuildComplexFactoredExpression(double leadingCoefficient, IReadOnlyList<Complex> roots, string variable)
     {
-        Expr result = new Constant(leadingCoefficient);
+        Expr result = new Constant(RationalizeRoot(leadingCoefficient));
 
         foreach (Complex root in roots)
         {
-            double realPart = RoundIfNearInteger(root.Real);
-            double imagPart = RoundIfNearInteger(root.Imaginary);
+            Rational realPart = RationalizeRoot(root.Real);
+            Rational imagPart = RationalizeRoot(root.Imaginary);
 
-            Expr realExpr = Math.Abs(realPart) < CoefficientTolerance
+            Expr realExpr = realPart.IsZero
                 ? new Variable(variable)
                 : new Subtract(new Variable(variable), new Constant(realPart));
 
-            Expr factor = Math.Abs(imagPart) < CoefficientTolerance
+            Expr factor = imagPart.IsZero
                 ? realExpr
                 : new Subtract(realExpr, new Multiply(new Constant(imagPart), new ImaginaryUnit()));
 
@@ -248,27 +341,40 @@ public static class PolynomialFactoring
 
     private static Expr BuildPolynomialFromCoefficients(double[] coefficients, string variable)
     {
-        Expr result = new Constant(coefficients[0]);
+        Expr result = new Constant(RationalizeRoot(coefficients[0]));
 
         for (int degree = 1; degree < coefficients.Length; degree++)
         {
-            if (Math.Abs(coefficients[degree]) < CoefficientTolerance)
+            Rational coefficient = RationalizeRoot(coefficients[degree]);
+            if (coefficient.IsZero)
                 continue;
 
             Expr term = degree == 1
                 ? new Variable(variable)
                 : new Power(new Variable(variable), new Constant(degree));
 
-            term = new Multiply(new Constant(coefficients[degree]), term);
+            term = new Multiply(new Constant(coefficient), term);
             result = new Add(result, term);
         }
 
         return result;
     }
 
-    private static double RoundIfNearInteger(double value, double tolerance = 1e-6)
+    private static Rational RationalizeRoot(double value, int maxDenominator = 1000)
     {
         double rounded = Math.Round(value);
-        return Math.Abs(value - rounded) < tolerance ? rounded : value;
+        if (Math.Abs(value - rounded) < 1e-8)
+            return new Rational((BigInteger)rounded);
+
+        for (int denominator = 2; denominator <= maxDenominator; denominator++)
+        {
+            double numerator = value * denominator;
+            double roundedNumerator = Math.Round(numerator);
+
+            if (Math.Abs(numerator - roundedNumerator) < 1e-5)
+                return new Rational((BigInteger)roundedNumerator, denominator);
+        }
+
+        return Rational.FromDouble(value);
     }
 }
