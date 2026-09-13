@@ -30,81 +30,13 @@ public static class Simplifier
 
     private static Expr SimplifyOncePowers(Expr expr)
     {
-        Expr recursed = Rewrite(expr, static _ => null, SimplifyPowers);
+        Expr recursed = TreeRewriter.RewriteChildren(expr, SimplifyPowers);
         return ApplyRules(recursed).Canonicalize();
-    }
-
-    private static Expr Rewrite(Expr expr, Func<Expr, Expr?> leafRule, Func<Expr, Expr>? postProcessChild = null)
-    {
-        Expr? replaced = leafRule(expr);
-        if (replaced is not null)
-            return Rewrite(replaced, leafRule, postProcessChild);
-
-        Func<Expr, Expr> recurse = postProcessChild ?? (child => Rewrite(child, leafRule));
-
-        return expr switch
-        {
-            Add(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Add(a, b)),
-            Subtract(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Subtract(a, b)),
-            Multiply(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Multiply(a, b)),
-            Divide(var n, var d) => RebuildBinary(expr, n, d, recurse, static (a, b) => new Divide(a, b)),
-            Power(var b, var e) => RebuildBinary(expr, b, e, recurse, static (a, b) => new Power(a, b)),
-            Negate(var a) => RebuildUnary(expr, a, recurse, static x => new Negate(x)),
-
-            Sin(var a) => RebuildUnary(expr, a, recurse, static x => new Sin(x)),
-            Cos(var a) => RebuildUnary(expr, a, recurse, static x => new Cos(x)),
-            Tan(var a) => RebuildUnary(expr, a, recurse, static x => new Tan(x)),
-            Cot(var a) => RebuildUnary(expr, a, recurse, static x => new Cot(x)),
-            Sec(var a) => RebuildUnary(expr, a, recurse, static x => new Sec(x)),
-            Csc(var a) => RebuildUnary(expr, a, recurse, static x => new Csc(x)),
-            Asin(var a) => RebuildUnary(expr, a, recurse, static x => new Asin(x)),
-            Acos(var a) => RebuildUnary(expr, a, recurse, static x => new Acos(x)),
-            Atan(var a) => RebuildUnary(expr, a, recurse, static x => new Atan(x)),
-            Sinh(var a) => RebuildUnary(expr, a, recurse, static x => new Sinh(x)),
-            Cosh(var a) => RebuildUnary(expr, a, recurse, static x => new Cosh(x)),
-            Tanh(var a) => RebuildUnary(expr, a, recurse, static x => new Tanh(x)),
-            Asinh(var a) => RebuildUnary(expr, a, recurse, static x => new Asinh(x)),
-            Acosh(var a) => RebuildUnary(expr, a, recurse, static x => new Acosh(x)),
-            Atanh(var a) => RebuildUnary(expr, a, recurse, static x => new Atanh(x)),
-            Coth(var a) => RebuildUnary(expr, a, recurse, static x => new Coth(x)),
-            Sech(var a) => RebuildUnary(expr, a, recurse, static x => new Sech(x)),
-            Csch(var a) => RebuildUnary(expr, a, recurse, static x => new Csch(x)),
-            Exp(var a) => RebuildUnary(expr, a, recurse, static x => new Exp(x)),
-            Ln(var a) => RebuildUnary(expr, a, recurse, static x => new Ln(x)),
-            Sqrt(var a) => RebuildUnary(expr, a, recurse, static x => new Sqrt(x)),
-            Abs(var a) => RebuildUnary(expr, a, recurse, static x => new Abs(x)),
-            Sign(var a) => RebuildUnary(expr, a, recurse, static x => new Sign(x)),
-            Floor(var a) => RebuildUnary(expr, a, recurse, static x => new Floor(x)),
-            Ceiling(var a) => RebuildUnary(expr, a, recurse, static x => new Ceiling(x)),
-            Round(var a) => RebuildUnary(expr, a, recurse, static x => new Round(x)),
-
-            Min(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Min(a, b)),
-            Max(var l, var r) => RebuildBinary(expr, l, r, recurse, static (a, b) => new Max(a, b)),
-            NthRoot(var a, var n) => RebuildBinary(expr, a, n, recurse, static (a2, b) => new NthRoot(a2, b)),
-
-            // Constant, Variable, Pi, E, ImaginaryUnit — leaves, nothing to recurse into
-            _ => expr
-        };
-    }
-
-    private static Expr RebuildUnary(Expr original, Expr child, Func<Expr, Expr> recurse, Func<Expr, Expr> build)
-    {
-        Expr newChild = recurse(child);
-        return ReferenceEquals(newChild, child) ? original : build(newChild);
-    }
-
-    private static Expr RebuildBinary(Expr original, Expr left, Expr right, Func<Expr, Expr> recurse, Func<Expr, Expr, Expr> build)
-    {
-        Expr newLeft = recurse(left);
-        Expr newRight = recurse(right);
-        return ReferenceEquals(newLeft, left) && ReferenceEquals(newRight, right)
-            ? original
-            : build(newLeft, newRight);
     }
 
     // Rewrites Sqrt/NthRoot into an equivalent Power, so the general
     // Power-combination rules in ApplyRules can operate on them uniformly.
-    private static Expr ToPowers(Expr expr) => Rewrite(expr, static e => e switch
+    private static Expr ToPowers(Expr expr) => TreeRewriter.Rewrite(expr, static e => e switch
     {
         Sqrt(var a) => new Power(a, new Divide(new Constant(1), new Constant(2))),
         NthRoot(var a, var n) => new Power(a, new Divide(new Constant(1), n)),
@@ -113,7 +45,7 @@ public static class Simplifier
 
     // Rewrites Power nodes with a root-like exponent (1/2, -1/2, 1/n) back into
     // Sqrt/NthRoot for display and further simplification — the inverse of ToPowers.
-    private static Expr PreferRoots(Expr expr) => Rewrite(expr, static e => e switch
+    private static Expr PreferRoots(Expr expr) => TreeRewriter.Rewrite(expr, static e => e switch
     {
         Power(var b, Constant exp) when exp.Value == new Rational(1, 2) =>
             new Sqrt(b),
@@ -129,7 +61,6 @@ public static class Simplifier
 
         _ => null
     });
-
     // Direct pattern checks instead of allocating new Constant(0)/new Constant(1)
     // just to compare against them via Equals.
     private static bool IsZero(this Expr e) => e is Constant c && c.Value.IsZero;

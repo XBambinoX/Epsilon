@@ -7,56 +7,22 @@ public static class Canonicalizer
         Add(var l, var r) => CanonicalizeAddChain(l, r),
         Multiply(var l, var r) => CanonicalizeMultiplyChain(l, r),
 
-        Subtract(var l, var r) => new Subtract(l.Canonicalize(), r.Canonicalize()),
-        Divide(var n, var d) => new Divide(n.Canonicalize(), d.Canonicalize()),
-        Power(var b, var e) => new Power(b.Canonicalize(), e.Canonicalize()),
-
-        Sin(var a) => new Sin(a.Canonicalize()),
-        Cos(var a) => new Cos(a.Canonicalize()),
-        Tan(var a) => new Tan(a.Canonicalize()),
-        Cot(var a) => new Cot(a.Canonicalize()),
-        Sec(var a) => new Sec(a.Canonicalize()),
-        Csc(var a) => new Csc(a.Canonicalize()),
-        Asin(var a) => new Asin(a.Canonicalize()),
-        Acos(var a) => new Acos(a.Canonicalize()),
-        Atan(var a) => new Atan(a.Canonicalize()),
-        Sinh(var a) => new Sinh(a.Canonicalize()),
-        Cosh(var a) => new Cosh(a.Canonicalize()),
-        Tanh(var a) => new Tanh(a.Canonicalize()),
-        Exp(var a) => new Exp(a.Canonicalize()),
-        Ln(var a) => new Ln(a.Canonicalize()),
-        Abs(var a) => new Abs(a.Canonicalize()),
-        Sqrt(var a) => new Sqrt(a.Canonicalize()),
-        NthRoot(var a, var n) => new NthRoot(a.Canonicalize(), n.Canonicalize()),
-
-        Asinh(var a) => new Asinh(a.Canonicalize()),
-        Acosh(var a) => new Acosh(a.Canonicalize()),
-        Atanh(var a) => new Atanh(a.Canonicalize()),
-        Coth(var a) => new Coth(a.Canonicalize()),
-        Sech(var a) => new Sech(a.Canonicalize()),
-        Csch(var a) => new Csch(a.Canonicalize()),
-
-        Negate(var a) => new Negate(a.Canonicalize()),
-
-        Sign(var a) => new Sign(a.Canonicalize()),
-        Floor(var a) => new Floor(a.Canonicalize()),
-        Ceiling(var a) => new Ceiling(a.Canonicalize()),
-        Round(var a) => new Round(a.Canonicalize()),
-        Min(var l, var r) => new Min(l.Canonicalize(), r.Canonicalize()),
-        Max(var l, var r) => new Max(l.Canonicalize(), r.Canonicalize()),
-
-        _ => expr
+        // Every other node type: recurse into children via the shared walker,
+        // reusing Canonicalize itself so nested Add/Multiply chains still get
+        // flattened and sorted, not just generically rebuilt.
+        _ => TreeRewriter.RewriteChildren(expr, static child => child.Canonicalize())
     };
 
-    // ---- Add: flatten -> canonicalize each term -> sort globally -> rebuild ----
+    // ---- Add: flatten -> canonicalize each term in place -> sort globally -> rebuild ----
 
     private static Expr CanonicalizeAddChain(Expr left, Expr right)
     {
-        var rawTerms = new List<Expr>();
-        FlattenAdd(left, rawTerms);
-        FlattenAdd(right, rawTerms);
+        var terms = new List<Expr>();
+        FlattenAdd(left, terms);
+        FlattenAdd(right, terms);
 
-        var terms = rawTerms.Select(t => t.Canonicalize()).ToList();
+        for (int i = 0; i < terms.Count; i++)
+            terms[i] = terms[i].Canonicalize();
 
         terms.Sort((a, b) =>
         {
@@ -84,11 +50,12 @@ public static class Canonicalizer
 
     private static Expr CanonicalizeMultiplyChain(Expr left, Expr right)
     {
-        var rawFactors = new List<Expr>();
-        FlattenMultiply(left, rawFactors);
-        FlattenMultiply(right, rawFactors);
+        var factors = new List<Expr>();
+        FlattenMultiply(left, factors);
+        FlattenMultiply(right, factors);
 
-        var factors = rawFactors.Select(t => t.Canonicalize()).ToList();
+        for (int i = 0; i < factors.Count; i++)
+            factors[i] = factors[i].Canonicalize();
 
         factors.Sort((a, b) =>
         {
@@ -119,7 +86,7 @@ public static class Canonicalizer
             result = build(result, items[i]);
         return result;
     }
-    
+
     // Lower rank sorts first: variable terms, then real constants, then terms containing i
     private static int AddRank(Expr e) =>
         !IsPureConstant(e) ? 0 :
@@ -160,6 +127,10 @@ public static class Canonicalizer
         _ => false
     };
 
+    // Mirrors Expr.Equals/GetHashCode's exhaustiveness: an unrecognized node
+    // type throws rather than silently comparing as "equal" (returning 0),
+    // which would otherwise let two structurally different unknown-type nodes
+    // sort as if identical without any warning.
     private static int StructuralCompare(Expr a, Expr b)
     {
         int typeCompare = string.CompareOrdinal(a.GetType().Name, b.GetType().Name);
@@ -168,7 +139,7 @@ public static class Canonicalizer
 
         return (a, b) switch
         {
-            (Constant x, Constant y) => x.Value.ToDouble().CompareTo(y.Value.ToDouble()),
+            (Constant x, Constant y) => CompareRational(x.Value, y.Value),
             (Variable x, Variable y) => string.CompareOrdinal(x.Name, y.Name),
             (Pi, Pi) => 0,
             (E, E) => 0,
@@ -212,7 +183,8 @@ public static class Canonicalizer
             (Min(var l1, var r1), Min(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
             (Max(var l1, var r1), Max(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
 
-            _ => 0
+            _ => throw new NotSupportedException(
+                $"StructuralCompare is not implemented for {a.GetType().Name} — add a case here.")
         };
 
         static int CompareChildren(Expr l1, Expr r1, Expr l2, Expr r2)
@@ -221,4 +193,8 @@ public static class Canonicalizer
             return leftCompare != 0 ? leftCompare : StructuralCompare(r1, r2);
         }
     }
+
+    // Exact comparison, no ToDouble() rounding — matches Rational's own
+    // ordering rather than converting to a lossy double first.
+    private static int CompareRational(Rational a, Rational b) => a.CompareTo(b);
 }
