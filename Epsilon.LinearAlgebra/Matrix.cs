@@ -1,4 +1,4 @@
-namespace Epsilon.Core;
+namespace Epsilon.LinearAlgebra;
 
 /// <summary>
 /// A generic N × M matrix.

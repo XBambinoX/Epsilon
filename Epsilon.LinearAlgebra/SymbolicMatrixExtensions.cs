@@ -1,4 +1,6 @@
-namespace Epsilon.Core;
+using Epsilon.Core;
+
+namespace Epsilon.LinearAlgebra;
 
 public static class SymbolicMatrixExtensions
 {

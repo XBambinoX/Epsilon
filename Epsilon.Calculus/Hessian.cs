@@ -1,4 +1,5 @@
 using Epsilon.Core;
+using Epsilon.LinearAlgebra;
 
 namespace Epsilon.Calculus;
 
