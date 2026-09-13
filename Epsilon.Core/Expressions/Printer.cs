@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Epsilon.Core;
 
 public static class Printer
@@ -43,7 +41,7 @@ public static class Printer
                 $"{PrintInternal(l, myPrecedence)} - {PrintInternal(r, myPrecedence + 1)}",
 
             Multiply(var l, var r) =>
-                PrintMultiply(l, r, parentPrecedence),
+                PrintMultiply(l, r),
 
             Divide(var n, var d) =>
                 $"{PrintInternal(n, myPrecedence)} / {PrintInternal(d, myPrecedence + 1)}",
@@ -101,43 +99,47 @@ public static class Printer
             : result;
     }
 
-    private static string PrintMultiply(Expr left, Expr right, int parentPrecedence)
+    private static string PrintMultiply(Expr left, Expr right)
     {
-        const int multiplyPrecedence = 2;
-
         var factors = new List<Expr>();
         FlattenMultiply(left, factors);
         FlattenMultiply(right, factors);
 
-        var constants = factors.Where(f => f is Constant).Cast<Constant>().ToList();
-        var rest = factors.Where(f => f is not Constant).ToList();
+        Constant? constant = null;
+        int constantCount = 0;
+        var rest = new List<Expr>(factors.Count);
 
-        bool canUseImplicit = constants.Count <= 1 && rest.All(CanBeImplicitFactor);
-
-        string result;
-
-        if (canUseImplicit)
+        foreach (var factor in factors)
         {
-            Rational coefficient = constants.Count == 1 ? constants[0].Value : Rational.One;
-            string sign = coefficient.Sign < 0 ? "-" : "";
-            Rational absCoefficient = coefficient.Abs();
-
-            string coefficientPart = absCoefficient.IsOne && rest.Count > 0
-                ? ""
-                : absCoefficient.ToString();
-
-            string restPart = string.Concat(rest.Select(f => PrintInternal(f, Precedence(f))));
-
-            result = rest.Count == 0
-                ? $"{sign}{absCoefficient}"
-                : $"{sign}{coefficientPart}{restPart}";
-        }
-        else
-        {
-            result = string.Join(" * ", factors.Select(f => PrintInternal(f, multiplyPrecedence + 1)));
+            if (factor is Constant c)
+            {
+                constant ??= c;
+                constantCount++;
+            }
+            else
+            {
+                rest.Add(factor);
+            }
         }
 
-        return multiplyPrecedence < parentPrecedence ? $"({result})" : result;
+        bool canUseImplicit = constantCount <= 1 && rest.All(CanBeImplicitFactor);
+
+        if (!canUseImplicit)
+            return string.Join(" * ", factors.Select(f => PrintInternal(f, 3)));
+
+        var coefficient = constant?.Value ?? Rational.One;
+        string sign = coefficient.Sign < 0 ? "-" : "";
+        var absCoefficient = coefficient.Abs();
+
+        string coefficientPart = absCoefficient.IsOne && rest.Count > 0
+            ? ""
+            : absCoefficient.ToString();
+
+        string restPart = string.Concat(rest.Select(f => PrintInternal(f, Precedence(f))));
+
+        return rest.Count == 0
+            ? $"{sign}{absCoefficient}"
+            : $"{sign}{coefficientPart}{restPart}";
     }
 
     private static void FlattenMultiply(Expr expr, List<Expr> factors)
