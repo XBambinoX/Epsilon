@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Epsilon.Core;
 
 public static class ExprParser
@@ -23,14 +21,20 @@ public static class ExprParser
     public static Expr Parse(string input, params string[] variableNames)
     {
         var knownVariables = variableNames.ToHashSet();
-        var tokens = Tokenize(input, knownVariables);
+
+        // Sorted once per Parse call
+        string[] sortedVariables = variableNames
+            .OrderByDescending(v => v.Length)
+            .ToArray();
+
+        var tokens = Tokenize(input, sortedVariables);
         var parser = new Parser(tokens, knownVariables);
         Expr result = parser.ParseExpression();
         parser.ExpectEnd();
         return result.Canonicalize();
     }
 
-    private static List<string> Tokenize(string input, IReadOnlySet<string> knownVariables)
+    private static List<string> Tokenize(string input, string[] sortedVariables)
     {
         var tokens = new List<string>();
         int i = 0;
@@ -55,9 +59,7 @@ public static class ExprParser
                 while (i < input.Length && char.IsLetter(input[i])) i++;
                 string run = input[start..i];
 
-                foreach (var token in SplitIdentifierRun(run, start, knownVariables))
-                    tokens.Add(token);
-
+                SplitIdentifierRun(run, start, sortedVariables, tokens);
                 continue;
             }
 
@@ -76,44 +78,52 @@ public static class ExprParser
         return tokens;
     }
 
-    private static IEnumerable<string> SplitIdentifierRun(string run, int startPos, IReadOnlySet<string> knownVariables)
+    // Appends directly to `tokens` instead of building and returning an
+    // intermediate IEnumerable<string> - one fewer allocation and no
+    // per-run List<string> that the caller just concatenates anyway.
+    private static void SplitIdentifierRun(string run, int startPos, string[] sortedVariables, List<string> tokens)
     {
         int pos = 0;
-        var result = new List<string>();
 
         while (pos < run.Length)
         {
-            string? reservedMatch = ReservedIdentifiers.FirstOrDefault(id =>
-                pos + id.Length <= run.Length &&
-                string.CompareOrdinal(run, pos, id, 0, id.Length) == 0);
+            int reservedLen = LongestMatchLength(run, pos, ReservedIdentifiers);
+            int variableLen = sortedVariables.Length > 0
+                ? LongestMatchLength(run, pos, sortedVariables)
+                : 0;
 
-            string? variableMatch = knownVariables.Count > 0
-                ? knownVariables
-                    .Where(v => pos + v.Length <= run.Length &&
-                                string.CompareOrdinal(run, pos, v, 0, v.Length) == 0)
-                    .OrderByDescending(v => v.Length)
-                    .FirstOrDefault()
-                : null;
-
-            // Longest match wins, regardless of pool — a declared variable like "second"
+            // Longest match wins, regardless of pool - a declared variable like "second"
             // must not be shadowed by the shorter reserved prefix "sec".
-            string? match = (reservedMatch?.Length ?? 0) >= (variableMatch?.Length ?? 0)
-                ? reservedMatch
-                : variableMatch;
+            int matchLen = Math.Max(reservedLen, variableLen);
 
-            if (match is not null)
+            if (matchLen > 0)
             {
-                result.Add(match);
-                pos += match.Length;
+                tokens.Add(run.Substring(pos, matchLen));
+                pos += matchLen;
                 continue;
             }
 
             // Fallback: single-letter implicit-multiplication behavior, unchanged.
-            result.Add(run[pos].ToString());
+            tokens.Add(run[pos].ToString());
             pos += 1;
         }
+    }
 
-        return result;
+    // Plain loop instead of `candidates.Where(...).OrderByDescending(...).FirstOrDefault()`.
+    // `candidates` is already sorted longest-first by the caller, so the first
+    // structural match found is the longest one — no re-sorting per call needed.
+    private static int LongestMatchLength(string run, int pos, string[] candidatesSortedByLengthDesc)
+    {
+        foreach (string candidate in candidatesSortedByLengthDesc)
+        {
+            if (pos + candidate.Length <= run.Length &&
+                string.CompareOrdinal(run, pos, candidate, 0, candidate.Length) == 0)
+            {
+                return candidate.Length;
+            }
+        }
+
+        return 0;
     }
 
     private sealed class Parser(List<string> tokens, IReadOnlySet<string> knownVariables)
@@ -285,11 +295,16 @@ public static class ExprParser
 
                 Consume();
 
-                var arguments = new List<Expr> { ParseExpression() };
-                while (Current == ",")
+                Expr first = ParseExpression();
+                Expr? second = null;
+
+                if (Current == ",")
                 {
                     Consume();
-                    arguments.Add(ParseExpression());
+                    second = ParseExpression();
+
+                    if (Current == ",")
+                        throw new FormatException($"Function '{token}' takes at most 2 arguments.");
                 }
 
                 if (Current != ")")
@@ -298,41 +313,46 @@ public static class ExprParser
 
                 return token switch
                 {
-                    "sin" => new Sin(arguments[0]),
-                    "cos" => new Cos(arguments[0]),
-                    "tan" => new Tan(arguments[0]),
-                    "cot" => new Cot(arguments[0]),
-                    "sec" => new Sec(arguments[0]),
-                    "csc" => new Csc(arguments[0]),
-                    "asin" => new Asin(arguments[0]),
-                    "acos" => new Acos(arguments[0]),
-                    "atan" => new Atan(arguments[0]),
-                    "sinh" => new Sinh(arguments[0]),
-                    "cosh" => new Cosh(arguments[0]),
-                    "tanh" => new Tanh(arguments[0]),
-                    "asinh" => new Asinh(arguments[0]),
-                    "acosh" => new Acosh(arguments[0]),
-                    "atanh" => new Atanh(arguments[0]),
-                    "coth" => new Coth(arguments[0]),
-                    "sech" => new Sech(arguments[0]),
-                    "csch" => new Csch(arguments[0]),
-                    "exp" => new Exp(arguments[0]),
-                    "ln" => new Ln(arguments[0]),
-                    "sqrt" => new Sqrt(arguments[0]),
-                    "sign" => new Sign(arguments[0]),
-                    "floor" => new Floor(arguments[0]),
-                    "ceiling" => new Ceiling(arguments[0]),
-                    "round" => new Round(arguments[0]),
-                    "min" when arguments.Count == 2 => new Min(arguments[0], arguments[1]),
+                    "sin" => new Sin(first),
+                    "cos" => new Cos(first),
+                    "tan" => new Tan(first),
+                    "cot" => new Cot(first),
+                    "sec" => new Sec(first),
+                    "csc" => new Csc(first),
+                    "asin" => new Asin(first),
+                    "acos" => new Acos(first),
+                    "atan" => new Atan(first),
+                    "sinh" => new Sinh(first),
+                    "cosh" => new Cosh(first),
+                    "tanh" => new Tanh(first),
+                    "asinh" => new Asinh(first),
+                    "acosh" => new Acosh(first),
+                    "atanh" => new Atanh(first),
+                    "coth" => new Coth(first),
+                    "sech" => new Sech(first),
+                    "csch" => new Csch(first),
+                    "exp" => new Exp(first),
+                    "ln" => new Ln(first),
+                    "sqrt" => new Sqrt(first),
+                    "sign" => new Sign(first),
+                    "floor" => new Floor(first),
+                    "ceiling" => new Ceiling(first),
+                    "round" => new Round(first),
+                    "abs" => new Abs(first),
+
+                    "min" when second is not null => new Min(first, second),
                     "min" => throw new FormatException("min requires exactly 2 arguments: min(a, b)."),
-                    "max" when arguments.Count == 2 => new Max(arguments[0], arguments[1]),
+
+                    "max" when second is not null => new Max(first, second),
                     "max" => throw new FormatException("max requires exactly 2 arguments: max(a, b)."),
+
                     // log(x, n) = ln(x) / ln(n) - sugar over existing nodes
-                    "log" when arguments.Count == 2 => new Divide(new Ln(arguments[0]), new Ln(arguments[1])),
+                    "log" when second is not null => new Divide(new Ln(first), new Ln(second)),
                     "log" => throw new FormatException("log requires exactly 2 arguments: log(x, base)."),
-                    "abs" => new Abs(arguments[0]),
-                    "nthroot" when arguments.Count == 2 => new NthRoot(arguments[0], arguments[1]),
+
+                    "nthroot" when second is not null => new NthRoot(first, second),
                     "nthroot" => throw new FormatException("nthroot requires exactly 2 arguments: nthroot(x, n)."),
+
                     _ => throw new FormatException($"Unknown function '{token}'.")
                 };
             }
@@ -348,7 +368,6 @@ public static class ExprParser
                 Consume();
                 return new Variable(token);
             }
-
 
             throw new FormatException($"Unexpected token '{token}'.");
         }
