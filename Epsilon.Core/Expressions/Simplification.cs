@@ -86,7 +86,7 @@ public static class Simplifier
             case Divide(Constant zero, var d) when zero.Value.IsZero:
                 return new Constant(0);
 
-            case Divide(var n, var d) when n.Equals(d):
+            case Divide(var n, var d) when n.Equals(d) && d.IsProvablyNonZero(assumptions):
                 return new Constant(1);
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
