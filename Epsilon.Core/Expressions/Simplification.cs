@@ -2,13 +2,15 @@ namespace Epsilon.Core;
 
 public static class Simplifier
 {
-    public static Expr Simplify(this Expr expr)
+    public static Expr Simplify(this Expr expr) => expr.Simplify(Assumptions.None);
+
+    public static Expr Simplify(this Expr expr, Assumptions assumptions)
     {
         Expr current = expr.Canonicalize();
 
         for (int i = 0; i < 100; i++)
         {
-            Expr next = SimplifyOnce(current);
+            Expr next = SimplifyOnce(current, assumptions);
 
             if (next.Equals(current))
                 return next;
@@ -19,13 +21,13 @@ public static class Simplifier
         throw new InvalidOperationException("Simplification did not converge after 100 iterations — possible rule cycle.");
     }
 
-    private static Expr SimplifyOnce(Expr expr)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions)
     {
-        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify());
-        return ApplyRules(simplifiedChildren).Canonicalize();
+        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify(assumptions));
+        return ApplyRules(simplifiedChildren, assumptions).Canonicalize();
     }
 
-    private static Expr ApplyRules(Expr expr)
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions)
     {
 
         Expr flattened = FlattenAndCombine(expr);
