@@ -1023,7 +1023,7 @@ public class AdvancedSimplifierTests
         // x must be nonzero.
         var assumption = Assumptions.None.AssumeNonZero("x");
 
-        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify(Assumptions.None.AssumeNonZero("x"));
+        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify(assumption);
         Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
     }
 
