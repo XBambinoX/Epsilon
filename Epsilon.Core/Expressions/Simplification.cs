@@ -107,7 +107,12 @@ public static class Simplifier
                 return new Constant(0);
 
             case Power(Power(var b, var e1), var e2):
-                return new Power(b, new Multiply(e1, e2));
+                // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
+                // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
+                Expr combined = new Power(b, new Multiply(e1, e2));
+                if (e1 is Constant ce1 && ce1.Value.IsInteger && !((long)ce1.Value.Numerator % 2 == 0))
+                    return combined;
+                return b.IsProvablyNonNegative(assumptions) ? combined : expr;
 
             case Multiply(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
                 return new Power(b1, new Add(e1, e2));
