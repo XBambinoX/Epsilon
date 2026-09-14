@@ -52,7 +52,7 @@ public static class Simplifier
                 return new Constant(0);
 
             case Subtract(Constant zero, var x) when zero.Value.IsZero:
-                return new Negate(x).Simplify();
+                return new Negate(x);
 
             case Negate(Constant c):
                 return new Constant(-c.Value);
@@ -62,7 +62,7 @@ public static class Simplifier
 
             // a - (-b) = a + b
             case Subtract(var a, Negate(var b)):
-                return new Add(a, b).Simplify();
+                return new Add(a, b);
 
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
@@ -107,56 +107,56 @@ public static class Simplifier
                 return new Constant(0);
 
             case Power(Power(var b, var e1), var e2):
-                return new Power(b, new Multiply(e1, e2)).Simplify();
+                return new Power(b, new Multiply(e1, e2));
 
             case Multiply(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
-                return new Power(b1, new Add(e1, e2)).Simplify();
+                return new Power(b1, new Add(e1, e2));
 
             case Multiply(var b, Power(var b2, var e)) when b.Equals(b2):
-                return new Power(b, new Add(e, new Constant(1))).Simplify();
+                return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(Power(var b, var e), var b2) when b.Equals(b2):
-                return new Power(b, new Add(e, new Constant(1))).Simplify();
+                return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
-                return new Power(b1, new Constant(2)).Simplify();
+                return new Power(b1, new Constant(2));
 
             case Multiply(Divide(var a, var b), Divide(var c, var d)):
-                return new Divide(new Multiply(a, c), new Multiply(b, d)).Simplify();
+                return new Divide(new Multiply(a, c), new Multiply(b, d));
 
             case Multiply(Divide(var a, var b), var c) when c is not Divide:
-                return new Divide(new Multiply(a, c), b).Simplify();
+                return new Divide(new Multiply(a, c), b);
 
             case Multiply(var c, Divide(var a, var b)) when c is not Divide:
-                return new Divide(new Multiply(c, a), b).Simplify();
+                return new Divide(new Multiply(c, a), b);
 
             case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2)) when b1.Equals(b2):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
             case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c)) when b1.Equals(b2):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
 
             case Divide(Divide(var a, var b), var c):
-                return new Divide(a, new Multiply(b, c)).Simplify();
+                return new Divide(a, new Multiply(b, c));
 
             // x^n / x^m = x^(n-m)
             case Divide(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Power(b1, new Subtract(e1, e2)).Simplify();
+                return new Power(b1, new Subtract(e1, e2));
 
             // x^n / x = x^(n-1)
             case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
+                return new Power(b1, new Subtract(e1, new Constant(1)));
 
             // (x^n * c) / x = c * x^(n-1)
             case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // (c * x^n) / x = c * x^(n-1)
             case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // x / x^n = x^(1-n)
             case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
+                return new Power(b1, new Subtract(new Constant(1), e2));
 
             case Sin(Constant c) when c.Value.IsZero:
                 return new Constant(0);
@@ -183,11 +183,11 @@ public static class Simplifier
 
             // tan(x) = sin(x) / cos(x)
             case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
-                return new Tan(x).Simplify();
+                return new Tan(x);
 
             // cot(x) = cos(x) / sin(x)
             case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
-                return new Cot(x).Simplify();
+                return new Cot(x);
 
             // tan(x) * cot(x) = 1
             case Multiply(Tan(var x), Cot(var y)) when x.Equals(y):
@@ -203,7 +203,7 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2):
-                return new Power(new Tan(x1), new Constant(2)).Simplify();
+                return new Power(new Tan(x1), new Constant(2));
 
             // cos(x)^2 / sin(x)^2 = cot(x)^2
             case Divide(
@@ -212,21 +212,21 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2):
-                return new Power(new Cot(x1), new Constant(2)).Simplify();
+                return new Power(new Cot(x1), new Constant(2));
 
             // 1 - sin(x)^2 = cos(x)^2
             case Subtract(
                 Constant c,
                 Power(Sin(var x), Constant e))
                 when c.Value == 1 && e.Value == 2:
-                return new Power(new Cos(x), new Constant(2)).Simplify();
+                return new Power(new Cos(x), new Constant(2));
 
             // 1 - cos(x)^2 = sin(x)^2
             case Subtract(
                 Constant c,
                 Power(Cos(var x), Constant e))
                 when c.Value == 1 && e.Value == 2:
-                return new Power(new Sin(x), new Constant(2)).Simplify();
+                return new Power(new Sin(x), new Constant(2));
 
             // sec(x)^2 - tan(x)^2 = 1
             case Subtract(
