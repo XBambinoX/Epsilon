@@ -1019,7 +1019,11 @@ public class AdvancedSimplifierTests
     [Fact]
     public void Simplifies_division_of_identical_powers_to_one()
     {
-        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify();
+        // Without this assumption, the simplifier returns x^3 / x^3.
+        // x must be nonzero.
+        var assumption = Assumptions.None.AssumeNonZero("x");
+
+        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify(Assumptions.None.AssumeNonZero("x"));
         Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
     }
 

@@ -139,23 +139,23 @@ public static class Simplifier
                 return new Divide(a, new Multiply(b, c)).Simplify();
 
             // x^n / x^m = x^(n-m)
-            case Divide(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
+            case Divide(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Power(b1, new Subtract(e1, e2)).Simplify();
 
             // x^n / x = x^(n-1)
-            case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2):
+            case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
 
             // (x^n * c) / x = c * x^(n-1)
-            case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2):
+            case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
 
             // (c * x^n) / x = c * x^(n-1)
-            case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2):
+            case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
 
             // x / x^n = x^(1-n)
-            case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
+            case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
 
             case Sin(Constant c) when c.Value.IsZero:
@@ -250,7 +250,9 @@ public static class Simplifier
                 return new Constant((Rational)Math.Sqrt(c.Value.ToDouble()));
 
             case Sqrt(Power(var b, Constant e)) when e.Value == 2:
-                return b; // sqrt(x^2) = x (ignoring |x| domain nuance)
+                return b.IsProvablyNonNegative(assumptions)
+                    ? b
+                    : new Abs(b);
 
             case NthRoot(Constant c, Constant n) when c.Value.Sign >= 0:
                 return new Constant((Rational)Math.Pow(c.Value.ToDouble(), 1.0 / n.Value.ToDouble()));
