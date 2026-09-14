@@ -103,7 +103,7 @@ public static class Simplifier
             case Power(var b, var e) when e.Equals(new Constant(1)):
                 return b;
 
-            case Power(var b, var e) when b.Equals(new Constant(0)):
+            case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
             case Power(Power(var b, var e1), var e2):
