@@ -135,9 +135,9 @@ public static class Simplifier
             case Multiply(var c, Divide(var a, var b)) when c is not Divide:
                 return new Divide(new Multiply(c, a), b);
 
-            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2)) when b1.Equals(b2):
+            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
-            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c)) when b1.Equals(b2):
+            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c)) when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
                 return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
 
             case Divide(Divide(var a, var b), var c):
