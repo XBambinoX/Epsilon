@@ -269,7 +269,13 @@ public static class Simplifier
                 return new Constant(c.Value.Abs());
 
             case Abs(var a) when a is Abs:
-                return a;    
+                return a;
+
+            case Abs(var a) when a.IsProvablyNonNegative(assumptions):
+                return a;
+
+            case Abs(var a) when a.IsProvablyNegative(assumptions):
+                return new Negate(a);
 
             case Sign(Constant c):
                 return new Constant(c.Value.Sign);

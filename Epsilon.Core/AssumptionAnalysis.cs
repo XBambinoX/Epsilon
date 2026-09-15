@@ -1,3 +1,5 @@
+using System.Reflection.Metadata;
+
 namespace Epsilon.Core;
 
 /// <summary>
@@ -48,6 +50,14 @@ public static class AssumptionAnalysis
         E => true,
         Abs(_) => true, // |anything| >= 0 always, regardless of assumptions
         Power(_, Constant e) when e.Value.IsInteger && e.Value.Sign > 0 && e.Value.Numerator % 2 == 0 => true, // even integer power
+        _ => false
+    };
+    
+    public static bool IsProvablyNegative(this Expr expr, Assumptions assumptions) => expr switch
+    {
+        Constant c => c.Value.Sign < 0,
+        Variable v => assumptions.IsNegative(v.Name),
+        Negate(var a) => a.IsProvablyPositive(assumptions),
         _ => false
     };
 }
