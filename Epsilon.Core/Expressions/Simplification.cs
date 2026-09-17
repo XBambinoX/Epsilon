@@ -304,9 +304,12 @@ public static class Simplifier
             case Abs(var a) when a.IsProvablyNegative(assumptions):
                 return new Negate(a);
 
-            case Sign(Constant c):
-                return new Constant(c.Value.Sign);
+            case Sign(var a) when a.IsProvablyPositive(assumptions):
+                return new Constant(1);
 
+            case Sign(var a) when a.IsProvablyNegative(assumptions):
+                return new Constant(-1);
+                
             case Floor(Constant c):
                 return new Constant(c.Value.Floor());
 
