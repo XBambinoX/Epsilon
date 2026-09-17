@@ -78,6 +78,12 @@ public static class Simplifier
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
 
+            case Divide(Multiply(var a, var b), var c) when a.Equals(c) && c.IsProvablyNonZero(assumptions):
+                return b;
+
+            case Divide(Multiply(var a, var b), var c) when b.Equals(c) && c.IsProvablyNonZero(assumptions):
+                return a;    
+
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
