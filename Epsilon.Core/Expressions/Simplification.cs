@@ -78,11 +78,9 @@ public static class Simplifier
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
 
-            case Divide(Multiply(var a, var b), var c) when a.Equals(c) && c.IsProvablyNonZero(assumptions):
-                return b;
-
-            case Divide(Multiply(var a, var b), var c) when b.Equals(c) && c.IsProvablyNonZero(assumptions):
-                return a;    
+            case Divide(var numerator, var denominator)
+                when TryCancelCommonFactors(numerator, denominator, assumptions, out Expr? cancelled):
+                return cancelled!;
 
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
@@ -91,8 +89,6 @@ public static class Simplifier
             case Divide(Constant zero, var d) when zero.Value.IsZero:
                 return new Constant(0);
 
-            case Divide(var n, var d) when n.Equals(d) && d.IsProvablyNonZero(assumptions):
-                return new Constant(1);
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
 
@@ -153,15 +149,7 @@ public static class Simplifier
 
             case Multiply(var c, Divide(var a, var b)) when c is not Divide:
                 return new Divide(new Multiply(c, a), b);
-
-            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2))
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
-
-            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c))
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
-
+                
             case Divide(Divide(var a, var b), var c):
                 return new Divide(a, new Multiply(b, c));
 
@@ -470,5 +458,100 @@ public static class Simplifier
         }
 
         return result;
+    }
+
+    private static void CollectFactors(Expr expr, Dictionary<Expr, Rational> factors, ref Rational coefficient)
+    {
+        switch (expr)
+        {
+            case Multiply(var l, var r):
+                CollectFactors(l, factors, ref coefficient);
+                CollectFactors(r, factors, ref coefficient);
+                break;
+
+            case Negate(var inner):
+                coefficient = -coefficient;
+                CollectFactors(inner, factors, ref coefficient);
+                break;
+
+            case Constant c:
+                coefficient *= c.Value;
+                break;
+
+            case Power(var b, Constant e) when e.Value.IsInteger:
+                AddExponent(factors, b, e.Value);
+                break;
+
+            default:
+                AddExponent(factors, expr, Rational.One);
+                break;
+        }
+    }
+
+    private static void AddExponent(Dictionary<Expr, Rational> factors, Expr baseExpr, Rational exponent)
+    {
+        factors[baseExpr] = factors.TryGetValue(baseExpr, out Rational existing)
+            ? existing + exponent
+            : exponent;
+    }
+
+    private static (Rational Coefficient, Dictionary<Expr, Rational> Factors) ExtractFactors(Expr expr)
+    {
+        var factors = new Dictionary<Expr, Rational>();
+        Rational coefficient = Rational.One;
+        CollectFactors(expr, factors, ref coefficient);
+        return (coefficient, factors);
+    }
+
+    private static bool IsConstantOne(Expr e) => e is Constant c && c.Value.IsOne;
+
+    private static Expr BuildProduct(Rational coefficient, Dictionary<Expr, Rational> factors)
+    {
+        Expr? result = coefficient.IsOne ? null : new Constant(coefficient);
+
+        foreach (var (baseExpr, exponent) in factors)
+        {
+            Expr term = exponent.IsOne ? baseExpr : new Power(baseExpr, new Constant(exponent));
+            result = result is null ? term : new Multiply(result, term);
+        }
+
+        return result ?? new Constant(coefficient); // everything cancelled — pure coefficient (often 1)
+    }
+
+    private static bool TryCancelCommonFactors(Expr numerator, Expr denominator, Assumptions assumptions, out Expr? result)
+    {
+        result = null;
+
+        var (numCoefficient, numFactors) = ExtractFactors(numerator);
+        var (denCoefficient, denFactors) = ExtractFactors(denominator);
+
+        var shared = new List<Expr>();
+        foreach (Expr baseExpr in numFactors.Keys)
+            if (denFactors.ContainsKey(baseExpr))
+                shared.Add(baseExpr);
+
+        if (shared.Count == 0)
+            return false; // nothing in common — let other rules (or none) handle this node
+
+        foreach (Expr baseExpr in shared)
+            if (!baseExpr.IsProvablyNonZero(assumptions))
+                return false; // can't safely cancel anything — leave the whole node alone
+
+        foreach (Expr baseExpr in shared)
+        {
+            Rational net = numFactors[baseExpr] - denFactors[baseExpr];
+            numFactors.Remove(baseExpr);
+            denFactors.Remove(baseExpr);
+
+            if (net.IsZero) continue;
+            if (net.Sign > 0) numFactors[baseExpr] = net;
+            else denFactors[baseExpr] = -net;
+        }
+
+        Expr newNumerator = BuildProduct(numCoefficient, numFactors);
+        Expr newDenominator = BuildProduct(denCoefficient, denFactors);
+
+        result = IsConstantOne(newDenominator) ? newNumerator : new Divide(newNumerator, newDenominator);
+        return true;
     }
 }
