@@ -531,11 +531,11 @@ public static class Simplifier
                 shared.Add(baseExpr);
 
         if (shared.Count == 0)
-            return false; // nothing in common — let other rules (or none) handle this node
+            return false;
 
         foreach (Expr baseExpr in shared)
             if (!baseExpr.IsProvablyNonZero(assumptions))
-                return false; // can't safely cancel anything — leave the whole node alone
+                return false;
 
         foreach (Expr baseExpr in shared)
         {
@@ -551,7 +551,10 @@ public static class Simplifier
         Expr newNumerator = BuildProduct(numCoefficient, numFactors);
         Expr newDenominator = BuildProduct(denCoefficient, denFactors);
 
-        result = IsConstantOne(newDenominator) ? newNumerator : new Divide(newNumerator, newDenominator);
+        result = IsConstantOne(newDenominator)
+            ? newNumerator.Simplify(assumptions)
+            : new Divide(newNumerator, newDenominator).Simplify(assumptions);
+
         return true;
     }
 }
