@@ -2,13 +2,15 @@ namespace Epsilon.Core;
 
 public static class Simplifier
 {
-    public static Expr Simplify(this Expr expr)
+    public static Expr Simplify(this Expr expr) => expr.Simplify(Assumptions.None);
+
+    public static Expr Simplify(this Expr expr, Assumptions assumptions)
     {
         Expr current = expr.Canonicalize();
 
         for (int i = 0; i < 100; i++)
         {
-            Expr next = SimplifyOnce(current);
+            Expr next = SimplifyOnce(current, assumptions);
 
             if (next.Equals(current))
                 return next;
@@ -19,15 +21,14 @@ public static class Simplifier
         throw new InvalidOperationException("Simplification did not converge after 100 iterations — possible rule cycle.");
     }
 
-    private static Expr SimplifyOnce(Expr expr)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions)
     {
-        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify());
-        return ApplyRules(simplifiedChildren).Canonicalize();
+        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify(assumptions));
+        return ApplyRules(simplifiedChildren, assumptions).Canonicalize();
     }
 
-    private static Expr ApplyRules(Expr expr)
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions)
     {
-
         Expr flattened = FlattenAndCombine(expr);
         if (!flattened.Equals(expr))
             return flattened.Canonicalize();
@@ -50,7 +51,7 @@ public static class Simplifier
                 return new Constant(0);
 
             case Subtract(Constant zero, var x) when zero.Value.IsZero:
-                return new Negate(x).Simplify();
+                return new Negate(x);
 
             case Negate(Constant c):
                 return new Constant(-c.Value);
@@ -60,7 +61,7 @@ public static class Simplifier
 
             // a - (-b) = a + b
             case Subtract(var a, Negate(var b)):
-                return new Add(a, b).Simplify();
+                return new Add(a, b);
 
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
@@ -77,6 +78,12 @@ public static class Simplifier
             case Multiply(var l, var r) when r.Equals(new Constant(1)):
                 return l;
 
+            case Divide(Multiply(var a, var b), var c) when a.Equals(c) && c.IsProvablyNonZero(assumptions):
+                return b;
+
+            case Divide(Multiply(var a, var b), var c) when b.Equals(c) && c.IsProvablyNonZero(assumptions):
+                return a;    
+
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
@@ -84,16 +91,27 @@ public static class Simplifier
             case Divide(Constant zero, var d) when zero.Value.IsZero:
                 return new Constant(0);
 
-            case Divide(var n, var d) when n.Equals(d):
+            case Divide(var n, var d) when n.Equals(d) && d.IsProvablyNonZero(assumptions):
                 return new Constant(1);
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
 
-            case Power(Constant b, Constant e) when e.Value.IsInteger:
+            // Integer exponent: exact BigInteger power. 0^negative is undefined
+            // (division by zero), so that combination is excluded and left symbolic.
+            case Power(Constant b, Constant e)
+                when e.Value.IsInteger && !(b.Value.IsZero && e.Value.Sign < 0):
                 return new Constant(b.Value.Pow((int)e.Value.Numerator));
 
-            case Power(Constant b, Constant e) when !e.Value.IsInteger && b.Value.Sign >= 0:
-                return new Constant((Rational)Math.Pow(b.Value.ToDouble(), e.Value.ToDouble()));
+            // Root exponent (+-1/n): exact result only if b is a perfect n-th power.
+            // NOT approximated via Math.Pow - an inexact root stays symbolic here and
+            // is presented as Sqrt/NthRoot by PreferRoots, rather than silently
+            // becoming a "precise-looking" but wrong Rational.
+            case Power(Constant b, Constant e)
+                when System.Numerics.BigInteger.Abs(e.Value.Numerator) == 1 &&
+                     TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
+                return e.Value.Numerator.Sign > 0
+                    ? new Constant(rootValue)
+                    : new Constant(Rational.One / rootValue);
 
             case Power(var b, var e) when e.Equals(new Constant(0)):
                 return new Constant(1);
@@ -101,60 +119,76 @@ public static class Simplifier
             case Power(var b, var e) when e.Equals(new Constant(1)):
                 return b;
 
-            case Power(var b, var e) when b.Equals(new Constant(0)):
+            case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
+            case Power(Sqrt(var a), Constant e) when e.Value == 2:
+                return a;
+
             case Power(Power(var b, var e1), var e2):
-                return new Power(b, new Multiply(e1, e2)).Simplify();
+                // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
+                // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
+                Expr combined = new Power(b, new Multiply(e1, e2));
+                if (e1 is Constant ce1 && ce1.Value.IsInteger && (long)ce1.Value.Numerator % 2 != 0)
+                    return combined;
+                return b.IsProvablyNonNegative(assumptions) ? combined : expr;
 
             case Multiply(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
-                return new Power(b1, new Add(e1, e2)).Simplify();
+                return new Power(b1, new Add(e1, e2));
 
             case Multiply(var b, Power(var b2, var e)) when b.Equals(b2):
-                return new Power(b, new Add(e, new Constant(1))).Simplify();
+                return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(Power(var b, var e), var b2) when b.Equals(b2):
-                return new Power(b, new Add(e, new Constant(1))).Simplify();
+                return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
-                return new Power(b1, new Constant(2)).Simplify();
+                return new Power(b1, new Constant(2));
 
             case Multiply(Divide(var a, var b), Divide(var c, var d)):
-                return new Divide(new Multiply(a, c), new Multiply(b, d)).Simplify();
+                return new Divide(new Multiply(a, c), new Multiply(b, d));
 
             case Multiply(Divide(var a, var b), var c) when c is not Divide:
-                return new Divide(new Multiply(a, c), b).Simplify();
+                return new Divide(new Multiply(a, c), b);
 
             case Multiply(var c, Divide(var a, var b)) when c is not Divide:
-                return new Divide(new Multiply(c, a), b).Simplify();
+                return new Divide(new Multiply(c, a), b);
 
-            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2)) when b1.Equals(b2):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
-            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c)) when b1.Equals(b2):
-                return new Divide(new Power(b1, new Constant(e.Value - 1)), c).Simplify();
+            case Divide(Power(var b1, Constant e), Multiply(Constant c, var b2))
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
+
+            case Divide(Power(var b1, Constant e), Multiply(var b2, Constant c))
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Divide(new Power(b1, new Constant(e.Value - 1)), c);
 
             case Divide(Divide(var a, var b), var c):
-                return new Divide(a, new Multiply(b, c)).Simplify();
+                return new Divide(a, new Multiply(b, c));
 
             // x^n / x^m = x^(n-m)
-            case Divide(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
-                return new Power(b1, new Subtract(e1, e2)).Simplify();
+            case Divide(Power(var b1, var e1), Power(var b2, var e2))
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Power(b1, new Subtract(e1, e2));
 
             // x^n / x = x^(n-1)
-            case Divide(Power(var b1, var e1), var b2) when b1.Equals(b2):
-                return new Power(b1, new Subtract(e1, new Constant(1))).Simplify();
+            case Divide(Power(var b1, var e1), var b2)
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Power(b1, new Subtract(e1, new Constant(1)));
 
             // (x^n * c) / x = c * x^(n-1)
-            case Divide(Multiply(Power(var b1, var e1), var c), var b2) when b1.Equals(b2):
-                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+            case Divide(Multiply(Power(var b1, var e1), var c), var b2)
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // (c * x^n) / x = c * x^(n-1)
-            case Divide(Multiply(var c, Power(var b1, var e1)), var b2) when b1.Equals(b2):
-                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1)))).Simplify();
+            case Divide(Multiply(var c, Power(var b1, var e1)), var b2)
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // x / x^n = x^(1-n)
-            case Divide(var b1, Power(var b2, var e2)) when b1.Equals(b2):
-                return new Power(b1, new Subtract(new Constant(1), e2)).Simplify();
+            case Divide(var b1, Power(var b2, var e2))
+                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                return new Power(b1, new Subtract(new Constant(1), e2));
 
             case Sin(Constant c) when c.Value.IsZero:
                 return new Constant(0);
@@ -165,7 +199,7 @@ public static class Simplifier
             case Tan(Constant c) when c.Value.IsZero:
                 return new Constant(0);
 
-            // sin(x)^2 + cos(x)^2 = 1
+            // sin(x)^2 + cos(x)^2 = 1 - holds unconditionally for all real x
             case Add(
                 Power(Cos(var x1), Constant e1),
                 Power(Sin(var x2), Constant e2))
@@ -174,18 +208,21 @@ public static class Simplifier
                     x1.Equals(x2):
                 return new Constant(1);
 
+            // ln(exp(a)) = a: exp(a) is always strictly positive for real a,
+            // so ln is always defined on its result - no assumption needed.
             case Ln(Exp(var a)):
                 return a;
-            case Exp(Ln(var a)):
+
+            case Exp(Ln(var a)) when a.IsProvablyPositive(assumptions):
                 return a;
 
             // tan(x) = sin(x) / cos(x)
             case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
-                return new Tan(x).Simplify();
+                return new Tan(x);
 
             // cot(x) = cos(x) / sin(x)
             case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
-                return new Cot(x).Simplify();
+                return new Cot(x);
 
             // tan(x) * cot(x) = 1
             case Multiply(Tan(var x), Cot(var y)) when x.Equals(y):
@@ -201,7 +238,7 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2):
-                return new Power(new Tan(x1), new Constant(2)).Simplify();
+                return new Power(new Tan(x1), new Constant(2));
 
             // cos(x)^2 / sin(x)^2 = cot(x)^2
             case Divide(
@@ -210,21 +247,21 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2):
-                return new Power(new Cot(x1), new Constant(2)).Simplify();
+                return new Power(new Cot(x1), new Constant(2));
 
             // 1 - sin(x)^2 = cos(x)^2
             case Subtract(
                 Constant c,
                 Power(Sin(var x), Constant e))
                 when c.Value == 1 && e.Value == 2:
-                return new Power(new Cos(x), new Constant(2)).Simplify();
+                return new Power(new Cos(x), new Constant(2));
 
             // 1 - cos(x)^2 = sin(x)^2
             case Subtract(
                 Constant c,
                 Power(Cos(var x), Constant e))
                 when c.Value == 1 && e.Value == 2:
-                return new Power(new Sin(x), new Constant(2)).Simplify();
+                return new Power(new Sin(x), new Constant(2));
 
             // sec(x)^2 - tan(x)^2 = 1
             case Subtract(
@@ -244,26 +281,43 @@ public static class Simplifier
                     x1.Equals(x2):
                 return new Constant(1);
 
-            case Sqrt(Constant c) when c.Value.Sign >= 0:
-                return new Constant((Rational)Math.Sqrt(c.Value.ToDouble()));
+            // Exact perfect-square root; not a perfect square stays symbolic (falls through).
+            case Sqrt(Constant c)
+                when c.Value.Sign >= 0 && TryExactRoot(c.Value, 2, out Rational sqrtValue):
+                return new Constant(sqrtValue);
 
             case Sqrt(Power(var b, Constant e)) when e.Value == 2:
-                return b; // sqrt(x^2) = x (ignoring |x| domain nuance)
+                return b.IsProvablyNonNegative(assumptions)
+                    ? b
+                    : new Abs(b);
 
-            case NthRoot(Constant c, Constant n) when c.Value.Sign >= 0:
-                return new Constant((Rational)Math.Pow(c.Value.ToDouble(), 1.0 / n.Value.ToDouble()));
+            // Exact n-th root; not a perfect n-th power stays symbolic (falls through).
+            case NthRoot(Constant c, Constant n)
+                when c.Value.Sign >= 0 && TryExactRoot(c.Value, n.Value.Numerator, out Rational nthRootValue):
+                return new Constant(nthRootValue);
 
-            case NthRoot(Constant c, Constant n) when c.Value.Sign < 0 && n.Value.IsInteger && IsOddInteger(n.Value.ToDouble()):
-                return new Constant((Rational)(-Math.Pow(-c.Value.ToDouble(), 1.0 / n.Value.ToDouble())));
+            case NthRoot(Constant c, Constant n)
+                when c.Value.Sign < 0 && n.Value.IsInteger && IsOddInteger(n.Value) &&
+                     TryExactRoot(-c.Value, n.Value.Numerator, out Rational negRootValue):
+                return new Constant(-negRootValue);
 
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
 
             case Abs(var a) when a is Abs:
-                return a;    
+                return a;
 
-            case Sign(Constant c):
-                return new Constant(c.Value.Sign);
+            case Abs(var a) when a.IsProvablyNonNegative(assumptions):
+                return a;
+
+            case Abs(var a) when a.IsProvablyNegative(assumptions):
+                return new Negate(a);
+
+            case Sign(var a) when a.IsProvablyPositive(assumptions):
+                return new Constant(1);
+
+            case Sign(var a) when a.IsProvablyNegative(assumptions):
+                return new Constant(-1);
 
             case Floor(Constant c):
                 return new Constant(c.Value.Floor());
@@ -285,8 +339,47 @@ public static class Simplifier
         }
     }
 
-    private static bool IsOddInteger(double value) =>
-        value == Math.Floor(value) && (long)value % 2 != 0;
+    private static bool IsOddInteger(Rational value) =>
+        value.IsInteger && (long)value.Numerator % 2 != 0;
+
+    private static bool TryIntegerNthRoot(System.Numerics.BigInteger value, int n, out System.Numerics.BigInteger root)
+    {
+        root = System.Numerics.BigInteger.Zero;
+        if (value.Sign < 0 || n <= 0) return false;
+        if (value.IsZero) return true;
+        if (n == 1) { root = value; return true; }
+
+        System.Numerics.BigInteger low = 0, high = value;
+        while (low <= high)
+        {
+            System.Numerics.BigInteger mid = (low + high) / 2;
+            System.Numerics.BigInteger midPow = System.Numerics.BigInteger.Pow(mid, n);
+
+            if (midPow == value) { root = mid; return true; }
+            if (midPow < value) low = mid + 1;
+            else high = mid - 1;
+        }
+
+        return false;
+    }
+
+    // Exact n-th root of a non-negative rational: numerator and denominator
+    // (coprime by Rational's construction) must each be a perfect n-th power.
+    private static bool TryExactRoot(Rational value, System.Numerics.BigInteger n, out Rational root)
+    {
+        root = default;
+        if (value.Sign < 0 || n <= 0) return false;
+
+        int nn;
+        try { nn = (int)n; }
+        catch (OverflowException) { return false; }
+
+        if (!TryIntegerNthRoot(value.Numerator, nn, out System.Numerics.BigInteger numRoot)) return false;
+        if (!TryIntegerNthRoot(value.Denominator, nn, out System.Numerics.BigInteger denRoot)) return false;
+
+        root = new Rational(numRoot, denRoot);
+        return true;
+    }
 
     private static (Rational Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
     {
@@ -328,6 +421,7 @@ public static class Simplifier
 
         Rational constantSum = Rational.Zero;
         var combined = new List<(Rational Coefficient, Expr Term)>();
+        var termIndex = new Dictionary<Expr, int>();
 
         foreach (var (coef, term) in raw)
         {
@@ -337,14 +431,14 @@ public static class Simplifier
                 continue;
             }
 
-            int existingIndex = combined.FindIndex(t => t.Term.Equals(term));
-            if (existingIndex >= 0)
+            if (termIndex.TryGetValue(term, out int existingIndex))
             {
                 var (existingCoef, existingTerm) = combined[existingIndex];
                 combined[existingIndex] = (existingCoef + coef, existingTerm);
             }
             else
             {
+                termIndex[term] = combined.Count;
                 combined.Add((coef, term));
             }
         }

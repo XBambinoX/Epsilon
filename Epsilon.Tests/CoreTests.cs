@@ -1019,7 +1019,11 @@ public class AdvancedSimplifierTests
     [Fact]
     public void Simplifies_division_of_identical_powers_to_one()
     {
-        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify();
+        // Without this assumption, the simplifier returns x^3 / x^3.
+        // x must be nonzero.
+        var assumption = Assumptions.None.AssumeNonZero("x");
+
+        Expr expr = ExprParser.Parse("x^3 / x^3").Simplify(assumption);
         Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
     }
 
@@ -1196,5 +1200,147 @@ public class AbsValueTests
 
         Assert.Equal(5, expr.Evaluate(
             new Dictionary<string, double> { ["x"] = -5 }));
+    }
+}
+
+public class CoreCoverageBatchTests
+{
+    public static TheoryData<Expr, double, double> ArithmeticEvaluationCases
+    {
+        get
+        {
+            var data = new TheoryData<Expr, double, double>();
+
+            for (int n = -25; n <= 25; n++)
+            {
+                data.Add(new Add(new Constant(n), new Variable("x")), 3.0, n + 3.0);
+                data.Add(new Subtract(new Constant(n), new Variable("x")), 3.0, n - 3.0);
+                data.Add(new Multiply(new Constant(n), new Variable("x")), 4.0, n * 4.0);
+                data.Add(new Divide(new Constant(n), new Variable("x")), 2.0, n / 2.0);
+                data.Add(new Power(new Variable("x"), new Constant(n)), 2.0, Math.Pow(2.0, n));
+                data.Add(new Add(new Multiply(new Constant(2), new Variable("x")), new Constant(n)), 5.0, 10.0 + n);
+                data.Add(new Subtract(new Multiply(new Constant(3), new Variable("x")), new Constant(n)), 4.0, 12.0 - n);
+                data.Add(new Divide(new Add(new Variable("x"), new Constant(n)), new Constant(2)), 8.0, (8.0 + n) / 2.0);
+            }
+
+            return data;
+        }
+    }
+
+    public static TheoryData<string, double, double> ParserEvaluationCases
+    {
+        get
+        {
+            var data = new TheoryData<string, double, double>();
+
+            for (int n = -20; n <= 20; n++)
+            {
+                data.Add($"x + {n}", 4.0, 4.0 + n);
+                data.Add($"x - {n}", 4.0, 4.0 - n);
+                data.Add($"{n} - x", 4.0, n - 4.0);
+                data.Add($"{n} * x", 4.0, n * 4.0);
+                data.Add($"x * {n}", 4.0, 4.0 * n);
+                data.Add($"(x + {n})^2", 2.0, Math.Pow(2.0 + n, 2.0));
+                data.Add($"sin(x + {n})", 0.5, Math.Sin(0.5 + n));
+                data.Add($"cos(x - {n})", 0.5, Math.Cos(0.5 - n));
+                data.Add($"x^2 + {n}", 3.0, 9.0 + n);
+
+                if (n != 0)
+                {
+                    data.Add($"x / {n}", 3.0, 3.0 / n);
+                    data.Add($"{n} / x", 2.0, n / 2.0);
+                }
+            }
+
+            return data;
+        }
+    }
+
+    public static TheoryData<string, double, double> SimplificationCases
+    {
+        get
+        {
+            var data = new TheoryData<string, double, double>();
+
+            for (int n = -15; n <= 15; n++)
+            {
+                data.Add($"x + 0 + {n}", 3.0, 3.0 + n);
+                data.Add($"x * 1 + {n}", 6.0, 6.0 + n);
+                data.Add($"x * 0 + {n}", 4.0, n);
+                data.Add($"(x - x) + {n}", 5.0, n);
+                data.Add($"(x^0) + {n}", 2.0, 1.0 + n);
+                data.Add($"(x^1) + {n}", 2.0, 2.0 + n);
+                data.Add($"0 / x + {n}", 7.0, n);
+                data.Add($"sin(0)^2 + cos(0)^2 + {n}", 10.0, 1.0 + n);
+                data.Add($"sqrt(x^2) + {n}", 7.0, 7.0 + n);
+                data.Add($"abs(-x + {n})", -4.0, Math.Abs(4.0 + n));
+            }
+
+            return data;
+        }
+    }
+
+    public static TheoryData<Expr, double, double> DifferentiationCases
+    {
+        get
+        {
+            var data = new TheoryData<Expr, double, double>();
+
+            for (int n = 1; n <= 20; n++)
+            {
+                data.Add(new Power(new Variable("x"), new Constant(n)), 3.0, n * Math.Pow(3.0, n - 1));
+                data.Add(new Multiply(new Constant(n), new Power(new Variable("x"), new Constant(2))), 4.0, 2.0 * n * 4.0);
+                data.Add(new Add(new Variable("x"), new Multiply(new Constant(n), new Variable("x"))), 2.0, 1.0 + n);
+                data.Add(new Divide(new Sin(new Variable("x")), new Variable("x")), 1.5, (Math.Cos(1.5) * 1.5 - Math.Sin(1.5)) / (1.5 * 1.5));
+                data.Add(new Multiply(new Variable("x"), new Sin(new Variable("x"))), 2.0, Math.Sin(2.0) + 2.0 * Math.Cos(2.0));
+                data.Add(new Exp(new Variable("x")), 1.2, Math.Exp(1.2));
+                data.Add(new Ln(new Variable("x")), 2.5, 1.0 / 2.5);
+                data.Add(new Sqrt(new Variable("x")), 9.0, 1.0 / (2.0 * Math.Sqrt(9.0)));
+            }
+
+            data.Add(new Add(new Sin(new Variable("x")), new Cos(new Variable("x"))), 0.75, Math.Cos(0.75) - Math.Sin(0.75));
+            data.Add(new Multiply(new Constant(2), new Power(new Variable("x"), new Constant(3))), 2.5, 2.0 * 3.0 * Math.Pow(2.5, 2));
+            data.Add(new Divide(new Constant(1), new Variable("x")), 2.0, -1.0 / (2.0 * 2.0));
+            data.Add(new Subtract(new Power(new Variable("x"), new Constant(2)), new Constant(1)), 3.0, 6.0);
+            data.Add(new Atan(new Variable("x")), 0.5, 1.0 / (1.0 + 0.25));
+            data.Add(new Tanh(new Variable("x")), 0.3, 1.0 / Math.Cosh(0.3) / Math.Cosh(0.3));
+            data.Add(new Cosh(new Variable("x")), 0.7, Math.Sinh(0.7));
+            data.Add(new Sinh(new Variable("x")), 0.7, Math.Cosh(0.7));
+            data.Add(new Asin(new Variable("x")), 0.2, 1.0 / Math.Sqrt(1.0 - 0.04));
+            data.Add(new Acos(new Variable("x")), 0.2, -1.0 / Math.Sqrt(1.0 - 0.04));
+
+            return data;
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(ArithmeticEvaluationCases))]
+    public void Arithmetic_core_expressions_evaluate_correctly(Expr expr, double x, double expected)
+    {
+        Assert.Equal(expected, expr.Evaluate(new Dictionary<string, double> { ["x"] = x }), precision: 10);
+    }
+
+    [Theory]
+    [MemberData(nameof(ParserEvaluationCases))]
+    public void Parser_supports_core_expression_forms(string input, double x, double expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x");
+        Assert.Equal(expected, expr.Evaluate(new Dictionary<string, double> { ["x"] = x }), precision: 10);
+    }
+
+    [Theory]
+    [MemberData(nameof(SimplificationCases))]
+    public void Simplification_reduces_core_expressions(string input, double x, double expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify();
+        Assert.Equal(expected, expr.Evaluate(new Dictionary<string, double> { ["x"] = x }), precision: 10);
+    }
+
+    [Theory]
+    [MemberData(nameof(DifferentiationCases))]
+    public void Differentiation_matches_expected_values(Expr expr, double x, double expected)
+    {
+        Expr derivative = expr.Differentiate("x");
+        Assert.Equal(expected, derivative.Evaluate(new Dictionary<string, double> { ["x"] = x }), precision: 8);
     }
 }
