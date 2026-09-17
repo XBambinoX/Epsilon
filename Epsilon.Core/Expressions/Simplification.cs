@@ -116,6 +116,9 @@ public static class Simplifier
             case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
+            case Power(Sqrt(var a), Constant e) when e.Value == 2:
+                return a;
+
             case Power(Power(var b, var e1), var e2):
                 // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
                 // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
@@ -309,7 +312,7 @@ public static class Simplifier
 
             case Sign(var a) when a.IsProvablyNegative(assumptions):
                 return new Constant(-1);
-                
+
             case Floor(Constant c):
                 return new Constant(c.Value.Floor());
 
