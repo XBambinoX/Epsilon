@@ -525,19 +525,15 @@ public static class Simplifier
         var (numCoefficient, numFactors) = ExtractFactors(numerator);
         var (denCoefficient, denFactors) = ExtractFactors(denominator);
 
-        var shared = new List<Expr>();
+        var cancellable = new List<Expr>();
         foreach (Expr baseExpr in numFactors.Keys)
-            if (denFactors.ContainsKey(baseExpr))
-                shared.Add(baseExpr);
+            if (denFactors.ContainsKey(baseExpr) && baseExpr.IsProvablyNonZero(assumptions))
+                cancellable.Add(baseExpr);
 
-        if (shared.Count == 0)
-            return false;
+        if (cancellable.Count == 0)
+            return false; // nothing safe to cancel - leave the whole node alone
 
-        foreach (Expr baseExpr in shared)
-            if (!baseExpr.IsProvablyNonZero(assumptions))
-                return false;
-
-        foreach (Expr baseExpr in shared)
+        foreach (Expr baseExpr in cancellable)
         {
             Rational net = numFactors[baseExpr] - denFactors[baseExpr];
             numFactors.Remove(baseExpr);
