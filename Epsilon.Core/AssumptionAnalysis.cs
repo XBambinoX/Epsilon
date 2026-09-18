@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Epsilon.Core;
 
 /// <summary>
@@ -6,36 +8,27 @@ namespace Epsilon.Core;
 /// rather than only "is this one variable nonzero?".
 ///
 /// Conservative by design: if it can't prove something, it returns false rather than
-/// guessing - a missed simplification is always safer than an incorrect one. This is why
-/// e.g. Subtract has no dedicated case anywhere below: a - b's sign depends on comparing
-/// the two operands' magnitudes, which isn't something we can decide structurally without
-/// numeric bounds, so it's deliberately left to fall through to "unknown".
+/// guessing - a missed simplification is always safer than an incorrect one.
 /// </summary>
 public static class AssumptionAnalysis
 {
-    /// <summary>
-    /// True only if expr can be proven nonzero under assumptions. Structural rules
-    /// (Multiply/Divide/Power/roots) reduce to "are the pieces nonzero", each of which
-    /// recurses the same way - a missing case anywhere just means "can't prove it", never
-    /// a wrong answer.
-    /// </summary>
+    private static bool IsOddInteger(Rational value) => value.IsInteger && value.Numerator % 2 != 0;
+    private static bool IsEvenInteger(Rational value) => value.IsInteger && value.Numerator % 2 == 0;
+
     public static bool IsProvablyNonZero(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => !c.Value.IsZero,
         Variable v => assumptions.IsNonZero(v.Name),
         Pi => true,
         E => true,
-        Exp(_) => true, // exp(x) > 0 for every real x - never zero, whatever the argument's sign
+        Exp(_) => true,
         Negate(var a) => a.IsProvablyNonZero(assumptions),
         Abs(var a) => a.IsProvablyNonZero(assumptions),
         Multiply(var l, var r) => l.IsProvablyNonZero(assumptions) && r.IsProvablyNonZero(assumptions),
         Divide(var n, var d) => n.IsProvablyNonZero(assumptions) && d.IsProvablyNonZero(assumptions),
-        Power(var b, _) => b.IsProvablyNonZero(assumptions), // nonzero base to any defined power stays nonzero
+        Power(var b, _) => b.IsProvablyNonZero(assumptions),
         Sqrt(var a) => a.IsProvablyNonZero(assumptions),
         NthRoot(var a, _) => a.IsProvablyNonZero(assumptions),
-        // Falls back to the sign-specific rules below, so any case added there in the
-        // future (e.g. Add of two provably-positive terms) automatically strengthens
-        // this too, without needing to be duplicated here.
         _ => expr.IsProvablyPositive(assumptions) || expr.IsProvablyNegative(assumptions)
     };
 
@@ -46,23 +39,25 @@ public static class AssumptionAnalysis
         Pi => true,
         E => true,
         Exp(_) => true,
-        Abs(var a) => a.IsProvablyNonZero(assumptions), // |a| > 0 iff a != 0
+        Negate(var a) => a.IsProvablyNegative(assumptions),
+        Abs(var a) => a.IsProvablyNonZero(assumptions),
         Add(var l, var r) =>
             (l.IsProvablyPositive(assumptions) && r.IsProvablyNonNegative(assumptions)) ||
             (l.IsProvablyNonNegative(assumptions) && r.IsProvablyPositive(assumptions)),
+        Subtract(var l, var r) =>
+            (l.IsProvablyPositive(assumptions) && r.IsProvablyNonPositive(assumptions)) ||
+            (l.IsProvablyNonNegative(assumptions) && r.IsProvablyNegative(assumptions)),
         Multiply(var l, var r) =>
             (l.IsProvablyPositive(assumptions) && r.IsProvablyPositive(assumptions)) ||
             (l.IsProvablyNegative(assumptions) && r.IsProvablyNegative(assumptions)),
         Divide(var n, var d) =>
             (n.IsProvablyPositive(assumptions) && d.IsProvablyPositive(assumptions)) ||
             (n.IsProvablyNegative(assumptions) && d.IsProvablyNegative(assumptions)),
-        // Even integer power: positive whenever the base isn't zero, regardless of its sign.
-        Power(var b, Constant e) when e.Value.IsInteger && e.Value.Sign > 0 && e.Value.Numerator % 2 == 0 =>
-            b.IsProvablyNonZero(assumptions),
+        Power(var b, Constant e) when IsEvenInteger(e.Value) => b.IsProvablyNonZero(assumptions),
+        Power(var b, Constant e) when IsOddInteger(e.Value) => b.IsProvablyPositive(assumptions),
         Power(var b, _) => b.IsProvablyPositive(assumptions),
-        Sqrt(var a) => a.IsProvablyPositive(assumptions), // sqrt(a) = 0 iff a = 0, so strictly positive iff a is
-        NthRoot(var a, Constant n) when n.Value.IsInteger && n.Value.Numerator % 2 != 0 =>
-            a.IsProvablyPositive(assumptions),
+        Sqrt(var a) => a.IsProvablyPositive(assumptions),
+        NthRoot(var a, Constant n) when IsOddInteger(n.Value) => a.IsProvablyPositive(assumptions),
         _ => false
     };
 
@@ -73,19 +68,23 @@ public static class AssumptionAnalysis
         Pi => true,
         E => true,
         Exp(_) => true,
-        Abs(_) => true, // |anything| >= 0 always, regardless of assumptions
+        Negate(var a) => a.IsProvablyNonPositive(assumptions),
+        Abs(_) => true,
         Add(var l, var r) => l.IsProvablyNonNegative(assumptions) && r.IsProvablyNonNegative(assumptions),
+        Subtract(var l, var r) =>
+            l.IsProvablyNonNegative(assumptions) && r.IsProvablyNonPositive(assumptions),
         Multiply(var l, var r) =>
             (l.IsProvablyNonNegative(assumptions) && r.IsProvablyNonNegative(assumptions)) ||
             (l.IsProvablyNonPositive(assumptions) && r.IsProvablyNonPositive(assumptions)),
         Divide(var n, var d) =>
             (n.IsProvablyNonNegative(assumptions) && d.IsProvablyPositive(assumptions)) ||
             (n.IsProvablyNonPositive(assumptions) && d.IsProvablyNegative(assumptions)),
-        Power(_, Constant e) when e.Value.IsInteger && e.Value.Sign > 0 && e.Value.Numerator % 2 == 0 => true, // even integer power
+        Power(_, Constant e) when IsEvenInteger(e.Value) => true,
+        Power(var b, Constant e) when IsOddInteger(e.Value) => b.IsProvablyNonNegative(assumptions),
         Power(var b, _) => b.IsProvablyNonNegative(assumptions),
-        Sqrt(_) => true, // the principal square root is always >= 0 by convention, whenever it's real
-        NthRoot(_, Constant n) when n.Value.IsInteger && n.Value.Numerator % 2 == 0 => true, // even root, principal branch
-        NthRoot(var a, _) => a.IsProvablyNonNegative(assumptions), // odd root (or unknown parity): sign follows a
+        Sqrt(_) => true,
+        NthRoot(_, Constant n) when IsEvenInteger(n.Value) => true,
+        NthRoot(var a, _) => a.IsProvablyNonNegative(assumptions),
         _ => expr.IsProvablyPositive(assumptions)
     };
 
@@ -95,12 +94,17 @@ public static class AssumptionAnalysis
         Variable v => assumptions.IsNonPositive(v.Name),
         Negate(var a) => a.IsProvablyNonNegative(assumptions),
         Add(var l, var r) => l.IsProvablyNonPositive(assumptions) && r.IsProvablyNonPositive(assumptions),
+        Subtract(var l, var r) =>
+            l.IsProvablyNonPositive(assumptions) && r.IsProvablyNonNegative(assumptions),
         Multiply(var l, var r) =>
             (l.IsProvablyNonNegative(assumptions) && r.IsProvablyNonPositive(assumptions)) ||
             (l.IsProvablyNonPositive(assumptions) && r.IsProvablyNonNegative(assumptions)),
         Divide(var n, var d) =>
             (n.IsProvablyNonNegative(assumptions) && d.IsProvablyNegative(assumptions)) ||
             (n.IsProvablyNonPositive(assumptions) && d.IsProvablyPositive(assumptions)),
+        // Odd integer exponent (any sign): sign of the result follows the base.
+        Power(var b, Constant e) when IsOddInteger(e.Value) => b.IsProvablyNonPositive(assumptions),
+        NthRoot(var a, Constant n) when IsOddInteger(n.Value) => a.IsProvablyNonPositive(assumptions),
         _ => expr.IsProvablyNegative(assumptions)
     };
 
@@ -112,14 +116,18 @@ public static class AssumptionAnalysis
         Add(var l, var r) =>
             (l.IsProvablyNegative(assumptions) && r.IsProvablyNonPositive(assumptions)) ||
             (l.IsProvablyNonPositive(assumptions) && r.IsProvablyNegative(assumptions)),
+        Subtract(var l, var r) =>
+            (l.IsProvablyNegative(assumptions) && r.IsProvablyNonNegative(assumptions)) ||
+            (l.IsProvablyNonPositive(assumptions) && r.IsProvablyPositive(assumptions)),
         Multiply(var l, var r) =>
             (l.IsProvablyPositive(assumptions) && r.IsProvablyNegative(assumptions)) ||
             (l.IsProvablyNegative(assumptions) && r.IsProvablyPositive(assumptions)),
         Divide(var n, var d) =>
             (n.IsProvablyPositive(assumptions) && d.IsProvablyNegative(assumptions)) ||
             (n.IsProvablyNegative(assumptions) && d.IsProvablyPositive(assumptions)),
-        NthRoot(var a, Constant n) when n.Value.IsInteger && n.Value.Numerator % 2 != 0 =>
-            a.IsProvablyNegative(assumptions), // odd root: sign follows the argument
+
+        Power(var b, Constant e) when IsOddInteger(e.Value) => b.IsProvablyNegative(assumptions),
+        NthRoot(var a, Constant n) when IsOddInteger(n.Value) => a.IsProvablyNegative(assumptions),
         _ => false
     };
 }
