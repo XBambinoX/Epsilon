@@ -24,7 +24,7 @@ public static class Simplifier
 
     private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode)
     {
-        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify(assumptions, mode));
+        Expr simplifiedChildren = expr.MapChildren(child => child.Simplify(assumptions, mode));
         return ApplyRules(simplifiedChildren, assumptions, mode).Canonicalize();
     }
 

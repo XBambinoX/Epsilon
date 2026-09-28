@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Exp(Expr argument) : Expr
+public sealed class Exp(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Exp(Argument.Evaluate(bindings));
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Exp(Argument.EvaluateComplex(bindings));
 
@@ -11,17 +9,13 @@ public sealed class Exp(Expr argument) : Expr
     protected override Expr DifferentiateCore(string variable) =>
         new Multiply(new Exp(Argument), Argument.Differentiate(variable)).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
-    public override Expr Substitute(string variable, Expr replacement) => new Exp(Argument.Substitute(variable, replacement));
+    protected override Expr WithArgument(Expr argument) => new Exp(argument);
 
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"exp({Argument})";
 }
 
-public sealed class Ln(Expr argument) : Expr
+public sealed class Ln(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Log(Argument.Evaluate(bindings));
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Log(Argument.EvaluateComplex(bindings));
 
@@ -29,9 +23,7 @@ public sealed class Ln(Expr argument) : Expr
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(Argument.Differentiate(variable), Argument).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
-    public override Expr Substitute(string variable, Expr replacement) => new Ln(Argument.Substitute(variable, replacement));
+    protected override Expr WithArgument(Expr argument) => new Ln(argument);
 
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"ln({Argument})";
 }

@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Sign(Expr argument) : Expr
+public sealed class Sign(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Sign(Argument.Evaluate(bindings));
 
@@ -18,11 +16,7 @@ public sealed class Sign(Expr argument) : Expr
             "Sign(x) has a branch-dependent derivative and can't be represented " +
             "without a Piecewise/conditional Expr node.");
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    protected override Expr WithArgument(Expr argument) => new Sign(argument);
 
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Sign(Argument.Substitute(variable, replacement));
-
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"sign({Argument})";
 }

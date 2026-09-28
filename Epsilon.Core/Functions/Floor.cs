@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Floor(Expr argument) : Expr
+public sealed class Floor(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Floor(Argument.Evaluate(bindings));
 
@@ -15,11 +13,7 @@ public sealed class Floor(Expr argument) : Expr
             "floor has a branch-dependent derivative and can't be represented " +
             "without a Piecewise/conditional Expr node.");
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    protected override Expr WithArgument(Expr argument) => new Floor(argument);
 
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Floor(Argument.Substitute(variable, replacement));
-
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"floor({Argument})";
 }

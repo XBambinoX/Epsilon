@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Ceiling(Expr argument) : Expr
+public sealed class Ceiling(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Ceiling(Argument.Evaluate(bindings));
 
@@ -15,11 +13,7 @@ public sealed class Ceiling(Expr argument) : Expr
             "Ceiling has a branch-dependent derivative and can't be represented " +
             "without a Piecewise/conditional Expr node.");
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
+    protected override Expr WithArgument(Expr argument) => new Ceiling(argument);
 
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Ceiling(Argument.Substitute(variable, replacement));
-
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"ceiling({Argument})";
 }

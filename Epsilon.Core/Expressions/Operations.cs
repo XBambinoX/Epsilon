@@ -2,6 +2,8 @@ namespace Epsilon.Core;
 
 public sealed class Add(Expr left, Expr right) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [left, right];
+
     public Expr Left { get; } = left;
     public Expr Right { get; } = right;
 
@@ -14,11 +16,9 @@ public sealed class Add(Expr left, Expr right) : Expr
     protected override Expr DifferentiateCore(string variable) =>
         new Add(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Left.GetVariables().Union(Right.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Add(Left.Substitute(variable, replacement), Right.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new Add(a, b));
 
     public override string ToString() => $"({Left} + {Right})";
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
@@ -26,6 +26,8 @@ public sealed class Add(Expr left, Expr right) : Expr
 
 public sealed class Subtract(Expr left, Expr right) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [left, right];
+
     public Expr Left { get; } = left;
     public Expr Right { get; } = right;
 
@@ -38,11 +40,9 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     protected override Expr DifferentiateCore(string variable) =>
         new Subtract(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Left.GetVariables().Union(Right.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Subtract(Left.Substitute(variable, replacement), Right.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new Subtract(a, b));
 
     public override string ToString() => $"({Left} - {Right})";
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
@@ -50,6 +50,8 @@ public sealed class Subtract(Expr left, Expr right) : Expr
 
 public sealed class Multiply(Expr left, Expr right) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [left, right];
+
     public Expr Left { get; } = left;
     public Expr Right { get; } = right;
 
@@ -65,11 +67,9 @@ public sealed class Multiply(Expr left, Expr right) : Expr
             new Multiply(Left, Right.Differentiate(variable))
         ).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Left.GetVariables().Union(Right.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Multiply(Left.Substitute(variable, replacement), Right.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new Multiply(a, b));
 
     public override string ToString() => $"({Left} * {Right})";
     public void Deconstruct(out Expr left, out Expr right) => (left, right) = (Left, Right);
@@ -77,6 +77,8 @@ public sealed class Multiply(Expr left, Expr right) : Expr
 
 public sealed class Divide(Expr numerator, Expr denominator) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [numerator, denominator];
+
     public Expr Numerator { get; } = numerator;
     public Expr Denominator { get; } = denominator;
 
@@ -95,11 +97,9 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
             new Power(Denominator, new Constant(2))
         ).Simplify();
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Numerator.GetVariables().Union(Denominator.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Divide(Numerator.Substitute(variable, replacement), Denominator.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new Divide(a, b));
 
     public override string ToString() => $"({Numerator} / {Denominator})";
     public void Deconstruct(out Expr numerator, out Expr denominator) => (numerator, denominator) = (Numerator, Denominator);
@@ -107,6 +107,8 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
 
 public sealed class Power(Expr baseExpr, Expr exponent) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [baseExpr, exponent];
+
     public Expr Base { get; } = baseExpr;
     public Expr Exponent { get; } = exponent;
 
@@ -136,11 +138,9 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
         return new Multiply(this, new Add(term1, term2)).Simplify();
     }
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Base.GetVariables().Union(Exponent.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Power(Base.Substitute(variable, replacement), Exponent.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new Power(a, b));
 
     public override string ToString() => $"({Base} ^ {Exponent})";
     public void Deconstruct(out Expr baseExpr, out Expr exponent) => (baseExpr, exponent) = (Base, Exponent);

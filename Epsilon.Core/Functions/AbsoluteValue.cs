@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Abs(Expr argument) : Expr
+public sealed class Abs(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Abs(Argument.Evaluate(bindings));
 
@@ -19,14 +17,7 @@ public sealed class Abs(Expr argument) : Expr
         );
     }
 
-    public override IReadOnlySet<string> GetVariables() =>
-        Argument.GetVariables();
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new Abs(Argument.Substitute(variable, replacement));
-
-    public void Deconstruct(out Expr argument) =>
-        argument = Argument;
+    protected override Expr WithArgument(Expr argument) => new Abs(argument);
 
     public override string ToString() =>
         $"abs({Argument})";

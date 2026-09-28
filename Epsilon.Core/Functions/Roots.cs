@@ -1,9 +1,7 @@
 namespace Epsilon.Core;
 
-public sealed class Sqrt(Expr argument) : Expr
+public sealed class Sqrt(Expr argument) : UnaryExpr(argument)
 {
-    public Expr Argument { get; } = argument;
-
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Sqrt(Argument.Evaluate(bindings));
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Sqrt(Argument.EvaluateComplex(bindings));
 
@@ -14,15 +12,15 @@ public sealed class Sqrt(Expr argument) : Expr
             new Multiply(new Constant(2), new Sqrt(Argument))
         );
 
-    public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
-    public override Expr Substitute(string variable, Expr replacement) => new Sqrt(Argument.Substitute(variable, replacement));
+    protected override Expr WithArgument(Expr argument) => new Sqrt(argument);
 
-    public void Deconstruct(out Expr argument) => argument = Argument;
     public override string ToString() => $"sqrt({Argument})";
 }
 
 public sealed class NthRoot(Expr argument, Expr degree) : Expr
 {
+    private readonly ImmutableArray<Expr> _children = [argument, degree];
+
     public Expr Argument { get; } = argument;
     public Expr Degree { get; } = degree;
 
@@ -96,11 +94,9 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
             fPrime);
     }
 
-    public override IReadOnlySet<string> GetVariables() =>
-        (IReadOnlySet<string>)new HashSet<string>(Argument.GetVariables().Union(Degree.GetVariables()));
-
-    public override Expr Substitute(string variable, Expr replacement) =>
-        new NthRoot(Argument.Substitute(variable, replacement), Degree.Substitute(variable, replacement));
+    public override ImmutableArray<Expr> Children => _children;
+    public override Expr WithChildren(IReadOnlyList<Expr> children) =>
+        WithTwoChildren(children, static (a, b) => new NthRoot(a, b));
 
     public void Deconstruct(out Expr argument, out Expr degree) => (argument, degree) = (Argument, Degree);
     public override string ToString() => $"nthroot({Argument}, {Degree})";

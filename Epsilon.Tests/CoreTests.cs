@@ -2219,3 +2219,139 @@ public class ProductCombiningTests
         Assert.Equal(original.Evaluate(bindings), simplified.Evaluate(bindings), precision: 10);
     }
 }
+
+// A node type defined outside Epsilon.Core, the way a contributor or another module would.
+// It only implements its own math - no registration anywhere else.
+public sealed class Sigmoid(Expr argument) : UnaryExpr(argument)
+{
+    public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
+        1 / (1 + Math.Exp(-Argument.Evaluate(bindings)));
+
+    protected override Expr DifferentiateCore(string variable) =>
+        new Multiply(new Multiply(this, new Subtract(new Constant(1), this)), Argument.Differentiate(variable));
+
+    protected override Expr WithArgument(Expr argument) => new Sigmoid(argument);
+
+    public override string ToString() => $"sigmoid({Argument})";
+}
+
+public class ExprTreeApiTests
+{
+    private static readonly Variable X = new("x");
+    private static readonly Variable Y = new("y");
+
+    [Fact]
+    public void Children_lists_direct_subexpressions_in_order()
+    {
+        // Assert.Equal<Expr> compares element by element; ImmutableArray's own Equals
+        // only compares the underlying array reference.
+        Assert.Empty(new Constant(3).Children);
+        Assert.Empty(X.Children);
+        Assert.Equal<Expr>([X], new Sin(X).Children);
+        Assert.Equal<Expr>([X, Y], new Divide(X, Y).Children);
+        Assert.Equal<Expr>([X, new Constant(3)], new NthRoot(X, new Constant(3)).Children);
+    }
+
+    [Fact]
+    public void Children_cannot_be_used_to_mutate_a_node()
+    {
+        var node = new Add(X, Y);
+
+        // Viewed through the mutable collection interfaces, writes are rejected.
+        IList<Expr> asList = node.Children;
+        Assert.Throws<NotSupportedException>(() => asList[0] = new Constant(1));
+        Assert.IsNotType<Expr[]>((object)node.Children);
+
+        Assert.Same(X, node.Left);
+        Assert.Equal(new Add(X, Y), node);
+    }
+
+    [Fact]
+    public void Canonical_order_does_not_tie_nodes_from_different_namespaces_with_the_same_name()
+    {
+        // Epsilon.Tests.Other.Sin has the same short name as Epsilon.Core.Sin. Comparing
+        // only short names made them tie, so the canonical order followed the input order.
+        Expr coreSin = new Sin(X);
+        Expr otherSin = new Epsilon.Tests.Other.Sin(X);
+
+        Expr ab = new Add(coreSin, otherSin).Canonicalize();
+        Expr ba = new Add(otherSin, coreSin).Canonicalize();
+
+        Assert.Equal(ab, ba);
+    }
+
+    [Fact]
+    public void WithChildren_rebuilds_the_same_node_type()
+    {
+        Expr rebuilt = new Power(X, new Constant(2)).WithChildren([Y, new Constant(3)]);
+        Assert.Equal(new Power(Y, new Constant(3)), rebuilt);
+
+        Assert.Equal(new Cos(Y), new Cos(X).WithChildren([Y]));
+    }
+
+    [Fact]
+    public void WithChildren_returns_the_same_instance_when_nothing_changed()
+    {
+        var node = new Add(X, Y);
+        Assert.Same(node, node.WithChildren([X, Y]));
+
+        var leaf = new Constant(1);
+        Assert.Same(leaf, leaf.WithChildren([]));
+    }
+
+    [Fact]
+    public void WithChildren_rejects_the_wrong_number_of_children()
+    {
+        Assert.Throws<ArgumentException>(() => new Sin(X).WithChildren([X, Y]));
+        Assert.Throws<ArgumentException>(() => new Add(X, Y).WithChildren([X]));
+        Assert.Throws<ArgumentException>(() => X.WithChildren([Y]));
+    }
+
+    [Fact]
+    public void MapChildren_allocates_nothing_when_no_child_changes()
+    {
+        Expr expr = new Multiply(new Sin(X), Y);
+        Assert.Same(expr, expr.MapChildren(child => child));
+
+        Expr mapped = expr.MapChildren(child => child is Variable ? new Constant(2) : child);
+        Assert.Equal(new Multiply(new Sin(X), new Constant(2)), mapped);
+    }
+
+    [Fact]
+    public void Substitute_keeps_untouched_subtrees_by_reference()
+    {
+        Expr untouched = new Sin(Y);
+        Expr expr = new Add(untouched, X);
+
+        var substituted = (Add)expr.Substitute("x", new Constant(1));
+        Assert.Same(untouched, substituted.Left);
+    }
+
+    [Fact]
+    public void Custom_node_gets_equality_hashing_and_ordering_for_free()
+    {
+        Assert.Equal(new Sigmoid(X), new Sigmoid(X));
+        Assert.NotEqual<Expr>(new Sigmoid(X), new Sigmoid(Y));
+        Assert.NotEqual<Expr>(new Sigmoid(X), new Sin(X));
+        Assert.Equal(new Sigmoid(X).GetHashCode(), new Sigmoid(X).GetHashCode());
+
+        // Canonical ordering and like-term collection used to throw NotSupportedException
+        // for any node type they didn't list explicitly.
+        Expr sum = new Add(new Add(new Sigmoid(X), Y), new Sigmoid(X)).Simplify();
+        Assert.Equal(new Add(new Multiply(new Constant(2), new Sigmoid(X)), Y), sum);
+    }
+
+    [Fact]
+    public void Custom_node_gets_variables_substitution_and_differentiation_for_free()
+    {
+        Expr expr = new Sigmoid(new Multiply(new Constant(2), X));
+
+        Assert.Equal(new HashSet<string> { "x" }, expr.GetVariables());
+        Assert.Equal(new Sigmoid(new Multiply(new Constant(2), Y)), expr.Substitute("x", Y));
+        Assert.Equal(new Constant(0), expr.Differentiate("y"));
+
+        // d/dx sigmoid(2x) = 2 * s * (1 - s); check numerically at x = 0.3.
+        double s = 1 / (1 + Math.Exp(-0.6));
+        Assert.Equal(2 * s * (1 - s), expr.Differentiate("x").Evaluate(0.3), precision: 12);
+    }
+}

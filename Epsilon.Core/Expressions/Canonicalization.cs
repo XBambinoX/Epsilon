@@ -10,7 +10,7 @@ public static class Canonicalizer
         // Every other node type: recurse into children via the shared walker,
         // reusing Canonicalize itself so nested Add/Multiply chains still get
         // flattened and sorted, not just generically rebuilt.
-        _ => TreeRewriter.RewriteChildren(expr, static child => child.Canonicalize())
+        _ => expr.MapChildren(static child => child.Canonicalize())
     };
 
     // ---- Add: flatten -> canonicalize each term in place -> sort globally -> rebuild ----
@@ -127,74 +127,35 @@ public static class Canonicalizer
         _ => false
     };
 
-    // Mirrors Expr.Equals/GetHashCode's exhaustiveness: an unrecognized node
-    // type throws rather than silently comparing as "equal" (returning 0),
-    // which would otherwise let two structurally different unknown-type nodes
-    // sort as if identical without any warning.
+    // Total order used to sort terms and factors: by node type name, then by payload
+    // (Constant value, Variable name), then child by child. Generic over Children, so
+    // it covers every node type without listing them.
     private static int StructuralCompare(Expr a, Expr b)
     {
-        int typeCompare = string.CompareOrdinal(a.GetType().Name, b.GetType().Name);
+        if (ReferenceEquals(a, b))
+            return 0;
+
+        // Full name, not just Name: a Sin node from another module must not tie with
+        // Epsilon.Core.Sin, or the canonical order of the two would depend on input order.
+        // (Core types share one namespace, so their relative order is unchanged.)
+        int typeCompare = string.CompareOrdinal(TypeKey(a), TypeKey(b));
         if (typeCompare != 0)
             return typeCompare;
 
-        return (a, b) switch
+        int payloadCompare = a.ComparePayload(b);
+        if (payloadCompare != 0)
+            return payloadCompare;
+
+        ImmutableArray<Expr> left = a.Children, right = b.Children;
+        for (int i = 0; i < Math.Min(left.Length, right.Length); i++)
         {
-            (Constant x, Constant y) => CompareRational(x.Value, y.Value),
-            (Variable x, Variable y) => string.CompareOrdinal(x.Name, y.Name),
-            (Pi, Pi) => 0,
-            (E, E) => 0,
-            (ImaginaryUnit, ImaginaryUnit) => 0,
-
-            (Add(var l1, var r1), Add(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
-            (Subtract(var l1, var r1), Subtract(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
-            (Multiply(var l1, var r1), Multiply(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
-            (Divide(var n1, var d1), Divide(var n2, var d2)) => CompareChildren(n1, d1, n2, d2),
-            (Power(var b1, var e1), Power(var b2, var e2)) => CompareChildren(b1, e1, b2, e2),
-            (Negate(var a1), Negate(var a2)) => StructuralCompare(a1, a2),
-
-            (Sin(var a1), Sin(var a2)) => StructuralCompare(a1, a2),
-            (Cos(var a1), Cos(var a2)) => StructuralCompare(a1, a2),
-            (Tan(var a1), Tan(var a2)) => StructuralCompare(a1, a2),
-            (Cot(var a1), Cot(var a2)) => StructuralCompare(a1, a2),
-            (Sec(var a1), Sec(var a2)) => StructuralCompare(a1, a2),
-            (Csc(var a1), Csc(var a2)) => StructuralCompare(a1, a2),
-            (Asin(var a1), Asin(var a2)) => StructuralCompare(a1, a2),
-            (Acos(var a1), Acos(var a2)) => StructuralCompare(a1, a2),
-            (Atan(var a1), Atan(var a2)) => StructuralCompare(a1, a2),
-            (Sinh(var a1), Sinh(var a2)) => StructuralCompare(a1, a2),
-            (Cosh(var a1), Cosh(var a2)) => StructuralCompare(a1, a2),
-            (Tanh(var a1), Tanh(var a2)) => StructuralCompare(a1, a2),
-            (Asinh(var a1), Asinh(var a2)) => StructuralCompare(a1, a2),
-            (Acosh(var a1), Acosh(var a2)) => StructuralCompare(a1, a2),
-            (Atanh(var a1), Atanh(var a2)) => StructuralCompare(a1, a2),
-            (Coth(var a1), Coth(var a2)) => StructuralCompare(a1, a2),
-            (Sech(var a1), Sech(var a2)) => StructuralCompare(a1, a2),
-            (Csch(var a1), Csch(var a2)) => StructuralCompare(a1, a2),
-            (Exp(var a1), Exp(var a2)) => StructuralCompare(a1, a2),
-            (Ln(var a1), Ln(var a2)) => StructuralCompare(a1, a2),
-            (Sqrt(var a1), Sqrt(var a2)) => StructuralCompare(a1, a2),
-            (Abs(var a1), Abs(var a2)) => StructuralCompare(a1, a2),
-            (Sign(var a1), Sign(var a2)) => StructuralCompare(a1, a2),
-            (Floor(var a1), Floor(var a2)) => StructuralCompare(a1, a2),
-            (Ceiling(var a1), Ceiling(var a2)) => StructuralCompare(a1, a2),
-            (Round(var a1), Round(var a2)) => StructuralCompare(a1, a2),
-
-            (NthRoot(var a1, var n1), NthRoot(var a2, var n2)) => CompareChildren(a1, n1, a2, n2),
-            (Min(var l1, var r1), Min(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
-            (Max(var l1, var r1), Max(var l2, var r2)) => CompareChildren(l1, r1, l2, r2),
-
-            _ => throw new NotSupportedException(
-                $"StructuralCompare is not implemented for {a.GetType().Name} — add a case here.")
-        };
-
-        static int CompareChildren(Expr l1, Expr r1, Expr l2, Expr r2)
-        {
-            int leftCompare = StructuralCompare(l1, l2);
-            return leftCompare != 0 ? leftCompare : StructuralCompare(r1, r2);
+            int childCompare = StructuralCompare(left[i], right[i]);
+            if (childCompare != 0)
+                return childCompare;
         }
+
+        return left.Length.CompareTo(right.Length);
     }
 
-    // Exact comparison, no ToDouble() rounding — matches Rational's own
-    // ordering rather than converting to a lossy double first.
-    private static int CompareRational(Rational a, Rational b) => a.CompareTo(b);
+    private static string TypeKey(Expr expr) => expr.GetType().FullName ?? expr.GetType().Name;
 }
