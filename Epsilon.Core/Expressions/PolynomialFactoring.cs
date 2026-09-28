@@ -100,7 +100,7 @@ public static class PolynomialFactoring
     {
         try
         {
-            Expr simplified = expr.Simplify();
+            Expr simplified = expr.Simplify(SimplifyMode.Strict); // x^2/x is not the polynomial x
             var coeffs = new Dictionary<int, Rational>();
             CollectPolynomialTerms(simplified, variable, Rational.One, coeffs);
 

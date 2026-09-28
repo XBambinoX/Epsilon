@@ -967,10 +967,10 @@ public class AdvancedSimplifierTests
     }
 
     [Fact]
-    public void Does_not_simplify_tan_times_cot_without_proof_that_both_are_defined()
+    public void Strict_does_not_simplify_tan_times_cot_without_proof_that_both_are_defined()
     {
         // tan(x) * cot(x) is undefined at multiples of pi/2, while 1 is defined everywhere.
-        Expr expr = ExprParser.Parse("tan(x) * cot(x)").Simplify();
+        Expr expr = ExprParser.Parse("tan(x) * cot(x)").Simplify(SimplifyMode.Strict);
         Assert.IsType<Multiply>(expr);
         Assert.Equal(1, expr.Evaluate(0.7), precision: 10);
     }
@@ -1005,9 +1005,9 @@ public class AdvancedSimplifierTests
     [Theory]
     [InlineData("sec(x)^2 - tan(x)^2")] // undefined where cos(x) = 0
     [InlineData("csc(x)^2 - cot(x)^2")] // undefined where sin(x) = 0
-    public void Does_not_simplify_pythagorean_reciprocal_identities_without_domain_proof(string input)
+    public void Strict_does_not_simplify_pythagorean_reciprocal_identities_without_domain_proof(string input)
     {
-        Expr expr = ExprParser.Parse(input).Simplify();
+        Expr expr = ExprParser.Parse(input).Simplify(SimplifyMode.Strict);
         Assert.IsType<Subtract>(expr);
         Assert.Equal(1, expr.Evaluate(0.7), precision: 10);
     }
@@ -1018,10 +1018,10 @@ public class AdvancedSimplifierTests
     [InlineData("x^(1/2) * x^(1/2)")]
     [InlineData("sqrt(x)^2")]
     [InlineData("(x^-1)^-1")]
-    public void Does_not_merge_powers_when_result_would_be_defined_at_more_points(string input)
+    public void Strict_does_not_merge_powers_when_result_would_be_defined_at_more_points(string input)
     {
         Expr original = ExprParser.Parse(input, "x");
-        Expr simplified = original.Simplify();
+        Expr simplified = original.Simplify(SimplifyMode.Strict);
 
         // The left side is undefined at x = 0 or x = -1; the simplified form must be too.
         foreach (double x in new[] { 0.0, -1.0 })
@@ -1057,6 +1057,60 @@ public class AdvancedSimplifierTests
     [InlineData("x^-1 * x^-2", "x ^ -3")]
     [InlineData("x^2 * x^(1/2)", "x ^ 5/2")]
     public void Merges_powers_that_are_always_safe(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify(SimplifyMode.Strict);
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Theory]
+    [InlineData("tan(x) * cot(x)", "1")]
+    [InlineData("sec(x)^2 - tan(x)^2", "1")]
+    [InlineData("csc(x)^2 - cot(x)^2", "1")]
+    [InlineData("x / x", "1")]
+    [InlineData("x * x^-1", "1")]
+    [InlineData("0 / x", "0")]
+    [InlineData("x^2 / x", "x")]
+    [InlineData("x^-1 * x^2", "x")]
+    [InlineData("sqrt(x)^2", "x")]
+    [InlineData("x^(1/2) * x^(1/2)", "x")]
+    [InlineData("(x^(1/2))^2", "x")]
+    [InlineData("(x^-1)^-1", "x")]
+    [InlineData("exp(ln(x))", "x")]
+    public void Generic_mode_applies_domain_enlarging_identities_by_default(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify();
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Theory]
+    [InlineData("tan(x) * cot(x)")]
+    [InlineData("sec(x)^2 - tan(x)^2")]
+    [InlineData("x^2 / x")]
+    [InlineData("sqrt(x)^2")]
+    [InlineData("(x^-1)^-1")]
+    [InlineData("exp(ln(x))")]
+    public void Generic_result_agrees_with_original_wherever_original_is_defined(string input)
+    {
+        Expr original = ExprParser.Parse(input, "x");
+        Expr simplified = original.Simplify();
+
+        // No points near pi/2: there sec^2 and tan^2 are ~1e32 in double precision and
+        // their difference is pure rounding noise, not a meaningful value.
+        foreach (double x in new[] { -2.3, -1.0, -0.4, 0.0, 0.4, 1.0, 2.3 })
+        {
+            // Dictionary overload: the simplified form may no longer contain x at all (e.g. "1").
+            var bindings = new Dictionary<string, double> { ["x"] = x };
+            double expected = original.Evaluate(bindings);
+            if (double.IsFinite(expected) && Math.Abs(expected) < 1e10)
+                Assert.Equal(expected, simplified.Evaluate(bindings), precision: 6);
+        }
+    }
+
+    [Theory]
+    [InlineData("sqrt(x^2)", "abs(x)")]   // x = -1: both sides defined, x would give the wrong value
+    [InlineData("(x^2)^(1/2)", "(x ^ 2) ^ 1/2")] // same reason, must not collapse to x
+    [InlineData("0 / 0", "0 / 0")]        // undefined everywhere, never folded
+    public void Generic_mode_never_changes_a_defined_value(string input, string expected)
     {
         Expr expr = ExprParser.Parse(input, "x").Simplify();
         Assert.Equal(expected, expr.Print());
@@ -1102,10 +1156,10 @@ public class AdvancedSimplifierTests
     }
 
     [Fact]
-    public void Does_not_simplify_zero_divided_by_unknown_variable()
+    public void Strict_does_not_simplify_zero_divided_by_unknown_variable()
     {
         // x could be 0, so 0/x must not become a defined value.
-        Expr expr = ExprParser.Parse("0 / x").Simplify();
+        Expr expr = ExprParser.Parse("0 / x").Simplify(SimplifyMode.Strict);
         Assert.IsType<Divide>(expr);
     }
 
@@ -1114,7 +1168,7 @@ public class AdvancedSimplifierTests
     [InlineData("0 / (x - x)")]
     public void Does_not_simplify_zero_divided_by_zero(string input)
     {
-        Expr expr = ExprParser.Parse(input, "x").Simplify();
+        Expr expr = ExprParser.Parse(input, "x").Simplify(SimplifyMode.Strict);
         Assert.Equal(new Divide(new Constant(0), new Constant(0)), expr);
         Assert.True(double.IsNaN(expr.Evaluate(new Dictionary<string, double>())));
     }

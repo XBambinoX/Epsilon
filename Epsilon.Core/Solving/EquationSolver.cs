@@ -18,7 +18,7 @@ public static class RootFindingExtensions
         double rightLimit = double.PositiveInfinity,
         int scanSteps = DefaultRealScanSteps)
     {
-        Expr diff = new Subtract(left, right).Simplify();
+        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindRealRoots(variable, fixedBindings, leftLimit, rightLimit, scanSteps);
     }
 
@@ -57,7 +57,7 @@ public static class RootFindingExtensions
         double rightLimit = double.PositiveInfinity,
         int scanSteps = DefaultRealScanSteps)
     {
-        Expr diff = new Subtract(left, right).Simplify();
+        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
     }
 
@@ -276,7 +276,7 @@ public static class RootFindingExtensions
         double imMin, double imMax,
         int gridSteps = DefaultComplexGridSteps)
     {
-        Expr diff = new Subtract(left, right).Simplify();
+        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindComplexRoots(reMin, reMax, imMin, imMax, gridSteps);
     }
 

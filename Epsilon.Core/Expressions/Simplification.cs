@@ -2,15 +2,16 @@ namespace Epsilon.Core;
 
 public static class Simplifier
 {
-    public static Expr Simplify(this Expr expr) => expr.Simplify(Assumptions.None);
+    public static Expr Simplify(this Expr expr, SimplifyMode mode = SimplifyMode.Generic) =>
+        expr.Simplify(Assumptions.None, mode);
 
-    public static Expr Simplify(this Expr expr, Assumptions assumptions)
+    public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic)
     {
         Expr current = expr.Canonicalize();
 
         for (int i = 0; i < 100; i++)
         {
-            Expr next = SimplifyOnce(current, assumptions);
+            Expr next = SimplifyOnce(current, assumptions, mode);
 
             if (next.Equals(current))
                 return next;
@@ -21,13 +22,31 @@ public static class Simplifier
         throw new InvalidOperationException("Simplification did not converge after 100 iterations — possible rule cycle.");
     }
 
-    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode)
     {
-        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify(assumptions));
-        return ApplyRules(simplifiedChildren, assumptions).Canonicalize();
+        Expr simplifiedChildren = TreeRewriter.RewriteChildren(expr, child => child.Simplify(assumptions, mode));
+        return ApplyRules(simplifiedChildren, assumptions, mode).Canonicalize();
     }
 
-    private static Expr ApplyRules(Expr expr, Assumptions assumptions)
+    // Domain guards. A rewrite that only enlarges the domain (x/x -> 1 gains x = 0) is
+    // allowed in Generic mode, but in Strict mode needs a proof from the assumptions.
+    // Generic mode still rejects a literal 0, so 0/0 and similar are never folded.
+    private static bool NonZeroForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
+        mode == SimplifyMode.Generic
+            ? !(expr is Constant c && c.Value.IsZero)
+            : expr.IsProvablyNonZero(assumptions);
+
+    private static bool NonNegativeForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
+        mode == SimplifyMode.Generic
+            ? !expr.IsProvablyNegative(assumptions)
+            : expr.IsProvablyNonNegative(assumptions);
+
+    private static bool PositiveForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
+        mode == SimplifyMode.Generic
+            ? !expr.IsProvablyNonPositive(assumptions)
+            : expr.IsProvablyPositive(assumptions);
+
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode)
     {
         Expr flattened = FlattenAndCombine(expr);
         if (!flattened.Equals(expr))
@@ -79,15 +98,15 @@ public static class Simplifier
                 return l;
 
             case Divide(var numerator, var denominator)
-                when TryCancelCommonFactors(numerator, denominator, assumptions, out Expr? cancelled):
+                when TryCancelCommonFactors(numerator, denominator, assumptions, mode, out Expr? cancelled):
                 return cancelled!;
 
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
-            // 0 / d = 0 only when d is provably nonzero - otherwise 0/0 (or 0/x at x = 0)
-            // would silently become a defined value. Same policy as x/x above.
-            case Divide(Constant zero, var d) when zero.Value.IsZero && d.IsProvablyNonZero(assumptions):
+            // 0 / d = 0 - enlarges the domain by the zeros of d, so Strict mode needs d provably
+            // nonzero. Never applies to a literal 0/0, in either mode.
+            case Divide(Constant zero, var d) when zero.Value.IsZero && NonZeroForDomain(d, assumptions, mode):
                 return new Constant(0);
 
             case Divide(var n, var d) when d.Equals(new Constant(1)):
@@ -119,8 +138,8 @@ public static class Simplifier
             case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
-            // sqrt(a)^2 = a only where sqrt(a) is defined; for a < 0 the left side is undefined.
-            case Power(Sqrt(var a), Constant e) when e.Value == 2 && a.IsProvablyNonNegative(assumptions):
+            // sqrt(a)^2 = a; the left side is undefined for a < 0, so this enlarges the domain.
+            case Power(Sqrt(var a), Constant e) when e.Value == 2 && NonNegativeForDomain(a, assumptions, mode):
                 return a;
 
             case Power(Power(var b, var e1), var e2):
@@ -129,25 +148,33 @@ public static class Simplifier
                 // Additionally, (x^-1)^-1 = x would become defined at x = 0, so a negative inner
                 // exponent needs either a nonzero base or a positive outer exponent.
                 Expr combined = new Power(b, new Multiply(e1, e2));
-                bool zeroBaseSafe = b.IsProvablyNonZero(assumptions) ||
+                bool zeroBaseSafe = NonZeroForDomain(b, assumptions, mode) ||
                                     e1.IsProvablyPositive(assumptions) ||
                                     e2.IsProvablyPositive(assumptions);
                 if (!zeroBaseSafe)
                     return expr;
                 if (e1 is Constant ce1 && IsOddInteger(ce1.Value))
                     return combined;
-                return b.IsProvablyNonNegative(assumptions) ? combined : expr;
+                // A non-integer inner exponent with an even denominator (x^(1/2)) is undefined for
+                // b < 0, so collapsing only enlarges the domain - fine in Generic mode. An even
+                // integer inner exponent is different: (x^2)^(1/2) = |x|, not x, so no shortcut.
+                bool innerUndefinedForNegativeBase =
+                    e1 is Constant ce1Even && !ce1Even.Value.IsInteger && ce1Even.Value.Denominator.IsEven;
+                return b.IsProvablyNonNegative(assumptions) ||
+                       (mode == SimplifyMode.Generic && innerUndefinedForNegativeBase)
+                    ? combined
+                    : expr;
 
             case Multiply(Power(var b1, var e1), Power(var b2, var e2))
-                when b1.Equals(b2) && CanMergeExponents(b1, e1, e2, assumptions):
+                when b1.Equals(b2) && CanMergeExponents(b1, e1, e2, assumptions, mode):
                 return new Power(b1, new Add(e1, e2));
 
             case Multiply(var b, Power(var b2, var e))
-                when b.Equals(b2) && CanMergeExponents(b, new Constant(1), e, assumptions):
+                when b.Equals(b2) && CanMergeExponents(b, new Constant(1), e, assumptions, mode):
                 return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(Power(var b, var e), var b2)
-                when b.Equals(b2) && CanMergeExponents(b, e, new Constant(1), assumptions):
+                when b.Equals(b2) && CanMergeExponents(b, e, new Constant(1), assumptions, mode):
                 return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
@@ -167,27 +194,27 @@ public static class Simplifier
 
             // x^n / x^m = x^(n-m)
             case Divide(Power(var b1, var e1), Power(var b2, var e2))
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(e1, e2));
 
             // x^n / x = x^(n-1)
             case Divide(Power(var b1, var e1), var b2)
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(e1, new Constant(1)));
 
             // (x^n * c) / x = c * x^(n-1)
             case Divide(Multiply(Power(var b1, var e1), var c), var b2)
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // (c * x^n) / x = c * x^(n-1)
             case Divide(Multiply(var c, Power(var b1, var e1)), var b2)
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // x / x^n = x^(1-n)
             case Divide(var b1, Power(var b2, var e2))
-                when b1.Equals(b2) && b1.IsProvablyNonZero(assumptions):
+                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
             case Sin(Constant c) when c.Value.IsZero:
@@ -213,7 +240,7 @@ public static class Simplifier
             case Ln(Exp(var a)):
                 return a;
 
-            case Exp(Ln(var a)) when a.IsProvablyPositive(assumptions):
+            case Exp(Ln(var a)) when PositiveForDomain(a, assumptions, mode):
                 return a;
 
             // tan(x) = sin(x) / cos(x)
@@ -226,11 +253,11 @@ public static class Simplifier
 
             // tan(x) * cot(x) = 1 only where both are defined: sin(x) != 0 and cos(x) != 0.
             case Multiply(Tan(var x), Cot(var y))
-                when x.Equals(y) && new Sin(x).IsProvablyNonZero(assumptions) && new Cos(x).IsProvablyNonZero(assumptions):
+                when x.Equals(y) && NonZeroForDomain(new Sin(x), assumptions, mode) && NonZeroForDomain(new Cos(x), assumptions, mode):
                 return new Constant(1);
 
             case Multiply(Cot(var x), Tan(var y))
-                when x.Equals(y) && new Sin(x).IsProvablyNonZero(assumptions) && new Cos(x).IsProvablyNonZero(assumptions):
+                when x.Equals(y) && NonZeroForDomain(new Sin(x), assumptions, mode) && NonZeroForDomain(new Cos(x), assumptions, mode):
                 return new Constant(1);
 
             // sin(x)^2 / cos(x)^2 = tan(x)^2
@@ -272,7 +299,7 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2) &&
-                    new Cos(x1).IsProvablyNonZero(assumptions):
+                    NonZeroForDomain(new Cos(x1), assumptions, mode):
                 return new Constant(1);
 
             // csc(x)^2 - cot(x)^2 = 1, valid only where sin(x) != 0
@@ -282,7 +309,7 @@ public static class Simplifier
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
                     x1.Equals(x2) &&
-                    new Sin(x1).IsProvablyNonZero(assumptions):
+                    NonZeroForDomain(new Sin(x1), assumptions, mode):
                 return new Constant(1);
 
             // Exact perfect-square root; not a perfect square stays symbolic (falls through).
@@ -349,8 +376,12 @@ public static class Simplifier
     // x^p * x^q = x^(p+q) must not enlarge the domain: x^-1 * x^2 is undefined at x = 0
     // but x^1 isn't, and x^(1/2) * x^(1/2) is undefined for x < 0 but x isn't.
     // Returns true only when both sides are defined at exactly the same points.
-    private static bool CanMergeExponents(Expr baseExpr, Expr e1, Expr e2, Assumptions assumptions)
+    private static bool CanMergeExponents(Expr baseExpr, Expr e1, Expr e2, Assumptions assumptions, SimplifyMode mode)
     {
+        // Generic mode: x^p * x^q = x^(p+q) holds wherever the left side is defined.
+        if (mode == SimplifyMode.Generic)
+            return true;
+
         // Every real power of a positive base is defined.
         if (baseExpr.IsProvablyPositive(assumptions))
             return true;
@@ -571,7 +602,7 @@ public static class Simplifier
         return result ?? new Constant(coefficient); // everything cancelled — pure coefficient (often 1)
     }
 
-    private static bool TryCancelCommonFactors(Expr numerator, Expr denominator, Assumptions assumptions, out Expr? result)
+    private static bool TryCancelCommonFactors(Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, out Expr? result)
     {
         result = null;
 
@@ -580,7 +611,7 @@ public static class Simplifier
 
         var cancellable = new List<Expr>();
         foreach (Expr baseExpr in numFactors.Keys)
-            if (denFactors.ContainsKey(baseExpr) && baseExpr.IsProvablyNonZero(assumptions))
+            if (denFactors.ContainsKey(baseExpr) && NonZeroForDomain(baseExpr, assumptions, mode))
                 cancellable.Add(baseExpr);
 
         if (cancellable.Count == 0)
@@ -601,8 +632,8 @@ public static class Simplifier
         Expr newDenominator = BuildProduct(denCoefficient, denFactors);
 
         result = IsConstantOne(newDenominator)
-            ? newNumerator.Simplify(assumptions)
-            : new Divide(newNumerator, newDenominator).Simplify(assumptions);
+            ? newNumerator.Simplify(assumptions, mode)
+            : new Divide(newNumerator, newDenominator).Simplify(assumptions, mode);
 
         return true;
     }
