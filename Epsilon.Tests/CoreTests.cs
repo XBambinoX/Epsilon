@@ -2056,3 +2056,94 @@ public class ExactFactoringTests
         Assert.Equal(original, factored);
     }
 }
+
+public class ComplexEdgeCaseTests
+{
+    [Theory]
+    [InlineData(-1.0)]
+    [InlineData(-2.5)]
+    public void Zero_to_negative_real_power_is_positive_infinity(double exponent)
+    {
+        Complex result = Complex.Pow(Complex.Zero, new Complex(exponent)); // was 0
+
+        Assert.Equal(double.PositiveInfinity, result.Real);
+        Assert.Equal(0, result.Imaginary);
+        Assert.Equal(Math.Pow(0, exponent), result.Real); // same as the real Math.Pow
+    }
+
+    [Fact]
+    public void Zero_to_power_with_positive_real_part_is_zero()
+    {
+        Assert.Equal(Complex.Zero, Complex.Pow(Complex.Zero, new Complex(2)));
+        Assert.Equal(Complex.Zero, Complex.Pow(Complex.Zero, new Complex(1, 1)));
+    }
+
+    [Fact]
+    public void Zero_to_zero_is_one()
+    {
+        Assert.Equal(Complex.One, Complex.Pow(Complex.Zero, Complex.Zero));
+    }
+
+    [Fact]
+    public void Zero_to_purely_imaginary_power_is_undefined()
+    {
+        Complex result = Complex.Pow(Complex.Zero, Complex.ImaginaryUnit); // was 0
+        Assert.True(double.IsNaN(result.Real) && double.IsNaN(result.Imaginary));
+    }
+
+    [Fact]
+    public void Complex_evaluation_of_negative_power_at_zero_matches_real_evaluation()
+    {
+        Expr expr = ExprParser.Parse("x^-1", "x");
+        Assert.Equal(expr.Evaluate(0.0), expr.EvaluateComplex(Complex.Zero).Real);
+    }
+
+    [Theory]
+    [InlineData(1e200, 1e200, 1.4142135623730951e200)]    // was Infinity
+    [InlineData(1e-200, 1e-200, 1.4142135623730951e-200)] // was 0
+    [InlineData(3, 4, 5)]
+    public void Magnitude_neither_overflows_nor_underflows(double re, double im, double expected)
+    {
+        double magnitude = new Complex(re, im).Magnitude;
+        Assert.Equal(expected, magnitude, expected * 1e-15);
+    }
+
+    [Fact]
+    public void Division_of_huge_numbers_does_not_overflow()
+    {
+        Complex result = new Complex(1e200, 1e200) / new Complex(1e200, 1e200); // was 0
+        Assert.Equal(1.0, result.Real, precision: 15);
+        Assert.Equal(0.0, result.Imaginary, precision: 15);
+    }
+
+    [Fact]
+    public void Division_by_tiny_number_does_not_underflow()
+    {
+        Complex result = Complex.One / new Complex(0, 1e-200); // 1 / (1e-200 i) = -1e200 i
+        Assert.Equal(0.0, result.Real);
+        Assert.Equal(-1e200, result.Imaginary, 1e185);
+    }
+
+    [Theory]
+    [InlineData(1, 2, 3, 4, 0.44, 0.08)]
+    [InlineData(1, 0, 0, 1, 0, -1)]
+    [InlineData(5, -3, -2, 7, -31.0 / 53, -29.0 / 53)]
+    public void Division_matches_textbook_formula_for_ordinary_values(
+        double a, double b, double c, double d, double expectedRe, double expectedIm)
+    {
+        Complex result = new Complex(a, b) / new Complex(c, d);
+        Assert.Equal(expectedRe, result.Real, precision: 12);
+        Assert.Equal(expectedIm, result.Imaginary, precision: 12);
+    }
+
+    [Fact]
+    public void Sqrt_of_huge_number_is_finite()
+    {
+        Complex root = Complex.Sqrt(new Complex(1e300, 1e300)); // magnitude used to overflow
+        Assert.True(double.IsFinite(root.Real) && double.IsFinite(root.Imaginary));
+
+        Complex squared = root * root;
+        Assert.Equal(1.0, squared.Real / 1e300, precision: 12);
+        Assert.Equal(1.0, squared.Imaginary / 1e300, precision: 12);
+    }
+}

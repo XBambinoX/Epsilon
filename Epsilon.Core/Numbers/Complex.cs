@@ -15,7 +15,9 @@ public readonly struct Complex : IEquatable<Complex>
     public static readonly Complex One = new(1, 0);
     public static readonly Complex ImaginaryUnit = new(0, 1);
 
-    public double Magnitude => Math.Sqrt(Real * Real + Imaginary * Imaginary);
+    // Hypot avoids squaring the components, which overflows to infinity for values
+    // around 1e155 and above even when the magnitude itself is perfectly representable.
+    public double Magnitude => double.Hypot(Real, Imaginary);
     public double Phase => Math.Atan2(Imaginary, Real);
     public Complex Conjugate => new(Real, -Imaginary);
 
@@ -32,13 +34,26 @@ public readonly struct Complex : IEquatable<Complex>
         new(a.Real * b.Real - a.Imaginary * b.Imaginary,
             a.Real * b.Imaginary + a.Imaginary * b.Real);
 
+    // Smith's algorithm: divides through by the larger component of b first, so the
+    // intermediate |b|^2 of the textbook formula (which overflows for |b| ~ 1e155) never appears.
     public static Complex operator /(Complex a, Complex b)
     {
-        double denom = b.Real * b.Real + b.Imaginary * b.Imaginary;
-        return new(
-            (a.Real * b.Real + a.Imaginary * b.Imaginary) / denom,
-            (a.Imaginary * b.Real - a.Real * b.Imaginary) / denom
-        );
+        if (Math.Abs(b.Real) >= Math.Abs(b.Imaginary))
+        {
+            double ratio = b.Imaginary / b.Real;
+            double denom = b.Real + b.Imaginary * ratio;
+            return new(
+                (a.Real + a.Imaginary * ratio) / denom,
+                (a.Imaginary - a.Real * ratio) / denom);
+        }
+        else
+        {
+            double ratio = b.Real / b.Imaginary;
+            double denom = b.Real * ratio + b.Imaginary;
+            return new(
+                (a.Real * ratio + a.Imaginary) / denom,
+                (a.Imaginary * ratio - a.Real) / denom);
+        }
     }
 
     public static Complex Exp(Complex z) => FromPolar(Math.Exp(z.Real), z.Imaginary);
@@ -48,7 +63,17 @@ public readonly struct Complex : IEquatable<Complex>
     public static Complex Pow(Complex baseValue, Complex exponent)
     {
         if (baseValue == Zero)
-            return exponent == Zero ? One : Zero;
+        {
+            // |0^w| = 0^Re(w), so the real part of the exponent decides. The real-exponent
+            // cases match Math.Pow, keeping EvaluateComplex consistent with Evaluate.
+            if (exponent == Zero)
+                return One;                                   // 0^0 = 1, as Math.Pow(0, 0)
+            if (exponent.Real > 0)
+                return Zero;
+            if (exponent.Imaginary == 0)
+                return new Complex(double.PositiveInfinity);  // 0^-1 = +inf, as Math.Pow(0, -1)
+            return new Complex(double.NaN, double.NaN);       // e.g. 0^i: undefined
+        }
 
         return Exp(exponent * Log(baseValue));
     }
