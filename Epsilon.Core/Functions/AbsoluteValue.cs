@@ -18,7 +18,7 @@ public sealed class Abs(Expr argument) : UnaryExpr(argument)
         // d/dx |f(x)| = f(x) / |f(x)| * f'(x), for f(x) != 0
         return new Multiply(
             new Divide(Argument, new Abs(Argument)),
-            Argument.Differentiate(variable)
+            DerivativeOf(Argument, variable)
         );
     }
 

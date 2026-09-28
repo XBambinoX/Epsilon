@@ -38,23 +38,38 @@ public abstract class Expr : IEquatable<Expr>
         return Evaluate(dict);
     }
 
+    // Simplified once here, at the top, in the default Generic mode - the same result as
+    // simplifying inside every node, as this used to do for some nodes but not others.
+    // (Strict would keep leftovers such as x/x in d/dx x^x.) The nodes build their
+    // derivatives from DerivativeOf, which doesn't simplify.
+    /// <summary>
+    /// The symbolic partial derivative with respect to <paramref name="variable"/>, simplified
+    /// (<see cref="SimplifyMode.Generic"/>). Exactly 0 when the expression does not depend on it.
+    /// </summary>
+    public Expr Differentiate(string variable) =>
+        RawDerivative(variable).Simplify();
+
     // The derivative of anything that doesn't depend on `variable` is exactly 0.
     // Checked here once instead of in every node, so rules like the quotient rule
     // never produce leftovers such as 0/y (which Simplify won't fold unless y is
     // provably nonzero).
-    /// <summary>
-    /// The symbolic partial derivative with respect to <paramref name="variable"/>. Exactly 0 when
-    /// the expression does not depend on it. The result is not simplified; call Simplify on it.
-    /// </summary>
-    public Expr Differentiate(string variable) =>
+    private Expr RawDerivative(string variable) =>
         DependsOn(variable) ? DifferentiateCore(variable) : new Constant(0);
 
     /// <summary>
-    /// The derivative of this node with respect to <paramref name="variable"/>. Only called by
-    /// <see cref="Differentiate(string)"/> when the node actually depends on the variable, so
-    /// implementations need not handle the constant case.
+    /// The derivative of this node with respect to <paramref name="variable"/>, built from the
+    /// derivatives of its children via <see cref="DerivativeOf"/>, without simplifying.
+    /// Only called when the node actually depends on the variable, so implementations need
+    /// not handle the constant case.
     /// </summary>
     protected abstract Expr DifferentiateCore(string variable);
+
+    /// <summary>
+    /// The unsimplified derivative of <paramref name="child"/>, for use inside
+    /// <see cref="DifferentiateCore"/>. <see cref="Differentiate(string)"/> simplifies the
+    /// whole result once at the end.
+    /// </summary>
+    protected static Expr DerivativeOf(Expr child, string variable) => child.RawDerivative(variable);
 
     /// <summary>
     /// The derivative with respect to the expression's only variable; 0 for an expression without variables.

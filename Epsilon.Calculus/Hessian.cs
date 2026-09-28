@@ -8,7 +8,7 @@ public static class HessianExtensions
 {
     /// <summary>
     /// The symbolic Hessian: entry [i, j] is the second partial derivative by
-    /// <paramref name="variables"/>[i] then [j]. Rows and columns are labelled by the variables. Not simplified.
+    /// <paramref name="variables"/>[i] then [j]. Rows and columns are labelled by the variables. Simplified.
     /// </summary>
     public static Matrix<Expr> Hessian(this Expr expr, params string[] variables)
     {
@@ -25,7 +25,7 @@ public static class HessianExtensions
         return new Matrix<Expr>(variables, values);
     }
 
-    /// <summary>The symbolic Hessian over every variable of the expression, in ordinal name order. Not simplified.</summary>
+    /// <summary>The symbolic Hessian over every variable of the expression, in ordinal name order. Simplified.</summary>
     public static Matrix<Expr> Hessian(this Expr expr) =>
         expr.Hessian(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray());
 

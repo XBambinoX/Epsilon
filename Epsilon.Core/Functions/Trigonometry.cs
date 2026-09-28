@@ -9,7 +9,7 @@ public sealed class Sin(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Sin(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
-    protected override Expr DifferentiateCore(string variable) => new Multiply(new Cos(Argument), Argument.Differentiate(variable));
+    protected override Expr DifferentiateCore(string variable) => new Multiply(new Cos(Argument), DerivativeOf(Argument, variable));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Sin(argument);
     /// <inheritdoc/>
@@ -26,7 +26,7 @@ public sealed class Cos(Expr argument) : UnaryExpr(argument)
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Cos(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Multiply(new Negate(new Sin(Argument)), Argument.Differentiate(variable));
+        new Multiply(new Negate(new Sin(Argument)), DerivativeOf(Argument, variable));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Cos(argument);
     /// <inheritdoc/>
@@ -43,7 +43,7 @@ public sealed class Tan(Expr argument) : UnaryExpr(argument)
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Tan(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Divide(Argument.Differentiate(variable), new Power(new Cos(Argument), new Constant(2)));
+        new Divide(DerivativeOf(Argument, variable), new Power(new Cos(Argument), new Constant(2)));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Tan(argument);
     /// <inheritdoc/>
@@ -61,7 +61,7 @@ public sealed class Cot(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            new Negate(Argument.Differentiate(variable)),
+            new Negate(DerivativeOf(Argument, variable)),
             new Power(new Sin(Argument), new Constant(2))
         );
     /// <inheritdoc/>
@@ -80,7 +80,7 @@ public sealed class Sec(Expr argument) : UnaryExpr(argument)
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.One / ComplexNumber.Cos(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Multiply(new Multiply(new Sec(Argument), new Tan(Argument)), Argument.Differentiate(variable));
+        new Multiply(new Multiply(new Sec(Argument), new Tan(Argument)), DerivativeOf(Argument, variable));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Sec(argument);
     /// <inheritdoc/>
@@ -99,7 +99,7 @@ public sealed class Csc(Expr argument) : UnaryExpr(argument)
     protected override Expr DifferentiateCore(string variable) =>
         new Multiply(
             new Negate(new Multiply(new Csc(Argument), new Cot(Argument))),
-            Argument.Differentiate(variable)
+            DerivativeOf(Argument, variable)
         );
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Csc(argument);
@@ -118,7 +118,7 @@ public sealed class Asin(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            Argument.Differentiate(variable),
+            DerivativeOf(Argument, variable),
             new Power(new Subtract(new Constant(1), new Power(Argument, new Constant(2))), new Constant(0.5))
         );
     /// <inheritdoc/>
@@ -138,7 +138,7 @@ public sealed class Acos(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            new Negate(Argument.Differentiate(variable)),
+            new Negate(DerivativeOf(Argument, variable)),
             new Power(new Subtract(new Constant(1), new Power(Argument, new Constant(2))), new Constant(0.5))
         );
     /// <inheritdoc/>
@@ -157,7 +157,7 @@ public sealed class Atan(Expr argument) : UnaryExpr(argument)
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Atan(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Divide(Argument.Differentiate(variable), new Add(new Constant(1), new Power(Argument, new Constant(2))));
+        new Divide(DerivativeOf(Argument, variable), new Add(new Constant(1), new Power(Argument, new Constant(2))));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Atan(argument);
     /// <inheritdoc/>
@@ -173,7 +173,7 @@ public sealed class Sinh(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Sinh(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
-    protected override Expr DifferentiateCore(string variable) => new Multiply(new Cosh(Argument), Argument.Differentiate(variable));
+    protected override Expr DifferentiateCore(string variable) => new Multiply(new Cosh(Argument), DerivativeOf(Argument, variable));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Sinh(argument);
     /// <inheritdoc/>
@@ -189,7 +189,7 @@ public sealed class Cosh(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Cosh(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
-    protected override Expr DifferentiateCore(string variable) => new Multiply(new Sinh(Argument), Argument.Differentiate(variable));
+    protected override Expr DifferentiateCore(string variable) => new Multiply(new Sinh(Argument), DerivativeOf(Argument, variable));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Cosh(argument);
     /// <inheritdoc/>
@@ -206,7 +206,7 @@ public sealed class Tanh(Expr argument) : UnaryExpr(argument)
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Tanh(Argument.EvaluateComplex(bindings));
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Divide(Argument.Differentiate(variable), new Power(new Cosh(Argument), new Constant(2)));
+        new Divide(DerivativeOf(Argument, variable), new Power(new Cosh(Argument), new Constant(2)));
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Tanh(argument);
     /// <inheritdoc/>
@@ -229,7 +229,7 @@ public sealed class Asinh(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            Argument.Differentiate(variable),
+            DerivativeOf(Argument, variable),
             new Power(new Add(new Power(Argument, new Constant(2)), new Constant(1)), new Constant(0.5))
         );
 
@@ -256,7 +256,7 @@ public sealed class Acosh(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            Argument.Differentiate(variable),
+            DerivativeOf(Argument, variable),
             new Power(new Subtract(new Power(Argument, new Constant(2)), new Constant(1)), new Constant(0.5))
         );
 
@@ -283,7 +283,7 @@ public sealed class Atanh(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            Argument.Differentiate(variable),
+            DerivativeOf(Argument, variable),
             new Subtract(new Constant(1), new Power(Argument, new Constant(2)))
         );
 
@@ -310,7 +310,7 @@ public sealed class Coth(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            new Negate(Argument.Differentiate(variable)),
+            new Negate(DerivativeOf(Argument, variable)),
             new Power(new Sinh(Argument), new Constant(2))
         );
 
@@ -337,7 +337,7 @@ public sealed class Sech(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Multiply(
-            new Multiply(new Negate(Argument.Differentiate(variable)), new Sech(Argument)),
+            new Multiply(new Negate(DerivativeOf(Argument, variable)), new Sech(Argument)),
             new Tanh(Argument)
         );
 
@@ -364,7 +364,7 @@ public sealed class Csch(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Multiply(
-            new Multiply(new Negate(Argument.Differentiate(variable)), new Csch(Argument)),
+            new Multiply(new Negate(DerivativeOf(Argument, variable)), new Csch(Argument)),
             new Coth(Argument)
         );
 

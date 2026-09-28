@@ -13,7 +13,7 @@ public sealed class Sqrt(Expr argument) : UnaryExpr(argument)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
-            Argument.Differentiate(variable),
+            DerivativeOf(Argument, variable),
             new Multiply(new Constant(2), new Sqrt(Argument))
         );
 
@@ -86,7 +86,7 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
         if (Degree is not Constant n)
             throw new NotImplementedException($"Differentiation with non-constant root degree not yet supported (variable: {variable}).");
 
-        Expr fPrime = Argument.Differentiate(variable);
+        Expr fPrime = DerivativeOf(Argument, variable);
 
         // Written in terms of nthroot itself, so the derivative is real wherever the
         // function is (e.g. at negative arguments for odd degrees). A Power form such as

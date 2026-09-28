@@ -5,7 +5,7 @@ namespace Epsilon.Calculus;
 /// <summary>Gradients (vectors of first partial derivatives) of multivariable expressions.</summary>
 public static class GradientExtensions
 {
-    /// <summary>The symbolic partial derivatives with respect to each of <paramref name="variables"/>, keyed by variable. Not simplified.</summary>
+    /// <summary>The symbolic partial derivatives with respect to each of <paramref name="variables"/>, keyed by variable. Simplified.</summary>
     public static Dictionary<string, Expr> Gradient(this Expr expr, params string[] variables)
     {
         var result = new Dictionary<string, Expr>(variables.Length);
@@ -16,7 +16,7 @@ public static class GradientExtensions
         return result;
     }
 
-    /// <summary>The symbolic partial derivatives with respect to every variable of the expression. Not simplified.</summary>
+    /// <summary>The symbolic partial derivatives with respect to every variable of the expression. Simplified.</summary>
     public static Dictionary<string, Expr> Gradient(this Expr expr) =>
         expr.Gradient(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray());
 

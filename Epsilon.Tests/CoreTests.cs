@@ -2787,3 +2787,41 @@ public class DomainEdgeRootTests
         Assert.Empty(Roots("1 / sqrt(x)"));
     }
 }
+
+public class DifferentiateSimplifiesTests
+{
+    // One case per kind of node, so every DifferentiateCore goes through the same path.
+    [Theory]
+    [InlineData("x^3 - 2x^2 + x")]
+    [InlineData("-(x^2 + 0)")]
+    [InlineData("x * sin(x)")]
+    [InlineData("x / (x + 1)")]
+    [InlineData("x^x")]
+    [InlineData("sin(x^2 + 1)")]
+    [InlineData("cos(2x) + tan(x) + cot(x) + sec(x) + csc(x)")]
+    [InlineData("asin(x) + acos(x) + atan(x)")]
+    [InlineData("sinh(x) + cosh(x) + tanh(x) + coth(x) + sech(x) + csch(x)")]
+    [InlineData("asinh(x) + acosh(x) + atanh(x)")]
+    [InlineData("exp(x^2) + ln(x^2 + 1)")]
+    [InlineData("sqrt(x^2 + 1) + nthroot(x, 3) + abs(x)")]
+    public void Result_is_already_simplified(string input)
+    {
+        Expr derivative = ExprParser.Parse(input, "x").Differentiate("x");
+
+        Assert.Equal(derivative, derivative.Simplify());
+    }
+
+    [Fact]
+    public void Chain_rule_leaves_no_zero_terms()
+    {
+        // sin's derivative used to be built without simplifying: cos(x^2 + 1) * (2x + 0).
+        Assert.Equal("2 * cos(x ^ 2 + 1) * x", ExprParser.Parse("sin(x^2 + 1)", "x").Differentiate("x").Print());
+    }
+
+    [Fact]
+    public void Uses_generic_mode_like_Simplify()
+    {
+        // Strict would keep x/x here: d/dx x^x = (x/x + ln(x)) * x^x.
+        Assert.Equal("(ln(x) + 1) * x ^ x", ExprParser.Parse("x^x", "x").Differentiate("x").Print());
+    }
+}

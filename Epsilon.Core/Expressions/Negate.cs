@@ -13,7 +13,7 @@ public sealed class Negate(Expr argument) : UnaryExpr(argument)
 
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Negate(Argument.Differentiate(variable)).Simplify();
+        new Negate(DerivativeOf(Argument, variable));
 
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Negate(argument);

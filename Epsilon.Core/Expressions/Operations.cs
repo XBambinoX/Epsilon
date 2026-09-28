@@ -20,7 +20,7 @@ public sealed class Add(Expr left, Expr right) : Expr
 
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Add(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
+        new Add(DerivativeOf(Left, variable), DerivativeOf(Right, variable));
 
     /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
@@ -54,7 +54,7 @@ public sealed class Subtract(Expr left, Expr right) : Expr
 
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Subtract(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
+        new Subtract(DerivativeOf(Left, variable), DerivativeOf(Right, variable));
 
     /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
@@ -89,9 +89,9 @@ public sealed class Multiply(Expr left, Expr right) : Expr
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Add(
-            new Multiply(Left.Differentiate(variable), Right),
-            new Multiply(Left, Right.Differentiate(variable))
-        ).Simplify();
+            new Multiply(DerivativeOf(Left, variable), Right),
+            new Multiply(Left, DerivativeOf(Right, variable))
+        );
 
     /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
@@ -127,11 +127,11 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
             new Subtract(
-                new Multiply(Numerator.Differentiate(variable), Denominator),
-                new Multiply(Numerator, Denominator.Differentiate(variable))
+                new Multiply(DerivativeOf(Numerator, variable), Denominator),
+                new Multiply(Numerator, DerivativeOf(Denominator, variable))
             ),
             new Power(Denominator, new Constant(2))
-        ).Simplify();
+        );
 
     /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
@@ -173,18 +173,18 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
         {
             return new Multiply(
                 new Multiply(n, new Power(Base, new Constant(n.Value - 1))),
-                Base.Differentiate(variable)
-            ).Simplify();
+                DerivativeOf(Base, variable)
+            );
         }
 
         // d/dv (f^g) = f^g * (g' * ln(f) + g * f'/f)
-        Expr fPrime = Base.Differentiate(variable);
-        Expr gPrime = Exponent.Differentiate(variable);
+        Expr fPrime = DerivativeOf(Base, variable);
+        Expr gPrime = DerivativeOf(Exponent, variable);
 
         Expr term1 = new Multiply(gPrime, new Ln(Base));
         Expr term2 = new Multiply(Exponent, new Divide(fPrime, Base));
 
-        return new Multiply(this, new Add(term1, term2)).Simplify();
+        return new Multiply(this, new Add(term1, term2));
     }
 
     /// <inheritdoc/>

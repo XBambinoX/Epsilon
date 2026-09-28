@@ -12,7 +12,7 @@ public sealed class Exp(Expr argument) : UnaryExpr(argument)
     // d/dx e^f(x) = e^f(x) * f'(x)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Multiply(new Exp(Argument), Argument.Differentiate(variable)).Simplify();
+        new Multiply(new Exp(Argument), DerivativeOf(Argument, variable));
 
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Exp(argument);
@@ -33,7 +33,7 @@ public sealed class Ln(Expr argument) : UnaryExpr(argument)
     // d/dx ln(f(x)) = f'(x) / f(x)
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        new Divide(Argument.Differentiate(variable), Argument).Simplify();
+        new Divide(DerivativeOf(Argument, variable), Argument);
 
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Ln(argument);
