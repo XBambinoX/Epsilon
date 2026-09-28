@@ -152,12 +152,25 @@ ExprParser.Parse("sen(x)", "x");
 
 ## Roadmap
 
-- **v1.1 — equation solver.** Symbolic solutions of `f(x) = g(x)` with every branch:
+This package is the core. The next areas are built on it as separate packages, in this order:
+
+1. **Calculus** — symbolic and numeric integration (improper integrals included), gradients,
+   Hessians, Laplacians. Already in this repository as an experimental project.
+   Planned next, as far as time and energy allow: limits (including multivariable limits in
+   2D and 3D), double and triple integrals, surface and contour integrals, Lebesgue
+   integration and more.
+2. **Linear algebra** — symbolic and numeric matrices and the operations on them.
+3. **Transforms** — Fourier, wavelets and more.
+4. **Probability theory** — under consideration.
+5. Further areas as the library grows.
+
+Alongside them the core keeps improving:
+
+- **Equation solver** — symbolic solutions of `f(x) = g(x)` with every branch:
   `sin(x) = 1/2` → `π/6 + 2πk, 5π/6 + 2πk`, verified by substitution, with a clearly
   marked numeric fallback.
-- **Transforms** — Fourier, wavelets and more, as separate packages built on this core.
-- **Calculus** — integration, gradients, Hessians (experimental in this repository today).
-- Polynomial expansion, piecewise expressions and faster evaluation for hot loops.
+- Polynomial expansion, piecewise expressions (derivatives of `floor`, `min`, `max`) and
+  faster evaluation for hot loops.
 
 ## Building from source
 
