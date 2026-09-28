@@ -2475,3 +2475,111 @@ public class ApiNamingTests
         Assert.True(a.IsPositive("x"));
     }
 }
+
+public class StrictParserTests
+{
+    [Theory]
+    [InlineData("1e-5", 1e-5)]
+    [InlineData("2e5", 2e5)]
+    [InlineData("2.5E3", 2500)]
+    [InlineData(".5e+1", 5)]
+    public void Parses_scientific_notation_as_one_number(string input, double expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        Assert.IsType<Constant>(expr);
+        Assert.Equal(expected, expr.Evaluate(0), precision: 15);
+    }
+
+    [Fact]
+    public void Scientific_notation_is_exact()
+    {
+        Assert.Equal(new Constant(new Rational(1, 100000)), ExprParser.Parse("1e-5"));
+    }
+
+    [Theory]
+    [InlineData("2e", 2 * Math.E)]
+    [InlineData("2e-1", 0.2)]
+    [InlineData("2e - 1", 2 * Math.E - 1)]
+    [InlineData("2e-x", 2 * Math.E - 3)]
+    public void E_without_exponent_digits_is_still_eulers_number(string input, double expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Evaluate(3), precision: 12);
+    }
+
+    [Fact]
+    public void Rejects_absurd_exponents_instead_of_building_huge_numbers()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse("1e999999999"));
+        Assert.Throws<FormatException>(() => ExprParser.Parse("1e-99999999999999"));
+    }
+
+    [Theory]
+    [InlineData("1.5.2")]
+    [InlineData("1..2")]
+    public void Rejects_malformed_numbers(string input)
+    {
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+        Assert.Contains("Invalid number", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("sin(x, 2)")]
+    [InlineData("abs(x, y)")]
+    [InlineData("sqrt(4, 2)")]
+    public void Rejects_extra_arguments_to_one_argument_functions(string input)
+    {
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+        Assert.Contains("exactly 1 argument", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("2 3")]
+    [InlineData("1.5 2")]
+    [InlineData("x + 2 3")]
+    public void Rejects_two_numbers_without_an_operator(string input)
+    {
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+        Assert.Contains("Missing operator", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("2x")]
+    [InlineData("2(x + 1)")]
+    [InlineData("x 2")]
+    [InlineData("(2)(3)")]
+    public void Keeps_other_implicit_multiplication(string input)
+    {
+        Assert.IsType<Multiply>(ExprParser.Parse(input));
+    }
+
+    [Theory]
+    [InlineData("x + y", "y")]
+    [InlineData("sen(x)", "sen")]
+    [InlineData("xy", "y")]
+    public void Rejects_undeclared_identifiers_when_variables_are_declared(string input, string unknown)
+    {
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input, "x"));
+        Assert.Contains($"'{unknown}'", ex.Message);
+    }
+
+    [Fact]
+    public void Rejects_x_when_only_other_variables_are_declared()
+    {
+        Assert.Throws<FormatException>(() => ExprParser.Parse("x + t", "t"));
+    }
+
+    [Fact]
+    public void Declared_variables_still_combine_with_constants_and_functions()
+    {
+        Expr expr = ExprParser.Parse("2pi t + sin(t) + e", "t");
+
+        Assert.Equal(new HashSet<string> { "t" }, expr.GetVariables());
+    }
+
+    [Fact]
+    public void Without_declared_variables_every_letter_is_a_variable()
+    {
+        Assert.Equal(new HashSet<string> { "x", "y" }, ExprParser.Parse("xy + y").GetVariables());
+    }
+}

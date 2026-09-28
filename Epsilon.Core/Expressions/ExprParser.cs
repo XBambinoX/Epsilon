@@ -6,7 +6,7 @@ public static class ExprParser
     {
         "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
         "sinh", "cosh", "tanh", "coth", "sech", "csch",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "π", "e", "i", "x",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "π", "e", "i",
         "sign", "floor", "ceiling", "round", "min", "max", "log", "abs"
     }.OrderByDescending(s => s.Length).ToArray();
 
@@ -17,6 +17,8 @@ public static class ExprParser
         "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln",
         "sign", "floor", "ceiling", "round", "min", "max", "log", "abs"
     });
+
+    private static readonly HashSet<string> TwoArgumentFunctions = ["min", "max", "log", "nthroot"];
 
     public static Expr Parse(string input, params string[] variableNames)
     {
@@ -49,6 +51,7 @@ public static class ExprParser
             {
                 int start = i;
                 while (i < input.Length && (char.IsDigit(input[i]) || input[i] == '.')) i++;
+                i = SkipExponent(input, i);
                 tokens.Add(input[start..i]);
                 continue;
             }
@@ -78,6 +81,23 @@ public static class ExprParser
         return tokens;
     }
 
+    // Scientific notation: "1e-5", "2.5E3". The exponent belongs to the number only when
+    // e/E is followed by digits (optionally signed); otherwise "2e", "2ex" and "2e-x" keep
+    // meaning 2*e..., so Euler's number still works with implicit multiplication.
+    private static int SkipExponent(string input, int i)
+    {
+        if (i >= input.Length || input[i] is not ('e' or 'E'))
+            return i;
+
+        int j = i + 1;
+        if (j < input.Length && input[j] is '+' or '-') j++;
+        if (j >= input.Length || !char.IsDigit(input[j]))
+            return i;
+
+        while (j < input.Length && char.IsDigit(input[j])) j++;
+        return j;
+    }
+
     // Appends directly to `tokens` instead of building and returning an
     // intermediate IEnumerable<string> - one fewer allocation and no
     // per-run List<string> that the caller just concatenates anyway.
@@ -103,7 +123,14 @@ public static class ExprParser
                 continue;
             }
 
-            // Fallback: single-letter implicit-multiplication behavior, unchanged.
+            // With declared variables, anything else is a typo ("sen(x)", an undeclared "y"),
+            // not a product of single-letter variables - report it instead of guessing.
+            if (sortedVariables.Length > 0)
+                throw new FormatException(
+                    $"Unknown identifier '{run[pos..]}' at position {startPos + pos}. " +
+                    $"Declared variables: {string.Join(", ", sortedVariables)}.");
+
+            // Without declared variables every other letter is its own variable: "xy" = x*y.
             tokens.Add(run[pos].ToString());
             pos += 1;
         }
@@ -178,6 +205,11 @@ public static class ExprParser
                 }
                 else if (StartsImplicitFactor(Current))
                 {
+                    // "2 3" is almost certainly a missing operator, not 6.
+                    if (IsNumericLiteral(Current!) && IsNumericLiteral(tokens[_pos - 1]))
+                        throw new FormatException(
+                            $"Missing operator between numbers '{tokens[_pos - 1]}' and '{Current}'.");
+
                     Expr right = ParseUnary();
                     left = new Multiply(left, right);
                 }
@@ -193,11 +225,30 @@ public static class ExprParser
         private bool StartsImplicitFactor(string? token) =>
             token is not null && (token == "(" || (token == "|" && !_inBar) || char.IsDigit(token[0]) || char.IsLetter(token[0]));
 
+        // "12", "1.5", ".5", "5.", optionally with an exponent ("1e-5", "2.5E3").
         private static bool IsNumericLiteral(string token) =>
-            token.Length > 0 &&
-            token.All(c => char.IsDigit(c) || c == '.') &&
-            token.Count(c => c == '.') <= 1 &&
-            token.Any(char.IsDigit);
+            NumericLiteral.IsMatch(token);
+
+        private static readonly System.Text.RegularExpressions.Regex NumericLiteral =
+            new(@"^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$");
+
+        // Far beyond double's range (~1e308), yet small enough that the exact Rational
+        // stays cheap - "1e999999999" would otherwise build a billion-digit BigInteger.
+        private const int MaxDecimalExponent = 1000;
+
+        private static Rational ParseNumber(string token)
+        {
+            int expIndex = token.IndexOfAny(['e', 'E']);
+            if (expIndex >= 0)
+            {
+                string digits = token[(expIndex + 1)..].TrimStart('+', '-').TrimStart('0');
+                if (digits.Length > 4 || (digits.Length > 0 && int.Parse(digits) > MaxDecimalExponent))
+                    throw new FormatException(
+                        $"Exponent of '{token}' is out of range (at most {MaxDecimalExponent} in magnitude).");
+            }
+
+            return Rational.FromDecimalString(token);
+        }
 
         // power := primary ('^' unary)?
         private Expr ParsePower()
@@ -265,8 +316,11 @@ public static class ExprParser
             if (IsNumericLiteral(token))
             {
                 Consume();
-                return new Constant(Rational.FromDecimalString(token));
+                return new Constant(ParseNumber(token));
             }
+
+            if (char.IsDigit(token[0]) || token[0] == '.')
+                throw new FormatException($"Invalid number '{token}'.");
 
             // "π" is accepted too, since that's how Printer outputs pi.
             if (token is "pi" or "π")
@@ -311,6 +365,10 @@ public static class ExprParser
                 if (Current != ")")
                     throw new FormatException($"Expected closing ')' after arguments of '{token}'.");
                 Consume();
+
+                // Otherwise sin(x, 2) would silently become sin(x).
+                if (second is not null && !TwoArgumentFunctions.Contains(token))
+                    throw new FormatException($"Function '{token}' takes exactly 1 argument.");
 
                 return token switch
                 {
@@ -358,13 +416,10 @@ public static class ExprParser
                 };
             }
 
-            if (token.Length == 1 && char.IsLetter(token[0]))
-            {
-                Consume();
-                return new Variable(token);
-            }
-
-            if (knownVariables.Contains(token) || (token.Length == 1 && char.IsLetter(token[0])))
+            // Declared variables only, when any were declared; otherwise any single letter.
+            if (knownVariables.Count > 0
+                    ? knownVariables.Contains(token)
+                    : token.Length == 1 && char.IsLetter(token[0]))
             {
                 Consume();
                 return new Variable(token);
