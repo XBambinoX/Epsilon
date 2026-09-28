@@ -27,19 +27,64 @@ public static class Simplifier
     /// <returns>An equivalent expression in canonical form.</returns>
     public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic)
     {
-        Expr current = expr.Canonicalize();
+        return IterateToFixpoint(expr.Canonicalize(), e => SimplifyOnce(e, assumptions, mode));
+    }
 
-        for (int i = 0; i < 100; i++)
+    private const int MaxSimplifyIterations = 100;
+    private const int UntrackedIterations = 8;
+
+    // Applies `step` until the expression stops changing. Every step is an equivalent rewrite,
+    // so if two rules undo each other (a cycle) or the steps never settle, any expression seen
+    // so far is a correct answer: the smallest one is returned instead of throwing at the user.
+    // A repeated expression ends the loop at once, and the choice doesn't depend on where in
+    // the cycle it was noticed.
+    internal static Expr IterateToFixpoint(Expr start, Func<Expr, Expr> step, int maxIterations = MaxSimplifyIterations)
+    {
+        // Fast path: almost every call settles within a step or two. Simplify runs this for
+        // every subtree, so the history below is only built for the rare slow cases.
+        Expr current = start;
+        int untracked = Math.Min(UntrackedIterations, maxIterations);
+        for (int i = 0; i < untracked; i++)
         {
-            Expr next = SimplifyOnce(current, assumptions, mode);
+            Expr next = step(current);
+            if (next.Equals(current))
+                return next;
+            current = next;
+        }
+
+        // Walks on until an expression repeats, so a cycle is always seen in full, whichever
+        // of its expressions the fast path stopped at.
+        var seen = new List<Expr> { current };
+        var seenSet = new HashSet<Expr> { current };
+
+        for (int i = untracked; i < maxIterations; i++)
+        {
+            Expr next = step(current);
 
             if (next.Equals(current))
                 return next;
 
+            if (!seenSet.Add(next))
+                break;
+
+            seen.Add(next);
             current = next;
         }
 
-        throw new InvalidOperationException("Simplification did not converge after 100 iterations — possible rule cycle.");
+        // The start is a candidate too: if the steps only ever grow it, it's the best answer.
+        // Ties are broken by the printed form, not by order, which depends on the entry point.
+        return seen.Append(start)
+            .OrderBy(NodeCount)
+            .ThenBy(e => e.ToString(), StringComparer.Ordinal)
+            .First();
+    }
+
+    private static int NodeCount(Expr expr)
+    {
+        int count = 1;
+        foreach (Expr child in expr.Children)
+            count += NodeCount(child);
+        return count;
     }
 
     private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode)

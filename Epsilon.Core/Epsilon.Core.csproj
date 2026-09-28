@@ -12,4 +12,9 @@
     <Using Include="System.Collections.Immutable" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets tests drive internals that the public API can't reach, e.g. a rule cycle in Simplify. -->
+    <InternalsVisibleTo Include="Epsilon.Tests" />
+  </ItemGroup>
+
 </Project>

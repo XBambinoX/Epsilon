@@ -2872,3 +2872,57 @@ public class UnsupportedOperationTests
         Assert.All(roots, r => Assert.Equal(2, Math.Round(r, MidpointRounding.AwayFromZero)));
     }
 }
+
+public class SimplifyFixpointTests
+{
+    private static readonly Expr X = new Variable("x");
+
+    // x + 0 <-> 0 + x: two "rules" that undo each other.
+    private static Expr Swap(Expr e) => e is Add(var l, var r) ? new Add(r, l) : e;
+
+    [Fact]
+    public void Returns_the_fixpoint_when_the_steps_converge()
+    {
+        Expr result = Simplifier.IterateToFixpoint(X + 0 + 0, e => e is Add(var l, Constant) ? l : e);
+
+        Assert.Equal(X, result);
+    }
+
+    [Fact]
+    public void Does_not_throw_on_a_rule_cycle()
+    {
+        Expr result = Simplifier.IterateToFixpoint(X + 0, Swap);
+
+        Assert.True(result.Equals(X + 0) || result.Equals(0 + X));
+    }
+
+    [Fact]
+    public void Breaks_ties_in_a_cycle_the_same_way_wherever_it_was_entered()
+    {
+        Assert.Equal(Simplifier.IterateToFixpoint(X + 0, Swap), Simplifier.IterateToFixpoint(0 + X, Swap));
+    }
+
+    [Fact]
+    public void Picks_the_smallest_expression_of_a_cycle_wherever_it_was_entered()
+    {
+        // x*1 -> x*1*1 -> x -> x*1 -> ...: a cycle through three sizes.
+        Expr Step(Expr e) => e switch
+        {
+            Multiply(Multiply(var a, Constant), Constant) => a,
+            Multiply(_, Constant) => new Multiply(e, new Constant(1)),
+            _ => new Multiply(e, new Constant(1)),
+        };
+
+        Assert.Equal(X, Simplifier.IterateToFixpoint(X, Step));
+        Assert.Equal(X, Simplifier.IterateToFixpoint(X * 1, Step));
+        Assert.Equal(X, Simplifier.IterateToFixpoint(X * 1 * 1, Step));
+    }
+
+    [Fact]
+    public void Stops_after_the_iteration_limit_when_steps_keep_growing()
+    {
+        Expr result = Simplifier.IterateToFixpoint(X, e => e * 1, maxIterations: 10);
+
+        Assert.Equal(X, result); // every step is equivalent, and the start is the smallest
+    }
+}
