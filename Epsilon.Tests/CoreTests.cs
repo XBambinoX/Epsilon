@@ -1344,3 +1344,37 @@ public class CoreCoverageBatchTests
         Assert.Equal(expected, derivative.Evaluate(new Dictionary<string, double> { ["x"] = x }), precision: 8);
     }
 }
+public class RationalTests
+{
+    [Theory]
+    [InlineData(1e-20, "1", "100000000000000000000")]
+    [InlineData(1e20, "100000000000000000000", "1")]
+    [InlineData(-2.5e-7, "-1", "4000000")]
+    [InlineData(1.5e300, "15", "1")] // numerator is 15 followed by 299 zeros
+    public void FromDouble_handles_scientific_notation(double value, string expectedNumeratorPrefix, string expectedDenominator)
+    {
+        Rational r = Rational.FromDouble(value);
+
+        Assert.StartsWith(expectedNumeratorPrefix, r.Numerator.ToString());
+        Assert.Equal(expectedDenominator, r.Denominator.ToString());
+        Assert.Equal(value, r.ToDouble(), 1e-12 * Math.Abs(value));
+    }
+
+    [Fact]
+    public void Constant_accepts_tiny_and_huge_doubles()
+    {
+        Assert.Equal(new Rational(1, System.Numerics.BigInteger.Pow(10, 20)), new Constant(1e-20).Value);
+        Assert.Equal(new Rational(System.Numerics.BigInteger.Pow(10, 20)), new Constant(1e20).Value);
+    }
+
+    [Theory]
+    [InlineData("12.5", 25, 2)]
+    [InlineData("-0.125", -1, 8)]
+    [InlineData("1.5E-3", 3, 2000)]
+    [InlineData("2.5e+2", 250, 1)]
+    [InlineData("7", 7, 1)]
+    public void FromDecimalString_parses_plain_and_exponent_forms(string text, long numerator, long denominator)
+    {
+        Assert.Equal(new Rational(numerator, denominator), Rational.FromDecimalString(text));
+    }
+}

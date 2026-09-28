@@ -92,23 +92,36 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
         return FromDecimalString(text);
     }
 
+    // Parses an exact decimal like "-12.5", optionally in scientific notation ("1.5E-20"),
+    // which is what double.ToString("G15") produces for very large or very small values.
     public static Rational FromDecimalString(string text)
     {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+
+        int exponent = 0;
+        int expIndex = text.IndexOfAny(['e', 'E']);
+        if (expIndex >= 0)
+        {
+            exponent = int.Parse(text[(expIndex + 1)..], System.Globalization.NumberStyles.AllowLeadingSign, culture);
+            text = text[..expIndex];
+        }
+
         bool negative = text.StartsWith('-');
         if (negative) text = text[1..];
 
         int dotIndex = text.IndexOf('.');
-        if (dotIndex < 0)
-        {
-            BigInteger intPart = BigInteger.Parse(text);
-            return new Rational(negative ? -intPart : intPart);
-        }
+        string digits = dotIndex < 0 ? text : text.Remove(dotIndex, 1);
+        int fractionalDigits = dotIndex < 0 ? 0 : text.Length - dotIndex - 1;
 
-        string digits = text.Remove(dotIndex, 1);
-        int fractionalDigits = text.Length - dotIndex - 1;
+        BigInteger numerator = BigInteger.Parse(digits, System.Globalization.NumberStyles.None, culture);
+        BigInteger denominator = BigInteger.One;
 
-        BigInteger numerator = BigInteger.Parse(digits);
-        BigInteger denominator = BigInteger.Pow(10, fractionalDigits);
+        // Shift the decimal point: the value is digits * 10^(exponent - fractionalDigits).
+        int scale = exponent - fractionalDigits;
+        if (scale >= 0)
+            numerator *= BigInteger.Pow(10, scale);
+        else
+            denominator = BigInteger.Pow(10, -scale);
 
         if (negative) numerator = -numerator;
 
