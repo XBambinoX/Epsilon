@@ -10,7 +10,7 @@ public sealed class Min(Expr left, Expr right) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Min(Left.Evaluate(bindings), Right.Evaluate(bindings));
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         throw new NotImplementedException("min(a,b) is undefined over C - the complex numbers are not ordered.");
 
     protected override Expr DifferentiateCore(string variable) =>

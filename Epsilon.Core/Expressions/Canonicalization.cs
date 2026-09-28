@@ -104,7 +104,7 @@ public static class Canonicalizer
     {
         Constant => true,
         Pi => true,
-        E => true,
+        EulerNumber => true,
         ImaginaryUnit => true,
         Negate(var a) => IsPureConstant(a),
         Add(var l, var r) => IsPureConstant(l) && IsPureConstant(r),

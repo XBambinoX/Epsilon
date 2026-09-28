@@ -278,7 +278,7 @@ public static class ExprParser
             if (token == "e")
             {
                 Consume();
-                return new E();
+                return new EulerNumber();
             }
 
             if (token == "i")

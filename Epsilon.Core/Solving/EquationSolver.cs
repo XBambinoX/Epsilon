@@ -247,10 +247,10 @@ public static class RootFindingExtensions
         return a + (b - a) / 2;
     }
 
-    public static IReadOnlyList<Complex> FindComplexRoots(
+    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr expr,
         string variable,
-        IReadOnlyDictionary<string, Complex>? fixedBindings,
+        IReadOnlyDictionary<string, ComplexNumber>? fixedBindings,
         double reMin, double reMax,
         double imMin, double imMax,
         int gridSteps = DefaultComplexGridSteps)
@@ -261,7 +261,7 @@ public static class RootFindingExtensions
         if (gridSteps < 1)
             throw new ArgumentOutOfRangeException(nameof(gridSteps));
 
-        var roots = new List<Complex>();
+        var roots = new List<ComplexNumber>();
 
         double reStep = (reMax - reMin) / gridSteps;
         double imStep = (imMax - imMin) / gridSteps;
@@ -273,10 +273,10 @@ public static class RootFindingExtensions
                 double re = reMin + i * reStep;
                 double im = imMin + j * imStep;
 
-                var guess = new Complex(re, im);
+                var guess = new ComplexNumber(re, im);
                 var (root, found) = expr.TryFindComplexRoot(variable, guess, fixedBindings);
 
-                if (found && root is Complex r && IsWithinBounds(r, reMin, reMax, imMin, imMax))
+                if (found && root is ComplexNumber r && IsWithinBounds(r, reMin, reMax, imMin, imMax))
                     TryAddComplex(roots, r);
             }
         }
@@ -284,7 +284,7 @@ public static class RootFindingExtensions
         return roots;
     }
 
-    public static IReadOnlyList<Complex> FindComplexRoots(
+    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr expr,
         double reMin, double reMax,
         double imMin, double imMax,
@@ -294,7 +294,7 @@ public static class RootFindingExtensions
         return expr.FindComplexRoots(variable, null, reMin, reMax, imMin, imMax, gridSteps);
     }
 
-    public static IReadOnlyList<Complex> FindComplexRoots(
+    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr left,
         Expr right,
         double reMin, double reMax,
@@ -305,14 +305,14 @@ public static class RootFindingExtensions
         return diff.FindComplexRoots(reMin, reMax, imMin, imMax, gridSteps);
     }
 
-    private static bool IsWithinBounds(Complex z, double reMin, double reMax, double imMin, double imMax)
+    private static bool IsWithinBounds(ComplexNumber z, double reMin, double reMax, double imMin, double imMax)
     {
         double margin = 0.05 * Math.Max(reMax - reMin, imMax - imMin);
         return z.Real >= reMin - margin && z.Real <= reMax + margin &&
                z.Imaginary >= imMin - margin && z.Imaginary <= imMax + margin;
     }
 
-    private static void TryAddComplex(List<Complex> roots, Complex candidate)
+    private static void TryAddComplex(List<ComplexNumber> roots, ComplexNumber candidate)
     {
         if (!roots.Any(r => (r - candidate).Magnitude < ComplexRootMergeTolerance))
             roots.Add(candidate);

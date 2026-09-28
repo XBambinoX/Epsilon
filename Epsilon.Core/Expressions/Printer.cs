@@ -30,7 +30,7 @@ public static class Printer
             Constant c => c.Value.ToString(),
             Variable v => v.Name,
             Pi => "π",
-            E => "e",
+            EulerNumber => "e",
             ImaginaryUnit => "i",
 
             Negate(var a) =>

@@ -117,9 +117,9 @@ public sealed class Assumptions
     private Assumptions(IReadOnlyDictionary<string, VariableAssumption> byVariable) =>
         _byVariable = byVariable;
 
-    public Assumptions Assume(string variable, NumberDomain domain = NumberDomain.Unknown, Signing Signing = Signing.Unknown)
+    public Assumptions Assume(string variable, NumberDomain domain = NumberDomain.Unknown, Signing signing = Signing.Unknown)
     {
-        var incoming = new VariableAssumption(Signing, domain);
+        var incoming = new VariableAssumption(signing, domain);
         var existing = _byVariable.TryGetValue(variable, out var current) ? current : VariableAssumption.Unknown;
 
         VariableAssumption combined;
@@ -146,13 +146,13 @@ public sealed class Assumptions
     public Assumptions AssumeReal(string variable) => Assume(variable, domain: NumberDomain.Real);
     public Assumptions AssumeInteger(string variable) => Assume(variable, domain: NumberDomain.Integer | NumberDomain.Rational | NumberDomain.Real);
     public Assumptions AssumeRational(string variable) => Assume(variable, domain: NumberDomain.Rational | NumberDomain.Real);
-    public Assumptions AssumeNatural(string variable) => Assume(variable, domain: NumberDomain.Natural | NumberDomain.Integer | NumberDomain.Rational | NumberDomain.Real, Signing: Signing.Positive);
+    public Assumptions AssumeNatural(string variable) => Assume(variable, domain: NumberDomain.Natural | NumberDomain.Integer | NumberDomain.Rational | NumberDomain.Real, signing: Signing.Positive);
 
-    public Assumptions AssumePositive(string variable) => Assume(variable, Signing: Signing.Positive);
-    public Assumptions AssumeNegative(string variable) => Assume(variable, Signing: Signing.Negative);
-    public Assumptions AssumeNonZero(string variable) => Assume(variable, Signing: Signing.NonZero);
-    public Assumptions AssumeNonNegative(string variable) => Assume(variable, Signing: Signing.NonNegative);
-    public Assumptions AssumeNonPositive(string variable) => Assume(variable, Signing: Signing.NonPositive);
+    public Assumptions AssumePositive(string variable) => Assume(variable, signing: Signing.Positive);
+    public Assumptions AssumeNegative(string variable) => Assume(variable, signing: Signing.Negative);
+    public Assumptions AssumeNonZero(string variable) => Assume(variable, signing: Signing.NonZero);
+    public Assumptions AssumeNonNegative(string variable) => Assume(variable, signing: Signing.NonNegative);
+    public Assumptions AssumeNonPositive(string variable) => Assume(variable, signing: Signing.NonPositive);
 
     public VariableAssumption Get(string variable) =>
         _byVariable.TryGetValue(variable, out var a) ? a : VariableAssumption.Unknown;

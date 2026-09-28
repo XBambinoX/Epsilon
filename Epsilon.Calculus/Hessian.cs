@@ -29,10 +29,10 @@ public static class HessianExtensions
     public static Matrix<double> HessianAt(this Expr expr, params (string Name, double Value)[] point) =>
         expr.HessianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 
-    public static Matrix<Complex> HessianAt(this Expr expr, string[] variables, params (string Name, Complex Value)[] point)
+    public static Matrix<ComplexNumber> HessianAt(this Expr expr, string[] variables, params (string Name, ComplexNumber Value)[] point)
     {
         int n = variables.Length;
-        var values = new Complex[n, n];
+        var values = new ComplexNumber[n, n];
 
         for (int i = 0; i < n; i++)
         {
@@ -41,10 +41,10 @@ public static class HessianExtensions
                 values[i, j] = firstDerivative.Differentiate(variables[j]).EvaluateComplex(point);
         }
 
-        return new Matrix<Complex>(variables, values);
+        return new Matrix<ComplexNumber>(variables, values);
     }
 
-    public static Matrix<Complex> HessianAt(this Expr expr, params (string Name, Complex Value)[] point) =>
+    public static Matrix<ComplexNumber> HessianAt(this Expr expr, params (string Name, ComplexNumber Value)[] point) =>
         expr.HessianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 
     private static Dictionary<string, double> ToDictionary((string Name, double Value)[] bindings)
@@ -68,9 +68,9 @@ public static class HessianExtensions
     public static double LaplacianAt(this Expr expr, params (string Name, double Value)[] point) =>
         expr.LaplacianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 
-    public static Complex LaplacianAt(this Expr expr, string[] variables, params (string Name, Complex Value)[] point) =>
+    public static ComplexNumber LaplacianAt(this Expr expr, string[] variables, params (string Name, ComplexNumber Value)[] point) =>
         expr.Laplacian(variables).EvaluateComplex(point);
 
-    public static Complex LaplacianAt(this Expr expr, params (string Name, Complex Value)[] point) =>
+    public static ComplexNumber LaplacianAt(this Expr expr, params (string Name, ComplexNumber Value)[] point) =>
         expr.LaplacianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 }

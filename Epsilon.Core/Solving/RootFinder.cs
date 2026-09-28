@@ -53,37 +53,37 @@ public static class RootFinder
         return expr.TryFindRoot(variable, initialGuess, null, tolerance, maxIterations);
     }
 
-    public static (Complex? Root, bool Found) TryFindComplexRoot(
+    public static (ComplexNumber? Root, bool Found) TryFindComplexRoot(
         this Expr expr,
         string variable,
-        Complex initialGuess,
-        IReadOnlyDictionary<string, Complex>? fixedBindings = null,
+        ComplexNumber initialGuess,
+        IReadOnlyDictionary<string, ComplexNumber>? fixedBindings = null,
         double tolerance = DefaultTolerance,
         int maxIterations = MaxIterations)
     {
         Expr derivative = expr.Differentiate(variable);
-        Complex z = initialGuess;
+        ComplexNumber z = initialGuess;
 
-        Dictionary<string, Complex> BuildBindings(Complex value)
+        Dictionary<string, ComplexNumber> BuildBindings(ComplexNumber value)
         {
             var dict = fixedBindings is null
-                ? new Dictionary<string, Complex>()
-                : new Dictionary<string, Complex>(fixedBindings);
+                ? new Dictionary<string, ComplexNumber>()
+                : new Dictionary<string, ComplexNumber>(fixedBindings);
             dict[variable] = value;
             return dict;
         }
 
         for (int i = 0; i < maxIterations; i++)
         {
-            Complex fz = expr.EvaluateComplex(BuildBindings(z));
+            ComplexNumber fz = expr.EvaluateComplex(BuildBindings(z));
             if (fz.Magnitude < tolerance)
                 return (z, true);
 
-            Complex dfz = derivative.EvaluateComplex(BuildBindings(z));
+            ComplexNumber dfz = derivative.EvaluateComplex(BuildBindings(z));
             if (dfz.Magnitude < 1e-14)
                 return (null, false);
 
-            Complex next = z - fz / dfz;
+            ComplexNumber next = z - fz / dfz;
             if (double.IsNaN(next.Real) || double.IsNaN(next.Imaginary) ||
                 double.IsInfinity(next.Real) || double.IsInfinity(next.Imaginary))
                 return (null, false);
@@ -95,8 +95,8 @@ public static class RootFinder
     }
 
     // Existing single-variable overload, now delegating to the general one above.
-    public static (Complex? Root, bool Found) TryFindComplexRoot(
-        this Expr expr, Complex initialGuess,
+    public static (ComplexNumber? Root, bool Found) TryFindComplexRoot(
+        this Expr expr, ComplexNumber initialGuess,
         double tolerance = DefaultTolerance, int maxIterations = MaxIterations)
     {
         string variable = expr.GetSingleVariable();

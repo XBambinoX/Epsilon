@@ -3,7 +3,7 @@ namespace Epsilon.Core;
 public sealed class Exp(Expr argument) : UnaryExpr(argument)
 {
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Exp(Argument.Evaluate(bindings));
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Exp(Argument.EvaluateComplex(bindings));
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Exp(Argument.EvaluateComplex(bindings));
 
     // d/dx e^f(x) = e^f(x) * f'(x)
     protected override Expr DifferentiateCore(string variable) =>
@@ -17,7 +17,7 @@ public sealed class Exp(Expr argument) : UnaryExpr(argument)
 public sealed class Ln(Expr argument) : UnaryExpr(argument)
 {
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Log(Argument.Evaluate(bindings));
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Log(Argument.EvaluateComplex(bindings));
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Log(Argument.EvaluateComplex(bindings));
 
     // d/dx ln(f(x)) = f'(x) / f(x)
     protected override Expr DifferentiateCore(string variable) =>

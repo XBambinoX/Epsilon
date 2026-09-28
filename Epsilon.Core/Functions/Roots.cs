@@ -3,7 +3,7 @@ namespace Epsilon.Core;
 public sealed class Sqrt(Expr argument) : UnaryExpr(argument)
 {
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Sqrt(Argument.Evaluate(bindings));
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Sqrt(Argument.EvaluateComplex(bindings));
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Sqrt(Argument.EvaluateComplex(bindings));
 
     // d/dx sqrt(f(x)) = f'(x) / (2 * sqrt(f(x)))
     protected override Expr DifferentiateCore(string variable) =>
@@ -30,16 +30,16 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         RealRoot(Argument.Evaluate(bindings), Degree.Evaluate(bindings));
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings)
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings)
     {
-        Complex argument = Argument.EvaluateComplex(bindings);
-        Complex degree = Degree.EvaluateComplex(bindings);
+        ComplexNumber argument = Argument.EvaluateComplex(bindings);
+        ComplexNumber degree = Degree.EvaluateComplex(bindings);
 
         // Stay consistent with Evaluate on the real line; elsewhere use the principal value.
         if (argument.Imaginary == 0 && degree.Imaginary == 0 && IsOddInteger(degree.Real))
-            return new Complex(RealRoot(argument.Real, degree.Real));
+            return new ComplexNumber(RealRoot(argument.Real, degree.Real));
 
-        return Complex.Pow(argument, Complex.One / degree);
+        return ComplexNumber.Pow(argument, ComplexNumber.One / degree);
     }
 
     private static bool IsOddInteger(double value) =>

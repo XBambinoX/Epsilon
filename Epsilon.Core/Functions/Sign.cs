@@ -5,7 +5,7 @@ public sealed class Sign(Expr argument) : UnaryExpr(argument)
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Sign(Argument.Evaluate(bindings));
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         throw new NotImplementedException("sign(z) has no standard definition over the complex numbers.");
 
     // Piecewise-constant a.e.; derivative is 0 everywhere except at the root of

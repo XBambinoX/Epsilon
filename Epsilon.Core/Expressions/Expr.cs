@@ -4,7 +4,7 @@ public abstract class Expr : IEquatable<Expr>
 {
     public abstract double Evaluate(IReadOnlyDictionary<string, double> bindings);
 
-    public double Evaluate(double x) => Evaluate(SingleBinding(GetSingleVariable(), x));
+    public double Evaluate(double x) => Evaluate(SingleBinding(x));
 
     public double Evaluate(params (string Name, double Value)[] bindings)
     {
@@ -38,14 +38,14 @@ public abstract class Expr : IEquatable<Expr>
             "Use the explicit-variable overload for multivariable expressions.");
     }
 
-    public virtual Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public virtual ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         throw new NotImplementedException($"{GetType().Name} does not yet support complex evaluation.");
 
-    public Complex EvaluateComplex(Complex x) => EvaluateComplex(SingleBinding(GetSingleVariable(), x));
+    public ComplexNumber EvaluateComplex(ComplexNumber x) => EvaluateComplex(SingleBinding(x));
 
-    public Complex EvaluateComplex(params (string Name, Complex Value)[] bindings)
+    public ComplexNumber EvaluateComplex(params (string Name, ComplexNumber Value)[] bindings)
     {
-        var dict = new Dictionary<string, Complex>(bindings.Length);
+        var dict = new Dictionary<string, ComplexNumber>(bindings.Length);
         foreach (var (name, value) in bindings)
             dict[name] = value;
 
@@ -153,8 +153,13 @@ public abstract class Expr : IEquatable<Expr>
         return vars.First();
     }
 
-    private static IReadOnlyDictionary<string, T> SingleBinding<T>(string variable, T value) =>
-        new Dictionary<string, T> { [variable] = value };
+    // Binding for the single-argument Evaluate overloads. A constant expression has no
+    // variable to bind, so the argument is simply ignored (like Differentiate() returning 0),
+    // instead of throwing on e.g. Parse("2*pi").Evaluate(0).
+    private IReadOnlyDictionary<string, T> SingleBinding<T>(T value) =>
+        GetVariables().Count == 0
+            ? new Dictionary<string, T>()
+            : new Dictionary<string, T> { [GetSingleVariable()] = value };
 
     // Operators
     //
@@ -222,9 +227,11 @@ public sealed class Constant : Expr
     public Constant(Rational value) => Value = value;
     public Constant(double value) : this(Rational.FromDouble(value)) { }
     public Constant(int value) : this(new Rational(value)) { }
+    // Without this, new Constant(5L) is ambiguous between the Rational and double overloads.
+    public Constant(long value) : this(new Rational(value)) { }
 
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Value.ToDouble();
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => new Complex(Value.ToDouble());
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => new ComplexNumber(Value.ToDouble());
     protected override Expr DifferentiateCore(string variable) => new Constant(0);
 
     public override ImmutableArray<Expr> Children => NoChildren;
@@ -249,9 +256,9 @@ public sealed class Variable(string name) : Expr
         return value;
     }
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings)
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings)
     {
-        if (!bindings.TryGetValue(Name, out Complex value))
+        if (!bindings.TryGetValue(Name, out ComplexNumber value))
             throw new ArgumentException($"No binding provided for variable '{Name}'.");
 
         return value;

@@ -30,7 +30,7 @@ public static class LatexPrinter
             Constant c => FormatCoefficient(c.Value),
             Variable v => v.Name,
             Pi => "\\pi",
-            E => "e",
+            EulerNumber => "e",
             ImaginaryUnit => "i",
 
             Negate(var a) =>

@@ -1,4 +1,5 @@
 using Xunit;
+using System.Numerics;
 using Epsilon.Core;
 
 namespace Epsilon.Tests.Core;
@@ -217,8 +218,8 @@ public class ComplexNumberTests
     [Fact]
     public void Adds_complex_numbers()
     {
-        var a = new Complex(1, 2);
-        var b = new Complex(3, -1);
+        var a = new ComplexNumber(1, 2);
+        var b = new ComplexNumber(3, -1);
         var result = a + b;
         Assert.Equal(4, result.Real, precision: 10);
         Assert.Equal(1, result.Imaginary, precision: 10);
@@ -228,8 +229,8 @@ public class ComplexNumberTests
     public void Multiplies_complex_numbers()
     {
         // (2 + 3i) * (1 - i) = 2 - 2i + 3i - 3i^2 = 2 + i + 3 = 5 + i
-        var a = new Complex(2, 3);
-        var b = new Complex(1, -1);
+        var a = new ComplexNumber(2, 3);
+        var b = new ComplexNumber(1, -1);
         var result = a * b;
         Assert.Equal(5, result.Real, precision: 10);
         Assert.Equal(1, result.Imaginary, precision: 10);
@@ -238,8 +239,8 @@ public class ComplexNumberTests
     [Fact]
     public void Divides_complex_numbers()
     {
-        var a = new Complex(4, 2);
-        var b = new Complex(2, 0);
+        var a = new ComplexNumber(4, 2);
+        var b = new ComplexNumber(2, 0);
         var result = a / b;
         Assert.Equal(2, result.Real, precision: 10);
         Assert.Equal(1, result.Imaginary, precision: 10);
@@ -248,14 +249,14 @@ public class ComplexNumberTests
     [Fact]
     public void Computes_magnitude_correctly()
     {
-        var z = new Complex(3, 4);
+        var z = new ComplexNumber(3, 4);
         Assert.Equal(5, z.Magnitude, precision: 10);
     }
 
     [Fact]
     public void Imaginary_unit_squared_equals_negative_one()
     {
-        var i = Complex.ImaginaryUnit;
+        var i = ComplexNumber.ImaginaryUnit;
         var result = i * i;
         Assert.Equal(-1, result.Real, precision: 10);
         Assert.Equal(0, result.Imaginary, precision: 10);
@@ -264,7 +265,7 @@ public class ComplexNumberTests
     [Fact]
     public void Sqrt_of_negative_one_equals_imaginary_unit()
     {
-        var result = Complex.Sqrt(new Complex(-1, 0));
+        var result = ComplexNumber.Sqrt(new ComplexNumber(-1, 0));
         Assert.Equal(0, result.Real, precision: 10);
         Assert.Equal(1, result.Imaginary, precision: 10);
     }
@@ -273,8 +274,8 @@ public class ComplexNumberTests
     public void Exp_of_i_pi_equals_negative_one()
     {
         // Euler's identity: e^(i*pi) = -1
-        var z = new Complex(0, Math.PI);
-        var result = Complex.Exp(z);
+        var z = new ComplexNumber(0, Math.PI);
+        var result = ComplexNumber.Exp(z);
         Assert.Equal(-1, result.Real, precision: 10);
         Assert.Equal(0, result.Imaginary, precision: 10);
     }
@@ -285,7 +286,7 @@ public class ComplexNumberTests
     public void Parses_imaginary_unit_from_string()
     {
         Expr expr = ExprParser.Parse("2 + 3i");
-        Complex result = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        ComplexNumber result = expr.EvaluateComplex(new Dictionary<string, ComplexNumber>());
         Assert.Equal(2, result.Real, precision: 10);
         Assert.Equal(3, result.Imaginary, precision: 10);
     }
@@ -294,7 +295,7 @@ public class ComplexNumberTests
     public void Parses_pure_imaginary_expression()
     {
         Expr expr = ExprParser.Parse("i * i");
-        Complex result = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        ComplexNumber result = expr.EvaluateComplex(new Dictionary<string, ComplexNumber>());
         Assert.Equal(-1, result.Real, precision: 10);
         Assert.Equal(0, result.Imaginary, precision: 10);
     }
@@ -313,7 +314,7 @@ public class ComplexNumberTests
     {
         // f(x) = x^2 + 1, at x = i: i^2 + 1 = -1 + 1 = 0
         Expr expr = ExprParser.Parse("x^2 + 1");
-        Complex result = expr.EvaluateComplex(Complex.ImaginaryUnit);
+        ComplexNumber result = expr.EvaluateComplex(ComplexNumber.ImaginaryUnit);
         Assert.Equal(0, result.Real, precision: 10);
         Assert.Equal(0, result.Imaginary, precision: 10);
     }
@@ -322,7 +323,7 @@ public class ComplexNumberTests
     public void Evaluates_sin_at_complex_point()
     {
         Expr expr = ExprParser.Parse("sin(x)");
-        Complex result = expr.EvaluateComplex(new Complex(0, 1));
+        ComplexNumber result = expr.EvaluateComplex(new ComplexNumber(0, 1));
         // sin(i) = i * sinh(1)
         Assert.Equal(0, result.Real, precision: 10);
         Assert.Equal(Math.Sinh(1), result.Imaginary, precision: 10);
@@ -334,7 +335,7 @@ public class ComplexNumberTests
     public void Finds_complex_root_of_x_squared_plus_one()
     {
         Expr expr = ExprParser.Parse("x^2 + 1");
-        var (root, found) = expr.TryFindComplexRoot(new Complex(0, 1));
+        var (root, found) = expr.TryFindComplexRoot(new ComplexNumber(0, 1));
         Assert.True(found);
         Assert.Equal(0, root!.Value.Real, precision: 6);
         Assert.Equal(1, root.Value.Imaginary, precision: 6);
@@ -346,8 +347,8 @@ public class ComplexNumberTests
         // x^2 + a = 0, a = 1  =>  x = i (or -i)
         Expr expr = new Add(new Power(new Variable("x"), new Constant(2)), new Variable("a"));
         var (root, found) = expr.TryFindComplexRoot(
-            "x", new Complex(0, 1),
-            new Dictionary<string, Complex> { ["a"] = new Complex(1, 0) });
+            "x", new ComplexNumber(0, 1),
+            new Dictionary<string, ComplexNumber> { ["a"] = new ComplexNumber(1, 0) });
 
         Assert.True(found);
         Assert.Equal(0, root!.Value.Real, precision: 6);
@@ -785,7 +786,7 @@ public class PrinterTests
     public void Prints_pi_and_e_as_symbols()
     {
         Expr piExpr = new Pi();
-        Expr eExpr = new E();
+        Expr eExpr = new EulerNumber();
         Assert.Equal("π", piExpr.Print());
         Assert.Equal("e", eExpr.Print());
     }
@@ -902,13 +903,6 @@ public class EvaluationErrorTests
     }
 
     [Fact]
-    public void Throws_when_calling_single_variable_evaluate_on_zero_variable_expr()
-    {
-        Expr expr = new Constant(42);
-        Assert.Throws<InvalidOperationException>(() => expr.Evaluate(5.0));
-    }
-
-    [Fact]
     public void Throws_when_evaluating_imaginary_unit_as_real()
     {
         Expr expr = new ImaginaryUnit();
@@ -921,7 +915,7 @@ public class EvaluationErrorTests
     {
         Expr expr = ExprParser.Parse("x + y");
         var ex = Assert.Throws<ArgumentException>(() =>
-            expr.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = new Complex(1, 0) }));
+            expr.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = new ComplexNumber(1, 0) }));
         Assert.Contains("y", ex.Message);
     }
 
@@ -1239,7 +1233,7 @@ public class PolynomialFactoringTests
 
         Assert.True(success);
         // (x - i)(x + i) evaluated at x=i should be 0
-        Complex result = factored.EvaluateComplex(Complex.ImaginaryUnit);
+        ComplexNumber result = factored.EvaluateComplex(ComplexNumber.ImaginaryUnit);
         Assert.Equal(0, result.Real, precision: 6);
         Assert.Equal(0, result.Imaginary, precision: 6);
     }
@@ -1294,7 +1288,7 @@ public class PolynomialFactoringTests
         var (factored, success) = expr.TryFactorComplex("x");
 
         Assert.True(success);
-        Complex atI = factored.EvaluateComplex(new Complex(0, 2));
+        ComplexNumber atI = factored.EvaluateComplex(new ComplexNumber(0, 2));
         Assert.Equal(0, atI.Real, precision: 4);
         Assert.Equal(0, atI.Imaginary, precision: 4);
     }
@@ -1574,8 +1568,8 @@ public class EvaluationConventionTests
     [Fact]
     public void Nthroot_complex_evaluation_matches_real_evaluation_on_the_real_line()
     {
-        Complex result = ExprParser.Parse("nthroot(x, 3)", "x").EvaluateComplex(new Complex(-8));
-        Assert.Equal(new Complex(-2), result);
+        ComplexNumber result = ExprParser.Parse("nthroot(x, 3)", "x").EvaluateComplex(new ComplexNumber(-8));
+        Assert.Equal(new ComplexNumber(-2), result);
     }
 
     [Fact]
@@ -1587,7 +1581,7 @@ public class EvaluationConventionTests
         Assert.IsType<Power>(expr.Simplify());
         Assert.True(double.IsNaN(expr.Evaluate(NoBindings)));
 
-        Complex principal = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        ComplexNumber principal = expr.EvaluateComplex(new Dictionary<string, ComplexNumber>());
         Assert.Equal(1.0, principal.Real, precision: 10);
         Assert.Equal(Math.Sqrt(3), principal.Imaginary, precision: 10);
     }
@@ -1780,8 +1774,8 @@ public class AssumptionsTests
     public void Repeated_assumptions_narrow_the_sign(Signing first, Signing second, Signing expected)
     {
         Assumptions assumptions = Assumptions.None
-            .Assume("x", Signing: first)
-            .Assume("x", Signing: second);
+            .Assume("x", signing: first)
+            .Assume("x", signing: second);
 
         Assert.Equal(expected, assumptions.SigningOf("x"));
     }
@@ -1800,9 +1794,9 @@ public class AssumptionsTests
     [InlineData(Signing.NonNegative, Signing.Negative)]
     public void Contradictory_signs_throw(Signing first, Signing second)
     {
-        Assumptions assumptions = Assumptions.None.Assume("x", Signing: first);
+        Assumptions assumptions = Assumptions.None.Assume("x", signing: first);
 
-        var ex = Assert.Throws<ArgumentException>(() => assumptions.Assume("x", Signing: second));
+        var ex = Assert.Throws<ArgumentException>(() => assumptions.Assume("x", signing: second));
         Assert.Contains("'x'", ex.Message);
         Assert.Contains("Contradictory", ex.Message);
     }
@@ -1970,10 +1964,10 @@ public class ExactFactoringTests
 
     private static void AssertSameFunction(Expr original, Expr factored)
     {
-        foreach (var z in new[] { new Complex(-1.3, 0.4), new Complex(0.7, -2.1), new Complex(2.2, 0) })
+        foreach (var z in new[] { new ComplexNumber(-1.3, 0.4), new ComplexNumber(0.7, -2.1), new ComplexNumber(2.2, 0) })
         {
-            Complex a = original.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = z });
-            Complex b = factored.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = z });
+            ComplexNumber a = original.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = z });
+            ComplexNumber b = factored.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = z });
             Assert.True((a - b).Magnitude <= 1e-9 * (1 + a.Magnitude), $"{factored.Print()} differs at {z}");
         }
     }
@@ -2064,7 +2058,7 @@ public class ComplexEdgeCaseTests
     [InlineData(-2.5)]
     public void Zero_to_negative_real_power_is_positive_infinity(double exponent)
     {
-        Complex result = Complex.Pow(Complex.Zero, new Complex(exponent)); // was 0
+        ComplexNumber result = ComplexNumber.Pow(ComplexNumber.Zero, new ComplexNumber(exponent)); // was 0
 
         Assert.Equal(double.PositiveInfinity, result.Real);
         Assert.Equal(0, result.Imaginary);
@@ -2074,20 +2068,20 @@ public class ComplexEdgeCaseTests
     [Fact]
     public void Zero_to_power_with_positive_real_part_is_zero()
     {
-        Assert.Equal(Complex.Zero, Complex.Pow(Complex.Zero, new Complex(2)));
-        Assert.Equal(Complex.Zero, Complex.Pow(Complex.Zero, new Complex(1, 1)));
+        Assert.Equal(ComplexNumber.Zero, ComplexNumber.Pow(ComplexNumber.Zero, new ComplexNumber(2)));
+        Assert.Equal(ComplexNumber.Zero, ComplexNumber.Pow(ComplexNumber.Zero, new ComplexNumber(1, 1)));
     }
 
     [Fact]
     public void Zero_to_zero_is_one()
     {
-        Assert.Equal(Complex.One, Complex.Pow(Complex.Zero, Complex.Zero));
+        Assert.Equal(ComplexNumber.One, ComplexNumber.Pow(ComplexNumber.Zero, ComplexNumber.Zero));
     }
 
     [Fact]
     public void Zero_to_purely_imaginary_power_is_undefined()
     {
-        Complex result = Complex.Pow(Complex.Zero, Complex.ImaginaryUnit); // was 0
+        ComplexNumber result = ComplexNumber.Pow(ComplexNumber.Zero, ComplexNumber.ImaginaryUnit); // was 0
         Assert.True(double.IsNaN(result.Real) && double.IsNaN(result.Imaginary));
     }
 
@@ -2095,7 +2089,7 @@ public class ComplexEdgeCaseTests
     public void Complex_evaluation_of_negative_power_at_zero_matches_real_evaluation()
     {
         Expr expr = ExprParser.Parse("x^-1", "x");
-        Assert.Equal(expr.Evaluate(0.0), expr.EvaluateComplex(Complex.Zero).Real);
+        Assert.Equal(expr.Evaluate(0.0), expr.EvaluateComplex(ComplexNumber.Zero).Real);
     }
 
     [Theory]
@@ -2104,14 +2098,14 @@ public class ComplexEdgeCaseTests
     [InlineData(3, 4, 5)]
     public void Magnitude_neither_overflows_nor_underflows(double re, double im, double expected)
     {
-        double magnitude = new Complex(re, im).Magnitude;
+        double magnitude = new ComplexNumber(re, im).Magnitude;
         Assert.Equal(expected, magnitude, expected * 1e-15);
     }
 
     [Fact]
     public void Division_of_huge_numbers_does_not_overflow()
     {
-        Complex result = new Complex(1e200, 1e200) / new Complex(1e200, 1e200); // was 0
+        ComplexNumber result = new ComplexNumber(1e200, 1e200) / new ComplexNumber(1e200, 1e200); // was 0
         Assert.Equal(1.0, result.Real, precision: 15);
         Assert.Equal(0.0, result.Imaginary, precision: 15);
     }
@@ -2119,7 +2113,7 @@ public class ComplexEdgeCaseTests
     [Fact]
     public void Division_by_tiny_number_does_not_underflow()
     {
-        Complex result = Complex.One / new Complex(0, 1e-200); // 1 / (1e-200 i) = -1e200 i
+        ComplexNumber result = ComplexNumber.One / new ComplexNumber(0, 1e-200); // 1 / (1e-200 i) = -1e200 i
         Assert.Equal(0.0, result.Real);
         Assert.Equal(-1e200, result.Imaginary, 1e185);
     }
@@ -2131,7 +2125,7 @@ public class ComplexEdgeCaseTests
     public void Division_matches_textbook_formula_for_ordinary_values(
         double a, double b, double c, double d, double expectedRe, double expectedIm)
     {
-        Complex result = new Complex(a, b) / new Complex(c, d);
+        ComplexNumber result = new ComplexNumber(a, b) / new ComplexNumber(c, d);
         Assert.Equal(expectedRe, result.Real, precision: 12);
         Assert.Equal(expectedIm, result.Imaginary, precision: 12);
     }
@@ -2139,10 +2133,10 @@ public class ComplexEdgeCaseTests
     [Fact]
     public void Sqrt_of_huge_number_is_finite()
     {
-        Complex root = Complex.Sqrt(new Complex(1e300, 1e300)); // magnitude used to overflow
+        ComplexNumber root = ComplexNumber.Sqrt(new ComplexNumber(1e300, 1e300)); // magnitude used to overflow
         Assert.True(double.IsFinite(root.Real) && double.IsFinite(root.Imaginary));
 
-        Complex squared = root * root;
+        ComplexNumber squared = root * root;
         Assert.Equal(1.0, squared.Real / 1e300, precision: 12);
         Assert.Equal(1.0, squared.Imaginary / 1e300, precision: 12);
     }
@@ -2430,5 +2424,54 @@ public class ExprOperatorTests
 
         double x = 0.4;
         Assert.Equal(2 * Math.Sin(3 * x) + Math.Pow(Math.Cos(x), 2), wave.Evaluate(x), precision: 12);
+    }
+}
+
+public class ApiNamingTests
+{
+    [Fact]
+    public void ComplexNumber_does_not_clash_with_System_Numerics()
+    {
+        // Both namespaces are imported by this file; an unqualified Complex from Epsilon
+        // would make this line ambiguous (CS0104).
+        System.Numerics.Complex bcl = new(1, 2);
+        ComplexNumber ours = new(bcl.Real, bcl.Imaginary);
+
+        Assert.Equal(new ComplexNumber(1, 2), ours);
+    }
+
+    [Fact]
+    public void EulerNumber_parses_prints_and_evaluates_as_e()
+    {
+        Expr e = ExprParser.Parse("e");
+
+        Assert.IsType<EulerNumber>(e);
+        Assert.Equal("e", e.ToString());
+        Assert.Equal(Math.E, e.Evaluate(0));
+    }
+
+    [Fact]
+    public void Constant_accepts_long_without_ambiguity()
+    {
+        long big = 1L << 40;
+
+        Assert.Equal(new Constant(new Rational(big)), new Constant(big));
+    }
+
+    [Fact]
+    public void Single_argument_Evaluate_ignores_the_argument_for_constant_expressions()
+    {
+        Expr expr = ExprParser.Parse("2*pi");
+
+        Assert.Equal(2 * Math.PI, expr.Evaluate(123), precision: 12);
+        Assert.Equal(new ComplexNumber(2 * Math.PI), expr.EvaluateComplex(new ComplexNumber(0, 1)));
+    }
+
+    [Fact]
+    public void Assume_takes_a_camel_case_signing_argument()
+    {
+        Assumptions a = Assumptions.None.Assume("x", signing: Signing.Positive);
+
+        Assert.True(a.IsPositive("x"));
     }
 }

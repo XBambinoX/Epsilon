@@ -10,7 +10,7 @@ public sealed class Add(Expr left, Expr right) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Left.Evaluate(bindings) + Right.Evaluate(bindings);
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         Left.EvaluateComplex(bindings) + Right.EvaluateComplex(bindings);
 
     protected override Expr DifferentiateCore(string variable) =>
@@ -34,7 +34,7 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Left.Evaluate(bindings) - Right.Evaluate(bindings);
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         Left.EvaluateComplex(bindings) - Right.EvaluateComplex(bindings);
 
     protected override Expr DifferentiateCore(string variable) =>
@@ -58,7 +58,7 @@ public sealed class Multiply(Expr left, Expr right) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Left.Evaluate(bindings) * Right.Evaluate(bindings);
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         Left.EvaluateComplex(bindings) * Right.EvaluateComplex(bindings);
 
     protected override Expr DifferentiateCore(string variable) =>
@@ -85,7 +85,7 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Numerator.Evaluate(bindings) / Denominator.Evaluate(bindings);
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         Numerator.EvaluateComplex(bindings) / Denominator.EvaluateComplex(bindings);
 
     protected override Expr DifferentiateCore(string variable) =>
@@ -115,8 +115,8 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Pow(Base.Evaluate(bindings), Exponent.Evaluate(bindings));
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
-        Complex.Pow(Base.EvaluateComplex(bindings), Exponent.EvaluateComplex(bindings));
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
+        ComplexNumber.Pow(Base.EvaluateComplex(bindings), Exponent.EvaluateComplex(bindings));
 
     protected override Expr DifferentiateCore(string variable)
     {

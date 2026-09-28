@@ -8,7 +8,7 @@ public sealed class Round(Expr argument) : UnaryExpr(argument)
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         Math.Round(Argument.Evaluate(bindings), MidpointRounding.AwayFromZero);
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
+    public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
         throw new NotImplementedException("round(z) has no standard definition over the complex numbers.");
 
     protected override Expr DifferentiateCore(string variable) => 

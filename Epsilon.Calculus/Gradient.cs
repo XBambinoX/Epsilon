@@ -31,10 +31,10 @@ public static class GradientExtensions
     public static Dictionary<string, double> GradientAt(this Expr expr, params (string Name, double Value)[] point) =>
         expr.GradientAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 
-    public static Dictionary<string, Complex> GradientAt(this Expr expr, string[] variables, params (string Name, Complex Value)[] point)
+    public static Dictionary<string, ComplexNumber> GradientAt(this Expr expr, string[] variables, params (string Name, ComplexNumber Value)[] point)
     {
         var gradient = expr.Gradient(variables);
-        var result = new Dictionary<string, Complex>(variables.Length);
+        var result = new Dictionary<string, ComplexNumber>(variables.Length);
 
         foreach (var variable in variables)
             result[variable] = gradient[variable].EvaluateComplex(point);
@@ -42,6 +42,6 @@ public static class GradientExtensions
         return result;
     }
 
-    public static Dictionary<string, Complex> GradientAt(this Expr expr, params (string Name, Complex Value)[] point) =>
+    public static Dictionary<string, ComplexNumber> GradientAt(this Expr expr, params (string Name, ComplexNumber Value)[] point) =>
         expr.GradientAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 }
