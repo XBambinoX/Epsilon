@@ -56,9 +56,10 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
 
         // Neither Math.Pow(27, 1.0 / 3) nor even Math.Cbrt(27) is guaranteed to return
         // exactly 3 (glibc gives 3.0000000000000004). Snap to the nearest integer when it
-        // is provably exact, so perfect powers give exact roots on every platform.
+        // is provably exact, so perfect powers give exact roots on every platform. Works for
+        // non-integer degrees too: nthroot(8, 3/2) = 8^(2/3) snaps to 4 because 4^1.5 == 8.
         double nearest = Math.Round(root);
-        if (double.IsInteger(degree) && Math.Pow(nearest, degree) == argument)
+        if (Math.Pow(nearest, degree) == argument)
             return nearest;
 
         return root;

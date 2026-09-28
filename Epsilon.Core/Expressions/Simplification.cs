@@ -325,15 +325,9 @@ public static class Simplifier
                     ? b
                     : new Abs(b);
 
-            // Exact n-th root; not a perfect n-th power stays symbolic (falls through).
-            case NthRoot(Constant c, Constant n)
-                when c.Value.Sign >= 0 && TryExactRoot(c.Value, n.Value.Numerator, out Rational nthRootValue):
+            // Exact real n-th root; anything inexact stays symbolic (falls through).
+            case NthRoot(Constant c, Constant n) when TryExactRealRoot(c.Value, n.Value, out Rational nthRootValue):
                 return new Constant(nthRootValue);
-
-            case NthRoot(Constant c, Constant n)
-                when c.Value.Sign < 0 && n.Value.IsInteger && IsOddInteger(n.Value) &&
-                     TryExactRoot(-c.Value, n.Value.Numerator, out Rational negRootValue):
-                return new Constant(-negRootValue);
 
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
@@ -373,8 +367,43 @@ public static class Simplifier
         }
     }
 
+    // BigInteger.IsEven instead of a (long) cast, which overflows for huge integers.
     private static bool IsOddInteger(Rational value) =>
-        value.IsInteger && (long)value.Numerator % 2 != 0;
+        value.IsInteger && !value.Numerator.IsEven;
+
+    // Guards c^q in TryExactRealRoot against building astronomically large numbers.
+    private const int MaxExactRootPower = 1024;
+
+    // nthroot(c, p/q) = c^(q/p), computed exactly: raise |c| to q, take the |p|-th root,
+    // invert for negative p. A negative c only has a real root for an odd integer degree
+    // (same convention as NthRoot.Evaluate); otherwise it's undefined and left symbolic.
+    private static bool TryExactRealRoot(Rational value, Rational degree, out Rational root)
+    {
+        root = default;
+        if (degree.IsZero)
+            return false;
+
+        bool negativeBase = value.Sign < 0;
+        if (negativeBase && !IsOddInteger(degree))
+            return false;
+
+        if (degree.Denominator > MaxExactRootPower)
+            return false;
+
+        Rational powered = value.Abs().Pow((int)degree.Denominator);
+        if (!TryExactRoot(powered, System.Numerics.BigInteger.Abs(degree.Numerator), out Rational magnitude))
+            return false;
+
+        if (degree.Sign < 0)
+        {
+            if (magnitude.IsZero)
+                return false; // nthroot(0, -n) = 1/0
+            magnitude = Rational.One / magnitude;
+        }
+
+        root = negativeBase ? -magnitude : magnitude;
+        return true;
+    }
 
     // x^p * x^q = x^(p+q) must not enlarge the domain: x^-1 * x^2 is undefined at x = 0
     // but x^1 isn't, and x^(1/2) * x^(1/2) is undefined for x < 0 but x isn't.

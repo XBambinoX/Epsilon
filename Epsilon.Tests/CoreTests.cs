@@ -1619,3 +1619,44 @@ public class EvaluationConventionTests
         Assert.Equal(expected, ExprParser.Parse(input, "x").Simplify(mode).Print());
     }
 }
+
+public class NthRootSimplificationTests
+{
+    private static readonly Dictionary<string, double> NoBindings = new();
+
+    [Theory]
+    [InlineData(8, 1, 3, 2, 4, 1)]      // nthroot(8, 3/2) = 8^(2/3) = 4 (was 2: only the numerator 3 was used)
+    [InlineData(16, 1, 4, 3, 8, 1)]     // nthroot(16, 4/3) = 16^(3/4) = 8
+    [InlineData(4, 1, 1, 2, 16, 1)]     // nthroot(4, 1/2) = 4^2 = 16
+    [InlineData(8, 1, -3, 1, 1, 2)]     // nthroot(8, -3) = 1/2
+    [InlineData(-8, 1, -3, 1, -1, 2)]   // nthroot(-8, -3) = -1/2 (real root, odd degree)
+    [InlineData(27, 8, 3, 1, 3, 2)]     // nthroot(27/8, 3) = 3/2
+    public void Simplifies_exact_real_roots_for_any_rational_degree(
+        long cNum, long cDen, long dNum, long dDen, long expectedNum, long expectedDen)
+    {
+        Expr expr = new NthRoot(new Constant(new Rational(cNum, cDen)), new Constant(new Rational(dNum, dDen)));
+        Rational expected = new Rational(expectedNum, expectedDen);
+
+        Assert.Equal(new Constant(expected), expr.Simplify());
+        Assert.Equal(expected.ToDouble(), expr.Evaluate(NoBindings)); // Evaluate agrees exactly
+    }
+
+    [Theory]
+    [InlineData(-8, 3, 2)] // negative base, non-integer degree: undefined over the reals
+    [InlineData(0, -3, 1)] // 1/0
+    [InlineData(8, 0, 1)]  // degree 0: 8^(1/0)
+    [InlineData(2, 3, 1)]  // irrational
+    public void Leaves_undefined_or_irrational_roots_symbolic(long c, long dNum, long dDen)
+    {
+        Expr expr = new NthRoot(new Constant(new Rational(c)), new Constant(new Rational(dNum, dDen)));
+        Assert.IsType<NthRoot>(expr.Simplify());
+    }
+
+    [Fact]
+    public void Does_not_overflow_on_huge_integer_degree()
+    {
+        var hugeOdd = new Rational(System.Numerics.BigInteger.Pow(10, 30) + 1);
+        Expr expr = new NthRoot(new Constant(-8), new Constant(hugeOdd));
+        Assert.IsType<NthRoot>(expr.Simplify());
+    }
+}
