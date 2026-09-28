@@ -8,6 +8,33 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
+  <!-- NuGet package. "Epsilon.Core" is taken on nuget.org, so the core ships as "Epsilon";
+       future modules (Epsilon.Transforms, ...) can then depend on it. The namespace stays
+       Epsilon.Core. -->
+  <PropertyGroup>
+    <PackageId>Epsilon</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Max Zakharov</Authors>
+    <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly and find real and complex roots. No dependencies.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;roots;parser;latex</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+
+    <!-- Symbols (.snupkg) and Source Link, so users can step into the library's source. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="System.Collections.Immutable" />
   </ItemGroup>

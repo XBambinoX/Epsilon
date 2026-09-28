@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
     <!-- Ships the /// docs with the package so IntelliSense shows them to library users. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- Experimental: not published until its API is stabilized like Epsilon.Core. -->
+    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup> 

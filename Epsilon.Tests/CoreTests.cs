@@ -27,7 +27,7 @@ public class ParserTests
     {
         // Without declared variable names, multi-letter runs fall back to single-letter implicit multiplication.
         Expr expr = ExprParser.Parse("2x");
-        Assert.Equal("2 * x", expr.ToString().Replace("(", "").Replace(")", ""));
+        Assert.Equal(new Multiply(new Constant(2), new Variable("x")), expr);
     }
 
     [Fact]
@@ -2955,5 +2955,99 @@ public class PrintStyleTests
     public void Latex_uses_the_same_term_order_and_implicit_powers()
     {
         Assert.Equal(@"3x^{2} - 4x + 1", ExprParser.Parse("1 - 4x + 3x^2").Simplify().ToLatex());
+    }
+}
+
+// Every example in README.md, with the result its comment shows. If one of these fails,
+// update the README together with the code.
+public class ReadmeExamplesTests
+{
+    private static readonly Expr F = ExprParser.Parse("x^3 - 2x^2 + x", "x");
+
+    [Fact]
+    public void Quick_start()
+    {
+        Assert.Equal(12, F.Evaluate(3));
+        Assert.Equal("3x^2 - 4x + 1", F.Differentiate("x").Print());
+        Assert.Equal("3x^{2} - 4x + 1", F.Differentiate("x").ToLatex());
+        Assert.Equal([0.0, 1.0], F.FindRealRoots(-10, 10));
+        Assert.Equal("(x - 1)^2 * x", F.TryFactorReal("x").Factored.Print());
+    }
+
+    [Fact]
+    public void Operators()
+    {
+        var x = new Variable("x");
+
+        Assert.Equal("x^2 + 2x", (x * x + 3 * x - x).Simplify().Print());
+        Assert.Equal("x^2 + 2x + 1", (x.Pow(2) + 2 * x + 1).Print());
+    }
+
+    [Fact]
+    public void Exact_arithmetic()
+    {
+        Assert.Equal("3/10", ExprParser.Parse("0.1 + 0.2").Simplify().Print());
+        Assert.Equal("(x + sqrt(2)) * (x - sqrt(2))", ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print());
+    }
+
+    [Fact]
+    public void Simplify_modes()
+    {
+        Expr e = ExprParser.Parse("x/x");
+
+        Assert.Equal("1", e.Simplify().Print());
+        Assert.Equal("x / x", e.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Assumptions_example()
+    {
+        Expr s = ExprParser.Parse("sqrt(x^2)");
+
+        Assert.Equal("abs(x)", s.Simplify().Print());
+        Assert.Equal("x", s.Simplify(Assumptions.None.AssumePositive("x")).Print());
+    }
+
+    [Fact]
+    public void Differentiation()
+    {
+        Assert.Equal("3y^2 + x^2", ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print());
+    }
+
+    [Fact]
+    public void Root_finding()
+    {
+        Assert.Equal([-1.0, 1.0], ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots());
+
+        var sinRoots = ExprParser.Parse("sin(x)").FindRealRoots(ExprParser.Parse("1/2"), -4, 4);
+        Assert.Equal(3, sinRoots.Count);
+        Assert.Equal(-3.665, sinRoots[0], precision: 3);
+        Assert.Equal(0.524, sinRoots[1], precision: 3);
+        Assert.Equal(2.618, sinRoots[2], precision: 3);
+
+        var complexRoots = ExprParser.Parse("x^2 + 1").FindComplexRoots(-2, 2, -2, 2)
+            .OrderBy(z => z.Imaginary).ToList();
+        Assert.Equal(2, complexRoots.Count);
+        Assert.Equal(-1, complexRoots[0].Imaginary, precision: 9);
+        Assert.Equal(1, complexRoots[1].Imaginary, precision: 9);
+    }
+
+    [Fact]
+    public void Evaluation()
+    {
+        Assert.Equal(7, ExprParser.Parse("x*y + 1").Evaluate(("x", 2), ("y", 3)));
+
+        ComplexNumber z = ExprParser.Parse("sqrt(x)").EvaluateComplex(-4);
+        Assert.Equal(0, z.Real, precision: 12);
+        Assert.Equal(2, z.Imaginary, precision: 12);
+    }
+
+    [Fact]
+    public void Parser_variables()
+    {
+        Assert.Equal("theta^2 + 2t", ExprParser.Parse("theta^2 + 2t", "theta", "t").Print());
+
+        var ex = Assert.Throws<FormatException>(() => ExprParser.Parse("sen(x)", "x"));
+        Assert.Equal("Unknown identifier 'sen' at position 0. Declared variables: x.", ex.Message);
     }
 }

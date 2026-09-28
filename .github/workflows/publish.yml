@@ -1,0 +1,41 @@
+name: Publish
+
+# Pushing a tag such as v1.0.0 publishes that version of the Epsilon package to nuget.org.
+# Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
+# GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
+# this repository and workflow file.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  id-token: write # required for the OIDC token used by NuGet/login
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - run: dotnet restore Epsilon.slnx
+      - run: dotnet build Epsilon.slnx -c Release --no-restore
+      - run: dotnet test Epsilon.slnx -c Release --no-build
+
+      # The version comes from the tag (v1.0.0 -> 1.0.0), so the csproj can't get out of sync.
+      - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#v}
+
+      - uses: NuGet/login@v1
+        id: nuget-login
+        with:
+          user: XBambinoX # nuget.org profile name (not email) of the package owner
+
+      # Pushes the .snupkg symbols alongside the .nupkg.
+      - run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
