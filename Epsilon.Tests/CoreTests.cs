@@ -2710,3 +2710,80 @@ public class CultureInvariantPrintingTests
         Assert.DoesNotContain('−', latex);
     }
 }
+
+public class DomainEdgeRootTests
+{
+    private static IReadOnlyList<double> Roots(string input, double left = double.NegativeInfinity, double right = double.PositiveInfinity) =>
+        ExprParser.Parse(input, "x").FindRealRoots(left, right);
+
+    [Theory]
+    [InlineData(double.NegativeInfinity, double.PositiveInfinity)]
+    [InlineData(-1, 1)]
+    [InlineData(-0.37, 5.1)]
+    public void Finds_the_root_of_sqrt_at_the_edge_of_its_domain(double left, double right)
+    {
+        Assert.Equal([0.0], Roots("sqrt(x)", left, right));
+    }
+
+    [Theory]
+    [InlineData(double.NegativeInfinity, double.PositiveInfinity)]
+    [InlineData(-2.3, 1.7)]
+    public void Finds_both_edges_of_a_semicircle(double left, double right)
+    {
+        Assert.Equal([-1.0, 1.0], Roots("sqrt(1 - x^2)", left, right));
+    }
+
+    [Fact]
+    public void Finds_edges_that_are_not_exact_doubles()
+    {
+        var roots = Roots("sqrt(2 - x^2)");
+
+        Assert.Equal(2, roots.Count);
+        Assert.Equal(-Math.Sqrt(2), roots[0], precision: 12);
+        Assert.Equal(Math.Sqrt(2), roots[1], precision: 12);
+    }
+
+    [Fact]
+    public void Finds_an_edge_root_of_acos()
+    {
+        Assert.Equal([1.0], Roots("acos(x)"));
+    }
+
+    [Theory]
+    [InlineData("x * ln(x)", 1.0)]      // tends to 0 at x = 0, but is undefined there
+    [InlineData("sqrt(x) * ln(x)", 1.0)]
+    [InlineData("ln(x)", 1.0)]
+    public void Does_not_report_a_limit_at_an_undefined_edge_as_a_root(string input, double onlyRoot)
+    {
+        Assert.Equal([onlyRoot], Roots(input));
+    }
+
+    [Theory]
+    [InlineData(-1, 1)]     // the grid hits x = 0 exactly
+    [InlineData(-0.37, 5.1)]
+    public void Still_reports_no_root_where_the_expression_is_undefined(double left, double right)
+    {
+        Assert.Empty(ExprParser.Parse("x^2 / x", "x").FindRealRoots(left, right));
+    }
+
+    [Theory]
+    [InlineData("x")]
+    [InlineData("x^3")]      // x^3 underflows to exactly 0 on a plateau of tiny x
+    [InlineData("tan(x)")]
+    public void Finds_a_root_at_zero_exactly_when_the_grid_misses_it(string input)
+    {
+        Assert.Equal(0.0, Roots(input, -0.37, 3).First());
+    }
+
+    [Fact]
+    public void Does_not_report_a_hole_away_from_zero_as_a_root()
+    {
+        Assert.Empty(Roots("(x - 0.5)^2 / (x - 0.5)", -0.37, 5.1));
+    }
+
+    [Fact]
+    public void Ignores_poles_next_to_a_domain_edge()
+    {
+        Assert.Empty(Roots("1 / sqrt(x)"));
+    }
+}

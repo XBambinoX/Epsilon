@@ -9,6 +9,14 @@ public static class RootFindingExtensions
     // A local minimum of |f| counts as a (touching) root only if f there is this small
     // relative to f on the neighbouring grid points - x^2 + 1e-7 must not have a root.
     private const double TouchingRootTolerance = 1e-10;
+
+    // |f| at the last defined point before a domain edge, relative to f on the grid, below
+    // which the edge may be a root. Looser than for touching roots: next to a square-root
+    // edge that isn't a double, f is still about sqrt(1 ulp) ~ 1e-8 away from 0.
+    private const double EdgeRootTolerance = 1e-6;
+
+    // |x| below which an exact zero of f may just be underflow (see ResolveZeroPlateau).
+    private const double UnderflowPlateauLimit = 1e-100;
     private const double InfMappingEdgeEpsilon = 1e-9;
 
     private const int DefaultComplexGridSteps = 12;
@@ -44,8 +52,9 @@ public static class RootFindingExtensions
 
     /// <summary>
     /// All real roots of <paramref name="expr"/> = 0 for <paramref name="variable"/> in the range,
-    /// found by scanning a grid and refining each sign change or touching point (even-multiplicity
-    /// roots such as x^2) by bisection. Infinite limits are handled by a change of variable.
+    /// found by scanning a grid and refining each sign change, touching point (even-multiplicity
+    /// roots such as x^2) and domain edge (sqrt(x) at 0) by bisection. Points where the expression
+    /// is undefined are never reported. Infinite limits are handled by a change of variable.
     /// </summary>
     /// <remarks>
     /// A numeric method: roots closer together than the grid spacing can be missed, so increase
@@ -177,6 +186,23 @@ public static class RootFindingExtensions
 
         for (int i = 0; i <= scanSteps; i++)
         {
+            // The domain ends between these two grid points (sqrt(x) around 0): a root can
+            // sit exactly on the edge, where no sign change is visible.
+            if (i < scanSteps && double.IsFinite(fs[i]) != double.IsFinite(fs[i + 1]))
+            {
+                bool leftDefined = double.IsFinite(fs[i]);
+                double definedValue = leftDefined ? fs[i] : fs[i + 1];
+
+                if (TryFindDomainEdgeRoot(
+                        expr, variable, fixedBindings, F,
+                        definedX: leftDefined ? xs[i] : xs[i + 1],
+                        undefinedX: leftDefined ? xs[i + 1] : xs[i],
+                        scale: Math.Max(1.0, Math.Abs(definedValue))) is double edgeRoot)
+                {
+                    TryAdd(roots, edgeRoot);
+                }
+            }
+
             if (!double.IsFinite(fs[i]))
                 continue;
 
@@ -189,11 +215,12 @@ public static class RootFindingExtensions
             if (i < scanSteps && double.IsFinite(fs[i + 1]) && fs[i + 1] != 0 &&
                 Math.Sign(fs[i]) != Math.Sign(fs[i + 1]))
             {
-                double r = BisectToPrecision(F, xs[i], xs[i + 1], fs[i]);
-
                 // A pole changes sign too (1/x at 0): near a root |f| shrinks, near a pole it grows.
-                if (Math.Abs(F(r)) <= Math.Min(Math.Abs(fs[i]), Math.Abs(fs[i + 1])))
+                if (BisectToPrecision(F, xs[i], xs[i + 1], fs[i]) is double r &&
+                    Math.Abs(F(r)) <= Math.Min(Math.Abs(fs[i]), Math.Abs(fs[i + 1])))
+                {
                     TryAdd(roots, r);
+                }
             }
 
             if (IsTouchingCandidate(fs, i, scanSteps))
@@ -255,40 +282,48 @@ public static class RootFindingExtensions
         if (!double.IsFinite(da) || !double.IsFinite(db) || da == 0 || db == 0 || Math.Sign(da) == Math.Sign(db))
             return null;
 
-        double c = BisectToPrecision(derivative, a, b, da);
+        if (BisectToPrecision(derivative, a, b, da) is not double c)
+            return null;
+
         double scale = Math.Max(1.0, Math.Max(Math.Abs(fa), Math.Abs(fb)));
 
         return Math.Abs(f(c)) <= TouchingRootTolerance * scale ? c : null;
     }
 
-    // Bisects [a, b] (with g(a) = ga and g(b) of the opposite sign) until the interval
-    // can't be split any further in double precision.
-    private static double BisectToPrecision(Func<double, double> g, double a, double b, double ga)
+    // Bisects between a and b (g(a) = ga, g(b) of the opposite sign) down to two adjacent
+    // doubles. Works on the ordered bit patterns like BisectDomainEdge, so it takes at most
+    // 64 steps and reaches exact zeros such as x = 0 (halving values stalled around 1e-63).
+    // Returns null if g is undefined somewhere on the way: the sign change then goes through
+    // a hole or a pole (x^2/x or 1/x at 0), not through a root.
+    private static double? BisectToPrecision(Func<double, double> g, double a, double b, double ga)
     {
-        for (int i = 0; i < 200; i++)
-        {
-            double mid = a + (b - a) / 2;
-            if (mid == a || mid == b)
-                break;
+        long lo = ToOrderedBits(a), hi = ToOrderedBits(b);
+        double gb = g(b);
 
+        while (Int128.Abs((Int128)hi - lo) > 1)
+        {
+            long midBits = (long)(((Int128)lo + hi) / 2);
+            double mid = FromOrderedBits(midBits);
             double gm = g(mid);
+
             if (gm == 0)
-                return mid;
+                return Math.Abs(mid) < UnderflowPlateauLimit ? ResolveZeroPlateau(g, mid) : mid;
             if (!double.IsFinite(gm))
-                break;
+                return null;
 
             if (Math.Sign(gm) == Math.Sign(ga))
             {
-                a = mid;
+                lo = midBits;
                 ga = gm;
             }
             else
             {
-                b = mid;
+                hi = midBits;
+                gb = gm;
             }
         }
 
-        return a + (b - a) / 2;
+        return Math.Abs(ga) <= Math.Abs(gb) ? FromOrderedBits(lo) : FromOrderedBits(hi);
     }
 
     /// <summary>
@@ -391,6 +426,85 @@ public static class RootFindingExtensions
     {
         if (!roots.Any(r => (r - candidate).Magnitude < ComplexRootMergeTolerance))
             roots.Add(candidate);
+    }
+
+    // A root on the edge of the domain is accepted if f is (nearly) 0 at the last defined
+    // point and carries on through the edge over the complex numbers: sqrt(x) at 0,
+    // sqrt(1 - x^2) at 1, sqrt(2 - x^2) at sqrt(2) (an edge that is not a double, so f is
+    // only ~1e-8 there). The complex check rejects functions that merely tend to 0 towards a
+    // point where they are undefined - x*ln(x) and x^2/x at 0 give 0*(-inf) and 0/0 there
+    // even over C - so, as everywhere else, no root is reported where f itself is undefined.
+    // Even an exact 0 needs the check: x^2/x is exactly 0 at x = -5e-324, where x^2 underflows.
+    private static double? TryFindDomainEdgeRoot(
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings,
+        Func<double, double> f, double definedX, double undefinedX, double scale)
+    {
+        var (edge, beyond) = BisectDomainEdge(f, definedX, undefinedX);
+
+        double tolerance = EdgeRootTolerance * scale;
+        if (!(Math.Abs(f(edge)) <= tolerance))
+            return null;
+
+        double continued = SafeEvaluateComplex(expr, variable, fixedBindings, beyond).Magnitude;
+        return continued <= tolerance ? edge : null; // false for NaN
+    }
+
+    // Bisects between a point where f is finite and one where it isn't, down to two adjacent
+    // doubles. Works on the doubles' ordered bit patterns rather than their values, so it
+    // always ends in at most 64 steps and can land exactly on an edge like 0 or 1.
+    private static (double Defined, double Undefined) BisectDomainEdge(
+        Func<double, double> f, double defined, double undefined)
+    {
+        long d = ToOrderedBits(defined), u = ToOrderedBits(undefined);
+
+        while (Int128.Abs((Int128)d - u) > 1)
+        {
+            long mid = (long)(((Int128)d + u) / 2);
+            if (double.IsFinite(f(FromOrderedBits(mid))))
+                d = mid;
+            else
+                u = mid;
+        }
+
+        return (FromOrderedBits(d), FromOrderedBits(u));
+    }
+
+    // Next to x = 0, powers underflow: x^3 and x^2/x are exactly 0 on a whole plateau of
+    // tiny x, so a zero found there says nothing about where the root is. x = 0 itself
+    // decides: a root at 0 (x^3), or a hole (x^2/x, undefined at 0) - then no root at all.
+    private static double? ResolveZeroPlateau(Func<double, double> g, double zeroAt)
+    {
+        double atZero = g(0);
+        if (!double.IsFinite(atZero))
+            return null;
+
+        return atZero == 0 ? 0 : zeroAt;
+    }
+
+    // Maps doubles to longs monotonically (-0 and +0 both to 0), so neighbouring doubles
+    // are neighbouring longs.
+    private static long ToOrderedBits(double x)
+    {
+        long bits = BitConverter.DoubleToInt64Bits(x);
+        return bits >= 0 ? bits : long.MinValue - bits;
+    }
+
+    private static double FromOrderedBits(long ordered) =>
+        BitConverter.Int64BitsToDouble(ordered >= 0 ? ordered : long.MinValue - ordered);
+
+    private static ComplexNumber SafeEvaluateComplex(
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings, double x)
+    {
+        try
+        {
+            var dict = new Dictionary<string, ComplexNumber>();
+            if (fixedBindings is not null)
+                foreach (var (name, value) in fixedBindings)
+                    dict[name] = value;
+            dict[variable] = x;
+            return expr.EvaluateComplex(dict);
+        }
+        catch { return new ComplexNumber(double.NaN, double.NaN); }
     }
 
     private static double SafeEvaluate(Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings, double x)
