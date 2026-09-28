@@ -2640,3 +2640,26 @@ public class ProductSimplificationAfterCleanupTests
         Assert.Equal(new Power(new Power(new Variable("x"), new Constant(new Rational(1, 2))), new Constant(2)), simplified);
     }
 }
+
+// Mirrors the README quick start line by line: if one of these fails, update the README too.
+public class ReadmeQuickStartTests
+{
+    [Fact]
+    public void Quick_start_outputs_match_the_readme()
+    {
+        Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
+
+        Assert.Equal(12, f.Evaluate(3));
+        Assert.Equal("3 * x ^ 2 - 4x + 1", f.Differentiate("x").Simplify().Print());
+        Assert.Equal(@"3 \cdot x^{2} - 4x + 1", f.Differentiate("x").Simplify().ToLatex());
+        Assert.Equal([0.0, 1.0], f.FindRealRoots(-10, 10));
+        Assert.Equal("(x - 1) ^ 2 * x", f.TryFactorReal("x").Factored.Print());
+
+        var x = new Variable("x");
+        Assert.Equal("2x + x ^ 2", (x * x + 3 * x - x).Simplify().Print());
+
+        Expr s = ExprParser.Parse("sqrt(x^2)");
+        Assert.Equal("abs(x)", s.Simplify().Print());
+        Assert.Equal("x", s.Simplify(Assumptions.None.AssumePositive("x")).Print());
+    }
+}

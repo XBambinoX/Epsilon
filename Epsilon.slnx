@@ -1,7 +1,4 @@
 <Solution>
-  <Folder Name="/Epsilon.Console/">
-    <Project Path="Epsilon.Console/Epsilon.csproj" />
-  </Folder>
   <Project Path="Epsilon.Calculus/Epsilon.Calculus.csproj" />
   <Project Path="Epsilon.Core/Epsilon.Core.csproj" />
   <Project Path="Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj" />
