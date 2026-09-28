@@ -183,12 +183,14 @@ public static class LatexPrinter
 
     private static string FormatCoefficient(Rational value)
     {
+        // Invariant culture, see Rational.ToString.
         if (value.IsInteger)
-            return value.Numerator.ToString();
+            return value.Numerator.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
         string sign = value.Sign < 0 ? "-" : "";
         var numerator = System.Numerics.BigInteger.Abs(value.Numerator);
 
-        return $"{sign}\\frac{{{numerator}}}{{{value.Denominator}}}";
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{sign}\\frac{{{numerator}}}{{{value.Denominator}}}");
     }
 }

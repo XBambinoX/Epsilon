@@ -213,5 +213,10 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
     public int CompareTo(Rational other) => (this - other).Sign;
 
     /// <inheritdoc/>
-    public override string ToString() => IsInteger ? Numerator.ToString() : $"{Numerator}/{Denominator}";
+    // Invariant culture: some cultures (sv-SE, fi-FI, ...) use U+2212 as the minus sign,
+    // which would make Printer output unparseable by ExprParser.
+    public override string ToString() =>
+        IsInteger
+            ? Numerator.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Numerator}/{Denominator}");
 }

@@ -2663,3 +2663,50 @@ public class ReadmeQuickStartTests
         Assert.Equal("x", s.Simplify(Assumptions.None.AssumePositive("x")).Print());
     }
 }
+
+public class CultureInvariantPrintingTests
+{
+    // sv-SE formats negative numbers with U+2212 (−) instead of '-'.
+    private static T InSwedishCulture<T>(Func<T> action)
+    {
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("sv-SE");
+            return action();
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    [Theory]
+    [InlineData("(-2)^x")]
+    [InlineData("x^(-3/4)")]
+    [InlineData("-3/4 * x - 2")]
+    public void Print_output_round_trips_under_a_culture_with_a_unicode_minus(string input)
+    {
+        Expr expr = ExprParser.Parse(input).Simplify();
+
+        string printed = InSwedishCulture(expr.Print);
+
+        Assert.DoesNotContain('−', printed);
+        Assert.Equal(expr, ExprParser.Parse(printed).Simplify());
+    }
+
+    [Fact]
+    public void Rational_ToString_uses_an_ascii_minus()
+    {
+        Assert.Equal("-3/4", InSwedishCulture(() => new Rational(-3, 4).ToString()));
+        Assert.Equal("-12", InSwedishCulture(() => new Rational(-12).ToString()));
+    }
+
+    [Fact]
+    public void Latex_uses_an_ascii_minus()
+    {
+        string latex = InSwedishCulture(() => ExprParser.Parse("(-2)^x").Simplify().ToLatex());
+
+        Assert.DoesNotContain('−', latex);
+    }
+}
