@@ -1,3 +1,6 @@
+#if false
+//TODO: integrate Rational class
+
 using Epsilon.Core;
 
 namespace Epsilon.Calculus;
@@ -642,3 +645,4 @@ public static class ImproperIntegrator
         return false;
     }
 }
+#endif

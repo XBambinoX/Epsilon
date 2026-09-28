@@ -1,3 +1,6 @@
+#if false
+//TODO: refactor this code for multivariable core
+
 using Epsilon.Core;
 
 namespace Epsilon.Calculus;
@@ -178,3 +181,4 @@ internal static class Substitution
         _ => expr
     };
 }
+#endif

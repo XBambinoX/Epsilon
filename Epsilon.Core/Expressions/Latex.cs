@@ -1,0 +1,192 @@
+namespace Epsilon.Core;
+
+/// <summary>Formats expressions as LaTeX.</summary>
+public static class LatexPrinter
+{
+    /// <summary>The expression as LaTeX math, e.g. <c>\frac{x^{2}}{2} + \sin\left(x\right)</c>.</summary>
+    public static string ToLatex(this Expr expr) => LatexInternal(expr, 0);
+
+    private static int Precedence(Expr expr) => expr switch
+    {
+        Add or Subtract => 1,
+        Multiply or Divide => 2,
+        Negate => 3,
+        Power => 4,
+        Constant c when c.Value.Sign < 0 => 3, // "-2" is a negation: (-2)^{x}, not -2^{x}
+        _ => 5
+    };
+
+    // \frac{1}{2} is visually self-contained everywhere except as a power base, where
+    // \frac{1}{2}^{x} is ambiguous - there it needs explicit parentheses.
+    private static string LatexPowerBase(Expr baseExpr, int powerPrecedence) =>
+        baseExpr is Constant c && !c.Value.IsInteger
+            ? $"\\left({LatexInternal(baseExpr, 0)}\\right)"
+            : LatexInternal(baseExpr, powerPrecedence + 1);
+
+    private static string LatexInternal(Expr expr, int parentPrecedence)
+    {
+        int myPrecedence = Precedence(expr);
+
+        string result = expr switch
+        {
+            Constant c => FormatCoefficient(c.Value),
+            Variable v => v.Name,
+            Pi => "\\pi",
+            EulerNumber => "e",
+            ImaginaryUnit => "i",
+
+            Negate(var a) =>
+                $"-{LatexInternal(a, 2)}",
+
+            // The whole Add/Subtract chain at once, in display order: x^{2} + 2x + 1.
+            Add or Subtract =>
+                SumTerms.Join(SumTerms.InDisplayOrder(expr), term => LatexInternal(term, myPrecedence)),
+
+            Multiply(var l, var r) =>
+                LatexMultiply(l, r),
+                
+            Divide(var n, var d) =>
+                $"\\frac{{{LatexInternal(n, 0)}}}{{{LatexInternal(d, 0)}}}",
+
+            Power(var b, var e) =>
+                $"{LatexPowerBase(b, myPrecedence)}^{{{LatexInternal(e, 0)}}}",
+
+            Sin(var a) => $"\\sin\\left({LatexInternal(a, 0)}\\right)",
+            Cos(var a) => $"\\cos\\left({LatexInternal(a, 0)}\\right)",
+            Tan(var a) => $"\\tan\\left({LatexInternal(a, 0)}\\right)",
+            Cot(var a) => $"\\cot\\left({LatexInternal(a, 0)}\\right)",
+            Sec(var a) => $"\\sec\\left({LatexInternal(a, 0)}\\right)",
+            Csc(var a) => $"\\csc\\left({LatexInternal(a, 0)}\\right)",
+
+            Asin(var a) => $"\\arcsin\\left({LatexInternal(a, 0)}\\right)",
+            Acos(var a) => $"\\arccos\\left({LatexInternal(a, 0)}\\right)",
+            Atan(var a) => $"\\arctan\\left({LatexInternal(a, 0)}\\right)",
+
+            Sinh(var a) => $"\\sinh\\left({LatexInternal(a, 0)}\\right)",
+            Cosh(var a) => $"\\cosh\\left({LatexInternal(a, 0)}\\right)",
+            Tanh(var a) => $"\\tanh\\left({LatexInternal(a, 0)}\\right)",
+
+            Asinh(var a) => $"\\operatorname{{asinh}}\\left({LatexInternal(a, 0)}\\right)",
+            Acosh(var a) => $"\\operatorname{{acosh}}\\left({LatexInternal(a, 0)}\\right)",
+            Atanh(var a) => $"\\operatorname{{atanh}}\\left({LatexInternal(a, 0)}\\right)",
+
+            Coth(var a) => $"\\operatorname{{coth}}\\left({LatexInternal(a, 0)}\\right)",
+            Sech(var a) => $"\\operatorname{{sech}}\\left({LatexInternal(a, 0)}\\right)",
+            Csch(var a) => $"\\operatorname{{csch}}\\left({LatexInternal(a, 0)}\\right)",
+
+            Exp(var a) => $"e^{{{LatexInternal(a, 0)}}}",
+            Ln(var a) => $"\\ln\\left({LatexInternal(a, 0)}\\right)",
+            Sqrt(var a) => $"\\sqrt{{{LatexInternal(a, 0)}}}",
+
+            NthRoot(var a, var n) =>
+                $"\\sqrt[{LatexInternal(n, 0)}]{{{LatexInternal(a, 0)}}}",
+
+            Abs(var a) => $"\\left|{LatexInternal(a, 0)}\\right|",
+            Sign(var a) => $"\\operatorname{{sgn}}\\left({LatexInternal(a, 0)}\\right)",
+            Floor(var a) => $"\\left\\lfloor{LatexInternal(a, 0)}\\right\\rfloor",
+            Ceiling(var a) => $"\\left\\lceil{LatexInternal(a, 0)}\\right\\rceil",
+            Round(var a) => $"\\operatorname{{round}}\\left({LatexInternal(a, 0)}\\right)",
+
+            Min(var l, var r) =>
+                $"\\min\\left({LatexInternal(l, 0)}, {LatexInternal(r, 0)}\\right)",
+
+            Max(var l, var r) =>
+                $"\\max\\left({LatexInternal(l, 0)}, {LatexInternal(r, 0)}\\right)",
+
+            _ => expr.ToString() ?? string.Empty
+        };
+
+        return myPrecedence < parentPrecedence
+            ? $"\\left({result}\\right)"
+            : result;
+    }
+
+    private static string LatexMultiply(Expr left, Expr right)
+    {
+        var factors = new List<Expr>();
+        FlattenMultiply(left, factors);
+        FlattenMultiply(right, factors);
+
+        Constant? constant = null;
+        int constantCount = 0;
+        var rest = new List<Expr>(factors.Count);
+
+        foreach (var factor in factors)
+        {
+            if (factor is Constant c)
+            {
+                constant ??= c;
+                constantCount++;
+            }
+            else
+            {
+                rest.Add(factor);
+            }
+        }
+
+        bool canUseImplicit = constantCount <= 1 && rest.All(CanBeImplicitFactor);
+
+        if (!canUseImplicit)
+            return string.Join(" \\cdot ", factors.Select(f => LatexInternal(f, 3)));
+
+        var coefficient = constant?.Value ?? Rational.One;
+        string sign = coefficient.Sign < 0 ? "-" : "";
+        var absCoefficient = coefficient.Abs();
+
+        string coefficientPart = absCoefficient.IsOne && rest.Count > 0
+            ? ""
+            : FormatCoefficient(absCoefficient);
+
+        string restPart = string.Concat(rest.Select(f => LatexInternal(f, Precedence(f))));
+
+        return rest.Count == 0
+            ? $"{sign}{FormatCoefficient(absCoefficient)}"
+            : $"{sign}{coefficientPart}{restPart}";
+    }
+
+    private static void FlattenMultiply(Expr expr, List<Expr> factors)
+    {
+        if (expr is Multiply(var l, var r))
+        {
+            FlattenMultiply(l, factors);
+            FlattenMultiply(r, factors);
+        }
+        else
+        {
+            factors.Add(expr);
+        }
+    }
+
+    private static bool CanBeImplicitFactor(Expr expr) => expr switch
+    {
+        Variable => true,
+
+        // 3x^{2} - but not 3 \cdot 2^{x}, which would read as 32^{x}.
+        Power(Constant b, _) when b.Value.IsInteger && b.Value.Sign >= 0 => false,
+        Power => true,
+
+        Sin or Cos or Tan or Cot or Sec or Csc
+            or Asin or Acos or Atan
+            or Sinh or Cosh or Tanh
+            or Asinh or Acosh or Atanh
+            or Coth or Sech or Csch
+            or Exp or Ln or Sqrt or NthRoot
+            or Abs or Sign or Floor or Ceiling or Round
+            or Min or Max => true,
+
+        _ => false
+    };
+
+    private static string FormatCoefficient(Rational value)
+    {
+        // Invariant culture, see Rational.ToString.
+        if (value.IsInteger)
+            return value.Numerator.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        string sign = value.Sign < 0 ? "-" : "";
+        var numerator = System.Numerics.BigInteger.Abs(value.Numerator);
+
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{sign}\\frac{{{numerator}}}{{{value.Denominator}}}");
+    }
+}

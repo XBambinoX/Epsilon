@@ -12,7 +12,6 @@
 
   <ItemGroup> 
     <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" /> 
-    <ProjectReference Include="..\Epsilon.LinearAlgebra\Epsilon.LinearAlgebra.csproj" /> 
   </ItemGroup>
 
 </Project>
