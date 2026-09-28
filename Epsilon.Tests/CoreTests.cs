@@ -2355,3 +2355,80 @@ public class ExprTreeApiTests
         Assert.Equal(2 * s * (1 - s), expr.Differentiate("x").Evaluate(0.3), precision: 12);
     }
 }
+
+public class ExprOperatorTests
+{
+    private static readonly Expr X = new Variable("x");
+    private static readonly Expr Y = new Variable("y");
+
+    [Fact]
+    public void Operators_build_the_matching_nodes()
+    {
+        Assert.Equal(new Add(X, Y), X + Y);
+        Assert.Equal(new Subtract(X, Y), X - Y);
+        Assert.Equal(new Multiply(X, Y), X * Y);
+        Assert.Equal(new Divide(X, Y), X / Y);
+        Assert.Equal(new Negate(X), -X);
+        Assert.Equal(new Power(X, new Constant(2)), X.Pow(2));
+    }
+
+    [Fact]
+    public void Operators_only_construct_and_do_not_simplify()
+    {
+        Assert.Equal(new Add(X, new Constant(0)), X + 0);
+    }
+
+    [Fact]
+    public void Follow_normal_csharp_precedence()
+    {
+        // 2 * x + 1 is (2 * x) + 1, and -x * y is (-x) * y - same as in C#.
+        Assert.Equal(new Add(new Multiply(new Constant(2), X), new Constant(1)), 2 * X + 1);
+        Assert.Equal(new Multiply(new Negate(X), Y), -X * Y);
+    }
+
+    [Fact]
+    public void Numbers_convert_on_either_side()
+    {
+        Assert.Equal(new Multiply(new Constant(3), X), 3 * X);
+        Assert.Equal(new Divide(new Constant(1), X), 1 / X);
+        Assert.Equal(new Subtract(X, new Constant(new Rational(10_000_000_000L))), X - 10_000_000_000L);
+        Assert.Equal(new Add(X, new Constant(new Rational(1, 3))), X + new Rational(1, 3));
+    }
+
+    [Theory]
+    [InlineData(0.1, 1, 10)] // the decimal the author wrote, not the nearest binary double
+    [InlineData(0.5, 1, 2)]
+    [InlineData(-2.25, -9, 4)]
+    public void Doubles_convert_to_their_exact_decimal_value(double value, long numerator, long denominator)
+    {
+        Expr converted = value;
+        Assert.Equal(new Constant(new Rational(numerator, denominator)), converted);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void Non_finite_doubles_are_rejected(double value)
+    {
+        Assert.Throws<ArgumentException>(() => { Expr _ = value; });
+    }
+
+    [Fact]
+    public void Builds_a_realistic_expression()
+    {
+        Expr f = 0.5 * X * X + 2 * X - 1;
+
+        Assert.Equal(0.5 * 3 * 3 + 2 * 3 - 1, f.Evaluate(3.0));
+        Assert.Equal("(1/2) * x ^ 2 + 2x - 1", f.Simplify().Print());
+        Assert.Equal("x + 2", f.Differentiate("x").Simplify().Print());
+    }
+
+    [Fact]
+    public void Works_with_function_nodes()
+    {
+        Expr wave = 2 * new Sin(3 * X) + new Cos(X).Pow(2);
+
+        double x = 0.4;
+        Assert.Equal(2 * Math.Sin(3 * x) + Math.Pow(Math.Cos(x), 2), wave.Evaluate(x), precision: 12);
+    }
+}

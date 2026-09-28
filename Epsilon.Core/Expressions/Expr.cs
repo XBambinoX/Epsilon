@@ -156,6 +156,34 @@ public abstract class Expr : IEquatable<Expr>
     private static IReadOnlyDictionary<string, T> SingleBinding<T>(string variable, T value) =>
         new Dictionary<string, T> { [variable] = value };
 
+    // Operators
+    //
+    // Build expressions with ordinary C# syntax: x * x + 2 * x - 0.5. They only construct
+    // nodes (x + 0 stays Add(x, 0)); call Simplify() to clean the result up.
+    //
+    // There is deliberately no ^ operator: in C# it is XOR and binds looser than +, so
+    // x ^ 2 + 1 would silently mean x ^ (2 + 1). Use x.Pow(2) instead.
+
+    public static Expr operator +(Expr left, Expr right) => new Add(left, right);
+    public static Expr operator -(Expr left, Expr right) => new Subtract(left, right);
+    public static Expr operator *(Expr left, Expr right) => new Multiply(left, right);
+    public static Expr operator /(Expr left, Expr right) => new Divide(left, right);
+    public static Expr operator -(Expr argument) => new Negate(argument);
+
+    /// <summary>This expression raised to <paramref name="exponent"/>: x.Pow(2) is x^2.</summary>
+    public Expr Pow(Expr exponent) => new Power(this, exponent);
+
+    public static implicit operator Expr(int value) => new Constant(value);
+    public static implicit operator Expr(long value) => new Constant(new Rational(value));
+    public static implicit operator Expr(Rational value) => new Constant(value);
+
+    /// <summary>
+    /// Converts through the value's shortest decimal form, so 0.1 becomes exactly 1/10
+    /// (the value the author wrote, not the nearest binary double). Throws
+    /// <see cref="ArgumentException"/> for NaN and infinities, which have no exact value.
+    /// </summary>
+    public static implicit operator Expr(double value) => new Constant(value);
+
     public bool Equals(Expr? other) => other is not null && StructurallyEquals(this, other);
     public override bool Equals(object? obj) => obj is Expr other && Equals(other);
 
