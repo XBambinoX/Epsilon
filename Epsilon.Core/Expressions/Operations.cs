@@ -146,7 +146,7 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
 }
 
 /// <summary>
-/// <c>base ^ exponent</c>, as a principal value: a negative base with a non-integer exponent is
+/// <c>base^exponent</c>, as a principal value: a negative base with a non-integer exponent is
 /// undefined over the reals (<c>(-8)^(1/3)</c> is NaN; use <see cref="NthRoot"/> for the real cube root).
 /// </summary>
 public sealed class Power(Expr baseExpr, Expr exponent) : Expr

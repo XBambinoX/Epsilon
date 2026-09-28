@@ -4,7 +4,8 @@ namespace Epsilon.Core;
 public static class Printer
 {
     /// <summary>
-    /// Formats the expression with minimal parentheses, e.g. <c>x ^ 2 / 2 + sin(x)</c>. The output can be
+    /// Formats the expression compactly, with terms by descending degree and minimal parentheses,
+    /// e.g. <c>3x^2 - 4x + 1</c> or <c>x^2 / 2 + sin(x)</c>. The output can be
     /// parsed back by <see cref="ExprParser.Parse"/>. <see cref="object.ToString"/> instead shows the
     /// tree with every operation parenthesized, which is useful for debugging.
     /// </summary>
@@ -42,17 +43,9 @@ public static class Printer
             Negate(var a) =>
                 $"-{PrintInternal(a, 2)}",
 
-            Add(var l, Negate(var r)) =>
-                $"{PrintInternal(l, myPrecedence)} - {PrintInternal(r, myPrecedence + 1)}",
-
-            Add(var l, Constant r) when r.Value < 0 =>
-                $"{PrintInternal(l, myPrecedence)} - {PrintInternal(new Constant(-r.Value), myPrecedence + 1)}",
-
-            Add(var l, var r) =>
-                $"{PrintInternal(l, myPrecedence)} + {PrintInternal(r, myPrecedence + 1)}",
-
-            Subtract(var l, var r) =>
-                $"{PrintInternal(l, myPrecedence)} - {PrintInternal(r, myPrecedence + 1)}",
+            // The whole Add/Subtract chain at once, in display order: x^2 + 2x + 1.
+            Add or Subtract =>
+                SumTerms.Join(SumTerms.InDisplayOrder(expr), term => PrintInternal(term, myPrecedence)),
 
             Multiply(var l, var r) =>
                 PrintMultiply(l, r),
@@ -63,7 +56,7 @@ public static class Printer
             // The exponent is parsed as a unary expression, so a leading minus needs no
             // parentheses there (x ^ -1), but anything looser than negation does (x ^ (1/2)).
             Power(var b, var e) =>
-                $"{PrintInternal(b, myPrecedence + 1)} ^ {PrintInternal(e, NegatePrecedence)}",
+                $"{PrintInternal(b, myPrecedence + 1)}^{PrintInternal(e, NegatePrecedence)}",
 
             Sin(var a) => $"sin({PrintInternal(a, 0)})",
             Cos(var a) => $"cos({PrintInternal(a, 0)})",
@@ -138,14 +131,15 @@ public static class Printer
             }
         }
 
-        // Implicit multiplication only for "integer coefficient * one factor" (2x, -3sin(x)).
-        // Juxtaposing more factors can re-tokenize into something else: a * sinh(x) would
-        // print as "asinh(x)", and variables c, o, s as "cos". A fractional coefficient
-        // would read as a division: "1/2x" looks like 1/(2x).
+        // An integer coefficient is written next to the first factor (2x, -3x^2, 2cos(x) * y);
+        // everything else keeps an explicit " * ". Juxtaposing two non-constant factors could
+        // re-tokenize into something else: a * sinh(x) would print as "asinh(x)", and variables
+        // c, o, s as "cos". A fractional coefficient would read as a division: "1/2x" looks
+        // like 1/(2x).
         bool canUseImplicit = constantCount <= 1 &&
-                              rest.Count <= 1 &&
+                              rest.Count > 0 &&
                               (constant is null || constant.Value.IsInteger) &&
-                              rest.All(CanBeImplicitFactor);
+                              CanBeImplicitFactor(rest[0]);
 
         if (!canUseImplicit)
             return string.Join(" * ", factors.Select(f => PrintInternal(f, 3)));
@@ -153,16 +147,12 @@ public static class Printer
         var coefficient = constant?.Value ?? Rational.One;
         string sign = coefficient.Sign < 0 ? "-" : "";
         var absCoefficient = coefficient.Abs();
+        string coefficientPart = absCoefficient.IsOne ? "" : absCoefficient.ToString();
 
-        string coefficientPart = absCoefficient.IsOne && rest.Count > 0
-            ? ""
-            : absCoefficient.ToString();
-
-        string restPart = string.Concat(rest.Select(f => PrintInternal(f, Precedence(f))));
-
-        return rest.Count == 0
-            ? $"{sign}{absCoefficient}"
-            : $"{sign}{coefficientPart}{restPart}";
+        string first = $"{sign}{coefficientPart}{PrintInternal(rest[0], Precedence(rest[0]))}";
+        return rest.Count == 1
+            ? first
+            : string.Join(" * ", rest.Skip(1).Select(f => PrintInternal(f, 3)).Prepend(first));
     }
 
     private static void FlattenMultiply(Expr expr, List<Expr> factors)
@@ -181,6 +171,10 @@ public static class Printer
     private static bool CanBeImplicitFactor(Expr expr) => expr switch
     {
         Variable => true,
+
+        // 3x^2, 3sin(x)^2, 3(x + 1)^2 - but not 3 * 2^x, which would read as 32^x.
+        Power(Constant b, _) when b.Value.IsInteger && b.Value.Sign >= 0 => false,
+        Power => true,
 
         Sin or Cos or Tan or Cot or Sec or Csc
             or Asin or Acos or Atan

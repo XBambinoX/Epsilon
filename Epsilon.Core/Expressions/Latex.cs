@@ -38,17 +38,9 @@ public static class LatexPrinter
             Negate(var a) =>
                 $"-{LatexInternal(a, 2)}",
 
-            Add(var l, Negate(var r)) =>
-                $"{LatexInternal(l, myPrecedence)} - {LatexInternal(r, myPrecedence + 1)}",
-
-            Add(var l, Constant r) when r.Value < 0 =>
-                $"{LatexInternal(l, myPrecedence)} - {LatexInternal(new Constant(-r.Value), myPrecedence + 1)}",
-
-            Add(var l, var r) =>
-                $"{LatexInternal(l, myPrecedence)} + {LatexInternal(r, myPrecedence + 1)}",
-
-            Subtract(var l, var r) =>
-                $"{LatexInternal(l, myPrecedence)} - {LatexInternal(r, myPrecedence + 1)}",
+            // The whole Add/Subtract chain at once, in display order: x^{2} + 2x + 1.
+            Add or Subtract =>
+                SumTerms.Join(SumTerms.InDisplayOrder(expr), term => LatexInternal(term, myPrecedence)),
 
             Multiply(var l, var r) =>
                 LatexMultiply(l, r),
@@ -168,6 +160,10 @@ public static class LatexPrinter
     private static bool CanBeImplicitFactor(Expr expr) => expr switch
     {
         Variable => true,
+
+        // 3x^{2} - but not 3 \cdot 2^{x}, which would read as 32^{x}.
+        Power(Constant b, _) when b.Value.IsInteger && b.Value.Sign >= 0 => false,
+        Power => true,
 
         Sin or Cos or Tan or Cot or Sec or Csc
             or Asin or Acos or Atan
