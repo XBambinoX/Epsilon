@@ -561,6 +561,25 @@ public class DifferentiationTests
     private const double H = 1e-6; // step for numerical cross-check
     private const double Tolerance = 1e-4;
 
+    [Theory]
+    [InlineData("ln(y)")]
+    [InlineData("5 / y")]
+    [InlineData("sqrt(y)")]
+    [InlineData("atan(y)")]
+    [InlineData("floor(y)")] // would throw if the node's own rule were reached
+    public void Derivative_of_expression_independent_of_variable_is_exactly_zero(string input)
+    {
+        Expr derivative = ExprParser.Parse(input, "y").Differentiate("x");
+        Assert.Equal(new Constant(0), derivative);
+    }
+
+    [Fact]
+    public void Derivative_of_product_with_constant_factor_has_no_zero_quotient_leftovers()
+    {
+        Expr derivative = ExprParser.Parse("x * ln(y)", "x", "y").Differentiate("x");
+        Assert.Equal(new Ln(new Variable("y")), derivative);
+    }
+
     // Numerically verifies a symbolic derivative against central-difference approximation,
     // catching cases where the symbolic rule is subtly wrong but still "compiles and runs".
     private static void AssertDerivativeMatchesNumeric(string input, double atPoint)
@@ -1028,10 +1047,35 @@ public class AdvancedSimplifierTests
     }
 
     [Fact]
-    public void Simplifies_zero_divided_by_variable_to_zero()
+    public void Simplifies_zero_divided_by_provably_nonzero_variable_to_zero()
     {
+        Expr expr = ExprParser.Parse("0 / x").Simplify(Assumptions.None.AssumePositive("x"));
+        Assert.Equal(new Constant(0), expr);
+    }
+
+    [Fact]
+    public void Does_not_simplify_zero_divided_by_unknown_variable()
+    {
+        // x could be 0, so 0/x must not become a defined value.
         Expr expr = ExprParser.Parse("0 / x").Simplify();
-        Assert.Equal(0, expr.Evaluate(new Dictionary<string, double>()));
+        Assert.IsType<Divide>(expr);
+    }
+
+    [Theory]
+    [InlineData("0 / 0")]
+    [InlineData("0 / (x - x)")]
+    public void Does_not_simplify_zero_divided_by_zero(string input)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify();
+        Assert.Equal(new Divide(new Constant(0), new Constant(0)), expr);
+        Assert.True(double.IsNaN(expr.Evaluate(new Dictionary<string, double>())));
+    }
+
+    [Fact]
+    public void Simplifies_zero_divided_by_positive_polynomial_to_zero()
+    {
+        Expr expr = ExprParser.Parse("0 / (x^2 + 1)", "x").Simplify();
+        Assert.Equal(new Constant(0), expr);
     }
 
     [Fact]

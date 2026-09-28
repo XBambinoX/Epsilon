@@ -85,8 +85,9 @@ public static class Simplifier
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
-            // 0 / var = 0
-            case Divide(Constant zero, var d) when zero.Value.IsZero:
+            // 0 / d = 0 only when d is provably nonzero - otherwise 0/0 (or 0/x at x = 0)
+            // would silently become a defined value. Same policy as x/x above.
+            case Divide(Constant zero, var d) when zero.Value.IsZero && d.IsProvablyNonZero(assumptions):
                 return new Constant(0);
 
             case Divide(var n, var d) when d.Equals(new Constant(1)):

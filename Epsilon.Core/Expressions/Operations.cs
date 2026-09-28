@@ -11,7 +11,7 @@ public sealed class Add(Expr left, Expr right) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Left.EvaluateComplex(bindings) + Right.EvaluateComplex(bindings);
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Add(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
 
     public override IReadOnlySet<string> GetVariables() =>
@@ -35,7 +35,7 @@ public sealed class Subtract(Expr left, Expr right) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Left.EvaluateComplex(bindings) - Right.EvaluateComplex(bindings);
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Subtract(Left.Differentiate(variable), Right.Differentiate(variable)).Simplify();
 
     public override IReadOnlySet<string> GetVariables() =>
@@ -59,7 +59,7 @@ public sealed class Multiply(Expr left, Expr right) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Left.EvaluateComplex(bindings) * Right.EvaluateComplex(bindings);
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Add(
             new Multiply(Left.Differentiate(variable), Right),
             new Multiply(Left, Right.Differentiate(variable))
@@ -86,7 +86,7 @@ public sealed class Divide(Expr numerator, Expr denominator) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Numerator.EvaluateComplex(bindings) / Denominator.EvaluateComplex(bindings);
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Divide(
             new Subtract(
                 new Multiply(Numerator.Differentiate(variable), Denominator),
@@ -116,14 +116,8 @@ public sealed class Power(Expr baseExpr, Expr exponent) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Complex.Pow(Base.EvaluateComplex(bindings), Exponent.EvaluateComplex(bindings));
 
-    public override Expr Differentiate(string variable)
+    protected override Expr DifferentiateCore(string variable)
     {
-        bool baseDepends = Base.GetVariables().Contains(variable);
-        bool exponentDepends = Exponent.GetVariables().Contains(variable);
-
-        if (!baseDepends && !exponentDepends)
-            return new Constant(0);
-
         if (Exponent is Constant n)
         {
             return new Multiply(

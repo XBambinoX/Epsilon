@@ -11,7 +11,7 @@ public sealed class Max(Expr left, Expr right) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         throw new NotImplementedException("max(a,b) is undefined over C - the complex numbers are not ordered.");
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         throw new NotImplementedException(
             "max(a,b) has a branch-dependent derivative and can't be represented " +
             "without a Piecewise/conditional Expr node.");

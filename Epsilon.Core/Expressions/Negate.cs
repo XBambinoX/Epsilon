@@ -10,7 +10,7 @@ public sealed class Negate(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         -Argument.EvaluateComplex(bindings);
 
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Negate(Argument.Differentiate(variable)).Simplify();
 
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();

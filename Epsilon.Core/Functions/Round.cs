@@ -10,7 +10,7 @@ public sealed class Round(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         throw new NotImplementedException("round(z) has no standard definition over the complex numbers.");
 
-    public override Expr Differentiate(string variable) => 
+    protected override Expr DifferentiateCore(string variable) => 
         throw new NotImplementedException(
             "Round has a branch-dependent derivative and can't be represented " +
             "without a Piecewise/conditional Expr node.");

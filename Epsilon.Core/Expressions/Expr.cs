@@ -15,7 +15,14 @@ public abstract class Expr : IEquatable<Expr>
         return Evaluate(dict);
     }
 
-    public abstract Expr Differentiate(string variable);
+    // The derivative of anything that doesn't depend on `variable` is exactly 0.
+    // Checked here once instead of in every node, so rules like the quotient rule
+    // never produce leftovers such as 0/y (which Simplify won't fold unless y is
+    // provably nonzero).
+    public Expr Differentiate(string variable) =>
+        DependsOn(variable) ? DifferentiateCore(variable) : new Constant(0);
+
+    protected abstract Expr DifferentiateCore(string variable);
 
     public Expr Differentiate()
     {
@@ -190,7 +197,7 @@ public sealed class Constant : Expr
 
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Value.ToDouble();
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => new Complex(Value.ToDouble());
-    public override Expr Differentiate(string variable) => new Constant(0);
+    protected override Expr DifferentiateCore(string variable) => new Constant(0);
     public override IReadOnlySet<string> GetVariables() => NoVariables;
     public override Expr Substitute(string variable, Expr replacement) => this;
     public override string ToString() => Value.ToString();
@@ -216,7 +223,7 @@ public sealed class Variable(string name) : Expr
         return value;
     }
 
-    public override Expr Differentiate(string variable) => new Constant(variable == Name ? 1 : 0);
+    protected override Expr DifferentiateCore(string variable) => new Constant(variable == Name ? 1 : 0);
 
     public override IReadOnlySet<string> GetVariables() => new HashSet<string> { Name };
 

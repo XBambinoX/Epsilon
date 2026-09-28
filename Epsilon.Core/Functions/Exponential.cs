@@ -8,7 +8,7 @@ public sealed class Exp(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Exp(Argument.EvaluateComplex(bindings));
 
     // d/dx e^f(x) = e^f(x) * f'(x)
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Multiply(new Exp(Argument), Argument.Differentiate(variable)).Simplify();
 
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();
@@ -26,7 +26,7 @@ public sealed class Ln(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Log(Argument.EvaluateComplex(bindings));
 
     // d/dx ln(f(x)) = f'(x) / f(x)
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Divide(Argument.Differentiate(variable), Argument).Simplify();
 
     public override IReadOnlySet<string> GetVariables() => Argument.GetVariables();

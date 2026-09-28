@@ -10,7 +10,7 @@ public sealed class Abs(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Argument.EvaluateComplex(bindings).Magnitude;
 
-    public override Expr Differentiate(string variable)
+    protected override Expr DifferentiateCore(string variable)
     {
         // d/dx |f(x)| = f(x) / |f(x)| * f'(x), for f(x) != 0
         return new Multiply(

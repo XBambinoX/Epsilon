@@ -8,7 +8,7 @@ public sealed class Sqrt(Expr argument) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) => Complex.Sqrt(Argument.EvaluateComplex(bindings));
 
     // d/dx sqrt(f(x)) = f'(x) / (2 * sqrt(f(x)))
-    public override Expr Differentiate(string variable) =>
+    protected override Expr DifferentiateCore(string variable) =>
         new Divide(
             Argument.Differentiate(variable),
             new Multiply(new Constant(2), new Sqrt(Argument))
@@ -32,7 +32,7 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
         Complex.Pow(Argument.EvaluateComplex(bindings), Complex.One / Degree.EvaluateComplex(bindings));
 
-    public override Expr Differentiate(string variable)
+    protected override Expr DifferentiateCore(string variable)
     {
         if (Degree is Constant n)
         {
