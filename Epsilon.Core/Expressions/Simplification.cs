@@ -52,6 +52,10 @@ public static class Simplifier
         if (!flattened.Equals(expr))
             return flattened.Canonicalize();
 
+        Expr combinedProduct = CombineProductFactors(expr, assumptions, mode);
+        if (!combinedProduct.Equals(expr))
+            return combinedProduct.Canonicalize();
+
         switch (expr)
         {
             case Add(Constant a, Constant b):
@@ -562,6 +566,87 @@ public static class Simplifier
             constant = Rational.Zero;
         }
     }
+
+    // The product counterpart of FlattenAndCombine: works on a whole Multiply chain instead
+    // of one binary node, so repeated factors merge even when they aren't adjacent in the
+    // tree - x*y*x*y -> x^2*y^2 and 2*x*3*x -> 6*x^2 (the binary rules only caught the
+    // first pair). Constants are multiplied together; equal bases get their exponents
+    // added, subject to the same domain rules as the binary rules (CanMergeExponents).
+    private static Expr CombineProductFactors(Expr expr, Assumptions assumptions, SimplifyMode mode)
+    {
+        if (expr is not Multiply)
+            return expr;
+
+        var factors = new List<Expr>();
+        Rational coefficient = Rational.One;
+        FlattenProduct(expr, factors, ref coefficient);
+
+        var groups = new List<(Expr Base, Expr Exponent)>();
+
+        foreach (Expr factor in factors)
+        {
+            if (factor is Constant c)
+            {
+                coefficient *= c.Value;
+                continue;
+            }
+
+            var (baseExpr, exponent) = factor is Power(var b, var e) ? (b, e) : (factor, new Constant(1));
+
+            // Merge into the first group with the same base that allows it; otherwise start
+            // a new group (e.g. x and x^-1 stay apart in Strict mode unless x != 0 is known).
+            int index = groups.FindIndex(g =>
+                g.Base.Equals(baseExpr) && CanMergeExponents(baseExpr, g.Exponent, exponent, assumptions, mode));
+
+            if (index >= 0)
+                groups[index] = (baseExpr, AddExponents(groups[index].Exponent, exponent));
+            else
+                groups.Add((baseExpr, exponent));
+        }
+
+        // 0 * anything is left to the dedicated rule in ApplyRules.
+        if (coefficient.IsZero)
+            return expr;
+
+        // A lone -1 is written as a negation (-(x^2*y)) rather than -1 * x^2 * y.
+        bool negate = coefficient == Rational.MinusOne;
+        Expr? result = coefficient.IsOne || negate ? null : new Constant(coefficient);
+        foreach (var (baseExpr, exponent) in groups)
+        {
+            Expr term = exponent is Constant e && e.Value.IsOne ? baseExpr : new Power(baseExpr, exponent);
+            result = result is null ? term : new Multiply(result, term);
+        }
+
+        result ??= new Constant(negate ? Rational.One : coefficient);
+        return negate ? new Negate(result) : result;
+    }
+
+    // Negations anywhere in the chain are pulled out into the coefficient, so that
+    // -x * y * x merges to -(x^2*y) and x * (-y) * x * (-y) to x^2 * y^2.
+    private static void FlattenProduct(Expr expr, List<Expr> factors, ref Rational coefficient)
+    {
+        switch (expr)
+        {
+            case Multiply(var l, var r):
+                FlattenProduct(l, factors, ref coefficient);
+                FlattenProduct(r, factors, ref coefficient);
+                break;
+
+            case Negate(var inner):
+                coefficient = -coefficient;
+                FlattenProduct(inner, factors, ref coefficient);
+                break;
+
+            default:
+                factors.Add(expr);
+                break;
+        }
+    }
+
+    private static Expr AddExponents(Expr e1, Expr e2) =>
+        e1 is Constant c1 && e2 is Constant c2
+            ? new Constant(c1.Value + c2.Value)
+            : new Add(e1, e2);
 
     private static Expr FlattenAndCombine(Expr expr)
     {

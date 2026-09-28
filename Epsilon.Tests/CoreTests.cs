@@ -2147,3 +2147,75 @@ public class ComplexEdgeCaseTests
         Assert.Equal(1.0, squared.Imaginary / 1e300, precision: 12);
     }
 }
+
+public class ProductCombiningTests
+{
+    private static readonly string[] Vars = ["x", "y", "z", "n", "m"];
+
+    private static string S(string input, SimplifyMode mode = SimplifyMode.Generic, Assumptions? assumptions = null) =>
+        ExprParser.Parse(input, Vars).Simplify(assumptions ?? Assumptions.None, mode).Print();
+
+    [Theory]
+    [InlineData("x*y*x*y", "x ^ 2 * y ^ 2")]           // was x ^ 2 * y * y
+    [InlineData("2*x*3*x", "6 * x ^ 2")]               // was 6 * x * x
+    [InlineData("y*x*z*x*y*x", "x ^ 3 * y ^ 2 * z")]
+    [InlineData("x^2*y*x^3", "x ^ 5 * y")]
+    [InlineData("x*(x*y)*x", "x ^ 3 * y")]
+    [InlineData("(x+1)*y*(x+1)", "(x + 1) ^ 2 * y")]
+    [InlineData("sin(x)*y*sin(x)*y", "sin(x) ^ 2 * y ^ 2")]
+    [InlineData("2^x*3*2^y", "3 * 2 ^ (x + y)")]
+    [InlineData("2*x*y*0.5", "x * y")]
+    public void Merges_repeated_factors_anywhere_in_a_product(string input, string expected)
+    {
+        Assert.Equal(expected, S(input));
+    }
+
+    [Theory]
+    [InlineData("-x*y*x", "-x ^ 2 * y")]
+    [InlineData("-(x*y)*x", "-x ^ 2 * y")]
+    [InlineData("x*(-y)*x*(-y)", "x ^ 2 * y ^ 2")]
+    [InlineData("(-x)*(-x)", "x ^ 2")]
+    [InlineData("x*y*(-1)", "-x * y")]
+    public void Pulls_negations_out_of_the_product(string input, string expected)
+    {
+        Assert.Equal(expected, S(input));
+    }
+
+    [Fact]
+    public void Symbolic_exponents_add_up()
+    {
+        Assert.Equal("x ^ (m + n) * y", S("x^n*y*x^m"));
+    }
+
+    [Fact]
+    public void Respects_domain_rules_in_strict_mode()
+    {
+        // x * x^-1 would become defined at x = 0, so Strict keeps them apart...
+        Assert.Equal("x ^ -1 * x * y", S("x*y*x^-1", SimplifyMode.Strict));
+        // ...unless x is known to be nonzero; Generic merges them either way.
+        Assert.Equal("y", S("x*y*x^-1", SimplifyMode.Strict, Assumptions.None.AssumeNonZero("x")));
+        Assert.Equal("y", S("x*y*x^-1"));
+    }
+
+    [Fact]
+    public void Long_chains_collapse_completely()
+    {
+        string input = string.Join("*", Enumerable.Range(0, 40).Select(i => "xyz"[i % 3].ToString()));
+        Assert.Equal("x ^ 14 * y ^ 13 * z ^ 13", S(input));
+    }
+
+    [Theory]
+    [InlineData("x*y*x*y")]
+    [InlineData("-x*y*x")]
+    [InlineData("x*(-y)*x*(-y)")]
+    [InlineData("x^n*y*x^m")]
+    [InlineData("(x/y)*x*y")]
+    public void Result_has_the_same_value(string input)
+    {
+        Expr original = ExprParser.Parse(input, Vars);
+        Expr simplified = original.Simplify();
+        var bindings = new Dictionary<string, double> { ["x"] = 1.7, ["y"] = -0.6, ["z"] = 2.3, ["n"] = 1.5, ["m"] = -0.5 };
+
+        Assert.Equal(original.Evaluate(bindings), simplified.Evaluate(bindings), precision: 10);
+    }
+}
