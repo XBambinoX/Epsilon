@@ -1,97 +1,77 @@
 using System.Numerics;
+using NumericComplex = System.Numerics.Complex;
 
 namespace Epsilon.Core;
 
 public static class PolynomialFactoring
 {
     /// <summary>
-    /// Attempts to factor a univariate polynomial into real linear factors
-    /// by finding real roots and performing synthetic division to deflate the degree.
-    /// Any remaining quadratic factor with no real roots is left as-is (irreducible over the reals).
-    /// Returns (original expression, false) if the input isn't recognized as a polynomial
-    /// in `variable`, or if no real roots are found at all.
+    /// Factors a univariate polynomial with rational coefficients exactly - no approximated
+    /// roots ever appear in the result. Rational roots become linear factors, and a quadratic
+    /// factor with a positive discriminant is split with square roots:
+    /// x^2 - 2 -> (x - sqrt(2)) * (x + sqrt(2)). A factor whose roots can't be written that
+    /// way (x^3 - 2, or x^2 + 1 over the reals) is kept as a polynomial - use FindRealRoots
+    /// for numeric roots. Returns (original expression, false) if the input isn't a
+    /// polynomial in `variable`, or if nothing could be factored.
     /// </summary>
-    public static (Expr Factored, bool Success) TryFactorReal(this Expr expr, string variable)
+    public static (Expr Factored, bool Success) TryFactorReal(this Expr expr, string variable) =>
+        TryFactor(expr, variable, complex: false);
+
+    /// <summary>
+    /// Like <see cref="TryFactorReal"/>, but quadratic factors with a negative discriminant are
+    /// split too, using the imaginary unit: x^2 + 1 -> (x - i) * (x + i). Succeeds only if the
+    /// polynomial splits completely into exact linear factors.
+    /// </summary>
+    public static (Expr Factored, bool Success) TryFactorComplex(this Expr expr, string variable) =>
+        TryFactor(expr, variable, complex: true);
+
+    private static (Expr Factored, bool Success) TryFactor(Expr expr, string variable, bool complex)
     {
-        Rational[]? exactCoefficients = TryGetPolynomialCoefficients(expr, variable);
-        if (exactCoefficients is null)
+        Rational[]? coefficients = TryGetPolynomialCoefficients(expr, variable);
+        if (coefficients is null)
             return (expr, false);
 
-        int degree = exactCoefficients.Length - 1;
-        if (degree < 1)
+        coefficients = TrimLeadingZeros(coefficients);
+        if (coefficients.Length < 2)
             return (expr, false); // constant - nothing to factor
 
-        // Root-finding and synthetic division are inherently numeric (Newton's method
-        // works with irrational roots in general), so we convert to double here -
-        // but the extraction step above stayed exact, avoiding any precision loss
-        // while reading the polynomial's coefficients out of the expression tree.
-        double[] coefficients = ToDoubleArray(exactCoefficients);
+        Rational leading = coefficients[^1];
+        Rational[] monic = Scale(coefficients, Rational.One / leading);
 
-        double bound = CauchyRootBound(coefficients);
-        var roots = expr.FindRealRoots(variable, null, -bound, bound, scanSteps: Math.Max(200, degree * 50));
+        List<Rational[]> factors = ExtractExactFactors(monic);
 
-        if (roots.Count == 0)
-            return (expr, false); // no real roots found - cannot factor over the reals
+        var x = new Variable(variable);
+        var linear = new List<Expr>();
+        var other = new List<Expr>();
 
-        // No need to clone: TrySyntheticDivide always allocates a new array for its
-        // quotient rather than mutating its input, so 'coefficients' itself is never
-        // touched after this point - 'remaining' can just start out pointing at it.
-        double[] remaining = coefficients;
-        var linearFactors = new List<double>(); // each entry r contributes a factor (x - r)
-
-        foreach (double root in roots)
+        foreach (Rational[] factor in factors)
         {
-            double scale = MaxAbsCoefficient(remaining);
-
-            // Deflate repeatedly while the root still divides evenly (handles multiplicity).
-            while (remaining.Length > 1 && IsNegligible(EvaluatePolynomial(remaining, root), scale))
+            if (factor.Length == 2)
             {
-                double[]? deflated = TrySyntheticDivide(remaining, root, scale);
-                if (deflated is null)
-                    break;
-
-                remaining = deflated;
-                linearFactors.Add(root);
-                scale = MaxAbsCoefficient(remaining);
+                linear.Add(LinearFactor(x, -factor[0]));
+            }
+            else if (factor.Length == 3 && TrySplitQuadratic(x, factor, complex, out Expr first, out Expr second))
+            {
+                linear.Add(first);
+                linear.Add(second);
+            }
+            else
+            {
+                other.Add(BuildPolynomial(x, factor));
             }
         }
 
-        if (linearFactors.Count == 0)
+        // Complex: must split completely. Real: any genuine factorization counts, including
+        // one into irreducible quadratics only: x^4 + 5x^2 + 4 -> (x^2 + 1) * (x^2 + 4).
+        bool success = complex
+            ? other.Count == 0
+            : linear.Count > 0 || other.Count >= 2;
+
+        if (!success)
             return (expr, false);
 
-        Expr factored = BuildFactoredExpression(linearFactors, remaining, variable);
-        return (factored, true);
-    }
-
-    /// <summary>
-    /// Attempts to factor a univariate polynomial fully into linear factors over the complex
-    /// numbers, expressed using the ImaginaryUnit where roots are non-real. Returns
-    /// (original expression, false) if the input isn't recognized as a polynomial, or if
-    /// complex root finding fails to account for the full degree.
-    /// </summary>
-    public static (Expr Factored, bool Success) TryFactorComplex(this Expr expr, string variable)
-    {
-        Rational[]? exactCoefficients = TryGetPolynomialCoefficients(expr, variable);
-        if (exactCoefficients is null)
-            return (expr, false);
-
-        int degree = exactCoefficients.Length - 1;
-        if (degree < 1)
-            return (expr, false);
-
-        double[] coefficients = ToDoubleArray(exactCoefficients);
-
-        double bound = CauchyRootBound(coefficients) + 1;
-        var complexRoots = expr.FindComplexRoots(variable, null, -bound, bound, -bound, bound, gridSteps: Math.Max(12, degree * 4));
-
-        // A degree-n polynomial has exactly n roots counted with multiplicity;
-        // if the grid search didn't find that many, we can't guarantee a full split.
-        if (complexRoots.Count < degree)
-            return (expr, false);
-
-        double leadingCoefficient = coefficients[degree];
-        Expr factored = BuildComplexFactoredExpression(leadingCoefficient, complexRoots, variable);
-        return (factored, true);
+        Expr result = BuildProduct(leading, linear.Concat(other));
+        return (result.Simplify(), true);
     }
 
     // Polynomial extraction (exact, Rational-based)
@@ -236,145 +216,334 @@ public static class PolynomialFactoring
         return (int)value;
     }
 
-    //Numeric helpers (double-based - root-finding is inherently approximate)
+    // Exact factor extraction. Numeric roots are only used to generate candidates;
+    // every factor is confirmed by exact Rational arithmetic before it is accepted.
 
-    private static double[] ToDoubleArray(Rational[] coefficients)
+    private const long MaxCandidateDenominator = 1_000_000_000_000;
+
+    // Splits a monic polynomial into monic factors with rational coefficients: linear
+    // factors (one per rational root, repeated for multiplicity), quadratic factors, and
+    // possibly one remaining factor of degree >= 3 that couldn't be reduced further.
+    private static List<Rational[]> ExtractExactFactors(Rational[] monic)
     {
-        var result = new double[coefficients.Length];
-        for (int i = 0; i < coefficients.Length; i++)
-            result[i] = coefficients[i].ToDouble();
-        return result;
-    }
+        var factors = new List<Rational[]>();
+        Rational[] rest = monic;
 
-    private static double MaxAbsCoefficient(double[] coefficients)
-    {
-        double max = 0;
-        foreach (double c in coefficients)
-            max = Math.Max(max, Math.Abs(c));
-        return max;
-    }
-
-    // Relative-to-scale tolerance check, replacing a fixed absolute threshold that
-    // was either too loose (large-coefficient polynomials) or too tight (small ones).
-    private static bool IsNegligible(double value, double scale) =>
-        Math.Abs(value) < 1e-6 * Math.Max(1.0, scale);
-
-    private static double EvaluatePolynomial(double[] coefficients, double x)
-    {
-        double result = 0;
-        for (int i = coefficients.Length - 1; i >= 0; i--)
-            result = result * x + coefficients[i];
-        return result;
-    }
-
-    private static double[]? TrySyntheticDivide(double[] coefficients, double root, double scale)
-    {
-        int n = coefficients.Length;
-        var quotient = new double[n - 1];
-
-        double carry = coefficients[n - 1];
-        quotient[n - 2] = carry;
-
-        for (int i = n - 2; i >= 1; i--)
+        while (Degree(rest) >= 1)
         {
-            carry = coefficients[i] + carry * root;
-            quotient[i - 1] = carry;
+            if (Degree(rest) == 1)
+            {
+                factors.Add(rest);
+                return factors;
+            }
+
+            NumericComplex[] roots = FindAllRootsNumerically(rest);
+
+            if (TryFindRationalRoot(rest, roots, out Rational root))
+            {
+                factors.Add([-root, Rational.One]);
+                rest = DivideExactly(rest, [-root, Rational.One])!;
+                continue;
+            }
+
+            if (Degree(rest) == 2)
+            {
+                factors.Add(rest);
+                return factors;
+            }
+
+            if (TryFindRationalQuadratic(rest, roots, out Rational[] quadratic, out Rational[] quotient))
+            {
+                factors.Add(quadratic);
+                rest = quotient;
+                continue;
+            }
+
+            break; // e.g. x^3 - 2: irreducible over the rationals, no exact split possible
         }
 
-        double remainder = coefficients[0] + carry * root;
-        return IsNegligible(remainder, scale) ? quotient : null;
+        if (Degree(rest) >= 1)
+            factors.Add(rest);
+
+        return factors;
     }
 
-    // Cauchy's bound: all real (and complex) roots of a polynomial lie within this radius of zero.
-    private static double CauchyRootBound(double[] coefficients)
+    private static bool TryFindRationalRoot(Rational[] polynomial, NumericComplex[] roots, out Rational root)
     {
-        int n = coefficients.Length - 1;
-        double leading = Math.Abs(coefficients[n]);
-        double maxRatio = 0;
-
-        for (int i = 0; i < n; i++)
-            maxRatio = Math.Max(maxRatio, Math.Abs(coefficients[i]) / leading);
-
-        return 1 + maxRatio;
-    }
-
-    private static Expr BuildFactoredExpression(List<double> linearRoots, double[] remainingCoefficients, string variable)
-    {
-        Expr result = BuildPolynomialFromCoefficients(remainingCoefficients, variable);
-
-        foreach (double root in linearRoots)
+        // No "is this root real?" filter: a k-fold root comes back from the numeric solver as
+        // a small ring of k points around it, most of them slightly complex. Every candidate
+        // is verified exactly anyway, so trying the real part of each one is safe.
+        foreach (NumericComplex z in roots)
         {
-            Rational rationalizedRoot = RationalizeRoot(root);
-
-            Expr factor = rationalizedRoot.IsZero
-                ? new Variable(variable)
-                : new Subtract(new Variable(variable), new Constant(rationalizedRoot));
-
-            result = new Multiply(factor, result);
+            foreach (Rational candidate in Convergents(z.Real, MaxCandidateDenominator))
+            {
+                if (Evaluate(polynomial, candidate).IsZero)
+                {
+                    root = candidate;
+                    return true;
+                }
+            }
         }
 
-        return result.Simplify();
+        root = default;
+        return false;
     }
 
-    private static Expr BuildComplexFactoredExpression(double leadingCoefficient, IReadOnlyList<Complex> roots, string variable)
+    // Any two roots r1, r2 (a real pair or a complex-conjugate pair) with a rational sum s and
+    // product p give the factor x^2 - s*x + p - e.g. sqrt(2), -sqrt(2) -> x^2 - 2.
+    private static bool TryFindRationalQuadratic(
+        Rational[] polynomial, NumericComplex[] roots, out Rational[] quadratic, out Rational[] quotient)
     {
-        Expr result = new Constant(RationalizeRoot(leadingCoefficient));
-
-        foreach (Complex root in roots)
+        for (int i = 0; i < roots.Length; i++)
         {
-            Rational realPart = RationalizeRoot(root.Real);
-            Rational imagPart = RationalizeRoot(root.Imaginary);
+            for (int j = i + 1; j < roots.Length; j++)
+            {
+                // Loose filter, only to skip pairs that clearly aren't conjugates (the exact
+                // division below is the real check); loose so repeated roots still qualify.
+                NumericComplex sum = roots[i] + roots[j];
+                NumericComplex product = roots[i] * roots[j];
+                if (Math.Abs(sum.Imaginary) > 1e-3 * (1 + sum.Magnitude) ||
+                    Math.Abs(product.Imaginary) > 1e-3 * (1 + product.Magnitude))
+                    continue;
 
-            Expr realExpr = realPart.IsZero
-                ? new Variable(variable)
-                : new Subtract(new Variable(variable), new Constant(realPart));
-
-            Expr factor = imagPart.IsZero
-                ? realExpr
-                : new Subtract(realExpr, new Multiply(new Constant(imagPart), new ImaginaryUnit()));
-
-            result = new Multiply(result, factor);
+                foreach (Rational s in Convergents(sum.Real, 1_000_000))
+                {
+                    foreach (Rational p in Convergents(product.Real, 1_000_000))
+                    {
+                        Rational[] candidate = [p, -s, Rational.One];
+                        if (DivideExactly(polynomial, candidate) is Rational[] q)
+                        {
+                            quadratic = candidate;
+                            quotient = q;
+                            return true;
+                        }
+                    }
+                }
+            }
         }
 
-        return result.Simplify();
+        quadratic = [];
+        quotient = [];
+        return false;
     }
 
-    private static Expr BuildPolynomialFromCoefficients(double[] coefficients, string variable)
+    // Continued-fraction convergents of `value`: the best rational approximations with
+    // growing denominators. Only candidates - callers verify each one exactly.
+    private static IEnumerable<Rational> Convergents(double value, long maxDenominator)
     {
-        Expr result = new Constant(RationalizeRoot(coefficients[0]));
+        if (!double.IsFinite(value))
+            yield break;
 
-        for (int degree = 1; degree < coefficients.Length; degree++)
+        // Standard recurrence: h(n) = a(n) * h(n-1) + h(n-2), same for k; seeded with
+        // h(-1) = 1, h(-2) = 0, k(-1) = 0, k(-2) = 1.
+        BigInteger h = BigInteger.One, hPrevious = BigInteger.Zero;
+        BigInteger k = BigInteger.Zero, kPrevious = BigInteger.One;
+        double x = value;
+
+        for (int i = 0; i < 64; i++)
         {
-            Rational coefficient = RationalizeRoot(coefficients[degree]);
-            if (coefficient.IsZero)
+            double a = Math.Floor(x);
+            BigInteger term = new BigInteger(a);
+
+            (h, hPrevious) = (term * h + hPrevious, h);
+            (k, kPrevious) = (term * k + kPrevious, k);
+
+            if (k > maxDenominator)
+                yield break;
+
+            yield return new Rational(h, k);
+
+            double fraction = x - a;
+            if (fraction < 1e-15)
+                yield break;
+
+            x = 1 / fraction;
+        }
+    }
+
+    // x^2 + b*x + c (monic) with discriminant D = b^2 - 4c has roots -b/2 +- sqrt(D/4).
+    // Only called for quadratics without rational roots, so D/4 is never a perfect square.
+    private static bool TrySplitQuadratic(Variable x, Rational[] quadratic, bool complex, out Expr first, out Expr second)
+    {
+        Rational b = quadratic[1], c = quadratic[0];
+        Rational quarterDiscriminant = b * b / 4 - c;
+
+        Expr offset;
+        if (quarterDiscriminant.Sign > 0)
+            offset = SimplifiedSqrt(quarterDiscriminant);
+        else if (quarterDiscriminant.Sign < 0 && complex)
+            offset = new Multiply(SimplifiedSqrt(-quarterDiscriminant), new ImaginaryUnit());
+        else
+        {
+            first = second = null!;
+            return false;
+        }
+
+        Rational center = -b / 2;
+        Expr shifted = center.IsZero ? x : new Subtract(x, new Constant(center));
+
+        first = new Subtract(shifted, offset);
+        second = new Add(shifted, offset);
+        return true;
+    }
+
+    // sqrt(n/d) written as (k/d) * sqrt(m) with m square-free: sqrt(5/4) -> sqrt(5)/2,
+    // sqrt(1/2) -> sqrt(2)/2, sqrt(8) -> 2*sqrt(2). Uses sqrt(n/d) = sqrt(n*d)/d.
+    private static Expr SimplifiedSqrt(Rational value)
+    {
+        BigInteger radicand = value.Numerator * value.Denominator;
+        BigInteger outside = BigInteger.One;
+
+        // Trial division is enough here: radicands come from small polynomial coefficients.
+        for (BigInteger p = 2; p * p <= radicand && p <= 1_000_000; p++)
+        {
+            while (radicand % (p * p) == 0)
+            {
+                radicand /= p * p;
+                outside *= p;
+            }
+        }
+
+        Rational coefficient = new Rational(outside, value.Denominator);
+        Expr root = new Sqrt(new Constant(new Rational(radicand)));
+
+        return coefficient.IsOne ? root : new Multiply(new Constant(coefficient), root);
+    }
+
+    private static Expr LinearFactor(Variable x, Rational root) =>
+        root.IsZero ? x : new Subtract(x, new Constant(root));
+
+    // leading * f1^m1 * f2^m2 * ..., with identical factors grouped into powers.
+    private static Expr BuildProduct(Rational leading, IEnumerable<Expr> factors)
+    {
+        var grouped = new List<(Expr Factor, int Count)>();
+        foreach (Expr factor in factors)
+        {
+            int index = grouped.FindIndex(g => g.Factor.Equals(factor));
+            if (index >= 0)
+                grouped[index] = (factor, grouped[index].Count + 1);
+            else
+                grouped.Add((factor, 1));
+        }
+
+        Expr? result = leading.IsOne ? null : new Constant(leading);
+        foreach (var (factor, count) in grouped)
+        {
+            Expr term = count == 1 ? factor : new Power(factor, new Constant(count));
+            result = result is null ? term : new Multiply(result, term);
+        }
+
+        return result ?? new Constant(leading);
+    }
+
+    private static Expr BuildPolynomial(Variable x, Rational[] coefficients)
+    {
+        Expr? result = null;
+        for (int degree = coefficients.Length - 1; degree >= 0; degree--)
+        {
+            Rational c = coefficients[degree];
+            if (c.IsZero)
                 continue;
 
-            Expr term = degree == 1
-                ? new Variable(variable)
-                : new Power(new Variable(variable), new Constant(degree));
-
-            term = new Multiply(new Constant(coefficient), term);
-            result = new Add(result, term);
+            Expr power = degree switch
+            {
+                0 => new Constant(1),
+                1 => x,
+                _ => new Power(x, new Constant(degree))
+            };
+            Expr term = degree == 0 ? new Constant(c) : c.IsOne ? power : new Multiply(new Constant(c), power);
+            result = result is null ? term : new Add(result, term);
         }
 
+        return result ?? new Constant(0);
+    }
+
+    // Exact Rational polynomial arithmetic; coefficients[i] belongs to x^i.
+
+    private static int Degree(Rational[] polynomial) => polynomial.Length - 1;
+
+    private static Rational[] TrimLeadingZeros(Rational[] polynomial)
+    {
+        int length = polynomial.Length;
+        while (length > 1 && polynomial[length - 1].IsZero)
+            length--;
+        return polynomial[..length];
+    }
+
+    private static Rational[] Scale(Rational[] polynomial, Rational factor) =>
+        polynomial.Select(c => c * factor).ToArray();
+
+    private static Rational Evaluate(Rational[] polynomial, Rational x)
+    {
+        Rational result = Rational.Zero;
+        for (int i = polynomial.Length - 1; i >= 0; i--)
+            result = result * x + polynomial[i];
         return result;
     }
 
-    private static Rational RationalizeRoot(double value, int maxDenominator = 1000)
+    // Long division by a monic divisor; null unless the remainder is exactly zero.
+    private static Rational[]? DivideExactly(Rational[] dividend, Rational[] monicDivisor)
     {
-        double rounded = Math.Round(value);
-        if (Math.Abs(value - rounded) < 1e-8)
-            return new Rational((BigInteger)rounded);
+        int divisorDegree = Degree(monicDivisor);
+        if (Degree(dividend) < divisorDegree)
+            return null;
 
-        for (int denominator = 2; denominator <= maxDenominator; denominator++)
+        Rational[] remainder = (Rational[])dividend.Clone();
+        var quotient = new Rational[Degree(dividend) - divisorDegree + 1];
+
+        for (int i = quotient.Length - 1; i >= 0; i--)
         {
-            double numerator = value * denominator;
-            double roundedNumerator = Math.Round(numerator);
-
-            if (Math.Abs(numerator - roundedNumerator) < 1e-5)
-                return new Rational((BigInteger)roundedNumerator, denominator);
+            Rational q = remainder[i + divisorDegree];
+            quotient[i] = q;
+            for (int j = 0; j <= divisorDegree; j++)
+                remainder[i + j] -= q * monicDivisor[j];
         }
 
-        return Rational.FromDouble(value);
+        for (int i = 0; i < divisorDegree; i++)
+            if (!remainder[i].IsZero)
+                return null;
+
+        return quotient;
+    }
+
+    // All complex roots at once (Durand-Kerner). Accuracy only matters up to the point
+    // where the continued fractions above can recognise the exact value.
+    private static NumericComplex[] FindAllRootsNumerically(Rational[] monic)
+    {
+        int n = Degree(monic);
+        double[] a = monic.Select(c => c.ToDouble()).ToArray();
+
+        double radius = 1 + a.Take(n).Select(Math.Abs).DefaultIfEmpty(0).Max();
+        var z = new NumericComplex[n];
+        for (int k = 0; k < n; k++)
+            z[k] = NumericComplex.FromPolarCoordinates(radius, 2 * Math.PI * k / n + 0.4);
+
+        for (int iteration = 0; iteration < 1000; iteration++)
+        {
+            double largestStep = 0;
+            for (int k = 0; k < n; k++)
+            {
+                NumericComplex value = NumericComplex.Zero;
+                for (int i = n; i >= 0; i--)
+                    value = value * z[k] + a[i];
+
+                NumericComplex denominator = NumericComplex.One;
+                for (int j = 0; j < n; j++)
+                    if (j != k)
+                        denominator *= z[k] - z[j];
+
+                if (denominator == NumericComplex.Zero)
+                    denominator = new NumericComplex(1e-300, 0);
+
+                NumericComplex step = value / denominator;
+                z[k] -= step;
+                largestStep = Math.Max(largestStep, step.Magnitude / (1 + z[k].Magnitude));
+            }
+
+            if (largestStep < 1e-15)
+                break;
+        }
+
+        return z;
     }
 }

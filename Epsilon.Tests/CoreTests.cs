@@ -1956,14 +1956,103 @@ public class RealRootScanTests
     [Fact]
     public void Factors_polynomial_with_repeated_and_simple_roots()
     {
-        // (x - 1)^2 (x + 2) expanded. Checked by value rather than by printed form: Simplify
-        // currently leaves (x + 2) * (x - 1) * (x - 1) instead of merging the repeated factor.
-        Expr original = P("x^3 - 3x + 2");
+        // (x - 1)^2 (x + 2) expanded; repeated factors are grouped into a power by the factorizer.
+        var (factored, success) = P("x^3 - 3x + 2").TryFactorReal("x");
+
+        Assert.True(success);
+        Assert.Equal("(x + 2) * (x - 1) ^ 2", factored.Print());
+    }
+}
+
+public class ExactFactoringTests
+{
+    private static Expr P(string s) => ExprParser.Parse(s, "x");
+
+    private static void AssertSameFunction(Expr original, Expr factored)
+    {
+        foreach (var z in new[] { new Complex(-1.3, 0.4), new Complex(0.7, -2.1), new Complex(2.2, 0) })
+        {
+            Complex a = original.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = z });
+            Complex b = factored.EvaluateComplex(new Dictionary<string, Complex> { ["x"] = z });
+            Assert.True((a - b).Magnitude <= 1e-9 * (1 + a.Magnitude), $"{factored.Print()} differs at {z}");
+        }
+    }
+
+    // No constant in the result may be a long decimal-looking fraction: every Rational
+    // must be the exact value, not a rationalized double like 14142135623731/10^13.
+    private static void AssertNoApproximatedConstants(Expr expr)
+    {
+        switch (expr)
+        {
+            case Constant c:
+                Assert.True(System.Numerics.BigInteger.Abs(c.Value.Denominator) < 1000,
+                    $"constant {c.Value} looks like a rationalized double");
+                Assert.True(System.Numerics.BigInteger.Abs(c.Value.Numerator) < 1000,
+                    $"constant {c.Value} looks like a rationalized double");
+                break;
+            default:
+                foreach (Expr child in Children(expr))
+                    AssertNoApproximatedConstants(child);
+                break;
+        }
+    }
+
+    private static IEnumerable<Expr> Children(Expr expr) => expr switch
+    {
+        Add(var l, var r) => [l, r],
+        Subtract(var l, var r) => [l, r],
+        Multiply(var l, var r) => [l, r],
+        Divide(var l, var r) => [l, r],
+        Power(var l, var r) => [l, r],
+        Negate(var a) => [a],
+        Sqrt(var a) => [a],
+        _ => []
+    };
+
+    [Theory]
+    [InlineData("x^2 - 2", "(sqrt(2) + x) * (x - sqrt(2))")]           // was x - 14142135623731/10000000000000
+    [InlineData("x^2 - x - 1", "((1/2) * sqrt(5) + x - 1/2) * (x - (1/2) * sqrt(5) - 1/2)")]
+    [InlineData("x^4 - 5x^2 + 6", "(sqrt(2) + x) * (sqrt(3) + x) * (x - sqrt(2)) * (x - sqrt(3))")]
+    [InlineData("6x^2 - 5x + 1", "6 * (x - 1/3) * (x - 1/2)")]
+    [InlineData("x^4 + 5x^2 + 4", "(x ^ 2 + 1) * (x ^ 2 + 4)")]         // irreducible quadratics kept
+    [InlineData("x^5 - x", "(x ^ 2 + 1) * (x + 1) * (x - 1) * x")]
+    public void Factors_over_the_reals_exactly(string input, string expected)
+    {
+        Expr original = P(input);
         var (factored, success) = original.TryFactorReal("x");
 
         Assert.True(success);
-        Assert.IsType<Multiply>(factored);
-        foreach (double x in new[] { -3.0, -0.5, 0.7, 2.5 })
-            Assert.Equal(original.Evaluate(x), factored.Evaluate(x), precision: 9);
+        Assert.Equal(expected, factored.Print());
+        AssertNoApproximatedConstants(factored);
+        AssertSameFunction(original, factored);
+    }
+
+    [Theory]
+    [InlineData("x^2 + 1", "(x + i) * (x - i)")]
+    [InlineData("x^2 + 2", "(i * sqrt(2) + x) * (x - i * sqrt(2))")]  // was x - 1.41421...i
+    [InlineData("x^4 + 5x^2 + 4", "(x + i) * (x + 2 * i) * (x - i) * (x - 2 * i)")]
+    public void Factors_over_the_complex_numbers_exactly(string input, string expected)
+    {
+        Expr original = P(input);
+        var (factored, success) = original.TryFactorComplex("x");
+
+        Assert.True(success);
+        Assert.Equal(expected, factored.Print());
+        AssertNoApproximatedConstants(factored);
+        AssertSameFunction(original, factored);
+    }
+
+    [Theory]
+    [InlineData("x^3 - 2", false)] // real root 2^(1/3): no exact linear factor over Q or with square roots
+    [InlineData("x^3 - 2", true)]
+    [InlineData("x^8 - 1", true)]  // contains x^4 + 1, whose roots aren't square-root expressions of rationals
+    [InlineData("x^2 + 1", false)] // no real roots
+    public void Refuses_rather_than_approximating(string input, bool complex)
+    {
+        Expr original = P(input);
+        var (factored, success) = complex ? original.TryFactorComplex("x") : original.TryFactorReal("x");
+
+        Assert.False(success);
+        Assert.Equal(original, factored);
     }
 }
