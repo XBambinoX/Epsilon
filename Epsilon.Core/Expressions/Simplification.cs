@@ -119,24 +119,35 @@ public static class Simplifier
             case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
-            case Power(Sqrt(var a), Constant e) when e.Value == 2:
+            // sqrt(a)^2 = a only where sqrt(a) is defined; for a < 0 the left side is undefined.
+            case Power(Sqrt(var a), Constant e) when e.Value == 2 && a.IsProvablyNonNegative(assumptions):
                 return a;
 
             case Power(Power(var b, var e1), var e2):
                 // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
                 // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
+                // Additionally, (x^-1)^-1 = x would become defined at x = 0, so a negative inner
+                // exponent needs either a nonzero base or a positive outer exponent.
                 Expr combined = new Power(b, new Multiply(e1, e2));
-                if (e1 is Constant ce1 && ce1.Value.IsInteger && (long)ce1.Value.Numerator % 2 != 0)
+                bool zeroBaseSafe = b.IsProvablyNonZero(assumptions) ||
+                                    e1.IsProvablyPositive(assumptions) ||
+                                    e2.IsProvablyPositive(assumptions);
+                if (!zeroBaseSafe)
+                    return expr;
+                if (e1 is Constant ce1 && IsOddInteger(ce1.Value))
                     return combined;
                 return b.IsProvablyNonNegative(assumptions) ? combined : expr;
 
-            case Multiply(Power(var b1, var e1), Power(var b2, var e2)) when b1.Equals(b2):
+            case Multiply(Power(var b1, var e1), Power(var b2, var e2))
+                when b1.Equals(b2) && CanMergeExponents(b1, e1, e2, assumptions):
                 return new Power(b1, new Add(e1, e2));
 
-            case Multiply(var b, Power(var b2, var e)) when b.Equals(b2):
+            case Multiply(var b, Power(var b2, var e))
+                when b.Equals(b2) && CanMergeExponents(b, new Constant(1), e, assumptions):
                 return new Power(b, new Add(e, new Constant(1)));
 
-            case Multiply(Power(var b, var e), var b2) when b.Equals(b2):
+            case Multiply(Power(var b, var e), var b2)
+                when b.Equals(b2) && CanMergeExponents(b, e, new Constant(1), assumptions):
                 return new Power(b, new Add(e, new Constant(1)));
 
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
@@ -213,11 +224,13 @@ public static class Simplifier
             case Divide(Cos(var x), Sin(var y)) when x.Equals(y):
                 return new Cot(x);
 
-            // tan(x) * cot(x) = 1
-            case Multiply(Tan(var x), Cot(var y)) when x.Equals(y):
+            // tan(x) * cot(x) = 1 only where both are defined: sin(x) != 0 and cos(x) != 0.
+            case Multiply(Tan(var x), Cot(var y))
+                when x.Equals(y) && new Sin(x).IsProvablyNonZero(assumptions) && new Cos(x).IsProvablyNonZero(assumptions):
                 return new Constant(1);
 
-            case Multiply(Cot(var x), Tan(var y)) when x.Equals(y):
+            case Multiply(Cot(var x), Tan(var y))
+                when x.Equals(y) && new Sin(x).IsProvablyNonZero(assumptions) && new Cos(x).IsProvablyNonZero(assumptions):
                 return new Constant(1);
 
             // sin(x)^2 / cos(x)^2 = tan(x)^2
@@ -252,22 +265,24 @@ public static class Simplifier
                 when c.Value == 1 && e.Value == 2:
                 return new Power(new Sin(x), new Constant(2));
 
-            // sec(x)^2 - tan(x)^2 = 1
+            // sec(x)^2 - tan(x)^2 = 1, valid only where cos(x) != 0
             case Subtract(
                 Power(Sec(var x1), Constant e1),
                 Power(Tan(var x2), Constant e2))
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
-                    x1.Equals(x2):
+                    x1.Equals(x2) &&
+                    new Cos(x1).IsProvablyNonZero(assumptions):
                 return new Constant(1);
 
-            // csc(x)^2 - cot(x)^2 = 1
+            // csc(x)^2 - cot(x)^2 = 1, valid only where sin(x) != 0
             case Subtract(
                 Power(Csc(var x1), Constant e1),
                 Power(Cot(var x2), Constant e2))
                 when e1.Value == 2 &&
                     e2.Value == 2 &&
-                    x1.Equals(x2):
+                    x1.Equals(x2) &&
+                    new Sin(x1).IsProvablyNonZero(assumptions):
                 return new Constant(1);
 
             // Exact perfect-square root; not a perfect square stays symbolic (falls through).
@@ -330,6 +345,43 @@ public static class Simplifier
 
     private static bool IsOddInteger(Rational value) =>
         value.IsInteger && (long)value.Numerator % 2 != 0;
+
+    // x^p * x^q = x^(p+q) must not enlarge the domain: x^-1 * x^2 is undefined at x = 0
+    // but x^1 isn't, and x^(1/2) * x^(1/2) is undefined for x < 0 but x isn't.
+    // Returns true only when both sides are defined at exactly the same points.
+    private static bool CanMergeExponents(Expr baseExpr, Expr e1, Expr e2, Assumptions assumptions)
+    {
+        // Every real power of a positive base is defined.
+        if (baseExpr.IsProvablyPositive(assumptions))
+            return true;
+
+        if (e1 is not Constant c1 || e2 is not Constant c2)
+            return false; // symbolic exponents: sign/integrality unknown
+
+        Rational p = c1.Value, q = c2.Value;
+
+        if (p.IsInteger && q.IsInteger)
+        {
+            // Integer powers are defined for any nonzero base. At 0, both sides agree
+            // as long as the exponents share a sign (both defined or both undefined).
+            bool sameSign = (p.Sign >= 0 && q.Sign >= 0) || (p.Sign <= 0 && q.Sign <= 0);
+            return sameSign || baseExpr.IsProvablyNonZero(assumptions);
+        }
+
+        if (p.Sign >= 0 && q.Sign >= 0)
+        {
+            // Non-negative exponents are all defined at 0 and for a non-negative base.
+            if (baseExpr.IsProvablyNonNegative(assumptions))
+                return true;
+
+            // For a negative base: a non-integer sum means at least one factor was already
+            // non-integer, so the left side is no more defined than the right side.
+            // An integer sum (1/2 + 1/2) would newly define x^1 for x < 0 - not safe.
+            return !(p + q).IsInteger;
+        }
+
+        return false;
+    }
 
     private static bool TryIntegerNthRoot(System.Numerics.BigInteger value, int n, out System.Numerics.BigInteger root)
     {

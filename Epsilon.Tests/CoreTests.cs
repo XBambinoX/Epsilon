@@ -967,10 +967,12 @@ public class AdvancedSimplifierTests
     }
 
     [Fact]
-    public void Simplifies_tan_times_cot_to_one()
+    public void Does_not_simplify_tan_times_cot_without_proof_that_both_are_defined()
     {
+        // tan(x) * cot(x) is undefined at multiples of pi/2, while 1 is defined everywhere.
         Expr expr = ExprParser.Parse("tan(x) * cot(x)").Simplify();
-        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+        Assert.IsType<Multiply>(expr);
+        Assert.Equal(1, expr.Evaluate(0.7), precision: 10);
     }
 
     [Fact]
@@ -1000,18 +1002,64 @@ public class AdvancedSimplifierTests
         Assert.Equal(expected, expr.Evaluate(atPoint), precision: 8);
     }
 
-    [Fact]
-    public void Simplifies_sec_squared_minus_tan_squared_to_one()
+    [Theory]
+    [InlineData("sec(x)^2 - tan(x)^2")] // undefined where cos(x) = 0
+    [InlineData("csc(x)^2 - cot(x)^2")] // undefined where sin(x) = 0
+    public void Does_not_simplify_pythagorean_reciprocal_identities_without_domain_proof(string input)
     {
-        Expr expr = ExprParser.Parse("sec(x)^2 - tan(x)^2").Simplify();
-        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+        Expr expr = ExprParser.Parse(input).Simplify();
+        Assert.IsType<Subtract>(expr);
+        Assert.Equal(1, expr.Evaluate(0.7), precision: 10);
     }
 
-    [Fact]
-    public void Simplifies_csc_squared_minus_cot_squared_to_one()
+    [Theory]
+    [InlineData("x * x^-1")]
+    [InlineData("x^-1 * x^2")]
+    [InlineData("x^(1/2) * x^(1/2)")]
+    [InlineData("sqrt(x)^2")]
+    [InlineData("(x^-1)^-1")]
+    public void Does_not_merge_powers_when_result_would_be_defined_at_more_points(string input)
     {
-        Expr expr = ExprParser.Parse("csc(x)^2 - cot(x)^2").Simplify();
-        Assert.Equal(1, expr.Evaluate(new Dictionary<string, double>()));
+        Expr original = ExprParser.Parse(input, "x");
+        Expr simplified = original.Simplify();
+
+        // The left side is undefined at x = 0 or x = -1; the simplified form must be too.
+        foreach (double x in new[] { 0.0, -1.0 })
+        {
+            bool originalDefined = double.IsFinite(original.Evaluate(x));
+            bool simplifiedDefined = double.IsFinite(simplified.Evaluate(x));
+            Assert.Equal(originalDefined, simplifiedDefined);
+        }
+    }
+
+    [Theory]
+    [InlineData("x * x^-1", "1")]
+    [InlineData("x^-1 * x^2", "x")]
+    [InlineData("(x^-1)^-1", "x")]
+    public void Merges_powers_when_base_is_provably_nonzero(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify(Assumptions.None.AssumeNonZero("x"));
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Theory]
+    [InlineData("x^(1/2) * x^(1/2)", "x")]
+    [InlineData("sqrt(x)^2", "x")]
+    public void Merges_fractional_powers_when_base_is_provably_nonnegative(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify(Assumptions.None.AssumeNonNegative("x"));
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Theory]
+    [InlineData("x * x", "x ^ 2")]
+    [InlineData("x^2 * x^3", "x ^ 5")]
+    [InlineData("x^-1 * x^-2", "x ^ -3")]
+    [InlineData("x^2 * x^(1/2)", "x ^ 5/2")]
+    public void Merges_powers_that_are_always_safe(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x").Simplify();
+        Assert.Equal(expected, expr.Print());
     }
 
     [Fact]
