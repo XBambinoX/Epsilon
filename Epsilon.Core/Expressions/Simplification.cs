@@ -229,14 +229,8 @@ public static class Simplifier
             case Tan(Constant c) when c.Value.IsZero:
                 return new Constant(0);
 
-            // sin(x)^2 + cos(x)^2 = 1 - holds unconditionally for all real x
-            case Add(
-                Power(Cos(var x1), Constant e1),
-                Power(Sin(var x2), Constant e2))
-                when e1.Value == 2 &&
-                    e2.Value == 2 &&
-                    x1.Equals(x2):
-                return new Constant(1);
+            // sin(x)^2 + cos(x)^2 = 1 and its variants live in FlattenAndCombine
+            // (ApplyPythagoreanIdentity), where the whole sum is visible at once.
 
             // ln(exp(a)) = a: exp(a) is always strictly positive for real a,
             // so ln is always defined on its result - no assumption needed.
@@ -280,20 +274,6 @@ public static class Simplifier
                     e2.Value == 2 &&
                     x1.Equals(x2):
                 return new Power(new Cot(x1), new Constant(2));
-
-            // 1 - sin(x)^2 = cos(x)^2
-            case Subtract(
-                Constant c,
-                Power(Sin(var x), Constant e))
-                when c.Value == 1 && e.Value == 2:
-                return new Power(new Cos(x), new Constant(2));
-
-            // 1 - cos(x)^2 = sin(x)^2
-            case Subtract(
-                Constant c,
-                Power(Cos(var x), Constant e))
-                when c.Value == 1 && e.Value == 2:
-                return new Power(new Sin(x), new Constant(2));
 
             // sec(x)^2 - tan(x)^2 = 1, valid only where cos(x) != 0
             case Subtract(
@@ -515,6 +495,74 @@ public static class Simplifier
     }
 
     // Combines like terms across an entire Add/Subtract chain, then rebuilds it.
+    private static bool IsSinSquared(Expr term, out Expr argument)
+    {
+        if (term is Power(Sin(var a), Constant e) && e.Value == 2)
+        {
+            argument = a;
+            return true;
+        }
+
+        argument = null!;
+        return false;
+    }
+
+    private static bool IsCosSquared(Expr term, out Expr argument)
+    {
+        if (term is Power(Cos(var a), Constant e) && e.Value == 2)
+        {
+            argument = a;
+            return true;
+        }
+
+        argument = null!;
+        return false;
+    }
+
+    // sin(x)^2 + cos(x)^2 = 1, applied to the whole flattened sum rather than to a fixed
+    // two-node shape, so it works with other terms in between, any coefficients and any
+    // order: sin^2 + cos^2 + 1 -> 2, 2sin^2 + 3cos^2 -> 2 + cos^2, 1 - sin^2 -> cos^2.
+    // Holds for every real x, so it is valid in both Strict and Generic mode.
+    private static void ApplyPythagoreanIdentity(
+        List<(Rational Coefficient, Expr Term)> terms, Dictionary<Expr, int> termIndex, ref Rational constant)
+    {
+        // Step 1: a*sin^2 + b*cos^2 = a + (b - a)*cos^2 - eliminates the sin^2 term.
+        for (int i = 0; i < terms.Count; i++)
+        {
+            var (sinCoef, sinTerm) = terms[i];
+            if (sinCoef.IsZero || !IsSinSquared(sinTerm, out Expr x))
+                continue;
+
+            Expr cosSquared = new Power(new Cos(x), new Constant(2));
+            if (!termIndex.TryGetValue(cosSquared, out int j) || terms[j].Coefficient.IsZero)
+                continue;
+
+            constant += sinCoef;
+            terms[j] = (terms[j].Coefficient - sinCoef, terms[j].Term);
+            terms[i] = (Rational.Zero, sinTerm);
+        }
+
+        // Step 2: c - c*sin^2 = c*cos^2 and c - c*cos^2 = c*sin^2. Runs after step 1, so
+        // at most one of sin^2/cos^2 is left per argument and this can't undo step 1.
+        for (int i = 0; i < terms.Count && !constant.IsZero; i++)
+        {
+            var (coef, term) = terms[i];
+            if (coef != -constant)
+                continue;
+
+            Expr? swapped =
+                IsSinSquared(term, out Expr sinArg) ? new Power(new Cos(sinArg), new Constant(2)) :
+                IsCosSquared(term, out Expr cosArg) ? new Power(new Sin(cosArg), new Constant(2)) :
+                null;
+
+            if (swapped is null)
+                continue;
+
+            terms[i] = (constant, swapped);
+            constant = Rational.Zero;
+        }
+    }
+
     private static Expr FlattenAndCombine(Expr expr)
     {
         if (expr is not (Add or Subtract))
@@ -546,6 +594,8 @@ public static class Simplifier
                 combined.Add((coef, term));
             }
         }
+
+        ApplyPythagoreanIdentity(combined, termIndex, ref constantSum);
 
         combined.RemoveAll(t => t.Coefficient.IsZero);
 

@@ -1850,3 +1850,35 @@ public class AssumptionsTests
         Assert.Equal(Signing.Unknown, Assumptions.None.SigningOf("x"));
     }
 }
+
+public class PythagoreanIdentityTests
+{
+    [Theory]
+    [InlineData("1 - sin(x)^2", "cos(x) ^ 2")]      // was dead code: stayed "-sin(x) ^ 2 + 1"
+    [InlineData("1 - cos(x)^2", "sin(x) ^ 2")]      // was dead code
+    [InlineData("sin(x)^2 - 1", "-cos(x) ^ 2")]
+    [InlineData("3 - 3cos(x)^2", "3 * sin(x) ^ 2")]
+    [InlineData("sin(x)^2 + cos(x)^2", "1")]
+    [InlineData("cos(x)^2 + sin(x)^2", "1")]
+    [InlineData("sin(x)^2 + cos(x)^2 + 1", "2")]    // extra term used to block the old two-node rule
+    [InlineData("2sin(x)^2 + 2cos(x)^2", "2")]      // coefficients used to block it too
+    [InlineData("2sin(x)^2 + 3cos(x)^2", "cos(x) ^ 2 + 2")]
+    [InlineData("y + sin(x)^2 + z + cos(x)^2", "y + z + 1")]
+    [InlineData("sin(2x)^2 + cos(2x)^2", "1")]
+    [InlineData("1 - sin(x)^2 - cos(x)^2", "0")]
+    [InlineData("sin(x)^2 + sin(y)^2 + cos(x)^2 + cos(y)^2", "2")]
+    public void Applies_pythagorean_identity_across_the_whole_sum(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y", "z").Simplify(SimplifyMode.Strict);
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Theory]
+    [InlineData("sin(x)^2 + cos(y)^2", "cos(y) ^ 2 + sin(x) ^ 2")] // different arguments
+    [InlineData("5 - sin(x)^2", "-sin(x) ^ 2 + 5")]                // constant doesn't match the coefficient
+    public void Leaves_non_matching_sums_alone(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y").Simplify();
+        Assert.Equal(expected, expr.Print());
+    }
+}
