@@ -40,14 +40,63 @@ public readonly struct VariableAssumption
     public static readonly VariableAssumption Unknown = new(Signing.Unknown, NumberDomain.Unknown);
 
     /// <summary>
-    /// Merges this assumption with another for the same variable. Signing/Domain from
-    /// the incoming assumption wins when both specify something other than Unknown/0,
-    /// so calling Assume(...) again for the same variable narrows rather than resets.
+    /// Merges this assumption with another for the same variable. Both must hold at once,
+    /// so the result is always at least as narrow as either input: Positive + NonZero is
+    /// Positive, NonNegative + NonPositive is Zero. Domains accumulate (Integer + Real is
+    /// both), and Natural implies Positive.
     /// </summary>
-    public VariableAssumption Combine(VariableAssumption other) => new(
-        other.Signing != Signing.Unknown ? other.Signing : Signing,
-        Domain | other.Domain
-    );
+    /// <exception cref="ArgumentException">The two assumptions contradict each other,
+    /// e.g. Positive + Negative, or Natural + NonPositive.</exception>
+    public VariableAssumption Combine(VariableAssumption other)
+    {
+        NumberDomain domain = Domain | other.Domain;
+
+        SignSet signs = ToSignSet(Signing) & ToSignSet(other.Signing);
+        if ((domain & NumberDomain.Natural) != 0)
+            signs &= SignSet.Positive;
+
+        if (signs == SignSet.None)
+            throw new ArgumentException(
+                $"Contradictory assumptions: {Describe(this)} and {Describe(other)} cannot both hold.");
+
+        return new VariableAssumption(FromSignSet(signs), domain);
+    }
+
+    // Signing as the set of signs a value may still have; combining is set intersection.
+    [Flags]
+    private enum SignSet
+    {
+        None = 0,
+        Negative = 1,
+        Zero = 2,
+        Positive = 4,
+        Any = Negative | Zero | Positive
+    }
+
+    private static SignSet ToSignSet(Signing signing) => signing switch
+    {
+        Signing.Positive => SignSet.Positive,
+        Signing.Negative => SignSet.Negative,
+        Signing.Zero => SignSet.Zero,
+        Signing.NonZero => SignSet.Negative | SignSet.Positive,
+        Signing.NonNegative => SignSet.Zero | SignSet.Positive,
+        Signing.NonPositive => SignSet.Negative | SignSet.Zero,
+        _ => SignSet.Any
+    };
+
+    private static Signing FromSignSet(SignSet signs) => signs switch
+    {
+        SignSet.Positive => Signing.Positive,
+        SignSet.Negative => Signing.Negative,
+        SignSet.Zero => Signing.Zero,
+        SignSet.Negative | SignSet.Positive => Signing.NonZero,
+        SignSet.Zero | SignSet.Positive => Signing.NonNegative,
+        SignSet.Negative | SignSet.Zero => Signing.NonPositive,
+        _ => Signing.Unknown
+    };
+
+    private static string Describe(VariableAssumption a) =>
+        a.Domain == NumberDomain.Unknown ? a.Signing.ToString() : $"{a.Signing} {a.Domain}";
 }
 
 /// <summary>
@@ -73,18 +122,31 @@ public sealed class Assumptions
         var incoming = new VariableAssumption(Signing, domain);
         var existing = _byVariable.TryGetValue(variable, out var current) ? current : VariableAssumption.Unknown;
 
+        VariableAssumption combined;
+        try
+        {
+            combined = existing.Combine(incoming);
+        }
+        catch (ArgumentException ex)
+        {
+            // Same error, but naming the variable - Combine itself doesn't know it.
+            throw new ArgumentException($"Variable '{variable}': {ex.Message}", nameof(variable), ex);
+        }
+
         var updated = new Dictionary<string, VariableAssumption>(_byVariable)
         {
-            [variable] = existing.Combine(incoming)
+            [variable] = combined
         };
 
         return new Assumptions(updated);
     }
 
+    // Every integer is rational and every natural number is an integer, so the wider
+    // domains are always included - otherwise Has(n, Rational) would be false for an integer n.
     public Assumptions AssumeReal(string variable) => Assume(variable, domain: NumberDomain.Real);
-    public Assumptions AssumeInteger(string variable) => Assume(variable, domain: NumberDomain.Integer | NumberDomain.Real);
+    public Assumptions AssumeInteger(string variable) => Assume(variable, domain: NumberDomain.Integer | NumberDomain.Rational | NumberDomain.Real);
     public Assumptions AssumeRational(string variable) => Assume(variable, domain: NumberDomain.Rational | NumberDomain.Real);
-    public Assumptions AssumeNatural(string variable) => Assume(variable, domain: NumberDomain.Natural | NumberDomain.Integer | NumberDomain.Real, Signing: Signing.Positive);
+    public Assumptions AssumeNatural(string variable) => Assume(variable, domain: NumberDomain.Natural | NumberDomain.Integer | NumberDomain.Rational | NumberDomain.Real, Signing: Signing.Positive);
 
     public Assumptions AssumePositive(string variable) => Assume(variable, Signing: Signing.Positive);
     public Assumptions AssumeNegative(string variable) => Assume(variable, Signing: Signing.Negative);

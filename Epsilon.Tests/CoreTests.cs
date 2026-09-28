@@ -1765,3 +1765,88 @@ public class PrintRoundTripTests
         Assert.Equal("x^{\\frac{1}{2}}", new Power(X, C(1, 2)).ToLatex());
     }
 }
+
+public class AssumptionsTests
+{
+    [Theory]
+    [InlineData(Signing.Positive, Signing.NonZero, Signing.Positive)]      // was NonZero: info lost
+    [InlineData(Signing.NonZero, Signing.Positive, Signing.Positive)]
+    [InlineData(Signing.Positive, Signing.NonNegative, Signing.Positive)]
+    [InlineData(Signing.NonNegative, Signing.NonPositive, Signing.Zero)]
+    [InlineData(Signing.NonNegative, Signing.NonZero, Signing.Positive)]
+    [InlineData(Signing.NonPositive, Signing.NonZero, Signing.Negative)]
+    [InlineData(Signing.Negative, Signing.Unknown, Signing.Negative)]
+    [InlineData(Signing.Unknown, Signing.NonZero, Signing.NonZero)]
+    public void Repeated_assumptions_narrow_the_sign(Signing first, Signing second, Signing expected)
+    {
+        Assumptions assumptions = Assumptions.None
+            .Assume("x", Signing: first)
+            .Assume("x", Signing: second);
+
+        Assert.Equal(expected, assumptions.SigningOf("x"));
+    }
+
+    [Fact]
+    public void Positive_then_NonZero_is_still_provably_positive()
+    {
+        Assumptions assumptions = Assumptions.None.AssumePositive("x").AssumeNonZero("x");
+        Assert.True(assumptions.IsPositive("x"));
+    }
+
+    [Theory]
+    [InlineData(Signing.Positive, Signing.Negative)]
+    [InlineData(Signing.Positive, Signing.Zero)]
+    [InlineData(Signing.Zero, Signing.NonZero)]
+    [InlineData(Signing.NonNegative, Signing.Negative)]
+    public void Contradictory_signs_throw(Signing first, Signing second)
+    {
+        Assumptions assumptions = Assumptions.None.Assume("x", Signing: first);
+
+        var ex = Assert.Throws<ArgumentException>(() => assumptions.Assume("x", Signing: second));
+        Assert.Contains("'x'", ex.Message);
+        Assert.Contains("Contradictory", ex.Message);
+    }
+
+    [Fact]
+    public void Natural_implies_positive_in_either_order()
+    {
+        Assert.Throws<ArgumentException>(() => Assumptions.None.AssumeNatural("n").AssumeNegative("n"));
+        Assert.Throws<ArgumentException>(() => Assumptions.None.AssumeNonPositive("n").AssumeNatural("n"));
+
+        Assumptions viaDomainOnly = Assumptions.None.Assume("n", domain: NumberDomain.Natural);
+        Assert.True(viaDomainOnly.IsPositive("n"));
+
+        Assumptions narrowed = Assumptions.None.AssumeNonZero("n").AssumeNatural("n");
+        Assert.True(narrowed.IsPositive("n"));
+    }
+
+    [Fact]
+    public void Integer_and_natural_are_also_rational_and_real()
+    {
+        Assumptions assumptions = Assumptions.None.AssumeInteger("k").AssumeNatural("n");
+
+        Assert.True(assumptions.Has("k", NumberDomain.Rational));
+        Assert.True(assumptions.IsReal("k"));
+        Assert.True(assumptions.Has("n", NumberDomain.Rational | NumberDomain.Integer));
+    }
+
+    [Fact]
+    public void Domains_accumulate_across_calls()
+    {
+        Assumptions assumptions = Assumptions.None.AssumeReal("x").AssumePositive("x").AssumeInteger("x");
+
+        Assert.True(assumptions.IsInteger("x"));
+        Assert.True(assumptions.IsReal("x"));
+        Assert.True(assumptions.IsPositive("x"));
+    }
+
+    [Fact]
+    public void Assume_never_mutates_the_original()
+    {
+        Assumptions original = Assumptions.None.AssumeNonZero("x");
+        _ = original.AssumePositive("x");
+
+        Assert.Equal(Signing.NonZero, original.SigningOf("x"));
+        Assert.Equal(Signing.Unknown, Assumptions.None.SigningOf("x"));
+    }
+}
