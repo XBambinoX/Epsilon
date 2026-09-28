@@ -4,6 +4,10 @@ public static class RootFindingExtensions
 {
     private const int DefaultRealScanSteps = 200;
     private const double RootMergeTolerance = 1e-6;
+
+    // A local minimum of |f| counts as a (touching) root only if f there is this small
+    // relative to f on the neighbouring grid points - x^2 + 1e-7 must not have a root.
+    private const double TouchingRootTolerance = 1e-10;
     private const double InfMappingEdgeEpsilon = 1e-9;
 
     private const int DefaultComplexGridSteps = 12;
@@ -43,11 +47,11 @@ public static class RootFindingExtensions
         bool rightInf = double.IsPositiveInfinity(rightLimit);
 
         if (!leftInf && !rightInf)
-            return FindRealRootsFinite(expr, variable, fixedBindings, leftLimit, rightLimit, scanSteps);
+            return ScanForRealRoots(expr, variable, fixedBindings, static t => t, leftLimit, rightLimit, scanSteps);
 
         Func<double, double> mapToX = MakeInfiniteMapping(leftLimit, rightLimit, leftInf, rightInf, out double tMin, out double tMax);
 
-        return FindRealRootsMapped(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
+        return ScanForRealRoots(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
     }
 
     public static IReadOnlyList<double> FindRealRoots(
@@ -98,128 +102,149 @@ public static class RootFindingExtensions
         return t => b - t / (1.0 - t);
     }
 
-    private static IReadOnlyList<double> FindRealRootsMapped(
+    // Scans a grid in parameter space t (x = mapToX(t); the identity for finite limits) and
+    // reports three kinds of roots, each located to full double precision:
+    //   1. an exact zero on a grid point;
+    //   2. a strict sign change between neighbours (odd multiplicity) - bisection on f;
+    //   3. a touching root (even multiplicity, e.g. x^2 or (x-1)^2): |f| has a local minimum
+    //      with no sign change around it - bisection on f', then accepted only if f ~ 0 there.
+    // Zero is never treated as a sign of its own, which used to turn a grid hit on a double
+    // root into a fake "sign change" and a second, slightly-off root next to it.
+    private static IReadOnlyList<double> ScanForRealRoots(
         Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings,
         Func<double, double> mapToX, double tMin, double tMax, int scanSteps)
     {
-        var roots = new List<double>();
+        double F(double x) => SafeEvaluate(expr, variable, fixedBindings, x);
+
+        var xs = new double[scanSteps + 1];
+        var fs = new double[scanSteps + 1];
         double tStep = (tMax - tMin) / scanSteps;
-
-        double prevT = tMin;
-        double prevX = mapToX(prevT);
-        double prevF = SafeEvaluate(expr, variable, fixedBindings, prevX);
-
-        for (int i = 1; i <= scanSteps; i++)
+        for (int i = 0; i <= scanSteps; i++)
         {
-            double t = tMin + i * tStep;
-            double x = mapToX(t);
-            double f = SafeEvaluate(expr, variable, fixedBindings, x);
+            xs[i] = mapToX(i == scanSteps ? tMax : tMin + i * tStep);
+            fs[i] = F(xs[i]);
+        }
 
-            if (double.IsNaN(f) || double.IsInfinity(f))
+        // Only needed for touching roots; built lazily since most scans never get there.
+        Func<double, double>? derivative = null;
+        bool derivativeTried = false;
+
+        var roots = new List<double>();
+
+        for (int i = 0; i <= scanSteps; i++)
+        {
+            if (!double.IsFinite(fs[i]))
+                continue;
+
+            if (fs[i] == 0)
             {
-                prevT = t; prevX = x; prevF = f;
+                TryAdd(roots, xs[i]);
                 continue;
             }
 
-            if (Math.Abs(f) < RootMergeTolerance)
+            if (i < scanSteps && double.IsFinite(fs[i + 1]) && fs[i + 1] != 0 &&
+                Math.Sign(fs[i]) != Math.Sign(fs[i + 1]))
             {
-                double direction = Math.Sign(t - prevT);
-                if (f == 0)
-                {
-                    TryAdd(roots, x);
-                }
-                else
-                {
-                    double tFar = Math.Clamp(t + direction * tStep * 3, tMin, tMax);
-                    double xFar = mapToX(tFar);
-                    double fFar = SafeEvaluate(expr, variable, fixedBindings, xFar);
+                double r = BisectToPrecision(F, xs[i], xs[i + 1], fs[i]);
 
-                    if (!IsAsymptoticApproach(f, fFar))
-                        TryAdd(roots, x);
-                }
-            }
-            else if (IsSignChange(prevF, f))
-            {
-                double guessX = (prevX + x) / 2;
-                var (root, found) = expr.TryFindRoot(variable, guessX, fixedBindings);
-
-                if (found && root is double r && IsBetween(r, prevX, x))
-                {
+                // A pole changes sign too (1/x at 0): near a root |f| shrinks, near a pole it grows.
+                if (Math.Abs(F(r)) <= Math.Min(Math.Abs(fs[i]), Math.Abs(fs[i + 1])))
                     TryAdd(roots, r);
-                }
-                else if (RootFinder.BisectFallback(expr, variable, fixedBindings, Math.Min(prevX, x), Math.Max(prevX, x)) is double br)
-                {
-                    TryAdd(roots, br);
-                }
             }
 
-            prevT = t; prevX = x; prevF = f;
+            if (IsTouchingCandidate(fs, i, scanSteps))
+            {
+                if (!derivativeTried)
+                {
+                    derivative = TryBuildDerivative(expr, variable, fixedBindings);
+                    derivativeTried = true;
+                }
+
+                if (derivative is not null &&
+                    TryFindTouchingRoot(F, derivative, xs[i - 1], xs[i + 1], fs[i - 1], fs[i + 1]) is double c)
+                {
+                    TryAdd(roots, c);
+                }
+            }
         }
 
         roots.Sort();
         return roots;
     }
 
-    private static IReadOnlyList<double> FindRealRootsFinite(
-        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings,
-        double leftLimit, double rightLimit, int scanSteps)
+    // |f| has a strict local minimum at i and all three values share one (nonzero) sign.
+    private static bool IsTouchingCandidate(double[] fs, int i, int last)
     {
-        var roots = new List<double>();
-        double step = (rightLimit - leftLimit) / scanSteps;
+        if (i == 0 || i == last)
+            return false;
 
-        double previousX = leftLimit;
-        double previousF = SafeEvaluate(expr, variable, fixedBindings, previousX);
+        double prev = fs[i - 1], cur = fs[i], next = fs[i + 1];
+        if (!double.IsFinite(prev) || !double.IsFinite(next))
+            return false;
 
-        for (int i = 1; i <= scanSteps; i++)
+        int sign = Math.Sign(cur);
+        return Math.Sign(prev) == sign && Math.Sign(next) == sign &&
+               Math.Abs(cur) < Math.Abs(prev) && Math.Abs(cur) <= Math.Abs(next);
+    }
+
+    private static Func<double, double>? TryBuildDerivative(
+        Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings)
+    {
+        try
         {
-            double x = leftLimit + i * step;
-            double f = SafeEvaluate(expr, variable, fixedBindings, x);
+            Expr d = expr.Differentiate(variable);
+            return x => SafeEvaluate(d, variable, fixedBindings, x);
+        }
+        catch (NotImplementedException)
+        {
+            return null; // e.g. floor/sign: no symbolic derivative, so touching roots can't be located
+        }
+    }
 
-            if (double.IsNaN(f) || double.IsInfinity(f))
+    // At a touching root f' changes sign; find that point and accept it only if f is
+    // (numerically) zero there, relative to the size of f on the surrounding grid points.
+    private static double? TryFindTouchingRoot(
+        Func<double, double> f, Func<double, double> derivative,
+        double a, double b, double fa, double fb)
+    {
+        double da = derivative(a), db = derivative(b);
+        if (!double.IsFinite(da) || !double.IsFinite(db) || da == 0 || db == 0 || Math.Sign(da) == Math.Sign(db))
+            return null;
+
+        double c = BisectToPrecision(derivative, a, b, da);
+        double scale = Math.Max(1.0, Math.Max(Math.Abs(fa), Math.Abs(fb)));
+
+        return Math.Abs(f(c)) <= TouchingRootTolerance * scale ? c : null;
+    }
+
+    // Bisects [a, b] (with g(a) = ga and g(b) of the opposite sign) until the interval
+    // can't be split any further in double precision.
+    private static double BisectToPrecision(Func<double, double> g, double a, double b, double ga)
+    {
+        for (int i = 0; i < 200; i++)
+        {
+            double mid = a + (b - a) / 2;
+            if (mid == a || mid == b)
+                break;
+
+            double gm = g(mid);
+            if (gm == 0)
+                return mid;
+            if (!double.IsFinite(gm))
+                break;
+
+            if (Math.Sign(gm) == Math.Sign(ga))
             {
-                previousX = x;
-                previousF = f;
-                continue;
+                a = mid;
+                ga = gm;
             }
-
-            if (Math.Abs(f) < RootMergeTolerance)
+            else
             {
-                double direction = Math.Sign(x - previousX);
-                if (direction == 0) direction = 1;
-                if (f == 0)
-                {
-                    TryAdd(roots, x);
-                }
-                else
-                {
-                    double xFar = Math.Clamp(x + direction * step * 3, leftLimit, rightLimit);
-                    double fFar = SafeEvaluate(expr, variable, fixedBindings, xFar);
-
-                    if (!IsAsymptoticApproach(f, fFar))
-                        TryAdd(roots, x);
-                }
+                b = mid;
             }
-            else if (IsSignChange(previousF, f))
-            {
-                double guess = (previousX + x) / 2;
-                var (root, found) = expr.TryFindRoot(variable, guess, fixedBindings);
-
-                if (found && root is double r && r >= previousX && r <= x)
-                {
-                    TryAdd(roots, r);
-                }
-                else if (RootFinder.BisectFallback(expr, variable, fixedBindings, previousX, x) is double br)
-                {
-                    TryAdd(roots, br);
-                }
-            }
-
-            previousX = x;
-            previousF = f;
         }
 
-        roots.Sort();
-        return roots;
+        return a + (b - a) / 2;
     }
 
     public static IReadOnlyList<Complex> FindComplexRoots(
@@ -293,16 +318,6 @@ public static class RootFindingExtensions
             roots.Add(candidate);
     }
 
-    private static bool IsAsymptoticApproach(double f, double fFar)
-    {
-        if (double.IsNaN(fFar) || double.IsInfinity(fFar)) return false;
-
-        bool sameSignOrZero = Math.Sign(f) == Math.Sign(fFar) || f == 0 || fFar == 0;
-        bool stillSmall = Math.Abs(fFar) < RootMergeTolerance * 10;
-
-        return sameSignOrZero && stillSmall;
-    }
-
     private static double SafeEvaluate(Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings, double x)
     {
         try
@@ -314,19 +329,6 @@ public static class RootFindingExtensions
             return expr.Evaluate(dict);
         }
         catch { return double.NaN; }
-    }
-
-    private static bool IsBetween(double v, double a, double b)
-        => v >= Math.Min(a, b) && v <= Math.Max(a, b);
-
-    private static bool IsSignChange(double a, double b)
-    {
-        return
-            !double.IsNaN(a) &&
-            !double.IsNaN(b) &&
-            !double.IsInfinity(a) &&
-            !double.IsInfinity(b) &&
-            Math.Sign(a) != Math.Sign(b);
     }
 
     private static void TryAdd(List<double> roots, double candidate)

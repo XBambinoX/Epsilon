@@ -1882,3 +1882,88 @@ public class PythagoreanIdentityTests
         Assert.Equal(expected, expr.Print());
     }
 }
+
+public class RealRootScanTests
+{
+    private static Expr P(string s) => ExprParser.Parse(s, "x");
+
+    [Theory]
+    [InlineData("x^2", -5, 5, 200, new[] { 0.0 })]              // was 0 and a phantom 6.1e-6
+    [InlineData("x^2", -5, 5, 201, new[] { 0.0 })]              // grid misses 0: was no root at all
+    [InlineData("x^2 - 2x + 1", -3, 3, 200, new[] { 1.0 })]     // same: was no root at all
+    [InlineData("x^2 - 2x + 1", -5, 5, 200, new[] { 1.0 })]     // was 1 and 1.0000061
+    [InlineData("(x - 1)^3", -5, 5, 200, new[] { 1.0 })]        // was 1 and 1.00043
+    [InlineData("x^4", -5, 5, 200, new[] { 0.0 })]              // was 0 and 0.0025
+    [InlineData("(x - 1)^2 * (x + 2)", -5, 5, 200, new[] { -2.0, 1.0 })]
+    [InlineData("(x - 0.3)^2", -5, 5, 201, new[] { 0.3 })]
+    [InlineData("x^3 - x", -5, 5, 200, new[] { -1.0, 0.0, 1.0 })]
+    [InlineData("x - 5", 5, 10, 200, new[] { 5.0 })]            // root on the left limit
+    [InlineData("x - 10", 5, 10, 200, new[] { 10.0 })]          // root on the right limit
+    public void Finds_each_root_exactly_once(string input, double left, double right, int steps, double[] expected)
+    {
+        IReadOnlyList<double> roots = P(input).FindRealRoots(left, right, steps);
+
+        Assert.Equal(expected.Length, roots.Count);
+        for (int i = 0; i < expected.Length; i++)
+            Assert.Equal(expected[i], roots[i], precision: 9);
+    }
+
+    [Theory]
+    [InlineData("x^2 + 0.0000001")] // small positive minimum is not a root
+    [InlineData("x^2 + 1")]
+    [InlineData("1/x")]             // sign change at a pole
+    [InlineData("exp(-x)")]         // approaches 0 but never reaches it
+    public void Reports_no_false_roots(string input)
+    {
+        Assert.Empty(P(input).FindRealRoots(-5, 50, 401));
+    }
+
+    [Fact]
+    public void Ignores_poles_of_tan()
+    {
+        IReadOnlyList<double> roots = P("tan(x)").FindRealRoots(-2, 2);
+        Assert.Equal(0.0, Assert.Single(roots), precision: 12);
+    }
+
+    [Fact]
+    public void Finds_touching_roots_of_sin_squared()
+    {
+        IReadOnlyList<double> roots = P("sin(x)^2").FindRealRoots(-7, 7);
+
+        double[] expected = [-2 * Math.PI, -Math.PI, 0, Math.PI, 2 * Math.PI];
+        Assert.Equal(expected.Length, roots.Count);
+        for (int i = 0; i < expected.Length; i++)
+            Assert.Equal(expected[i], roots[i], precision: 9);
+    }
+
+    [Fact]
+    public void Finds_double_root_on_infinite_interval()
+    {
+        Assert.Equal(0.0, Assert.Single(P("x^2").FindRealRoots()), precision: 9);
+    }
+
+    [Theory]
+    [InlineData("x^2 - 2x + 1", "(x - 1) ^ 2")]                  // used to fail: phantom root broke deflation
+    [InlineData("x^4 - 8x^3 + 24x^2 - 32x + 16", "(x - 2) ^ 4")] // (x - 2)^4 expanded
+    public void Factors_polynomials_with_a_single_repeated_root(string input, string expected)
+    {
+        var (factored, success) = P(input).TryFactorReal("x");
+
+        Assert.True(success);
+        Assert.Equal(expected, factored.Print());
+    }
+
+    [Fact]
+    public void Factors_polynomial_with_repeated_and_simple_roots()
+    {
+        // (x - 1)^2 (x + 2) expanded. Checked by value rather than by printed form: Simplify
+        // currently leaves (x + 2) * (x - 1) * (x - 1) instead of merging the repeated factor.
+        Expr original = P("x^3 - 3x + 2");
+        var (factored, success) = original.TryFactorReal("x");
+
+        Assert.True(success);
+        Assert.IsType<Multiply>(factored);
+        foreach (double x in new[] { -3.0, -0.5, 0.7, 2.5 })
+            Assert.Equal(original.Evaluate(x), factored.Evaluate(x), precision: 9);
+    }
+}
