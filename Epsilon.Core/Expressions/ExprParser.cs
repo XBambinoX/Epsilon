@@ -1,5 +1,6 @@
 namespace Epsilon.Core;
 
+/// <summary>Parses math written as text, such as <c>"2x^2 + sin(x) - 1"</c>, into an <see cref="Expr"/>.</summary>
 public static class ExprParser
 {
     private static readonly string[] ReservedIdentifiers = new[]
@@ -20,6 +21,33 @@ public static class ExprParser
 
     private static readonly HashSet<string> TwoArgumentFunctions = ["min", "max", "log", "nthroot"];
 
+    /// <summary>
+    /// Parses <paramref name="input"/> into a canonicalized expression.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Supports <c>+ - * / ^</c>, parentheses, <c>|x|</c> for abs, implicit multiplication
+    /// (<c>2x</c>, <c>2(x+1)</c>, <c>x y</c>), decimals and scientific notation (<c>1.5</c>, <c>1e-5</c>),
+    /// the constants <c>pi</c> (or <c>π</c>), <c>e</c> and <c>i</c>, and the functions sin, cos, tan, cot,
+    /// sec, csc, their inverses asin, acos, atan, hyperbolic sinh ... csch and asinh, acosh, atanh,
+    /// exp, ln, sqrt, abs, sign, floor, ceiling, round, and the two-argument min(a, b), max(a, b),
+    /// log(x, base) and nthroot(x, n).
+    /// </para>
+    /// <para>
+    /// Without <paramref name="variableNames"/>, every other single letter is a variable and
+    /// <c>xy</c> means <c>x*y</c>. With them, only the listed names are variables and any other
+    /// identifier is an error, which catches typos such as <c>sen(x)</c>.
+    /// </para>
+    /// </remarks>
+    /// <param name="input">The text to parse, in invariant culture (decimal point, not comma).</param>
+    /// <param name="variableNames">
+    /// The allowed variable names; may be longer than one letter (<c>"theta"</c>). Empty means
+    /// "any single letter".
+    /// </param>
+    /// <exception cref="FormatException">
+    /// The input is malformed: unbalanced parentheses, an unknown identifier, a wrong number of
+    /// function arguments, a missing operator between numbers (<c>2 3</c>), an invalid number.
+    /// </exception>
     public static Expr Parse(string input, params string[] variableNames)
     {
         var knownVariables = variableNames.ToHashSet();

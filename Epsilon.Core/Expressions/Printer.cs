@@ -1,7 +1,13 @@
 namespace Epsilon.Core;
 
+/// <summary>Formats expressions as readable plain-text math.</summary>
 public static class Printer
 {
+    /// <summary>
+    /// Formats the expression with minimal parentheses, e.g. <c>x ^ 2 / 2 + sin(x)</c>. The output can be
+    /// parsed back by <see cref="ExprParser.Parse"/>. <see cref="object.ToString"/> instead shows the
+    /// tree with every operation parenthesized, which is useful for debugging.
+    /// </summary>
     public static string Print(this Expr expr) => PrintInternal(expr, 0);
 
     private const int NegatePrecedence = 3;

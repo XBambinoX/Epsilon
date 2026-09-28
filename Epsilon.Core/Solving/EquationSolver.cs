@@ -1,5 +1,6 @@
 namespace Epsilon.Core;
 
+/// <summary>Numeric search for all roots of an expression or equation in a range.</summary>
 public static class RootFindingExtensions
 {
     private const int DefaultRealScanSteps = 200;
@@ -13,6 +14,21 @@ public static class RootFindingExtensions
     private const int DefaultComplexGridSteps = 12;
     private const double ComplexRootMergeTolerance = 1e-6;
 
+    /// <summary>
+    /// All real solutions of the equation <paramref name="left"/> = <paramref name="right"/> for
+    /// <paramref name="variable"/> in the range. Points where either side is undefined are never
+    /// reported (<c>x^2/x = 0</c> has no root at 0).
+    /// </summary>
+    /// <param name="left">The left side of the equation.</param>
+    /// <param name="right">The right side of the equation.</param>
+    /// <param name="variable">The variable to solve for.</param>
+    /// <param name="fixedBindings">Values for the other variables, if any.</param>
+    /// <param name="leftLimit">Lower end of the search range; may be -infinity.</param>
+    /// <param name="rightLimit">Upper end of the search range; may be +infinity.</param>
+    /// <param name="scanSteps">Number of grid intervals to scan; more finds closely spaced roots.</param>
+    /// <returns>The roots in ascending order, each to about full double precision.</returns>
+    /// <exception cref="ArgumentException">A limit is NaN or <paramref name="leftLimit"/> ≥ <paramref name="rightLimit"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scanSteps"/> is less than 2.</exception>
     public static IReadOnlyList<double> FindRealRoots(
         this Expr left,
         Expr right,
@@ -26,6 +42,24 @@ public static class RootFindingExtensions
         return diff.FindRealRoots(variable, fixedBindings, leftLimit, rightLimit, scanSteps);
     }
 
+    /// <summary>
+    /// All real roots of <paramref name="expr"/> = 0 for <paramref name="variable"/> in the range,
+    /// found by scanning a grid and refining each sign change or touching point (even-multiplicity
+    /// roots such as x^2) by bisection. Infinite limits are handled by a change of variable.
+    /// </summary>
+    /// <remarks>
+    /// A numeric method: roots closer together than the grid spacing can be missed, so increase
+    /// <paramref name="scanSteps"/> or narrow the range when that matters.
+    /// </remarks>
+    /// <param name="expr">The function whose zeros are wanted.</param>
+    /// <param name="variable">The variable to solve for.</param>
+    /// <param name="fixedBindings">Values for the other variables, if any.</param>
+    /// <param name="leftLimit">Lower end of the search range; may be -infinity.</param>
+    /// <param name="rightLimit">Upper end of the search range; may be +infinity.</param>
+    /// <param name="scanSteps">Number of grid intervals to scan.</param>
+    /// <returns>The roots in ascending order.</returns>
+    /// <exception cref="ArgumentException">A limit is NaN or <paramref name="leftLimit"/> ≥ <paramref name="rightLimit"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="scanSteps"/> is less than 2.</exception>
     public static IReadOnlyList<double> FindRealRoots(
         this Expr expr,
         string variable,
@@ -54,6 +88,11 @@ public static class RootFindingExtensions
         return ScanForRealRoots(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
     }
 
+    /// <summary>
+    /// All real solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's
+    /// only variable. See <see cref="FindRealRoots(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
     public static IReadOnlyList<double> FindRealRoots(
         this Expr left,
         Expr right,
@@ -65,6 +104,11 @@ public static class RootFindingExtensions
         return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
     }
 
+    /// <summary>
+    /// All real roots of <paramref name="expr"/> = 0 for its only variable.
+    /// See <see cref="FindRealRoots(Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The expression does not have exactly one variable.</exception>
     public static IReadOnlyList<double> FindRealRoots(
         this Expr expr,
         double leftLimit = double.NegativeInfinity,
@@ -247,6 +291,26 @@ public static class RootFindingExtensions
         return a + (b - a) / 2;
     }
 
+    /// <summary>
+    /// Complex roots of <paramref name="expr"/> = 0 in the rectangle
+    /// [<paramref name="reMin"/>, <paramref name="reMax"/>] × [<paramref name="imMin"/>, <paramref name="imMax"/>]i,
+    /// found by Newton's method started from every point of a grid.
+    /// </summary>
+    /// <remarks>
+    /// A numeric method without a completeness guarantee: a root is found only if some grid start
+    /// converges to it. Increase <paramref name="gridSteps"/> for more starting points.
+    /// </remarks>
+    /// <param name="expr">The function whose zeros are wanted.</param>
+    /// <param name="variable">The variable to solve for.</param>
+    /// <param name="fixedBindings">Values for the other variables, if any.</param>
+    /// <param name="reMin">Lower bound of the real part.</param>
+    /// <param name="reMax">Upper bound of the real part.</param>
+    /// <param name="imMin">Lower bound of the imaginary part.</param>
+    /// <param name="imMax">Upper bound of the imaginary part.</param>
+    /// <param name="gridSteps">Grid intervals per axis; (gridSteps + 1)^2 starting points.</param>
+    /// <returns>The distinct roots found, in no particular order.</returns>
+    /// <exception cref="ArgumentException">A minimum is not less than its maximum.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="gridSteps"/> is less than 1.</exception>
     public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr expr,
         string variable,
@@ -284,6 +348,11 @@ public static class RootFindingExtensions
         return roots;
     }
 
+    /// <summary>
+    /// Complex roots of <paramref name="expr"/> = 0 for its only variable.
+    /// See <see cref="FindComplexRoots(Expr, string, IReadOnlyDictionary{string, ComplexNumber}, double, double, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The expression does not have exactly one variable.</exception>
     public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr expr,
         double reMin, double reMax,
@@ -294,6 +363,12 @@ public static class RootFindingExtensions
         return expr.FindComplexRoots(variable, null, reMin, reMax, imMin, imMax, gridSteps);
     }
 
+    /// <summary>
+    /// Complex solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's only
+    /// variable, skipping points where either side is undefined.
+    /// See <see cref="FindComplexRoots(Expr, string, IReadOnlyDictionary{string, ComplexNumber}, double, double, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
     public static IReadOnlyList<ComplexNumber> FindComplexRoots(
         this Expr left,
         Expr right,

@@ -7,12 +7,21 @@ public sealed class Matrix<T>
 {
     private readonly T[,] _values;
 
+    /// <summary>
+    /// The variable names labelling both rows and columns of a square matrix such as a Hessian;
+    /// empty for a matrix created by size.
+    /// </summary>
     public IReadOnlyList<string> Variables { get; }
+    /// <summary>The number of labelling <see cref="Variables"/>: the side length of a labelled matrix, 0 for one created by size.</summary>
     public int Size => Variables.Count;
 
+    /// <summary>The number of rows.</summary>
     public int Rows => _values.GetLength(0);
+    /// <summary>The number of columns.</summary>
     public int Columns => _values.GetLength(1);
 
+    /// <summary>A square matrix whose rows and columns are labelled by <paramref name="variables"/>. Uses <paramref name="values"/> without copying.</summary>
+    /// <exception cref="ArgumentException"><paramref name="values"/> is not variables.Count × variables.Count.</exception>
     public Matrix(IReadOnlyList<string> variables, T[,] values)
     {
         if (values.GetLength(0) != variables.Count || values.GetLength(1) != variables.Count)
@@ -22,6 +31,8 @@ public sealed class Matrix<T>
         _values = values;
     }
 
+    /// <summary>An unlabelled <paramref name="rows"/> × <paramref name="columns"/> matrix of default values.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
     public Matrix(int rows, int columns)
     {
         if (rows < 0)
@@ -34,12 +45,15 @@ public sealed class Matrix<T>
         Variables = Array.Empty<string>();
     }
 
+    /// <summary>The entry at the row and column labelled by the given variables.</summary>
+    /// <exception cref="ArgumentException">A name is not one of <see cref="Variables"/>.</exception>
     public T this[string row, string col]
     {
         get => _values[IndexOf(row), IndexOf(col)];
         set => _values[IndexOf(row), IndexOf(col)] = value;
     }
 
+    /// <summary>The entry at the zero-based row and column.</summary>
     public T this[int row, int col]
     {
         get => _values[row, col];
@@ -55,6 +69,7 @@ public sealed class Matrix<T>
         throw new ArgumentException($"'{variable}' is not one of the matrix's variables.", nameof(variable));
     }
 
+    /// <inheritdoc/>
     public override string ToString()
     {
         var rows = new string[Rows];

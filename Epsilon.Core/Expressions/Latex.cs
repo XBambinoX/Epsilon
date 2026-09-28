@@ -1,7 +1,9 @@
 namespace Epsilon.Core;
 
+/// <summary>Formats expressions as LaTeX.</summary>
 public static class LatexPrinter
 {
+    /// <summary>The expression as LaTeX math, e.g. <c>\frac{x^{2}}{2} + \sin\left(x\right)</c>.</summary>
     public static string ToLatex(this Expr expr) => LatexInternal(expr, 0);
 
     private static int Precedence(Expr expr) => expr switch

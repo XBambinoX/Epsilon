@@ -3,6 +3,7 @@ using NumericComplex = System.Numerics.Complex;
 
 namespace Epsilon.Core;
 
+/// <summary>Exact factorization of univariate polynomials with rational coefficients.</summary>
 public static class PolynomialFactoring
 {
     /// <summary>

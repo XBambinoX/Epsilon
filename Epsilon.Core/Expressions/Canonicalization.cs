@@ -1,7 +1,13 @@
 namespace Epsilon.Core;
 
+/// <summary>Brings expressions into a canonical form so that equal expressions compare equal more often.</summary>
 public static class Canonicalizer
 {
+    /// <summary>
+    /// Flattens and sorts sums and products into a fixed order (<c>1 + x</c> and <c>x + 1</c> become
+    /// the same tree) without otherwise simplifying. <see cref="Simplifier.Simplify(Expr, SimplifyMode)"/>
+    /// already returns canonical expressions.
+    /// </summary>
     public static Expr Canonicalize(this Expr expr) => expr switch
     {
         Add(var l, var r) => CanonicalizeAddChain(l, r),

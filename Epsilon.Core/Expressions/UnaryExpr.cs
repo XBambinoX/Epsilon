@@ -10,10 +10,13 @@ public abstract class UnaryExpr(Expr argument) : Expr
 {
     private readonly ImmutableArray<Expr> _children = [argument];
 
+    /// <summary>The single sub-expression.</summary>
     public Expr Argument { get; } = argument;
 
+    /// <inheritdoc/>
     public sealed override ImmutableArray<Expr> Children => _children;
 
+    /// <inheritdoc/>
     public sealed override Expr WithChildren(IReadOnlyList<Expr> children)
     {
         if (children.Count != 1)
@@ -25,5 +28,6 @@ public abstract class UnaryExpr(Expr argument) : Expr
     /// <summary>A node of the same type around <paramref name="argument"/>.</summary>
     protected abstract Expr WithArgument(Expr argument);
 
+    /// <summary>Deconstructs the node for positional patterns, e.g. <c>case Sin(var x):</c>.</summary>
     public void Deconstruct(out Expr argument) => argument = Argument;
 }

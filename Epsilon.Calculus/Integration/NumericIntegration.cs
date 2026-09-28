@@ -2,6 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
+/// <summary>Numeric definite integration, including improper integrals.</summary>
 public static class NumericIntegration
 {
     private const int MaxRefinements = 12;

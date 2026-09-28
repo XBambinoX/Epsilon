@@ -1,10 +1,30 @@
 namespace Epsilon.Core;
 
+/// <summary>Algebraic simplification of expressions.</summary>
 public static class Simplifier
 {
+    /// <summary>
+    /// Simplifies without any assumptions about the variables: folds constants, combines like terms
+    /// and factors (<c>2x + 3x = 5x</c>, <c>x*x = x^2</c>), cancels common factors and applies
+    /// identities such as <c>sin(x)^2 + cos(x)^2 = 1</c>.
+    /// </summary>
+    /// <param name="expr">The expression to simplify.</param>
+    /// <param name="mode">
+    /// Whether rewrites may enlarge the domain (<see cref="SimplifyMode.Generic"/>, the default:
+    /// <c>x/x = 1</c>) or must keep it exactly (<see cref="SimplifyMode.Strict"/>).
+    /// </param>
+    /// <returns>An equivalent expression in canonical form.</returns>
     public static Expr Simplify(this Expr expr, SimplifyMode mode = SimplifyMode.Generic) =>
         expr.Simplify(Assumptions.None, mode);
 
+    /// <summary>
+    /// Simplifies using what is known about the variables, which unlocks rules that are only valid
+    /// under conditions: with x &gt; 0, <c>sqrt(x^2) = x</c> instead of <c>|x|</c>.
+    /// </summary>
+    /// <param name="expr">The expression to simplify.</param>
+    /// <param name="assumptions">What is known about the variables.</param>
+    /// <param name="mode">See <see cref="Simplify(Expr, SimplifyMode)"/>.</param>
+    /// <returns>An equivalent expression in canonical form.</returns>
     public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic)
     {
         Expr current = expr.Canonicalize();

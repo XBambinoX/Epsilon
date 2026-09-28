@@ -1,35 +1,52 @@
 namespace Epsilon.Core;
 
+/// <summary>The principal square root <c>sqrt(x)</c>; NaN over the reals for x &lt; 0, <c>i*sqrt(-x)</c> over the complex numbers.</summary>
+/// <param name="argument">The argument.</param>
 public sealed class Sqrt(Expr argument) : UnaryExpr(argument)
 {
+    /// <inheritdoc/>
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => Math.Sqrt(Argument.Evaluate(bindings));
+    /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.Sqrt(Argument.EvaluateComplex(bindings));
 
     // d/dx sqrt(f(x)) = f'(x) / (2 * sqrt(f(x)))
+    /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
         new Divide(
             Argument.Differentiate(variable),
             new Multiply(new Constant(2), new Sqrt(Argument))
         );
 
+    /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Sqrt(argument);
 
+    /// <inheritdoc/>
     public override string ToString() => $"sqrt({Argument})";
 }
 
+/// <summary>
+/// The real n-th root <c>nthroot(x, n)</c>. For an odd integer degree a negative argument gives
+/// the negative real root (<c>nthroot(-8, 3) = -2</c>), unlike <c>x^(1/3)</c> (see <see cref="Power"/>).
+/// </summary>
+/// <param name="argument">The radicand.</param>
+/// <param name="degree">The root degree n.</param>
 public sealed class NthRoot(Expr argument, Expr degree) : Expr
 {
     private readonly ImmutableArray<Expr> _children = [argument, degree];
 
+    /// <summary>The radicand.</summary>
     public Expr Argument { get; } = argument;
+    /// <summary>The root degree n.</summary>
     public Expr Degree { get; } = degree;
 
     // nthroot is the REAL root: for an odd integer degree, a negative argument gives the
     // negative real root (nthroot(-8, 3) = -2), matching Simplify. This deliberately differs
     // from Power(x, 1/n), which is the principal value (undefined over the reals for x < 0).
+    /// <inheritdoc/>
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
         RealRoot(Argument.Evaluate(bindings), Degree.Evaluate(bindings));
 
+    /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings)
     {
         ComplexNumber argument = Argument.EvaluateComplex(bindings);
@@ -63,6 +80,7 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
         return root;
     }
 
+    /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable)
     {
         if (Degree is not Constant n)
@@ -94,10 +112,14 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
             fPrime);
     }
 
+    /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
+    /// <inheritdoc/>
     public override Expr WithChildren(IReadOnlyList<Expr> children) =>
         WithTwoChildren(children, static (a, b) => new NthRoot(a, b));
 
+    /// <summary>Deconstructs the node for positional patterns: <c>case NthRoot(var x, var n):</c>.</summary>
     public void Deconstruct(out Expr argument, out Expr degree) => (argument, degree) = (Argument, Degree);
+    /// <inheritdoc/>
     public override string ToString() => $"nthroot({Argument}, {Degree})";
 }

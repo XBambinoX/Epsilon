@@ -2,6 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.LinearAlgebra;
 
+/// <summary>Operations on matrices of expressions.</summary>
 public static class SymbolicMatrixExtensions
 {
     /// <summary>
@@ -29,8 +30,10 @@ public static class SymbolicMatrixExtensions
     }
 }
 
+/// <summary>Operations on numeric matrices.</summary>
 public static class NumericMatrixExtensions
 {
+    /// <summary>The sum of the diagonal entries of a variable-labelled matrix.</summary>
     public static double Trace(this Matrix<double> matrix)
     {
         double sum = 0;

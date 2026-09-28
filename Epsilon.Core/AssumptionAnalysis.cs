@@ -13,6 +13,7 @@ public static class AssumptionAnalysis
     private static bool IsOddInteger(Rational value) => value.IsInteger && value.Numerator % 2 != 0;
     private static bool IsEvenInteger(Rational value) => value.IsInteger && value.Numerator % 2 == 0;
 
+    /// <summary>Whether the assumptions prove <paramref name="expr"/> ≠ 0 everywhere it is defined. False means "not proven", not "zero".</summary>
     public static bool IsProvablyNonZero(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => !c.Value.IsZero,
@@ -30,6 +31,7 @@ public static class AssumptionAnalysis
         _ => expr.IsProvablyPositive(assumptions) || expr.IsProvablyNegative(assumptions)
     };
 
+    /// <summary>Whether the assumptions prove <paramref name="expr"/> &gt; 0. False means "not proven".</summary>
     public static bool IsProvablyPositive(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => c.Value.Sign > 0,
@@ -59,6 +61,7 @@ public static class AssumptionAnalysis
         _ => false
     };
 
+    /// <summary>Whether the assumptions prove <paramref name="expr"/> ≥ 0. False means "not proven".</summary>
     public static bool IsProvablyNonNegative(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => c.Value.Sign >= 0,
@@ -86,6 +89,7 @@ public static class AssumptionAnalysis
         _ => expr.IsProvablyPositive(assumptions)
     };
 
+    /// <summary>Whether the assumptions prove <paramref name="expr"/> ≤ 0. False means "not proven".</summary>
     public static bool IsProvablyNonPositive(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => c.Value.Sign <= 0,
@@ -106,6 +110,7 @@ public static class AssumptionAnalysis
         _ => expr.IsProvablyNegative(assumptions)
     };
 
+    /// <summary>Whether the assumptions prove <paramref name="expr"/> &lt; 0. False means "not proven".</summary>
     public static bool IsProvablyNegative(this Expr expr, Assumptions assumptions) => expr switch
     {
         Constant c => c.Value.Sign < 0,
