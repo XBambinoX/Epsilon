@@ -10,8 +10,16 @@ public static class LatexPrinter
         Multiply or Divide => 2,
         Negate => 3,
         Power => 4,
+        Constant c when c.Value.Sign < 0 => 3, // "-2" is a negation: (-2)^{x}, not -2^{x}
         _ => 5
     };
+
+    // \frac{1}{2} is visually self-contained everywhere except as a power base, where
+    // \frac{1}{2}^{x} is ambiguous - there it needs explicit parentheses.
+    private static string LatexPowerBase(Expr baseExpr, int powerPrecedence) =>
+        baseExpr is Constant c && !c.Value.IsInteger
+            ? $"\\left({LatexInternal(baseExpr, 0)}\\right)"
+            : LatexInternal(baseExpr, powerPrecedence + 1);
 
     private static string LatexInternal(Expr expr, int parentPrecedence)
     {
@@ -47,7 +55,7 @@ public static class LatexPrinter
                 $"\\frac{{{LatexInternal(n, 0)}}}{{{LatexInternal(d, 0)}}}",
 
             Power(var b, var e) =>
-                $"{LatexInternal(b, myPrecedence + 1)}^{{{LatexInternal(e, 0)}}}",
+                $"{LatexPowerBase(b, myPrecedence)}^{{{LatexInternal(e, 0)}}}",
 
             Sin(var a) => $"\\sin\\left({LatexInternal(a, 0)}\\right)",
             Cos(var a) => $"\\cos\\left({LatexInternal(a, 0)}\\right)",

@@ -6,7 +6,7 @@ public static class ExprParser
     {
         "nthroot", "sqrt", "asinh", "acosh", "atanh", "asin", "acos", "atan",
         "sinh", "cosh", "tanh", "coth", "sech", "csch",
-        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "e", "i", "x",
+        "sin", "cos", "tan", "cot", "sec", "csc", "exp", "ln", "pi", "π", "e", "i", "x",
         "sign", "floor", "ceiling", "round", "min", "max", "log", "abs"
     }.OrderByDescending(s => s.Length).ToArray();
 
@@ -268,7 +268,8 @@ public static class ExprParser
                 return new Constant(Rational.FromDecimalString(token));
             }
 
-            if (token == "pi")
+            // "π" is accepted too, since that's how Printer outputs pi.
+            if (token is "pi" or "π")
             {
                 Consume();
                 return new Pi();

@@ -4,12 +4,20 @@ public static class Printer
 {
     public static string Print(this Expr expr) => PrintInternal(expr, 0);
 
+    private const int NegatePrecedence = 3;
+
     private static int Precedence(Expr expr) => expr switch
     {
         Add or Subtract => 1,
         Multiply or Divide => 2,
         Negate => 3,
         Power => 4,
+
+        // A constant prints as it would parse: "1/2" is really a division and "-2" a
+        // negation, so they need the same parentheses, e.g. x ^ (1/2) and (-2) ^ x.
+        Constant c when !c.Value.IsInteger => 2,
+        Constant c when c.Value.Sign < 0 => 3,
+
         _ => 5
     };
 
@@ -46,8 +54,10 @@ public static class Printer
             Divide(var n, var d) =>
                 $"{PrintInternal(n, myPrecedence)} / {PrintInternal(d, myPrecedence + 1)}",
 
+            // The exponent is parsed as a unary expression, so a leading minus needs no
+            // parentheses there (x ^ -1), but anything looser than negation does (x ^ (1/2)).
             Power(var b, var e) =>
-                $"{PrintInternal(b, myPrecedence + 1)} ^ {PrintInternal(e, myPrecedence)}",
+                $"{PrintInternal(b, myPrecedence + 1)} ^ {PrintInternal(e, NegatePrecedence)}",
 
             Sin(var a) => $"sin({PrintInternal(a, 0)})",
             Cos(var a) => $"cos({PrintInternal(a, 0)})",
@@ -82,7 +92,7 @@ public static class Printer
             Abs(var a) => $"abs({PrintInternal(a, 0)})",
             Sign(var a) => $"sign({PrintInternal(a, 0)})",
             Floor(var a) => $"floor({PrintInternal(a, 0)})",
-            Ceiling(var a) => $"ceil({PrintInternal(a, 0)})",
+            Ceiling(var a) => $"ceiling({PrintInternal(a, 0)})",
             Round(var a) => $"round({PrintInternal(a, 0)})",
 
             Min(var l, var r) =>
@@ -122,7 +132,14 @@ public static class Printer
             }
         }
 
-        bool canUseImplicit = constantCount <= 1 && rest.All(CanBeImplicitFactor);
+        // Implicit multiplication only for "integer coefficient * one factor" (2x, -3sin(x)).
+        // Juxtaposing more factors can re-tokenize into something else: a * sinh(x) would
+        // print as "asinh(x)", and variables c, o, s as "cos". A fractional coefficient
+        // would read as a division: "1/2x" looks like 1/(2x).
+        bool canUseImplicit = constantCount <= 1 &&
+                              rest.Count <= 1 &&
+                              (constant is null || constant.Value.IsInteger) &&
+                              rest.All(CanBeImplicitFactor);
 
         if (!canUseImplicit)
             return string.Join(" * ", factors.Select(f => PrintInternal(f, 3)));

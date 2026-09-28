@@ -1055,7 +1055,7 @@ public class AdvancedSimplifierTests
     [InlineData("x * x", "x ^ 2")]
     [InlineData("x^2 * x^3", "x ^ 5")]
     [InlineData("x^-1 * x^-2", "x ^ -3")]
-    [InlineData("x^2 * x^(1/2)", "x ^ 5/2")]
+    [InlineData("x^2 * x^(1/2)", "x ^ (5/2)")]
     public void Merges_powers_that_are_always_safe(string input, string expected)
     {
         Expr expr = ExprParser.Parse(input, "x").Simplify(SimplifyMode.Strict);
@@ -1108,7 +1108,7 @@ public class AdvancedSimplifierTests
 
     [Theory]
     [InlineData("sqrt(x^2)", "abs(x)")]   // x = -1: both sides defined, x would give the wrong value
-    [InlineData("(x^2)^(1/2)", "(x ^ 2) ^ 1/2")] // same reason, must not collapse to x
+    [InlineData("(x^2)^(1/2)", "(x ^ 2) ^ (1/2)")] // same reason, must not collapse to x
     [InlineData("0 / 0", "0 / 0")]        // undefined everywhere, never folded
     public void Generic_mode_never_changes_a_defined_value(string input, string expected)
     {
@@ -1611,7 +1611,7 @@ public class EvaluationConventionTests
     }
 
     [Theory]
-    [InlineData("(x^3)^(1/3)", SimplifyMode.Strict, "(x ^ 3) ^ 1/3")] // undefined for x < 0, x is not
+    [InlineData("(x^3)^(1/3)", SimplifyMode.Strict, "(x ^ 3) ^ (1/3)")] // undefined for x < 0, x is not
     [InlineData("(x^3)^(1/3)", SimplifyMode.Generic, "x")]
     [InlineData("(x^3)^2", SimplifyMode.Strict, "x ^ 6")]              // integer outer exponent: exact
     public void Odd_inner_power_collapses_only_when_domain_is_preserved(string input, SimplifyMode mode, string expected)
@@ -1658,5 +1658,110 @@ public class NthRootSimplificationTests
         var hugeOdd = new Rational(System.Numerics.BigInteger.Pow(10, 30) + 1);
         Expr expr = new NthRoot(new Constant(-8), new Constant(hugeOdd));
         Assert.IsType<NthRoot>(expr.Simplify());
+    }
+}
+
+public class PrintRoundTripTests
+{
+    private static readonly string[] Vars = ["x", "y", "a", "c", "o", "s"];
+
+    private static Expr X => new Variable("x");
+    private static Expr Y => new Variable("y");
+    private static Constant C(long n, long d = 1) => new(new Rational(n, d));
+
+    public static TheoryData<Expr> TrickyExpressions => new()
+    {
+        new Power(X, C(1, 2)),                        // was "x ^ 1/2" -> parsed as (x^1)/2
+        new Power(C(-2), X),                          // was "-2 ^ x" -> parsed as -(2^x)
+        new Power(C(1, 2), X),
+        new Power(C(-1, 2), X),
+        new Divide(X, C(1, 2)),                       // was "x / 1/2" -> parsed as (x/1)/2
+        new Multiply(C(1, 2), X),
+        new Multiply(C(-3, 4), new Sin(X)),
+        new Ceiling(X),                               // was "ceil(x)" -> parsed as e*i*c*l*x
+        new Multiply(new Pi(), X),                    // "π" must parse back as pi
+        new Multiply(new Variable("a"), new Sinh(X)), // implicit "asinh(x)" would be a different function
+        new Multiply(new Multiply(new Variable("c"), new Variable("o")), new Variable("s")), // "cos"
+        new Multiply(X, Y),
+        new Multiply(C(2), X),
+        new Multiply(C(-2), X),
+        new Negate(new Power(X, C(2))),
+        new Power(new Negate(X), C(2)),
+        new Power(X, C(-1)),
+        new Power(X, new Negate(Y)),
+        new Power(C(2), new Power(C(3), C(2))),       // right-associative
+        new Power(new Power(C(2), C(3)), C(2)),
+        new Subtract(X, C(-2)),
+        new Subtract(X, new Multiply(C(-2), X)),
+        new Negate(new Add(X, C(1))),
+        new Divide(C(1), new Multiply(C(2), X)),
+        new Power(new Multiply(C(2), X), C(3)),
+        new Multiply(new Exp(X), X),
+        new NthRoot(X, C(3)),
+        new Min(X, new Negate(Y)),
+    };
+
+    [Theory]
+    [MemberData(nameof(TrickyExpressions))]
+    public void Parse_of_Print_evaluates_to_the_same_value(Expr original)
+    {
+        string printed = original.Print();
+        Expr reparsed = ExprParser.Parse(printed, Vars);
+
+        foreach (double x in new[] { -1.7, 0.6, 2.3 })
+        {
+            var bindings = new Dictionary<string, double>
+            {
+                ["x"] = x, ["y"] = 1.3, ["a"] = 0.8, ["c"] = 1.1, ["o"] = -0.9, ["s"] = 2.0
+            };
+
+            double expected = original.Evaluate(bindings);
+            double actual = reparsed.Evaluate(bindings);
+
+            if (double.IsNaN(expected))
+                Assert.True(double.IsNaN(actual), $"'{printed}' at x={x}: expected NaN, got {actual}");
+            else
+                Assert.True(Math.Abs(expected - actual) <= 1e-9 * Math.Max(1, Math.Abs(expected)),
+                    $"'{printed}' at x={x}: expected {expected}, got {actual}");
+        }
+    }
+
+    [Theory]
+    [InlineData("x ^ (1/2)")]
+    [InlineData("(-2) ^ x")]
+    [InlineData("x / (1/2)")]
+    [InlineData("ceiling(x)")]
+    [InlineData("a * sinh(x)")]
+    [InlineData("x ^ -1")]
+    [InlineData("2x")]
+    public void Prints_unambiguous_form(string expected)
+    {
+        Expr expr = expected switch
+        {
+            "x ^ (1/2)" => new Power(X, C(1, 2)),
+            "(-2) ^ x" => new Power(C(-2), X),
+            "x / (1/2)" => new Divide(X, C(1, 2)),
+            "ceiling(x)" => new Ceiling(X),
+            "a * sinh(x)" => new Multiply(new Variable("a"), new Sinh(X)),
+            "x ^ -1" => new Power(X, C(-1)),
+            "2x" => new Multiply(C(2), X),
+            _ => throw new ArgumentOutOfRangeException(nameof(expected))
+        };
+
+        Assert.Equal(expected, expr.Print());
+    }
+
+    [Fact]
+    public void Parser_accepts_pi_symbol()
+    {
+        Assert.IsType<Pi>(ExprParser.Parse("π"));
+    }
+
+    [Fact]
+    public void Latex_parenthesizes_negative_and_fractional_power_bases()
+    {
+        Assert.Equal("\\left(-2\\right)^{x}", new Power(C(-2), X).ToLatex());
+        Assert.Equal("\\left(\\frac{1}{2}\\right)^{x}", new Power(C(1, 2), X).ToLatex());
+        Assert.Equal("x^{\\frac{1}{2}}", new Power(X, C(1, 2)).ToLatex());
     }
 }
