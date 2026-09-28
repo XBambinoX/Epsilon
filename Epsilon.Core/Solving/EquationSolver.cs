@@ -266,9 +266,11 @@ public static class RootFindingExtensions
             Expr d = expr.Differentiate(variable);
             return x => SafeEvaluate(d, variable, fixedBindings, x);
         }
-        catch (NotImplementedException)
+        // e.g. floor/sign: no symbolic derivative yet, so touching roots can't be located.
+        // NotImplementedException too, for node types defined outside this library.
+        catch (Exception e) when (e is NotSupportedException or NotImplementedException)
         {
-            return null; // e.g. floor/sign: no symbolic derivative, so touching roots can't be located
+            return null;
         }
     }
 

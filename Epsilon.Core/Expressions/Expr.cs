@@ -46,6 +46,10 @@ public abstract class Expr : IEquatable<Expr>
     /// The symbolic partial derivative with respect to <paramref name="variable"/>, simplified
     /// (<see cref="SimplifyMode.Generic"/>). Exactly 0 when the expression does not depend on it.
     /// </summary>
+    /// <exception cref="NotSupportedException">
+    /// The expression contains a function whose derivative is not supported yet: floor, ceiling,
+    /// round, sign, min, max, or nthroot with a degree that depends on the variable.
+    /// </exception>
     public Expr Differentiate(string variable) =>
         RawDerivative(variable).Simplify();
 
@@ -75,6 +79,10 @@ public abstract class Expr : IEquatable<Expr>
     /// The derivative with respect to the expression's only variable; 0 for an expression without variables.
     /// </summary>
     /// <exception cref="InvalidOperationException">The expression has two or more variables.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The expression contains a function whose derivative is not supported yet: floor, ceiling,
+    /// round, sign, min, max, or nthroot with a degree that depends on the variable.
+    /// </exception>
     public Expr Differentiate()
     {
         var vars = GetVariables();
@@ -95,9 +103,12 @@ public abstract class Expr : IEquatable<Expr>
     /// </summary>
     /// <param name="bindings">A value for every variable in the expression, by name.</param>
     /// <exception cref="ArgumentException">A variable has no binding.</exception>
-    /// <exception cref="NotImplementedException">The node type has no complex evaluation.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The expression contains a function without complex evaluation: floor, ceiling, round and
+    /// sign (planned for a future version), or min and max (the complex numbers are not ordered).
+    /// </exception>
     public virtual ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
-        throw new NotImplementedException($"{GetType().Name} does not yet support complex evaluation.");
+        throw new NotSupportedException($"{GetType().Name} does not support complex evaluation.");
 
     /// <summary>
     /// Complex evaluation of an expression of at most one variable, binding it to <paramref name="x"/>.

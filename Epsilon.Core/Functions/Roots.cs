@@ -84,7 +84,9 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     protected override Expr DifferentiateCore(string variable)
     {
         if (Degree is not Constant n)
-            throw new NotImplementedException($"Differentiation with non-constant root degree not yet supported (variable: {variable}).");
+            throw new NotSupportedException(
+                $"The derivative of nthroot with a degree that depends on '{variable}' is not supported yet " +
+                "(planned for a future version). Use a constant degree.");
 
         Expr fPrime = DerivativeOf(Argument, variable);
 

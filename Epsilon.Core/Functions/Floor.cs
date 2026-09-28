@@ -10,13 +10,15 @@ public sealed class Floor(Expr argument) : UnaryExpr(argument)
 
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
-        throw new NotImplementedException("floor(z) has no standard definition over the complex numbers.");
+        throw new NotSupportedException(
+            "floor(z) is not supported over the complex numbers yet (planned for a future version). " +
+            "Use Evaluate for real values.");
 
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) => 
-        throw new NotImplementedException(
-            "floor has a branch-dependent derivative and can't be represented " +
-            "without a Piecewise/conditional Expr node.");
+        throw new NotSupportedException(
+            "The derivative of floor is not supported yet: it is 0 between the jumps but undefined " +
+            "at them, which needs piecewise expressions (planned for a future version).");
 
     /// <inheritdoc/>
     protected override Expr WithArgument(Expr argument) => new Floor(argument);

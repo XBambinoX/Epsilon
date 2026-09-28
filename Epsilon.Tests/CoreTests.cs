@@ -2825,3 +2825,50 @@ public class DifferentiateSimplifiesTests
         Assert.Equal("(ln(x) + 1) * x ^ x", ExprParser.Parse("x^x", "x").Differentiate("x").Print());
     }
 }
+
+public class UnsupportedOperationTests
+{
+    [Theory]
+    [InlineData("floor(x)")]
+    [InlineData("ceiling(x)")]
+    [InlineData("round(x)")]
+    [InlineData("sign(x)")]
+    [InlineData("min(x, 1)")]
+    [InlineData("max(x, 1)")]
+    [InlineData("nthroot(2, x)")]
+    public void Unsupported_derivatives_throw_NotSupportedException_saying_it_is_planned(string input)
+    {
+        var ex = Assert.Throws<NotSupportedException>(() => ExprParser.Parse(input, "x").Differentiate("x"));
+        Assert.Contains("planned for a future version", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("floor(x)")]
+    [InlineData("ceiling(x)")]
+    [InlineData("round(x)")]
+    [InlineData("sign(x)")]
+    public void Complex_evaluation_of_rounding_functions_is_planned(string input)
+    {
+        var ex = Assert.Throws<NotSupportedException>(() => ExprParser.Parse(input, "x").EvaluateComplex(new ComplexNumber(1.5)));
+        Assert.Contains("planned for a future version", ex.Message);
+    }
+
+    [Theory]
+    [InlineData("min(x, 1)")]
+    [InlineData("max(x, 1)")]
+    public void Complex_min_and_max_are_not_supported_because_complex_numbers_are_unordered(string input)
+    {
+        var ex = Assert.Throws<NotSupportedException>(() => ExprParser.Parse(input, "x").EvaluateComplex(new ComplexNumber(1.5)));
+        Assert.Contains("not ordered", ex.Message);
+    }
+
+    [Fact]
+    public void Root_finding_still_works_for_functions_without_a_derivative()
+    {
+        // round(x) - 2 is 0 on [1.5, 2.5): the scan reports grid points there without needing f'.
+        var roots = ExprParser.Parse("round(x) - 2", "x").FindRealRoots(-5, 5);
+
+        Assert.NotEmpty(roots);
+        Assert.All(roots, r => Assert.Equal(2, Math.Round(r, MidpointRounding.AwayFromZero)));
+    }
+}

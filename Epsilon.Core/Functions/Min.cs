@@ -18,13 +18,13 @@ public sealed class Min(Expr left, Expr right) : Expr
 
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) =>
-        throw new NotImplementedException("min(a,b) is undefined over C - the complex numbers are not ordered.");
+        throw new NotSupportedException("min(a, b) is not supported over the complex numbers: they are not ordered.");
 
     /// <inheritdoc/>
     protected override Expr DifferentiateCore(string variable) =>
-        throw new NotImplementedException(
-            "min(a,b) has a branch-dependent derivative and can't be represented " +
-            "without a Piecewise/conditional Expr node.");
+        throw new NotSupportedException(
+            "The derivative of min(a, b) is not supported yet: where a = b the left and right " +
+            "derivatives differ, which needs piecewise expressions (planned for a future version).");
 
     /// <inheritdoc/>
     public override ImmutableArray<Expr> Children => _children;
