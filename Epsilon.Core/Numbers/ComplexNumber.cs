@@ -84,11 +84,19 @@ public readonly struct ComplexNumber : IEquatable<ComplexNumber>
     public static bool operator ==(ComplexNumber a, ComplexNumber b) => a.Equals(b);
     public static bool operator !=(ComplexNumber a, ComplexNumber b) => !a.Equals(b);
 
+    // Invariant culture, like the parser: "1.5 + 2i" everywhere, never "1,5 + 2i".
+    // Any NaN part makes the whole value undefined, so it prints as a single "NaN".
     public override string ToString()
     {
-        if (Imaginary == 0) return Real.ToString();
-        if (Real == 0) return $"{Imaginary}i";
-        return Imaginary > 0 ? $"{Real} + {Imaginary}i" : $"{Real} - {Math.Abs(Imaginary)}i";
+        if (double.IsNaN(Real) || double.IsNaN(Imaginary)) return "NaN";
+
+        string Format(double value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+        if (Imaginary == 0) return Format(Real);
+        if (Real == 0) return $"{Format(Imaginary)}i";
+        return Imaginary > 0
+            ? $"{Format(Real)} + {Format(Imaginary)}i"
+            : $"{Format(Real)} - {Format(Math.Abs(Imaginary))}i";
     }
     
     //Trigonometry

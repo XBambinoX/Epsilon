@@ -89,17 +89,10 @@ public static class Simplifier
             case Subtract(var l, var r) when r.Equals(new Constant(0)):
                 return l;
 
-            case Multiply(Constant a, Constant b):
-                return new Constant(a.Value * b.Value);
-
+            // Constant folding, 1 * x and equal-base merging for products are all done by
+            // CombineProductFactors above; only 0 * x is deliberately left to this rule.
             case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
                 return new Constant(0);
-
-            case Multiply(Constant one, var r) when one.Value.IsOne:
-                return r;
-
-            case Multiply(var l, var r) when r.Equals(new Constant(1)):
-                return l;
 
             case Divide(var numerator, var denominator)
                 when TryCancelCommonFactors(numerator, denominator, assumptions, mode, out Expr? cancelled):
@@ -172,18 +165,8 @@ public static class Simplifier
                     ? combined
                     : expr;
 
-            case Multiply(Power(var b1, var e1), Power(var b2, var e2))
-                when b1.Equals(b2) && CanMergeExponents(b1, e1, e2, assumptions, mode):
-                return new Power(b1, new Add(e1, e2));
-
-            case Multiply(var b, Power(var b2, var e))
-                when b.Equals(b2) && CanMergeExponents(b, new Constant(1), e, assumptions, mode):
-                return new Power(b, new Add(e, new Constant(1)));
-
-            case Multiply(Power(var b, var e), var b2)
-                when b.Equals(b2) && CanMergeExponents(b, e, new Constant(1), assumptions, mode):
-                return new Power(b, new Add(e, new Constant(1)));
-
+            // Still reachable: when CombineProductFactors may not add the exponents (Strict mode,
+            // x^(1/2) * x^(1/2) would gain x < 0), the equal factors are squared as a whole instead.
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
                 return new Power(b1, new Constant(2));
 

@@ -2583,3 +2583,60 @@ public class StrictParserTests
         Assert.Equal(new HashSet<string> { "x", "y" }, ExprParser.Parse("xy + y").GetVariables());
     }
 }
+
+public class ComplexNumberFormattingTests
+{
+    [Theory]
+    [InlineData(1.5, 0, "1.5")]
+    [InlineData(0, -2.5, "-2.5i")]
+    [InlineData(1.5, 2.5, "1.5 + 2.5i")]
+    [InlineData(1.5, -2.5, "1.5 - 2.5i")]
+    public void Uses_invariant_culture_regardless_of_current_culture(double re, double im, string expected)
+    {
+        var saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            // uk-UA uses a comma as the decimal separator.
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("uk-UA");
+            Assert.Equal(expected, new ComplexNumber(re, im).ToString());
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    [Theory]
+    [InlineData(double.NaN, double.NaN)]
+    [InlineData(double.NaN, 1)]
+    [InlineData(1, double.NaN)]
+    public void Prints_any_NaN_part_as_a_single_NaN(double re, double im)
+    {
+        Assert.Equal("NaN", new ComplexNumber(re, im).ToString());
+    }
+}
+
+public class ProductSimplificationAfterCleanupTests
+{
+    [Theory]
+    [InlineData("2 * 3", "6")]
+    [InlineData("1 * x", "x")]
+    [InlineData("x * 1", "x")]
+    [InlineData("0 * x", "0")]
+    [InlineData("x^2 * x^3", "x^5")]
+    [InlineData("x * x^2", "x^3")]
+    [InlineData("x^2 * x", "x^3")]
+    [InlineData("x * x", "x^2")]
+    public void Binary_products_still_simplify_through_CombineProductFactors(string input, string expected)
+    {
+        Assert.Equal(ExprParser.Parse(expected), ExprParser.Parse(input).Simplify());
+    }
+
+    [Fact]
+    public void Strict_squares_equal_factors_it_may_not_merge()
+    {
+        Expr simplified = ExprParser.Parse("x^(1/2) * x^(1/2)").Simplify(SimplifyMode.Strict);
+
+        Assert.Equal(new Power(new Power(new Variable("x"), new Constant(new Rational(1, 2))), new Constant(2)), simplified);
+    }
+}
