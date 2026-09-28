@@ -26,24 +26,73 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     public Expr Argument { get; } = argument;
     public Expr Degree { get; } = degree;
 
+    // nthroot is the REAL root: for an odd integer degree, a negative argument gives the
+    // negative real root (nthroot(-8, 3) = -2), matching Simplify. This deliberately differs
+    // from Power(x, 1/n), which is the principal value (undefined over the reals for x < 0).
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
-        Math.Pow(Argument.Evaluate(bindings), 1.0 / Degree.Evaluate(bindings));
+        RealRoot(Argument.Evaluate(bindings), Degree.Evaluate(bindings));
 
-    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings) =>
-        Complex.Pow(Argument.EvaluateComplex(bindings), Complex.One / Degree.EvaluateComplex(bindings));
+    public override Complex EvaluateComplex(IReadOnlyDictionary<string, Complex> bindings)
+    {
+        Complex argument = Argument.EvaluateComplex(bindings);
+        Complex degree = Degree.EvaluateComplex(bindings);
+
+        // Stay consistent with Evaluate on the real line; elsewhere use the principal value.
+        if (argument.Imaginary == 0 && degree.Imaginary == 0 && IsOddInteger(degree.Real))
+            return new Complex(RealRoot(argument.Real, degree.Real));
+
+        return Complex.Pow(argument, Complex.One / degree);
+    }
+
+    private static bool IsOddInteger(double value) =>
+        double.IsInteger(value) && Math.Abs(value % 2) == 1;
+
+    private static double RealRoot(double argument, double degree)
+    {
+        if (argument < 0 && IsOddInteger(degree))
+            return -RealRoot(-argument, degree);
+
+        double root = Math.Pow(argument, 1.0 / degree);
+
+        // Neither Math.Pow(27, 1.0 / 3) nor even Math.Cbrt(27) is guaranteed to return
+        // exactly 3 (glibc gives 3.0000000000000004). Snap to the nearest integer when it
+        // is provably exact, so perfect powers give exact roots on every platform.
+        double nearest = Math.Round(root);
+        if (double.IsInteger(degree) && Math.Pow(nearest, degree) == argument)
+            return nearest;
+
+        return root;
+    }
 
     protected override Expr DifferentiateCore(string variable)
     {
-        if (Degree is Constant n)
+        if (Degree is not Constant n)
+            throw new NotImplementedException($"Differentiation with non-constant root degree not yet supported (variable: {variable}).");
+
+        Expr fPrime = Argument.Differentiate(variable);
+
+        // Written in terms of nthroot itself, so the derivative is real wherever the
+        // function is (e.g. at negative arguments for odd degrees). A Power form such as
+        // x^(1/3 - 1) would evaluate to NaN there.
+        if (n.Value.IsInteger && n.Value.Sign > 0)
         {
-            Expr exponent = new Constant(Rational.One / n.Value);
-            return new Multiply(
-                new Multiply(exponent, new Power(Argument, new Subtract(exponent, new Constant(1)))),
-                Argument.Differentiate(variable)
-            );
+            // d/dx nthroot(f, n) = f' / (n * nthroot(f, n)^(n-1))
+            Expr root = new NthRoot(Argument, n);
+            Expr rootPower = n.Value == 2 ? root : new Power(root, new Constant(n.Value - 1));
+            return new Divide(fPrime, new Multiply(n, rootPower));
         }
 
-        throw new NotImplementedException($"Differentiation with non-constant root degree not yet supported (variable: {variable}).");
+        if (n.Value.IsInteger)
+        {
+            // Negative integer degree: d/dx nthroot(f, n) = f' * nthroot(f, n) / (n * f)
+            return new Divide(new Multiply(fPrime, new NthRoot(Argument, n)), new Multiply(n, Argument));
+        }
+
+        // Non-integer degree: the real root coincides with the principal power.
+        Expr exponent = new Constant(Rational.One / n.Value);
+        return new Multiply(
+            new Multiply(exponent, new Power(Argument, new Subtract(exponent, new Constant(1)))),
+            fPrime);
     }
 
     public override IReadOnlySet<string> GetVariables() =>

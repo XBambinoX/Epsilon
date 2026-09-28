@@ -52,6 +52,7 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
         return new Rational(q);
     }
 
+    // Halves round away from zero: 5/2 -> 3, -5/2 -> -3 (same as Round.Evaluate).
     public Rational Round()
     {
         Rational doubled = new Rational(Numerator * 2, Denominator);

@@ -119,9 +119,9 @@ public static class Simplifier
                 return new Constant(b.Value.Pow((int)e.Value.Numerator));
 
             // Root exponent (+-1/n): exact result only if b is a perfect n-th power.
-            // NOT approximated via Math.Pow - an inexact root stays symbolic here and
-            // is presented as Sqrt/NthRoot by PreferRoots, rather than silently
-            // becoming a "precise-looking" but wrong Rational.
+            // NOT approximated via Math.Pow - an inexact root stays symbolic rather than
+            // silently becoming a "precise-looking" but wrong Rational. Negative bases are
+            // left alone too: Power is the principal value, unlike the real-valued NthRoot.
             case Power(Constant b, Constant e)
                 when System.Numerics.BigInteger.Abs(e.Value.Numerator) == 1 &&
                      TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
@@ -153,13 +153,16 @@ public static class Simplifier
                                     e2.IsProvablyPositive(assumptions);
                 if (!zeroBaseSafe)
                     return expr;
-                if (e1 is Constant ce1 && IsOddInteger(ce1.Value))
+                // Power is the principal value: a non-integer exponent of a negative base is
+                // undefined over the reals. So (x^3)^(1/3) is undefined for x < 0 while x is not -
+                // an odd inner exponent is only a domain enlargement unless e2 is an integer.
+                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
+                if (e1 is Constant ce1 && IsOddInteger(ce1.Value) && (outerIsInteger || mode == SimplifyMode.Generic))
                     return combined;
-                // A non-integer inner exponent with an even denominator (x^(1/2)) is undefined for
-                // b < 0, so collapsing only enlarges the domain - fine in Generic mode. An even
-                // integer inner exponent is different: (x^2)^(1/2) = |x|, not x, so no shortcut.
-                bool innerUndefinedForNegativeBase =
-                    e1 is Constant ce1Even && !ce1Even.Value.IsInteger && ce1Even.Value.Denominator.IsEven;
+                // A non-integer inner exponent (x^(1/2), x^(1/3)) is undefined for b < 0, so
+                // collapsing only enlarges the domain - fine in Generic mode. An even integer
+                // inner exponent is different: (x^2)^(1/2) = |x|, not x, so no shortcut.
+                bool innerUndefinedForNegativeBase = e1 is Constant ce1NonInt && !ce1NonInt.Value.IsInteger;
                 return b.IsProvablyNonNegative(assumptions) ||
                        (mode == SimplifyMode.Generic && innerUndefinedForNegativeBase)
                     ? combined

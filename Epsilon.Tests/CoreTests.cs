@@ -1524,3 +1524,98 @@ public class RationalTests
         Assert.Equal(new Rational(numerator, denominator), Rational.FromDecimalString(text));
     }
 }
+
+public class EvaluationConventionTests
+{
+    private static readonly Dictionary<string, double> NoBindings = new();
+
+    [Theory]
+    [InlineData("round(0.5)", 1)]
+    [InlineData("round(1.5)", 2)]
+    [InlineData("round(2.5)", 3)]
+    [InlineData("round(-2.5)", -3)]
+    [InlineData("round(-0.5)", -1)]
+    [InlineData("round(2.4)", 2)]
+    [InlineData("round(-2.6)", -3)]
+    public void Round_halves_away_from_zero_in_both_simplify_and_evaluate(string input, double expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        Assert.Equal(expected, expr.Evaluate(NoBindings));
+        Assert.Equal(new Constant((int)expected), expr.Simplify());
+    }
+
+    [Theory]
+    [InlineData("nthroot(-8, 3)", -2)]
+    [InlineData("nthroot(-32, 5)", -2)]
+    [InlineData("nthroot(27, 3)", 3)]
+    [InlineData("nthroot(16, 4)", 2)]
+    public void Nthroot_is_the_real_root_in_both_simplify_and_evaluate(string input, double expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        Assert.Equal(expected, expr.Evaluate(NoBindings)); // exact, not just close
+        Assert.Equal(new Constant((int)expected), expr.Simplify());
+    }
+
+    [Fact]
+    public void Nthroot_with_negative_odd_degree_is_real()
+    {
+        Expr expr = new NthRoot(new Constant(-8), new Constant(-3));
+        Assert.Equal(-0.5, expr.Evaluate(NoBindings), precision: 12);
+    }
+
+    [Fact]
+    public void Nthroot_of_negative_number_with_even_degree_is_undefined()
+    {
+        Assert.True(double.IsNaN(ExprParser.Parse("nthroot(-16, 4)").Evaluate(NoBindings)));
+    }
+
+    [Fact]
+    public void Nthroot_complex_evaluation_matches_real_evaluation_on_the_real_line()
+    {
+        Complex result = ExprParser.Parse("nthroot(x, 3)", "x").EvaluateComplex(new Complex(-8));
+        Assert.Equal(new Complex(-2), result);
+    }
+
+    [Fact]
+    public void Power_with_fractional_exponent_is_the_principal_value()
+    {
+        // Unlike nthroot, x^(1/3) is the principal value: undefined over the reals for x < 0.
+        Expr expr = new Power(new Constant(-8), new Constant(new Rational(1, 3)));
+
+        Assert.IsType<Power>(expr.Simplify());
+        Assert.True(double.IsNaN(expr.Evaluate(NoBindings)));
+
+        Complex principal = expr.EvaluateComplex(new Dictionary<string, Complex>());
+        Assert.Equal(1.0, principal.Real, precision: 10);
+        Assert.Equal(Math.Sqrt(3), principal.Imaginary, precision: 10);
+    }
+
+    [Theory]
+    [InlineData(-8.0, 1.0 / 12)]
+    [InlineData(8.0, 1.0 / 12)]
+    [InlineData(-1.0, 1.0 / 3)]
+    public void Nthroot_derivative_is_real_where_the_function_is(double x, double expected)
+    {
+        Expr derivative = ExprParser.Parse("nthroot(x, 3)", "x").Differentiate("x");
+        Assert.Equal(expected, derivative.Evaluate(x), precision: 12);
+    }
+
+    [Fact]
+    public void Nthroot_derivative_with_negative_degree_is_real_for_negative_argument()
+    {
+        // d/dx x^(-1/3) = -1/3 * x^(-4/3); at x = -8 that is -1/3 * 1/16.
+        Expr derivative = new NthRoot(new Variable("x"), new Constant(-3)).Differentiate("x");
+        Assert.Equal(-1.0 / 48, derivative.Evaluate(-8.0), precision: 12);
+    }
+
+    [Theory]
+    [InlineData("(x^3)^(1/3)", SimplifyMode.Strict, "(x ^ 3) ^ 1/3")] // undefined for x < 0, x is not
+    [InlineData("(x^3)^(1/3)", SimplifyMode.Generic, "x")]
+    [InlineData("(x^3)^2", SimplifyMode.Strict, "x ^ 6")]              // integer outer exponent: exact
+    public void Odd_inner_power_collapses_only_when_domain_is_preserved(string input, SimplifyMode mode, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input, "x").Simplify(mode).Print());
+    }
+}
