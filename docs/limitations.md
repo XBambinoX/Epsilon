@@ -11,7 +11,7 @@ faster simplification. The only exception is `min`/`max` over the complex number
 can't exist mathematically. See the [roadmap](../README.md#roadmap) for the order.
 
 Everything here reflects version 1.0.0. Each example is checked by a test
-(`LimitationsDocTests`), so when a limitation is lifted this page is updated with it.
+(in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
 
 ## Algebra
 
@@ -85,6 +85,16 @@ There is no way yet to solve `sin(x) = 1/2` symbolically as `π/6 + 2πk, 5π/6 
 `FindRealRoots` for numeric solutions in a range. A symbolic solver is planned for 1.1 (see
 the [roadmap](../README.md#roadmap)).
 
+## Parsing and output
+
+- Variable names consist of letters only: `v0`, `x_1` or `x'` can't be declared.
+- **⚠** `ToLatex` writes `floor` and `ceiling` without a space after the bracket command,
+  which LaTeX reads as an unknown command:
+
+```csharp
+ExprParser.Parse("floor(x)").ToLatex();   // \left\lfloorx\right\rfloor
+```
+
 ## Differentiation
 
 Derivatives that need piecewise expressions throw `NotSupportedException` with a message
@@ -132,6 +142,20 @@ ExprParser.Parse("(x - 1)*(x - 1.0000001)").FindRealRoots(-10, 10);  // [1]
 ```
 
 Increase `scanSteps` or narrow the range when that matters.
+
+### ⚠ Underflow is reported as a root
+
+Where a function is positive but so small that it becomes exactly `0.0` in `double`
+arithmetic, `FindRealRoots` takes that point for a root. `exp(x)` has no roots, but underflows
+to 0 below x ≈ -745:
+
+```csharp
+ExprParser.Parse("exp(x)").FindRealRoots();              // [-500000013.6409661]
+ExprParser.Parse("exp(-x^2)").FindRealRoots().Count;     // 4, all spurious
+```
+
+Keep the range where the function is representable, or check a root by evaluating
+something that doesn't underflow (for `exp`, its logarithm).
 
 ### ⚠ Overload trap: a number as the right-hand side
 

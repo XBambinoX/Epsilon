@@ -1,0 +1,115 @@
+# Simplification
+
+```csharp
+Expr Simplify(this Expr expr, SimplifyMode mode = SimplifyMode.Generic)
+Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic)
+```
+
+`Simplify` rewrites an expression into a simpler, equivalent one and returns it in
+canonical form. It never modifies the original — expressions are immutable.
+
+## The guarantee
+
+**`Simplify` never changes the value of an expression at a point where the expression is
+defined.** A rewrite that is valid only under a condition — `sqrt(x^2) = x` needs
+`x ≥ 0` — is applied only when the condition is known to hold. When in doubt, the expression
+is left alone: a missed simplification is always safer than a wrong one.
+
+```csharp
+ExprParser.Parse("sqrt(x^2)").Simplify().Print();     // abs(x)
+ExprParser.Parse("(x^2)^(1/2)").Simplify().Print();   // (x^2)^(1/2)
+```
+
+## What it does
+
+**Constants are folded exactly**, in rational arithmetic. Roots are computed only when the
+result is exact:
+
+```csharp
+ExprParser.Parse("1/3 + 1/6").Simplify().Print();    // 1/2
+ExprParser.Parse("2^-2").Simplify().Print();         // 1/4
+ExprParser.Parse("sqrt(9/4)").Simplify().Print();    // 3/2
+ExprParser.Parse("nthroot(-8, 3)").Simplify().Print(); // -2
+ExprParser.Parse("round(5/2)").Simplify().Print();   // 3
+```
+
+**Like terms and repeated factors are combined** across the whole sum or product, wherever
+they are:
+
+```csharp
+ExprParser.Parse("2x + 3x").Simplify().Print();       // 5x
+ExprParser.Parse("x*y*x*y").Simplify().Print();       // x^2 * y^2
+ExprParser.Parse("2*x*3*x").Simplify().Print();       // 6x^2
+ExprParser.Parse("x*(-y)*x").Simplify().Print();      // -x^2 * y
+ExprParser.Parse("(x + 1) - 1").Simplify().Print();   // x
+```
+
+**Common factors cancel** in quotients:
+
+```csharp
+ExprParser.Parse("(2x)/(4x)").Simplify().Print();       // 1/2
+ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();   // x
+ExprParser.Parse("x^3/x").Simplify().Print();           // x^2
+```
+
+**Identities.** The Pythagorean identity works across a whole sum, with any coefficients:
+
+```csharp
+ExprParser.Parse("2sin(x)^2 + 2cos(x)^2 + 1").Simplify().Print();   // 3
+ExprParser.Parse("1 - sin(x)^2").Simplify().Print();                // cos(x)^2
+ExprParser.Parse("sec(x)^2 - tan(x)^2").Simplify().Print();         // 1
+ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
+```
+
+Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
+a non-negative expression, and more. What it *doesn't* know yet — expansion, double-angle
+formulas, logarithm rules, exact values such as `sin(π/6)` — is listed in
+[limitations](limitations.md#algebra).
+
+## Generic and Strict mode
+
+Some rewrites don't change any value but make the expression **defined at more points**.
+`x/x` is undefined at 0; `1` is defined everywhere. The mode decides whether that is allowed.
+
+**`SimplifyMode.Generic`** (the default) allows it. The result equals the original
+everywhere the original is defined, and may be defined at extra points. This is what most
+people expect from a simplifier.
+
+**`SimplifyMode.Strict`** keeps exactly the same domain. Such rewrites are applied only when
+[assumptions](assumptions.md) prove them safe:
+
+```csharp
+Expr e = ExprParser.Parse("x/x");
+
+e.Simplify().Print();                                              // 1
+e.Simplify(SimplifyMode.Strict).Print();                           // x / x
+e.Simplify(Assumptions.None.AssumeNonZero("x"), SimplifyMode.Strict).Print();   // 1
+```
+
+More examples of the difference:
+
+| Expression | Generic | Strict | Undefined where |
+|---|---|---|---|
+| `x^3/x` | `x^2` | `x^3 / x` | x = 0 |
+| `0/x` | `0` | `0 / x` | x = 0 |
+| `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
+| `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
+| `tan(x)*cot(x)` | `1` | `cot(x) * tan(x)` | multiples of π/2 |
+
+Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both modes.
+
+**Use Strict when the undefined points matter** — for example, when you look for where an
+expression is undefined, or before root finding. `FindRealRoots` simplifies in Strict mode
+internally, so `x^2/x` has no root at 0.
+
+Even Generic mode never folds a literal `0/0` and never changes a value that is defined:
+
+```csharp
+ExprParser.Parse("0/0").Simplify().Print();   // 0 / 0
+```
+
+## Cost
+
+`Simplify` repeats its rules until nothing changes. It is fast for everyday formulas but
+has no caching, so a sum of hundreds of terms can take a noticeable fraction of a second.
+In a hot loop, simplify once and [evaluate](evaluation.md) many times.
