@@ -21,6 +21,15 @@ public static class ExprParser
 
     private static readonly HashSet<string> TwoArgumentFunctions = ["min", "max", "log", "nthroot"];
 
+    // Parsing, Canonicalize, Evaluate, Print and ToLatex are recursive, and a
+    // StackOverflowException kills the process. Both limits are far beyond hand-written math,
+    // yet leave enough stack for those operations on a 1 MB thread stack (the default on
+    // Windows), so untrusted input can't crash the caller. Simplify and Differentiate build
+    // deeper trees than their input and aren't covered: on input near the limits they can
+    // still overflow a 1 MB stack.
+    private const int MaxNestingDepth = 256;
+    private const int MaxTreeDepth = 500;
+
     /// <summary>
     /// Parses <paramref name="input"/> into a canonicalized expression.
     /// </summary>
@@ -47,6 +56,9 @@ public static class ExprParser
     /// <exception cref="FormatException">
     /// The input is malformed: unbalanced parentheses, an unknown identifier, a wrong number of
     /// function arguments, a missing operator between numbers (<c>2 3</c>), an invalid number.
+    /// Also thrown when the input is nested more than 256 levels deep (parentheses, functions,
+    /// signs and powers) or its tree is more than 500 levels deep (such as a chain of more than
+    /// 500 terms), so that parsing untrusted input can't overflow the stack.
     /// </exception>
     public static Expr Parse(string input, params string[] variableNames)
     {
@@ -61,7 +73,33 @@ public static class ExprParser
         var parser = new Parser(tokens, knownVariables);
         Expr result = parser.ParseExpression();
         parser.ExpectEnd();
+
+        // Long chains such as "x - x - ... - x" are built by loops, not recursion, so the
+        // nesting limit doesn't see them - check the finished tree before recursing into it.
+        if (ExceedsDepth(result, MaxTreeDepth))
+            throw new FormatException(
+                $"Expression is too deep (at most {MaxTreeDepth} levels); split it into smaller parts.");
+
         return result.Canonicalize();
+    }
+
+    // Iterative on purpose: a recursive walk would overflow on exactly the trees it rejects.
+    private static bool ExceedsDepth(Expr root, int maxDepth)
+    {
+        var pending = new Stack<(Expr Node, int Depth)>();
+        pending.Push((root, 1));
+
+        while (pending.Count > 0)
+        {
+            var (node, depth) = pending.Pop();
+            if (depth > maxDepth)
+                return true;
+
+            foreach (Expr child in node.Children)
+                pending.Push((child, depth + 1));
+        }
+
+        return false;
     }
 
     private static List<string> Tokenize(string input, string[] sortedVariables)
@@ -291,15 +329,33 @@ public static class ExprParser
             return baseExpr;
         }
 
+        // Current recursion depth of ParseUnary. Every recursive path - parentheses, |x|,
+        // function arguments, unary minus and exponents - passes through ParseUnary.
+        // The top-level call isn't a nesting level, so "x" inside 256 parentheses still parses.
+        private int _depth = 0;
+
         // unary := '-' unary | primary
         private Expr ParseUnary()
         {
-            if (Current == "-")
+            if (_depth > MaxNestingDepth)
+                throw new FormatException(
+                    $"Expression is nested too deeply (at most {MaxNestingDepth} levels of " +
+                    "parentheses, functions, signs and powers).");
+
+            _depth++;
+            try
             {
-                Consume();
-                return new Negate(ParseUnary());
+                if (Current == "-")
+                {
+                    Consume();
+                    return new Negate(ParseUnary());
+                }
+                return ParsePower();
             }
-            return ParsePower();
+            finally
+            {
+                _depth--;
+            }
         }
 
         // primary := NUMBER | VARIABLE | 'pi' | 'e' | 'i' | FUNCTION '(' args ')'

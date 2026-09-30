@@ -11,6 +11,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `ToLatex` wrote `floor` and `ceiling` without a space after the bracket command
   (`\left\lfloorx\right\rfloor`), which LaTeX read as an unknown command.
+- `Parse` overflowed the stack on deeply nested input — a few hundred parentheses were
+  enough to terminate the process. It now throws `FormatException` for input nested more
+  than 256 levels deep or with a tree more than 500 levels deep (such as a chain of more
+  than 500 terms). `Simplify` and `Differentiate` on input near these limits can still
+  overflow a 1 MB stack; see [limitations](docs/limitations.md#robustness-and-performance).
 
 ## [1.0.0] — 2026-09-29
 

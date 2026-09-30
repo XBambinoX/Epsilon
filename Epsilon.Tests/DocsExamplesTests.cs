@@ -311,6 +311,20 @@ public class ParsingDocTests
     }
 
     [Fact]
+    public void Errors_for_too_deep_input()
+    {
+        var nested = Assert.Throws<FormatException>(() =>
+            ExprParser.Parse(new string('(', 257) + "x" + new string(')', 257)));
+        Assert.Equal(
+            "Expression is nested too deeply (at most 256 levels of parentheses, functions, signs and powers).",
+            nested.Message);
+
+        var chain = Assert.Throws<FormatException>(() =>
+            ExprParser.Parse(string.Join(" + ", Enumerable.Repeat("x", 501))));
+        Assert.Equal("Expression is too deep (at most 500 levels); split it into smaller parts.", chain.Message);
+    }
+
+    [Fact]
     public void Round_trip()
     {
         Expr e = ExprParser.Parse("x^(1/2) + (-2)^x - sin(x)/3");

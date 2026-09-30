@@ -2594,6 +2594,81 @@ public class StrictParserTests
     }
 }
 
+public class NestingLimitTests
+{
+    private static string Repeat(string text, int count) => string.Concat(Enumerable.Repeat(text, count));
+
+    private static string Chain(string op, int terms) => string.Join($" {op} ", Enumerable.Repeat("x", terms));
+
+    // 1 MB is the default thread stack on Windows, so the limits must hold on it. Running the
+    // check on its own thread also means an overflow is reported for this test, not as a
+    // crash of the whole test run.
+    private static void RunOnSmallStack(Action action)
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { error = ex; }
+        }, maxStackSize: 1024 * 1024);
+
+        thread.Start();
+        thread.Join();
+
+        if (error is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(error);
+    }
+
+    public static TheoryData<string> InputsAtTheLimit => new()
+    {
+        Repeat("(", 256) + "x" + Repeat(")", 256),
+        Repeat("sin(", 256) + "x" + Repeat(")", 256),
+        Repeat("x / (", 256) + "x" + Repeat(")", 256),
+        Repeat("-", 256) + "x",
+        Chain("^", 257),
+        Chain("-", 500),
+        Chain("/", 500),
+    };
+
+    public static TheoryData<string> InputsOverTheLimit => new()
+    {
+        Repeat("(", 257) + "x" + Repeat(")", 257),
+        Repeat("sin(", 257) + "x" + Repeat(")", 257),
+        Repeat("-", 257) + "x",
+        Chain("^", 258),
+        Chain("-", 501),
+        Chain("*", 501),
+        "sin(" + Chain("+", 500) + ")",
+        Repeat("(", 100_000) + "x" + Repeat(")", 100_000),
+    };
+
+    [Theory]
+    [MemberData(nameof(InputsAtTheLimit))]
+    public void Input_at_the_limit_is_parsed_evaluated_and_printed_on_a_small_stack(string input)
+    {
+        RunOnSmallStack(() =>
+        {
+            Expr expr = ExprParser.Parse(input);
+
+            expr.Evaluate(0.5);
+            expr.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = new ComplexNumber(0.5) });
+            Assert.Equal(expr, ExprParser.Parse(expr.Print()));
+            expr.ToLatex();
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(InputsOverTheLimit))]
+    public void Input_over_the_limit_is_rejected_instead_of_overflowing_the_stack(string input)
+    {
+        RunOnSmallStack(() =>
+        {
+            var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+            Assert.Contains("too deep", ex.Message);
+        });
+    }
+}
+
 public class ComplexNumberFormattingTests
 {
     [Theory]
