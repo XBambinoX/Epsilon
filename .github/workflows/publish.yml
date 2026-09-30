@@ -1,12 +1,14 @@
 name: Publish
 
-# Pushing a tag such as v1.0.0 publishes that version of the Epsilon package to nuget.org.
+# Pushing a tag such as core-v1.0.1 publishes that version of the Epsilon package to nuget.org.
+# Every package gets its own tag prefix (core-v*, later calculus-v* and so on); v1.0.0 is
+# the only release tagged before this scheme.
 # Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
 # GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
 # this repository and workflow file.
 on:
   push:
-    tags: ["v*"]
+    tags: ["core-v*"]
 
 permissions:
   contents: read
@@ -26,8 +28,8 @@ jobs:
       - run: dotnet build Epsilon.slnx -c Release --no-restore
       - run: dotnet test Epsilon.slnx -c Release --no-build
 
-      # The version comes from the tag (v1.0.0 -> 1.0.0), so the csproj can't get out of sync.
-      - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#v}
+      # The version comes from the tag (core-v1.0.1 -> 1.0.1), so the csproj can't get out of sync.
+      - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#core-v}
 
       - uses: NuGet/login@v1
         id: nuget-login

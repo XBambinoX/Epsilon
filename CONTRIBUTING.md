@@ -240,8 +240,10 @@ builds, tests and packs it.
 
 ## Releases
 
-Releases are made by pushing a tag `vX.Y.Z` to `main`; the `publish` workflow builds the
-package and publishes it to NuGet. The version follows [Semantic Versioning](https://semver.org/).
+Releases are made by pushing a tag `core-vX.Y.Z` to `main`; the `publish` workflow builds the
+`Epsilon` package and publishes it to NuGet. Every package has its own tag prefix, so the
+modules built on the core can be released independently. The version follows
+[Semantic Versioning](https://semver.org/).
 
 ## License
 
