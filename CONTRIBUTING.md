@@ -30,7 +30,16 @@ dotnet test
 |---|---|
 | `Epsilon.Core` | The library published as the `Epsilon` package |
 | `Epsilon.Tests` | xUnit tests |
+| `Epsilon.Benchmarks` | BenchmarkDotNet benchmarks for parsing, simplification, differentiation and evaluation |
 | `Epsilon.Calculus`, `Epsilon.LinearAlgebra` | Experimental modules, not packaged yet |
+
+For a change that may affect speed, compare the benchmarks before and after it. They only
+give meaningful numbers in Release:
+
+```bash
+dotnet run -c Release --project Epsilon.Benchmarks -- --filter '*'
+dotnet run -c Release --project Epsilon.Benchmarks -- --filter '*LargeSum*'
+```
 
 ## Workflow: fork, branch, pull request
 
