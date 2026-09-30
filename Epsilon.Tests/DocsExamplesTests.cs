@@ -124,12 +124,6 @@ public class LimitationsDocAdditionsTests
     }
 
     [Fact]
-    public void Latex_floor_without_space()
-    {
-        Assert.Equal(@"\left\lfloorx\right\rfloor", ExprParser.Parse("floor(x)").ToLatex());
-    }
-
-    [Fact]
     public void Variable_names_are_letters_only()
     {
         Assert.Throws<FormatException>(() => ExprParser.Parse("v0 + 1", "v0"));

@@ -1760,6 +1760,14 @@ public class PrintRoundTripTests
         Assert.Equal("\\left(\\frac{1}{2}\\right)^{x}", new Power(C(1, 2), X).ToLatex());
         Assert.Equal("x^{\\frac{1}{2}}", new Power(X, C(1, 2)).ToLatex());
     }
+
+    [Fact]
+    public void Latex_separates_floor_and_ceiling_commands_from_the_argument()
+    {
+        Assert.Equal(@"\left\lfloor x\right\rfloor", ExprParser.Parse("floor(x)").ToLatex());
+        Assert.Equal(@"\left\lceil x\right\rceil", ExprParser.Parse("ceiling(x)").ToLatex());
+        Assert.Equal(@"\left\lfloor 2x\right\rfloor", ExprParser.Parse("floor(2x)").ToLatex());
+    }
 }
 
 public class AssumptionsTests

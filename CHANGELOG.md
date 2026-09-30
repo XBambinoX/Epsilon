@@ -5,6 +5,13 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `ToLatex` wrote `floor` and `ceiling` without a space after the bracket command
+  (`\left\lfloorx\right\rfloor`), which LaTeX read as an unknown command.
+
 ## [1.0.0] — 2026-09-29
 
 First public release of the core library, published on NuGet as `Epsilon` (namespace

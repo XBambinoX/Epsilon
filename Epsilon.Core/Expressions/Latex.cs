@@ -83,8 +83,8 @@ public static class LatexPrinter
 
             Abs(var a) => $"\\left|{LatexInternal(a, 0)}\\right|",
             Sign(var a) => $"\\operatorname{{sgn}}\\left({LatexInternal(a, 0)}\\right)",
-            Floor(var a) => $"\\left\\lfloor{LatexInternal(a, 0)}\\right\\rfloor",
-            Ceiling(var a) => $"\\left\\lceil{LatexInternal(a, 0)}\\right\\rceil",
+            Floor(var a) => $"\\left\\lfloor {LatexInternal(a, 0)}\\right\\rfloor",
+            Ceiling(var a) => $"\\left\\lceil {LatexInternal(a, 0)}\\right\\rceil",
             Round(var a) => $"\\operatorname{{round}}\\left({LatexInternal(a, 0)}\\right)",
 
             Min(var l, var r) =>

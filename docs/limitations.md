@@ -88,12 +88,6 @@ the [roadmap](../README.md#roadmap)).
 ## Parsing and output
 
 - Variable names consist of letters only: `v0`, `x_1` or `x'` can't be declared.
-- **⚠** `ToLatex` writes `floor` and `ceiling` without a space after the bracket command,
-  which LaTeX reads as an unknown command:
-
-```csharp
-ExprParser.Parse("floor(x)").ToLatex();   // \left\lfloorx\right\rfloor
-```
 
 ## Differentiation
 
