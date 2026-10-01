@@ -87,7 +87,7 @@ The immutable expression tree that everything else works on. Guide: [Expressions
 | Member | Description |
 |---|---|
 | `bool Equals(Expr other)` | Structural equality: same node types, values and children in the same order. |
-| `int GetHashCode()` | Consistent with `Equals`. |
+| `int GetHashCode()` | Consistent with `Equals`. Computed once per node and kept. |
 | `string ToString()` | The tree with every operation parenthesized, for debugging. Use `Print` for display. |
 
 **For custom node types** (protected) — see [Custom node types](expressions.md#custom-node-types)
@@ -97,7 +97,7 @@ The immutable expression tree that everything else works on. Guide: [Expressions
 | `abstract Expr DifferentiateCore(string variable)` | The node's own derivative, unsimplified. Called only when the node depends on the variable. |
 | `static Expr DerivativeOf(Expr child, string variable)` | The unsimplified derivative of a child, for use in `DifferentiateCore`. |
 | `virtual bool PayloadEquals(Expr other)` | Compares data stored besides the children, such as `Constant.Value`. |
-| `virtual int PayloadHashCode()` | Hash of that data. |
+| `virtual int PayloadHashCode()` | Hash of that data, which must not change after the node is built: the hash is kept. |
 | `virtual int ComparePayload(Expr other)` | Orders that data, for the canonical order. |
 | `static ImmutableArray<Expr> NoChildren` | The `Children` of a leaf. |
 | `Expr WithNoChildren(IReadOnlyList<Expr> children)` | `WithChildren` for a leaf. |

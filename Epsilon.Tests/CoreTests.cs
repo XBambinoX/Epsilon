@@ -3047,6 +3047,52 @@ public class SimplifyCacheTests
     }
 }
 
+public class CachedHashTests
+{
+    // A leaf that counts how often its hash is actually computed.
+    private sealed class CountingLeaf : Expr
+    {
+        public int HashComputations { get; private set; }
+
+        public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => 0;
+        protected override Expr DifferentiateCore(string variable) => new Constant(0);
+        public override System.Collections.Immutable.ImmutableArray<Expr> Children => NoChildren;
+        public override Expr WithChildren(IReadOnlyList<Expr> children) => WithNoChildren(children);
+
+        protected override int PayloadHashCode()
+        {
+            HashComputations++;
+            return 42;
+        }
+    }
+
+    [Fact]
+    public void Hash_of_a_subtree_is_computed_only_once()
+    {
+        var leaf = new CountingLeaf();
+        Expr sum = new Add(new Sin(leaf), new Variable("x"));
+
+        sum.GetHashCode();
+        sum.GetHashCode();
+        new Multiply(sum, new Constant(2)).GetHashCode(); // reuses the hash kept in `sum`
+
+        Assert.Equal(1, leaf.HashComputations);
+    }
+
+    [Fact]
+    public void Equal_trees_have_equal_hashes_whichever_was_hashed_first()
+    {
+        Expr a = ExprParser.Parse("x^2 + sin(2x) - 3/4");
+        Expr b = ExprParser.Parse("x^2 + sin(2x) - 3/4");
+
+        // Hash a subtree of one tree first, so the two are hashed in a different order.
+        ((Subtract)a).Left.GetHashCode();
+
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.Equal(a, b);
+    }
+}
+
 public class PrintStyleTests
 {
     [Theory]

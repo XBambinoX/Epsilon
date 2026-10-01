@@ -305,9 +305,15 @@ public abstract class Expr : IEquatable<Expr>
     public bool Equals(Expr? other) => other is not null && StructurallyEquals(this, other);
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is Expr other && Equals(other);
+    private int _hashCode;
 
     /// <inheritdoc/>
-    public override int GetHashCode() => StructuralHash(this);
+    public override int GetHashCode()
+    {
+        if (_hashCode == 0)
+            _hashCode = StructuralHash(this) is int hash and not 0 ? hash : 1;
+        return _hashCode;
+    }
 
     private static bool StructurallyEquals(Expr a, Expr b)
     {
