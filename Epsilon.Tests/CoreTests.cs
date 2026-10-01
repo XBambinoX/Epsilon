@@ -496,6 +496,40 @@ public class CanonicalizationTests
         Assert.Equal(once, twice);
     }
 
+    // Simplify canonicalizes at every level; reusing the nodes keeps their kept hashes and
+    // their Simplify cache entries valid instead of building the same tree again.
+    [Theory]
+    [InlineData("x + 3 + y")]
+    [InlineData("3x^2 * sin(x) + exp(-x/2) * cos(2x) - sqrt(x^2 + 1) / (1 + x)")]
+    [InlineData("2 * y * x * 3 + x * x")]
+    public void Canonical_tree_comes_back_as_the_same_instance(string input)
+    {
+        Expr canonical = ExprParser.Parse(input, "x", "y").Canonicalize();
+
+        Assert.Same(canonical, canonical.Canonicalize());
+    }
+
+    [Fact]
+    public void Only_the_nodes_above_a_changed_term_are_rebuilt()
+    {
+        Expr x = new Variable("x"), y = new Variable("y");
+        Expr prefix = (2 * x + 3 * x).Canonicalize();
+
+        // y * 5 becomes 5 * y and stays last, so the sum before it is unchanged.
+        var result = (Add)new Add(prefix, y * 5).Canonicalize();
+
+        Assert.Same(prefix, result.Left);
+        Assert.Equal(5 * y, result.Right);
+    }
+
+    [Fact]
+    public void Right_nested_sum_is_rebuilt_left_associative()
+    {
+        Expr x = new Variable("x"), y = new Variable("y"), z = new Variable("z");
+
+        Assert.Equal(x + y + z, new Add(x, new Add(y, z)).Canonicalize());
+    }
+
     [Fact]
     public void Subtract_operands_are_not_reordered()
     {

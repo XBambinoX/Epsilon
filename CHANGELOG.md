@@ -15,6 +15,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Expr.GetHashCode` is computed once per node and kept, which makes `Simplify` and
   `Differentiate` faster still. A custom node must therefore not change its payload (the
   data behind `PayloadEquals` and `PayloadHashCode`) after it is built.
+- `Canonicalize` returns the same instance for a tree that is already canonical and reuses
+  the unchanged parts of any other tree, instead of rebuilding every sum and product.
 
 ### Fixed
 

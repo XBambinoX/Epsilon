@@ -6,12 +6,13 @@ public static class Canonicalizer
     /// <summary>
     /// Flattens and sorts sums and products into a fixed order (<c>1 + x</c> and <c>x + 1</c> become
     /// the same tree) without otherwise simplifying. <see cref="Simplifier.Simplify(Expr, SimplifyMode)"/>
-    /// already returns canonical expressions.
+    /// already returns canonical expressions. A tree that is already canonical is returned as the
+    /// same instance; otherwise the parts that don't change are reused.
     /// </summary>
     public static Expr Canonicalize(this Expr expr) => expr switch
     {
-        Add(var l, var r) => CanonicalizeAddChain(l, r),
-        Multiply(var l, var r) => CanonicalizeMultiplyChain(l, r),
+        Add add => CanonicalizeAddChain(add),
+        Multiply multiply => CanonicalizeMultiplyChain(multiply),
 
         // Every other node type: recurse into children via the shared walker,
         // reusing Canonicalize itself so nested Add/Multiply chains still get
@@ -21,22 +22,21 @@ public static class Canonicalizer
 
     // ---- Add: flatten -> canonicalize each term in place -> sort globally -> rebuild ----
 
-    private static Expr CanonicalizeAddChain(Expr left, Expr right)
+    private static Expr CanonicalizeAddChain(Add add)
     {
         var terms = new List<Expr>();
-        FlattenAdd(left, terms);
-        FlattenAdd(right, terms);
+        FlattenAdd(add, terms);
 
         for (int i = 0; i < terms.Count; i++)
             terms[i] = terms[i].Canonicalize();
 
-        terms.Sort((a, b) =>
+        SortIfNeeded(terms, static (a, b) =>
         {
             int rankCompare = AddRank(a).CompareTo(AddRank(b));
             return rankCompare != 0 ? rankCompare : StructuralCompare(a, b);
         });
 
-        return RebuildLeftAssociative(terms, static (a, b) => new Add(a, b));
+        return RebuildLeftAssociative(terms, add, static (a, b) => new Add(a, b));
     }
 
     private static void FlattenAdd(Expr expr, List<Expr> terms)
@@ -54,22 +54,21 @@ public static class Canonicalizer
 
     // ---- Multiply: same idea ----
 
-    private static Expr CanonicalizeMultiplyChain(Expr left, Expr right)
+    private static Expr CanonicalizeMultiplyChain(Multiply multiply)
     {
         var factors = new List<Expr>();
-        FlattenMultiply(left, factors);
-        FlattenMultiply(right, factors);
+        FlattenMultiply(multiply, factors);
 
         for (int i = 0; i < factors.Count; i++)
             factors[i] = factors[i].Canonicalize();
 
-        factors.Sort((a, b) =>
+        SortIfNeeded(factors, static (a, b) =>
         {
             int rankCompare = MultiplyRank(a).CompareTo(MultiplyRank(b));
             return rankCompare != 0 ? rankCompare : StructuralCompare(a, b);
         });
 
-        return RebuildLeftAssociative(factors, static (a, b) => new Multiply(a, b));
+        return RebuildLeftAssociative(factors, multiply, static (a, b) => new Multiply(a, b));
     }
 
     private static void FlattenMultiply(Expr expr, List<Expr> factors)
@@ -85,11 +84,39 @@ public static class Canonicalizer
         }
     }
 
-    private static Expr RebuildLeftAssociative(List<Expr> items, Func<Expr, Expr, Expr> build)
+    // Usually the items already are in order (Simplify canonicalizes trees that are canonical
+    // but for one changed term), and checking that is linear. Skipping the sort also keeps
+    // equal items where they were, which an unstable sort may swap.
+    private static void SortIfNeeded(List<Expr> items, Comparison<Expr> comparison)
     {
+        for (int i = 1; i < items.Count; i++)
+        {
+            if (comparison(items[i - 1], items[i]) > 0)
+            {
+                items.Sort(comparison);
+                return;
+            }
+        }
+    }
+
+    private static Expr RebuildLeftAssociative(List<Expr> items, Expr original, Func<Expr, Expr, Expr> build)
+    {
+        var spine = new List<Expr>();
+        for (Expr node = original; node.GetType() == original.GetType(); node = node.Children[0])
+            spine.Add(node);
+        spine.Reverse();
+
         Expr result = items[0];
         for (int i = 1; i < items.Count; i++)
-            result = build(result, items[i]);
+        {
+            Expr? existing = i - 1 < spine.Count ? spine[i - 1] : null;
+            result = existing is not null &&
+                     ReferenceEquals(existing.Children[0], result) &&
+                     ReferenceEquals(existing.Children[1], items[i])
+                ? existing
+                : build(result, items[i]);
+        }
+
         return result;
     }
 

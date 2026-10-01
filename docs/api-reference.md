@@ -137,7 +137,7 @@ Base for nodes with one argument: `Negate` and the one-argument functions.
 
 | Member | Description |
 |---|---|
-| `Expr Canonicalize(this Expr expr)` | Flattens and sorts sums and products into a fixed order, without simplifying. |
+| `Expr Canonicalize(this Expr expr)` | Flattens and sorts sums and products into a fixed order, without simplifying. Returns the same instance if the tree is already canonical. |
 
 Guide: [Simplification](simplification.md).
 
