@@ -189,10 +189,10 @@ For polynomials, `TryFactorComplex` gives exact roots with their multiplicity.
   checked — they can still throw `StackOverflowException`, which terminates the process and
   can't be caught. If you simplify or differentiate **untrusted input**, keep it well below
   the limits or run on a thread with a larger stack.
-- **Large expressions are slow to simplify.** The cost of `Simplify` grows faster than the
-  size of a sum: 300 like terms take about 30 ms, 300 distinct terms (nothing combines)
-  about 250 ms. `Evaluate` is fast (about 90 ns for a 25-node expression), so for hot
-  loops simplify once and evaluate many times.
+- **`Simplify` time grows with the square of the size of a sum.** Three times as many
+  terms take about ten times as long: 300 like terms take about 10 ms, 300 distinct terms
+  (nothing combines) about 100 ms. `Evaluate` is fast (about 100 ns for a 25-node
+  expression), so for hot loops simplify once and evaluate many times.
 
 ## Not in the package
 

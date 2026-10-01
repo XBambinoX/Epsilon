@@ -5,7 +5,7 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.1] — 2026-10-01
 
 ### Added
 
@@ -13,14 +13,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- `Simplify` reuses the results for subexpressions it has already simplified within one
-  call. A sum of 300 distinct terms (`1x + 2x^2 + ...`) now takes about 0.25 s instead of
-  6 s, and `Differentiate` about 40% less time; results are unchanged.
-- `Expr.GetHashCode` is computed once per node and kept, which makes `Simplify` and
-  `Differentiate` faster still. A custom node must therefore not change its payload (the
-  data behind `PayloadEquals` and `PayloadHashCode`) after it is built.
+- **Faster `Simplify` and `Differentiate`; results are unchanged.** `Simplify` reuses the
+  results for subexpressions it has already simplified within one call, every expression
+  computes its hash only once, and `Canonicalize` keeps the parts of a tree that don't
+  change instead of rebuilding them. A sum of 300 distinct terms (`1x + 2x^2 + ...`) now
+  simplifies in about 0.1 s instead of 5.5 s and allocates 126 MB instead of 5 GB; a second
+  derivative takes a third of the time.
+- `Expr.GetHashCode` is computed once per node and kept, so a custom node must not change
+  its payload (the data behind `PayloadEquals` and `PayloadHashCode`) after it is built.
 - `Canonicalize` returns the same instance for a tree that is already canonical and reuses
-  the unchanged parts of any other tree, instead of rebuilding every sum and product.
+  the unchanged parts of any other tree.
 
 ### Fixed
 
@@ -75,4 +77,5 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
+[1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/v1.0.0
