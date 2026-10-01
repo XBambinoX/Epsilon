@@ -7,6 +7,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Package icon.
+
 ### Changed
 
 - `Simplify` reuses the results for subexpressions it has already simplified within one
