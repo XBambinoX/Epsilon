@@ -7,6 +7,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `Simplify` reuses the results for subexpressions it has already simplified within one
+  call. A sum of 300 distinct terms (`1x + 2x^2 + ...`) now takes about 0.25 s instead of
+  6 s, and `Differentiate` about 40% less time; results are unchanged.
+
 ### Fixed
 
 - `ToLatex` wrote `floor` and `ceiling` without a space after the bracket command

@@ -2989,6 +2989,64 @@ public class SimplifyFixpointTests
     }
 }
 
+public class SimplifyCacheTests
+{
+    private static string Sum(int terms, Func<int, string> term) =>
+        string.Join(" + ", Enumerable.Range(1, terms).Select(term));
+
+    // The cache answers a simplified expression with itself, which is only right if
+    // simplifying it again really changes nothing.
+    [Theory]
+    [InlineData("sin(x)^2 + cos(x)^2 + 2x * 3x - x/x + (x^2 * y) / (x * y) + 2^3 * x", false)]
+    [InlineData("x^3 * sin(x) / (1 + x^2) + x^3 * sin(x) / (1 + x^2)", false)]
+    [InlineData("(x^2 * y) / (x * y) * (x^2 * y) / (x * y)", true)]
+    [InlineData("sqrt(x^2) + x^(1/2) * x^(1/2) + (x^3)^(1/3)", true)]
+    [InlineData("exp(ln(x)) - x * x^-1 + tan(x) * cot(x)", false)]
+    public void Simplified_result_simplifies_to_itself(string input, bool strict)
+    {
+        SimplifyMode mode = strict ? SimplifyMode.Strict : SimplifyMode.Generic;
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        foreach (Assumptions assumptions in new[] { Assumptions.None, Assumptions.None.AssumePositive("x") })
+        {
+            Expr once = expr.Simplify(assumptions, mode);
+            Assert.Equal(once, once.Simplify(assumptions, mode));
+        }
+    }
+
+    [Fact]
+    public void Large_sum_of_distinct_terms_is_kept_in_full()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x^{k}"));
+
+        string expected = string.Join(" + ",
+            Enumerable.Range(1, 300).Reverse().Select(k => k == 1 ? "x" : $"{k}x^{k}"));
+        Assert.Equal(expected, sum.Simplify().Print());
+    }
+
+    [Fact]
+    public void Large_sum_of_like_terms_combines()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x"));
+
+        Assert.Equal("45150x", sum.Simplify().Print());
+    }
+
+    // Allocations instead of time, so the check doesn't depend on the machine. Without the
+    // cache this sum allocated about 4.8 GB, re-simplifying every shorter sum inside it.
+    [Fact]
+    public void Large_sum_does_not_resimplify_its_parts()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x^{k}"));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        sum.Simplify();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 500_000_000, $"Simplify allocated {allocated / 1_000_000} MB");
+    }
+}
+
 public class PrintStyleTests
 {
     [Theory]

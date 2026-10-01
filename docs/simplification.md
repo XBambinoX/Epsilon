@@ -110,6 +110,7 @@ ExprParser.Parse("0/0").Simplify().Print();   // 0 / 0
 
 ## Cost
 
-`Simplify` repeats its rules until nothing changes. It is fast for everyday formulas but
-has no caching, so a sum of hundreds of terms can take a noticeable fraction of a second.
+`Simplify` repeats its rules until nothing changes. It is fast for everyday formulas, but
+its cost grows faster than the size of the expression, so a sum of hundreds of terms can
+take a noticeable fraction of a second.
 In a hot loop, simplify once and [evaluate](evaluation.md) many times.

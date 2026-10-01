@@ -25,9 +25,20 @@ public static class Simplifier
     /// <param name="assumptions">What is known about the variables.</param>
     /// <param name="mode">See <see cref="Simplify(Expr, SimplifyMode)"/>.</param>
     /// <returns>An equivalent expression in canonical form.</returns>
-    public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic)
+    public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic) =>
+        SimplifyCached(expr, assumptions, mode, new Dictionary<Expr, Expr>());
+
+    // One call simplifies the same subtrees over and over: every fixpoint step re-simplifies
+    // all children
+    private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
-        return IterateToFixpoint(expr.Canonicalize(), e => SimplifyOnce(e, assumptions, mode));
+        if (cache.TryGetValue(expr, out Expr? cached))
+            return cached;
+
+        Expr result = IterateToFixpoint(expr.Canonicalize(), e => SimplifyOnce(e, assumptions, mode, cache));
+        cache[expr] = result;
+        cache.TryAdd(result, result);
+        return result;
     }
 
     private const int MaxSimplifyIterations = 100;
@@ -87,10 +98,10 @@ public static class Simplifier
         return count;
     }
 
-    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
-        Expr simplifiedChildren = expr.MapChildren(child => child.Simplify(assumptions, mode));
-        return ApplyRules(simplifiedChildren, assumptions, mode).Canonicalize();
+        Expr simplifiedChildren = expr.MapChildren(child => SimplifyCached(child, assumptions, mode, cache));
+        return ApplyRules(simplifiedChildren, assumptions, mode, cache).Canonicalize();
     }
 
     // Domain guards. A rewrite that only enlarges the domain (x/x -> 1 gains x = 0) is
@@ -111,7 +122,7 @@ public static class Simplifier
             ? !expr.IsProvablyNonPositive(assumptions)
             : expr.IsProvablyPositive(assumptions);
 
-    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode)
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
         Expr flattened = FlattenAndCombine(expr);
         if (!flattened.Equals(expr))
@@ -160,7 +171,7 @@ public static class Simplifier
                 return new Constant(0);
 
             case Divide(var numerator, var denominator)
-                when TryCancelCommonFactors(numerator, denominator, assumptions, mode, out Expr? cancelled):
+                when TryCancelCommonFactors(numerator, denominator, assumptions, mode, cache, out Expr? cancelled):
                 return cancelled!;
 
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
@@ -817,7 +828,8 @@ public static class Simplifier
         return result ?? new Constant(coefficient); // everything cancelled — pure coefficient (often 1)
     }
 
-    private static bool TryCancelCommonFactors(Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, out Expr? result)
+    private static bool TryCancelCommonFactors(
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
     {
         result = null;
 
@@ -846,9 +858,9 @@ public static class Simplifier
         Expr newNumerator = BuildProduct(numCoefficient, numFactors);
         Expr newDenominator = BuildProduct(denCoefficient, denFactors);
 
-        result = IsConstantOne(newDenominator)
-            ? newNumerator.Simplify(assumptions, mode)
-            : new Divide(newNumerator, newDenominator).Simplify(assumptions, mode);
+        result = SimplifyCached(
+            IsConstantOne(newDenominator) ? newNumerator : new Divide(newNumerator, newDenominator),
+            assumptions, mode, cache);
 
         return true;
     }
