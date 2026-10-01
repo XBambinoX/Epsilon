@@ -5,6 +5,35 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-10-01
+
+### Added
+
+- Package icon.
+
+### Changed
+
+- **Faster `Simplify` and `Differentiate`; results are unchanged.** `Simplify` reuses the
+  results for subexpressions it has already simplified within one call, every expression
+  computes its hash only once, and `Canonicalize` keeps the parts of a tree that don't
+  change instead of rebuilding them. A sum of 300 distinct terms (`1x + 2x^2 + ...`) now
+  simplifies in about 0.1 s instead of 5.5 s and allocates 126 MB instead of 5 GB; a second
+  derivative takes a third of the time.
+- `Expr.GetHashCode` is computed once per node and kept, so a custom node must not change
+  its payload (the data behind `PayloadEquals` and `PayloadHashCode`) after it is built.
+- `Canonicalize` returns the same instance for a tree that is already canonical and reuses
+  the unchanged parts of any other tree.
+
+### Fixed
+
+- `ToLatex` wrote `floor` and `ceiling` without a space after the bracket command
+  (`\left\lfloorx\right\rfloor`), which LaTeX read as an unknown command.
+- `Parse` overflowed the stack on deeply nested input — a few hundred parentheses were
+  enough to terminate the process. It now throws `FormatException` for input nested more
+  than 256 levels deep or with a tree more than 500 levels deep (such as a chain of more
+  than 500 terms). `Simplify` and `Differentiate` on input near these limits can still
+  overflow a 1 MB stack; see [limitations](docs/limitations.md#robustness-and-performance).
+
 ## [1.0.0] — 2026-09-29
 
 First public release of the core library, published on NuGet as `Epsilon` (namespace
@@ -48,4 +77,5 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
+[1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/v1.0.0

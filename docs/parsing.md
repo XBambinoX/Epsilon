@@ -110,6 +110,8 @@ Invalid input throws `FormatException` with a message saying what is wrong:
 | `sinx` | Expected '(' after function name 'sin'. |
 | `sin(x, y)` | Function 'sin' takes exactly 1 argument. |
 | `min(x)` | min requires exactly 2 arguments: min(a, b). |
+| 257 nested `(` | Expression is nested too deeply (at most 256 levels of parentheses, functions, signs and powers). |
+| `x + x + ...` with 501 terms | Expression is too deep (at most 500 levels); split it into smaller parts. |
 
 ## Round trip
 
@@ -122,6 +124,13 @@ ExprParser.Parse(e.Print()).Equals(e);   // true
 
 ## Untrusted input
 
-The parser is recursive. Very deeply nested input — a few hundred parentheses on a 1 MB
-stack — overflows the stack and terminates the process. Limit the length or nesting of
-untrusted input before parsing it; see [limitations](limitations.md#robustness-and-performance).
+`Parse` rejects input that is too deep with a `FormatException` instead of overflowing the
+stack:
+
+- more than 256 levels of nesting — parentheses, functions, signs and powers
+  (`((((x))))`, `sin(sin(x))`, `--x`, `x^x^x`);
+- a tree more than 500 levels deep, such as a chain of more than 500 terms (`x + x + ... + x`).
+
+Anything `Parse` accepts can be evaluated and printed even on a 1 MB stack. `Simplify` and
+`Differentiate` on input near these limits can still overflow it; see
+[limitations](limitations.md#robustness-and-performance).

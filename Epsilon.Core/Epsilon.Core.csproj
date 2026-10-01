@@ -22,6 +22,8 @@
     <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- Source: assets/icon.svg. -->
+    <PackageIcon>icon.png</PackageIcon>
 
     <!-- Symbols (.snupkg) and Source Link, so users can step into the library's source. -->
     <IncludeSymbols>true</IncludeSymbols>
@@ -33,6 +35,7 @@
 
   <ItemGroup>
     <None Include="..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

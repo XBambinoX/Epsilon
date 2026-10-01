@@ -156,4 +156,6 @@ s.Differentiate("x").Print();         // 2 * (-sigmoid(2x) + 1) * sigmoid(2x)
 `Print` and `ToLatex` fall back to `ToString` for unknown nodes, and the parser doesn't know
 them. Override `EvaluateComplex` if the function has a complex extension; otherwise it
 throws `NotSupportedException`. A node that stores data besides its children (like
-`Constant.Value`) overrides `PayloadEquals`, `PayloadHashCode` and `ComparePayload`.
+`Constant.Value`) overrides `PayloadEquals`, `PayloadHashCode` and `ComparePayload`. That
+data must not change after the node is built: a node is immutable like the rest of the
+tree, and its hash is computed once and kept.

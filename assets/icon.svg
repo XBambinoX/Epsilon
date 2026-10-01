@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Source of the NuGet package icon. After a change, regenerate the PNG the package uses:
+       rsvg-convert -w 128 -h 128 assets/icon.svg -o assets/icon.png -->
+  <rect width="128" height="128" rx="24" fill="#4F46E5"/>
+  <!-- ε as two arcs open to the right, meeting at the waist: upper bowl r=16 centred (67, 44),
+       lower bowl r=20 centred (67, 80), each sweeping 225 degrees counterclockwise. -->
+  <path d="M 78.31 32.69 A 16 16 0 1 0 67 60 A 20 20 0 1 0 81.14 94.14" fill="none" stroke="#FFFFFF" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

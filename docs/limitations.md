@@ -88,12 +88,6 @@ the [roadmap](../README.md#roadmap)).
 ## Parsing and output
 
 - Variable names consist of letters only: `v0`, `x_1` or `x'` can't be declared.
-- **⚠** `ToLatex` writes `floor` and `ceiling` without a space after the bracket command,
-  which LaTeX reads as an unknown command:
-
-```csharp
-ExprParser.Parse("floor(x)").ToLatex();   // \left\lfloorx\right\rfloor
-```
 
 ## Differentiation
 
@@ -187,14 +181,18 @@ For polynomials, `TryFactorComplex` gives exact roots with their multiplicity.
 
 ## Robustness and performance
 
-- **⚠ Deep nesting can overflow the stack.** Parsing, simplifying, differentiating and
-  evaluating are recursive. On a 1 MB stack (the default for threads on Windows) a few
-  hundred nested parentheses in `Parse` are enough for a `StackOverflowException`, which
-  terminates the process and can't be caught. If you parse **untrusted input**, limit its
-  length or nesting depth first, or parse on a thread with a larger stack.
-- **Large expressions are slow to simplify.** `Simplify` has no caching; a sum of 300 terms
-  takes about 100 ms. `Evaluate` is fast (about 90 ns for a 25-node expression), so for hot
-  loops simplify once and evaluate many times.
+- **⚠ Very deep expressions can still overflow the stack in `Simplify` and `Differentiate`.**
+  `Parse` rejects input nested more than 256 levels deep or with a tree more than 500 levels
+  deep, and whatever it accepts can be evaluated and printed safely on a 1 MB stack (the
+  default for threads on Windows). `Simplify` and `Differentiate` build deeper trees than
+  their input, so on input near those limits — or on trees built in code, which aren't
+  checked — they can still throw `StackOverflowException`, which terminates the process and
+  can't be caught. If you simplify or differentiate **untrusted input**, keep it well below
+  the limits or run on a thread with a larger stack.
+- **`Simplify` time grows with the square of the size of a sum.** Three times as many
+  terms take about ten times as long: 300 like terms take about 10 ms, 300 distinct terms
+  (nothing combines) about 100 ms. `Evaluate` is fast (about 100 ns for a 25-node
+  expression), so for hot loops simplify once and evaluate many times.
 
 ## Not in the package
 

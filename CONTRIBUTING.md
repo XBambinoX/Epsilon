@@ -30,7 +30,16 @@ dotnet test
 |---|---|
 | `Epsilon.Core` | The library published as the `Epsilon` package |
 | `Epsilon.Tests` | xUnit tests |
+| `Epsilon.Benchmarks` | BenchmarkDotNet benchmarks for parsing, simplification, differentiation and evaluation |
 | `Epsilon.Calculus`, `Epsilon.LinearAlgebra` | Experimental modules, not packaged yet |
+
+For a change that may affect speed, compare the benchmarks before and after it. They only
+give meaningful numbers in Release:
+
+```bash
+dotnet run -c Release --project Epsilon.Benchmarks -- --filter '*'
+dotnet run -c Release --project Epsilon.Benchmarks -- --filter '*LargeSum*'
+```
 
 ## Workflow: fork, branch, pull request
 
@@ -240,8 +249,10 @@ builds, tests and packs it.
 
 ## Releases
 
-Releases are made by pushing a tag `vX.Y.Z` to `main`; the `publish` workflow builds the
-package and publishes it to NuGet. The version follows [Semantic Versioning](https://semver.org/).
+Releases are made by pushing a tag `core-vX.Y.Z` to `main`; the `publish` workflow builds the
+`Epsilon` package and publishes it to NuGet. Every package has its own tag prefix, so the
+modules built on the core can be released independently. The version follows
+[Semantic Versioning](https://semver.org/).
 
 ## License
 

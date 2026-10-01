@@ -1,3 +1,5 @@
+![Epsilon](https://raw.githubusercontent.com/XBambinoX/Epsilon/main/assets/icon.png)
+
 # Epsilon
 
 [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon)

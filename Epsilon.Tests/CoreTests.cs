@@ -496,6 +496,40 @@ public class CanonicalizationTests
         Assert.Equal(once, twice);
     }
 
+    // Simplify canonicalizes at every level; reusing the nodes keeps their kept hashes and
+    // their Simplify cache entries valid instead of building the same tree again.
+    [Theory]
+    [InlineData("x + 3 + y")]
+    [InlineData("3x^2 * sin(x) + exp(-x/2) * cos(2x) - sqrt(x^2 + 1) / (1 + x)")]
+    [InlineData("2 * y * x * 3 + x * x")]
+    public void Canonical_tree_comes_back_as_the_same_instance(string input)
+    {
+        Expr canonical = ExprParser.Parse(input, "x", "y").Canonicalize();
+
+        Assert.Same(canonical, canonical.Canonicalize());
+    }
+
+    [Fact]
+    public void Only_the_nodes_above_a_changed_term_are_rebuilt()
+    {
+        Expr x = new Variable("x"), y = new Variable("y");
+        Expr prefix = (2 * x + 3 * x).Canonicalize();
+
+        // y * 5 becomes 5 * y and stays last, so the sum before it is unchanged.
+        var result = (Add)new Add(prefix, y * 5).Canonicalize();
+
+        Assert.Same(prefix, result.Left);
+        Assert.Equal(5 * y, result.Right);
+    }
+
+    [Fact]
+    public void Right_nested_sum_is_rebuilt_left_associative()
+    {
+        Expr x = new Variable("x"), y = new Variable("y"), z = new Variable("z");
+
+        Assert.Equal(x + y + z, new Add(x, new Add(y, z)).Canonicalize());
+    }
+
     [Fact]
     public void Subtract_operands_are_not_reordered()
     {
@@ -1760,6 +1794,14 @@ public class PrintRoundTripTests
         Assert.Equal("\\left(\\frac{1}{2}\\right)^{x}", new Power(C(1, 2), X).ToLatex());
         Assert.Equal("x^{\\frac{1}{2}}", new Power(X, C(1, 2)).ToLatex());
     }
+
+    [Fact]
+    public void Latex_separates_floor_and_ceiling_commands_from_the_argument()
+    {
+        Assert.Equal(@"\left\lfloor x\right\rfloor", ExprParser.Parse("floor(x)").ToLatex());
+        Assert.Equal(@"\left\lceil x\right\rceil", ExprParser.Parse("ceiling(x)").ToLatex());
+        Assert.Equal(@"\left\lfloor 2x\right\rfloor", ExprParser.Parse("floor(2x)").ToLatex());
+    }
 }
 
 public class AssumptionsTests
@@ -2586,6 +2628,81 @@ public class StrictParserTests
     }
 }
 
+public class NestingLimitTests
+{
+    private static string Repeat(string text, int count) => string.Concat(Enumerable.Repeat(text, count));
+
+    private static string Chain(string op, int terms) => string.Join($" {op} ", Enumerable.Repeat("x", terms));
+
+    // 1 MB is the default thread stack on Windows, so the limits must hold on it. Running the
+    // check on its own thread also means an overflow is reported for this test, not as a
+    // crash of the whole test run.
+    private static void RunOnSmallStack(Action action)
+    {
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            try { action(); }
+            catch (Exception ex) { error = ex; }
+        }, maxStackSize: 1024 * 1024);
+
+        thread.Start();
+        thread.Join();
+
+        if (error is not null)
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw(error);
+    }
+
+    public static TheoryData<string> InputsAtTheLimit => new()
+    {
+        Repeat("(", 256) + "x" + Repeat(")", 256),
+        Repeat("sin(", 256) + "x" + Repeat(")", 256),
+        Repeat("x / (", 256) + "x" + Repeat(")", 256),
+        Repeat("-", 256) + "x",
+        Chain("^", 257),
+        Chain("-", 500),
+        Chain("/", 500),
+    };
+
+    public static TheoryData<string> InputsOverTheLimit => new()
+    {
+        Repeat("(", 257) + "x" + Repeat(")", 257),
+        Repeat("sin(", 257) + "x" + Repeat(")", 257),
+        Repeat("-", 257) + "x",
+        Chain("^", 258),
+        Chain("-", 501),
+        Chain("*", 501),
+        "sin(" + Chain("+", 500) + ")",
+        Repeat("(", 100_000) + "x" + Repeat(")", 100_000),
+    };
+
+    [Theory]
+    [MemberData(nameof(InputsAtTheLimit))]
+    public void Input_at_the_limit_is_parsed_evaluated_and_printed_on_a_small_stack(string input)
+    {
+        RunOnSmallStack(() =>
+        {
+            Expr expr = ExprParser.Parse(input);
+
+            expr.Evaluate(0.5);
+            expr.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = new ComplexNumber(0.5) });
+            Assert.Equal(expr, ExprParser.Parse(expr.Print()));
+            expr.ToLatex();
+        });
+    }
+
+    [Theory]
+    [MemberData(nameof(InputsOverTheLimit))]
+    public void Input_over_the_limit_is_rejected_instead_of_overflowing_the_stack(string input)
+    {
+        RunOnSmallStack(() =>
+        {
+            var ex = Assert.Throws<FormatException>(() => ExprParser.Parse(input));
+            Assert.Contains("too deep", ex.Message);
+        });
+    }
+}
+
 public class ComplexNumberFormattingTests
 {
     [Theory]
@@ -2903,6 +3020,110 @@ public class SimplifyFixpointTests
         Expr result = Simplifier.IterateToFixpoint(X, e => e * 1, maxIterations: 10);
 
         Assert.Equal(X, result); // every step is equivalent, and the start is the smallest
+    }
+}
+
+public class SimplifyCacheTests
+{
+    private static string Sum(int terms, Func<int, string> term) =>
+        string.Join(" + ", Enumerable.Range(1, terms).Select(term));
+
+    // The cache answers a simplified expression with itself, which is only right if
+    // simplifying it again really changes nothing.
+    [Theory]
+    [InlineData("sin(x)^2 + cos(x)^2 + 2x * 3x - x/x + (x^2 * y) / (x * y) + 2^3 * x", false)]
+    [InlineData("x^3 * sin(x) / (1 + x^2) + x^3 * sin(x) / (1 + x^2)", false)]
+    [InlineData("(x^2 * y) / (x * y) * (x^2 * y) / (x * y)", true)]
+    [InlineData("sqrt(x^2) + x^(1/2) * x^(1/2) + (x^3)^(1/3)", true)]
+    [InlineData("exp(ln(x)) - x * x^-1 + tan(x) * cot(x)", false)]
+    public void Simplified_result_simplifies_to_itself(string input, bool strict)
+    {
+        SimplifyMode mode = strict ? SimplifyMode.Strict : SimplifyMode.Generic;
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        foreach (Assumptions assumptions in new[] { Assumptions.None, Assumptions.None.AssumePositive("x") })
+        {
+            Expr once = expr.Simplify(assumptions, mode);
+            Assert.Equal(once, once.Simplify(assumptions, mode));
+        }
+    }
+
+    [Fact]
+    public void Large_sum_of_distinct_terms_is_kept_in_full()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x^{k}"));
+
+        string expected = string.Join(" + ",
+            Enumerable.Range(1, 300).Reverse().Select(k => k == 1 ? "x" : $"{k}x^{k}"));
+        Assert.Equal(expected, sum.Simplify().Print());
+    }
+
+    [Fact]
+    public void Large_sum_of_like_terms_combines()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x"));
+
+        Assert.Equal("45150x", sum.Simplify().Print());
+    }
+
+    // Allocations instead of time, so the check doesn't depend on the machine. Without the
+    // cache this sum allocated about 4.8 GB, re-simplifying every shorter sum inside it.
+    [Fact]
+    public void Large_sum_does_not_resimplify_its_parts()
+    {
+        Expr sum = ExprParser.Parse(Sum(300, k => $"{k}x^{k}"));
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        sum.Simplify();
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(allocated < 500_000_000, $"Simplify allocated {allocated / 1_000_000} MB");
+    }
+}
+
+public class CachedHashTests
+{
+    // A leaf that counts how often its hash is actually computed.
+    private sealed class CountingLeaf : Expr
+    {
+        public int HashComputations { get; private set; }
+
+        public override double Evaluate(IReadOnlyDictionary<string, double> bindings) => 0;
+        protected override Expr DifferentiateCore(string variable) => new Constant(0);
+        public override System.Collections.Immutable.ImmutableArray<Expr> Children => NoChildren;
+        public override Expr WithChildren(IReadOnlyList<Expr> children) => WithNoChildren(children);
+
+        protected override int PayloadHashCode()
+        {
+            HashComputations++;
+            return 42;
+        }
+    }
+
+    [Fact]
+    public void Hash_of_a_subtree_is_computed_only_once()
+    {
+        var leaf = new CountingLeaf();
+        Expr sum = new Add(new Sin(leaf), new Variable("x"));
+
+        sum.GetHashCode();
+        sum.GetHashCode();
+        new Multiply(sum, new Constant(2)).GetHashCode(); // reuses the hash kept in `sum`
+
+        Assert.Equal(1, leaf.HashComputations);
+    }
+
+    [Fact]
+    public void Equal_trees_have_equal_hashes_whichever_was_hashed_first()
+    {
+        Expr a = ExprParser.Parse("x^2 + sin(2x) - 3/4");
+        Expr b = ExprParser.Parse("x^2 + sin(2x) - 3/4");
+
+        // Hash a subtree of one tree first, so the two are hashed in a different order.
+        ((Subtract)a).Left.GetHashCode();
+
+        Assert.Equal(a.GetHashCode(), b.GetHashCode());
+        Assert.Equal(a, b);
     }
 }
 
