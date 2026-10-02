@@ -365,6 +365,7 @@ public static class PolynomialFactoring
 
     // x^2 + b*x + c (monic) with discriminant D = b^2 - 4c has roots -b/2 +- sqrt(D/4).
     // Only called for quadratics without rational roots, so D/4 is never a perfect square.
+    // The final Simplify takes square factors out of the root: sqrt(5/4) -> sqrt(5)/2.
     private static bool TrySplitQuadratic(Variable x, Rational[] quadratic, bool complex, out Expr first, out Expr second)
     {
         Rational b = quadratic[1], c = quadratic[0];
@@ -372,9 +373,9 @@ public static class PolynomialFactoring
 
         Expr offset;
         if (quarterDiscriminant.Sign > 0)
-            offset = SimplifiedSqrt(quarterDiscriminant);
+            offset = new Sqrt(new Constant(quarterDiscriminant));
         else if (quarterDiscriminant.Sign < 0 && complex)
-            offset = new Multiply(SimplifiedSqrt(-quarterDiscriminant), new ImaginaryUnit());
+            offset = new Multiply(new Sqrt(new Constant(-quarterDiscriminant)), new ImaginaryUnit());
         else
         {
             first = second = null!;
@@ -387,29 +388,6 @@ public static class PolynomialFactoring
         first = new Subtract(shifted, offset);
         second = new Add(shifted, offset);
         return true;
-    }
-
-    // sqrt(n/d) written as (k/d) * sqrt(m) with m square-free: sqrt(5/4) -> sqrt(5)/2,
-    // sqrt(1/2) -> sqrt(2)/2, sqrt(8) -> 2*sqrt(2). Uses sqrt(n/d) = sqrt(n*d)/d.
-    private static Expr SimplifiedSqrt(Rational value)
-    {
-        BigInteger radicand = value.Numerator * value.Denominator;
-        BigInteger outside = BigInteger.One;
-
-        // Trial division is enough here: radicands come from small polynomial coefficients.
-        for (BigInteger p = 2; p * p <= radicand && p <= 1_000_000; p++)
-        {
-            while (radicand % (p * p) == 0)
-            {
-                radicand /= p * p;
-                outside *= p;
-            }
-        }
-
-        Rational coefficient = new Rational(outside, value.Denominator);
-        Expr root = new Sqrt(new Constant(new Rational(radicand)));
-
-        return coefficient.IsOne ? root : new Multiply(new Constant(coefficient), root);
     }
 
     private static Expr LinearFactor(Variable x, Rational root) =>

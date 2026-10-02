@@ -18,6 +18,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `x^2 - 1`. Function arguments are expanded too. A quotient stays one fraction with its
   numerator and denominator expanded, unless the denominator is a number: `(x + 1)^2/2`
   gives `(1/2) * x^2 + x + 1/2`.
+- Exact values of functions. `Simplify` evaluates the trigonometric functions at multiples
+  of pi/6 and pi/4 (`sin(pi/6)` gives `1/2`, `cos(3pi/4)` gives `-sqrt(2) / 2`), `asin`,
+  `acos` and `atan` at the matching values (`acos(-1/2)` gives `2 * π / 3`), `ln(1)`,
+  `ln(e)`, `ln(e^x)`, `exp(0)`, `sign(0)` and the hyperbolic functions at 0. Square roots of
+  rational numbers are reduced and computed with exactly: `sqrt(8)` gives `2sqrt(2)`,
+  `1/sqrt(2)` gives `sqrt(2) / 2`, `sqrt(2)*sqrt(3)` gives `sqrt(6)`, `2sin(pi/3)` gives
+  `sqrt(3)`; `nthroot(16, 3)` gives `2nthroot(2, 3)`. Where a function is undefined
+  (`tan(pi/2)`, `csc(0)`) it is left as it is.
 
 ### Changed
 

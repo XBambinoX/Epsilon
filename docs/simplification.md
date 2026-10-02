@@ -66,9 +66,28 @@ ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 ```
 
 Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
-a non-negative expression, and more. What it *doesn't* know yet — double-angle formulas,
-logarithm rules, exact values such as `sin(π/6)` — is listed in
-[limitations](limitations.md#algebra).
+a non-negative expression, and more.
+
+**Exact values of functions** at the usual points: the trigonometric functions at
+multiples of pi/6 and pi/4, `asin`, `acos` and `atan` at the matching values, `ln(1)`,
+`ln(e)`, `exp(0)` and the hyperbolic functions at 0. Square roots of rational numbers are
+written with the smallest integer under the root, and products, quotients and powers of
+them are worked out:
+
+```csharp
+ExprParser.Parse("sin(pi/6)").Simplify().Print();    // 1/2
+ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
+ExprParser.Parse("acos(-1/2)").Simplify().Print();   // 2 * π / 3
+ExprParser.Parse("sqrt(8)").Simplify().Print();      // 2sqrt(2)
+ExprParser.Parse("1/sqrt(2)").Simplify().Print();    // sqrt(2) / 2
+ExprParser.Parse("2sin(pi/3)").Simplify().Print();   // sqrt(3)
+ExprParser.Parse("ln(e^2)").Simplify().Print();      // 2
+```
+
+Where a function is undefined it stays as it is: `tan(pi/2)` and `csc(0)` are not folded.
+
+What `Simplify` *doesn't* know yet (double-angle formulas, logarithm rules, exact values at
+other points such as `sin(pi/12)`) is listed in [limitations](limitations.md#algebra).
 
 ## Expanding
 

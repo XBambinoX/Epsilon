@@ -5,7 +5,7 @@ limitations below are therefore things the library *doesn't do yet*, not wrong a
 few places where a result can surprise you are marked **⚠**.
 
 **All of this is planned to be addressed in upcoming versions of the core** — exact
-function values, more identities, piecewise derivatives, complex rounding functions,
+values at more points, more identities, piecewise derivatives, complex rounding functions,
 a symbolic equation solver, a safer root-finding API, protection against deep nesting and
 faster simplification. The only exception is `min`/`max` over the complex numbers, which
 can't exist mathematically. See the [roadmap](../README.md#roadmap) for the order.
@@ -26,14 +26,17 @@ ExprParser.Parse("x^3 + x + 1").TryFactorReal("x").Success; // false: its real r
 ExprParser.Parse("x^2 - y^2").TryFactorReal("x").Success;   // false: other variables are not supported
 ```
 
-### No exact values of functions
+### Exact values only at the usual points
 
-Functions of constants are not evaluated symbolically, and radicals are not reduced:
+`Simplify` knows the trigonometric functions at multiples of pi/6 and pi/4, their inverses at
+the matching values, and square roots of rational numbers
+([details](simplification.md#what-it-does)). Other angles, logarithms of other numbers and
+roots written as powers are left as they are:
 
 ```csharp
-ExprParser.Parse("sin(pi/6)").Simplify().Print();   // sin(π / 6)   (not 1/2)
-ExprParser.Parse("asin(1/2)").Simplify().Print();   // asin(1/2)    (not π / 6)
-ExprParser.Parse("sqrt(8)").Simplify().Print();     // sqrt(8)      (not 2sqrt(2))
+ExprParser.Parse("sin(pi/12)").Simplify().Print();   // sin(π / 12)   (not (sqrt(6) - sqrt(2)) / 4)
+ExprParser.Parse("ln(8)").Simplify().Print();        // ln(8)         (not 3ln(2))
+ExprParser.Parse("8^(1/2)").Simplify().Print();      // 8^(1/2)       (not 2sqrt(2))
 ```
 
 `Evaluate` still gives the numeric values.

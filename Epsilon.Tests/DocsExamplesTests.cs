@@ -16,11 +16,11 @@ public class LimitationsDocTests
     }
 
     [Fact]
-    public void No_exact_function_values()
+    public void Exact_values_only_at_the_usual_points()
     {
-        Assert.Equal("sin(π / 6)", ExprParser.Parse("sin(pi/6)").Simplify().Print());
-        Assert.Equal("asin(1/2)", ExprParser.Parse("asin(1/2)").Simplify().Print());
-        Assert.Equal("sqrt(8)", ExprParser.Parse("sqrt(8)").Simplify().Print());
+        Assert.Equal("sin(π / 12)", ExprParser.Parse("sin(pi/12)").Simplify().Print());
+        Assert.Equal("ln(8)", ExprParser.Parse("ln(8)").Simplify().Print());
+        Assert.Equal("8^(1/2)", ExprParser.Parse("8^(1/2)").Simplify().Print());
     }
 
     [Fact]
@@ -328,6 +328,15 @@ public class SimplificationDocTests
     [InlineData("exp(ln(x))", "x")]
     [InlineData("sqrt(x)^2", "x")]
     [InlineData("tan(x)*cot(x)", "1")]
+    [InlineData("sin(pi/6)", "1/2")]
+    [InlineData("cos(3pi/4)", "-sqrt(2) / 2")]
+    [InlineData("acos(-1/2)", "2 * π / 3")]
+    [InlineData("sqrt(8)", "2sqrt(2)")]
+    [InlineData("1/sqrt(2)", "sqrt(2) / 2")]
+    [InlineData("2sin(pi/3)", "sqrt(3)")]
+    [InlineData("ln(e^2)", "2")]
+    [InlineData("tan(pi/2)", "tan(π / 2)")]
+    [InlineData("csc(0)", "csc(0)")]
     [InlineData("0/0", "0 / 0")]
     public void Generic(string input, string expected)
     {
@@ -896,9 +905,9 @@ public class ContributingDocTests
     }
 
     [Fact]
-    public void Sinh_of_zero_is_not_folded_yet()
+    public void Sinh_of_zero_is_folded()
     {
-        // CONTRIBUTING suggests sinh(0) = 0 as a first rule; it isn't in the core yet.
-        Assert.Equal("sinh(0)", ExprParser.Parse("sinh(0)").Simplify().Print());
+        // CONTRIBUTING names sinh(0) = 0 as an example of an exact value.
+        Assert.Equal("0", ExprParser.Parse("sinh(0)").Simplify().Print());
     }
 }

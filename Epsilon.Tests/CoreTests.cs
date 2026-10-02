@@ -3397,6 +3397,107 @@ public class CachedHashTests
     }
 }
 
+public class ExactValuesTests
+{
+    [Theory]
+    [InlineData("sin(pi/6)", "1/2")]
+    [InlineData("sin(-7pi/6)", "1/2")]   // periodic and odd
+    [InlineData("sin(100pi)", "0")]
+    [InlineData("cos(3pi/4)", "-sqrt(2) / 2")]
+    [InlineData("cos(pi)", "-1")]
+    [InlineData("tan(pi/3)", "sqrt(3)")]
+    [InlineData("tan(-pi/4)", "-1")]
+    [InlineData("cot(pi/6)", "sqrt(3)")]
+    [InlineData("cot(pi/2)", "0")]
+    [InlineData("sec(2pi/3)", "-2")]
+    [InlineData("csc(pi/3)", "2sqrt(3) / 3")]
+    public void Trigonometric_functions_at_multiples_of_pi_over_6_and_4(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("tan(pi/2)", "tan(π / 2)")]
+    [InlineData("sec(pi/2)", "sec(π / 2)")]
+    [InlineData("csc(0)", "csc(0)")]
+    [InlineData("cot(pi)", "cot(π)")]
+    [InlineData("sin(pi/12)", "sin(π / 12)")]
+    [InlineData("sin(1)", "sin(1)")]
+    [InlineData("asin(2)", "asin(2)")]
+    [InlineData("sqrt(-8)", "sqrt(-8)")]
+    [InlineData("nthroot(-4, 2)", "nthroot(-4, 2)")]
+    public void Leaves_undefined_points_and_other_arguments_alone(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("asin(1/2)", "π / 6")]
+    [InlineData("asin(-sqrt(3)/2)", "-π / 3")]
+    [InlineData("asin(1/sqrt(2))", "π / 4")]
+    [InlineData("acos(-1/2)", "2 * π / 3")]
+    [InlineData("acos(1)", "0")]
+    [InlineData("atan(sqrt(3)/3)", "π / 6")]
+    [InlineData("atan(-1)", "-π / 4")]
+    public void Inverse_trigonometric_functions(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sqrt(8)", "2sqrt(2)")]
+    [InlineData("sqrt(1/2)", "sqrt(2) / 2")]
+    [InlineData("sqrt(12/5)", "2sqrt(15) / 5")]
+    [InlineData("sqrt(6)", "sqrt(6)")]
+    [InlineData("nthroot(-16, 3)", "-2nthroot(2, 3)")]
+    [InlineData("nthroot(16/27, 3)", "2nthroot(2, 3) / 3")]
+    [InlineData("nthroot(1/2, 3)", "nthroot(1/2, 3)")]
+    [InlineData("sqrt(2)*sqrt(3)", "sqrt(6)")]
+    [InlineData("2/sqrt(2)", "sqrt(2)")]
+    [InlineData("sqrt(2)^3", "2sqrt(2)")]
+    [InlineData("2sin(pi/3)", "sqrt(3)")]
+    [InlineData("1/sin(pi/4)", "sqrt(2)")]
+    [InlineData("sin(pi/3)^-2", "4/3")]
+    [InlineData("sin(pi/4)^2 + cos(pi/4)^2", "1")]
+    public void Roots_of_rationals_and_arithmetic_with_them(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("ln(1)", "0")]
+    [InlineData("ln(e)", "1")]
+    [InlineData("ln(e^x)", "x")]
+    [InlineData("exp(0)", "1")]
+    [InlineData("sinh(0)", "0")]
+    [InlineData("cosh(0)", "1")]
+    [InlineData("tanh(0)", "0")]
+    [InlineData("sech(0)", "1")]
+    [InlineData("asinh(0)", "0")]
+    [InlineData("acosh(1)", "0")]
+    [InlineData("atanh(0)", "0")]
+    [InlineData("sign(0)", "0")]
+    public void Exponential_logarithm_and_hyperbolic_functions(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sin(-7pi/6) + cos(5pi/3) - tan(7pi/6)")]
+    [InlineData("sec(3pi/4) * csc(-pi/3) + cot(5pi/6)")]
+    [InlineData("asin(-sqrt(2)/2) + acos(-sqrt(3)/2) + atan(1/sqrt(3))")]
+    [InlineData("sqrt(72/5) - nthroot(-54, 3) + sqrt(3)^5 / sqrt(6)")]
+    public void Keeps_the_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Expr simplified = expr.Simplify();
+
+        Assert.Empty(simplified.GetVariables());
+        Assert.DoesNotContain("sin", simplified.Print());
+        Assert.Equal(expr.Evaluate(0), simplified.Evaluate(0), 1e-12);
+    }
+}
+
 public class ExpandTests
 {
     [Theory]

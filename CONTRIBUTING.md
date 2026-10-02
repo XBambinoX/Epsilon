@@ -180,8 +180,8 @@ tree. A new name can collide with existing ones: `a * sinh(x)` must not be print
 ### 5. Simplification (optional)
 
 Only add rules that are always valid, or that check their condition — see
-[the guarantee](docs/simplification.md#the-guarantee). An exact value is a good start:
-`sinh(0) = 0` holds everywhere. A rule that is valid only on part of the domain, like
+[the guarantee](docs/simplification.md#the-guarantee). Exact values are the safest kind:
+`sinh(0) = 0` holds everywhere. They live in `Epsilon.Core/Expressions/ExactValues.cs`. A rule that is valid only on part of the domain, like
 `asinh(sinh(x)) = x` for complex `x`, needs a guard or has to wait.
 
 ### 6. Tests

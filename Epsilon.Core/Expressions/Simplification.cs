@@ -258,21 +258,15 @@ public static class Simplifier
                 when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
-            case Sin(Constant c) when c.Value.IsZero:
-                return new Constant(0);
-
-            case Cos(Constant c) when c.Value.IsZero:
-                return new Constant(1);
-
-            case Tan(Constant c) when c.Value.IsZero:
-                return new Constant(0);
-
             // sin(x)^2 + cos(x)^2 = 1, sec(x)^2 - tan(x)^2 = 1, csc(x)^2 - cot(x)^2 = 1 and their
             // variants live in SimplifySum, where the whole sum is visible at once.
 
             // ln(exp(a)) = a: exp(a) is always strictly positive for real a,
             // so ln is always defined on its result - no assumption needed.
             case Ln(Exp(var a)):
+                return a;
+
+            case Ln(Power(EulerNumber, var a)):
                 return a;
 
             case Exp(Ln(var a)) when PositiveForDomain(a, assumptions, mode):
@@ -327,6 +321,10 @@ public static class Simplifier
             case NthRoot(Constant c, Constant n) when TryExactRealRoot(c.Value, n.Value, out Rational nthRootValue):
                 return new Constant(nthRootValue);
 
+            // sin(pi/6) = 1/2, asin(1/2) = pi/6, sqrt(8) = 2sqrt(2), ln(1) = 0 and similar.
+            case var _ when ExactValues.TryEvaluate(expr, out Expr? exact):
+                return exact;
+
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
 
@@ -338,6 +336,9 @@ public static class Simplifier
 
             case Abs(var a) when a.IsProvablyNegative(assumptions):
                 return new Negate(a);
+
+            case Sign(Constant c):
+                return new Constant(c.Value.Sign);
 
             case Sign(var a) when a.IsProvablyPositive(assumptions):
                 return new Constant(1);
