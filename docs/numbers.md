@@ -58,6 +58,9 @@ ComplexNumber.FromPolar(2, Math.PI / 2);       // ≈ 2i
 - Functions: `Exp`, `Log`, `Sqrt`, `Pow`, `Sin`, `Cos`, `Tan`, `Asin`, `Acos`, `Atan`, the
   hyperbolic functions and their inverses — all principal values.
 - `Pow(0, w)`: 1 for w = 0, 0 for Re(w) > 0, ∞ for a negative real w, NaN otherwise.
+- Division by zero follows real `double` division, so `EvaluateComplex` agrees with
+  `Evaluate`: `z / 0` is infinite in the direction of `z` (`1/0` is inf, `-1/0` is -inf,
+  `i/0` is inf*i), and `0/0` is NaN.
 
 ## Constants in expressions
 

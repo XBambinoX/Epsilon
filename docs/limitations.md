@@ -111,13 +111,6 @@ ExprParser.Parse("floor(x)").Differentiate("x");   // NotSupportedException
 - `floor`, `ceiling`, `round` and `sign` can't be evaluated with `EvaluateComplex` yet and
   throw `NotSupportedException` (planned). `min` and `max` never will: complex numbers are
   not ordered.
-- **⚠** Division by zero differs between real and complex evaluation. Real `1/0` is
-  `+∞` (IEEE rules); complex `1/0` is `NaN`:
-
-```csharp
-ExprParser.Parse("1/x").Evaluate(0);          // ∞
-ExprParser.Parse("1/x").EvaluateComplex(0);   // NaN
-```
 
 ## Root finding
 

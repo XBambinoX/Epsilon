@@ -373,7 +373,7 @@ A complex number with `double` parts; the result of `EvaluateComplex`. Guide:
 | `static ComplexNumber Asin`, `Acos`, `Atan` | Inverse trigonometric functions, principal values. |
 | `static ComplexNumber Sinh`, `Cosh`, `Tanh`, `Coth`, `Sech`, `Csch` | Hyperbolic functions. |
 | `static ComplexNumber Asinh`, `Acosh`, `Atanh` | Inverse hyperbolic functions, principal values. |
-| `+ - * /`, unary `-` | Arithmetic; division avoids overflow. |
+| `+ - * /`, unary `-` | Arithmetic; division avoids overflow. `z / 0` is infinite in the direction of `z` (`1/0` = inf, `i/0` = inf*i), `0/0` is NaN. |
 | `==`, `!=`, `Equals` | Exact equality of both parts. |
 | implicit from `double` | A real number. |
 | `string ToString()` | `1 - 2i`, `3`, `NaN`; culture-invariant. |

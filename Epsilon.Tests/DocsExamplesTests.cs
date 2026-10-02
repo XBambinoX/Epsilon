@@ -81,14 +81,6 @@ public class LimitationsDocTests
     }
 
     [Fact]
-    public void Division_by_zero_real_vs_complex()
-    {
-        Assert.Equal(double.PositiveInfinity, ExprParser.Parse("1/x").Evaluate(0));
-        ComplexNumber z = ExprParser.Parse("1/x").EvaluateComplex(0);
-        Assert.True(double.IsNaN(z.Real) || double.IsNaN(z.Imaginary));
-    }
-
-    [Fact]
     public void Real_roots_grid()
     {
         Assert.Equal(11, ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1).Count);

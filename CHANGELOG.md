@@ -5,6 +5,17 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Complex division by zero returned NaN while real division returned an infinity, so
+  `EvaluateComplex` disagreed with `Evaluate` at poles: `1/x` at 0 gave NaN instead of inf.
+  Now `z / 0` is infinite in the direction of `z` (`1/0` = inf, `-1/0` = -inf,
+  `i/0` = inf*i) and `0/0` stays NaN. Dividing an infinite value by a real or imaginary
+  number also keeps it infinite instead of producing NaN, so `atanh(1)`, `atanh(-1)`,
+  `csch(0)` and `coth(0)` now give inf or -inf in complex evaluation too.
+
 ## [1.0.1] — 2026-10-01
 
 ### Added
@@ -77,5 +88,6 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.0.1...HEAD
 [1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/v1.0.0

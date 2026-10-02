@@ -2174,6 +2174,55 @@ public class ComplexEdgeCaseTests
         Assert.Equal(expectedIm, result.Imaginary, precision: 12);
     }
 
+    [Theory]
+    [InlineData(1, 0, double.PositiveInfinity, 0)]                       // was NaN
+    [InlineData(-1, 0, double.NegativeInfinity, 0)]
+    [InlineData(0, 1, 0, double.PositiveInfinity)]                       // i/0 = inf*i, not NaN + inf*i
+    [InlineData(0, -2, 0, double.NegativeInfinity)]
+    [InlineData(1, 1, double.PositiveInfinity, double.PositiveInfinity)]
+    [InlineData(-3, 2, double.NegativeInfinity, double.PositiveInfinity)]
+    public void Division_by_zero_is_infinite_in_the_direction_of_the_numerator(
+        double a, double b, double expectedRe, double expectedIm)
+    {
+        ComplexNumber result = new ComplexNumber(a, b) / ComplexNumber.Zero;
+        Assert.Equal(expectedRe, result.Real);
+        Assert.Equal(expectedIm, result.Imaginary);
+    }
+
+    [Fact]
+    public void Zero_divided_by_zero_is_undefined()
+    {
+        ComplexNumber result = ComplexNumber.Zero / ComplexNumber.Zero;
+        Assert.True(double.IsNaN(result.Real) && double.IsNaN(result.Imaginary));
+    }
+
+    [Fact]
+    public void Division_by_real_or_imaginary_number_keeps_infinite_parts()
+    {
+        var infinity = new ComplexNumber(double.PositiveInfinity);
+
+        Assert.Equal(infinity, infinity / new ComplexNumber(2));                        // was inf + NaN*i
+        Assert.Equal(new ComplexNumber(0, double.NegativeInfinity), infinity / ComplexNumber.ImaginaryUnit);
+    }
+
+    [Theory]
+    [InlineData("1/x", 0)]
+    [InlineData("-1/x", 0)]
+    [InlineData("x/0", -2)]
+    [InlineData("atanh(x)", 1)]      // ln(2/0) / 2: was NaN
+    [InlineData("atanh(x)", -1)]     // ln(0/2) / 2: was NaN
+    [InlineData("csch(x)", 0)]
+    [InlineData("coth(x)", 0)]
+    public void Complex_evaluation_at_a_pole_matches_real_evaluation(string input, double x)
+    {
+        Expr expr = ExprParser.Parse(input, "x");
+        ComplexNumber result = expr.EvaluateComplex(x);
+
+        Assert.True(double.IsInfinity(expr.Evaluate(x)));
+        Assert.Equal(expr.Evaluate(x), result.Real);
+        Assert.Equal(0, result.Imaginary);
+    }
+
     [Fact]
     public void Sqrt_of_huge_number_is_finite()
     {
