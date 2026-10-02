@@ -2527,6 +2527,36 @@ public class QuotientConstantFactorTests
     }
 }
 
+public class PowerOfPowerTests
+{
+    [Theory]
+    [InlineData("(x^2)^3", "x^6", "x^6")]
+    [InlineData("(x^3)^2", "x^6", "x^6")]
+    [InlineData("(x^-1)^2", "x^-2", "x^-2")]
+    [InlineData("(x^2)^-1", "x^-2", "x^-2")]
+    [InlineData("((x + 1)^2)^3", "(x + 1)^6", "(x + 1)^6")]
+    [InlineData("(sin(x)^2)^2", "sin(x)^4", "sin(x)^4")]
+    // Defined at x = 0 after combining, but not before.
+    [InlineData("(x^-2)^-1", "x^2", "(x^-2)^-1")]
+    // A non-integer outer exponent: (x^2)^(1/2) is |x|, and x^(2y) is undefined for x < 0.
+    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^y", "(x^2)^y", "(x^2)^y")]
+    public void Combines_two_integer_exponents(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Simplify_and_expand_agree()
+    {
+        Expr expr = ExprParser.Parse("(x^2)^3");
+        Assert.Equal(expr.Expand(), expr.Simplify());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

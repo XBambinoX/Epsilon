@@ -18,6 +18,7 @@ is left alone: a missed simplification is always safer than a wrong one.
 ```csharp
 ExprParser.Parse("sqrt(x^2)").Simplify().Print();     // abs(x)
 ExprParser.Parse("(x^2)^(1/2)").Simplify().Print();   // (x^2)^(1/2)
+ExprParser.Parse("(x^2)^3").Simplify().Print();       // x^6
 ```
 
 ## What it does

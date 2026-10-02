@@ -57,6 +57,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `4x / 6` and `2*(pi/6)` gave `2 * π / 6`. They now reduce like a fraction, with the sign
   in the numerator: `x`, `2x / 3`, `π / 3`, and `x/(-2)` gives `-x / 2`. A number in a sum
   is not factored out: `(2x + 2)/2` stays as it is.
+- A power of a power was only combined when the inner exponent was odd: `(x^2)^3` stayed
+  as it was, and `Expand` gave `x^6` for it while `Simplify` didn't. Two integer exponents
+  are now always multiplied: `(x^2)^3` gives `x^6`, `(x^2)^-1` gives `x^-2`. A non-integer
+  outer exponent still keeps the inner power, as `(x^2)^(1/2)` is `|x|`, not `x`.
 - `Simplify` didn't know that `i^2 = -1`: `i*i` stayed `i^2`, and `(x + i)*(x - i)` expanded
   to `x^2 - i^2`. Integer powers of `i` now reduce with period 4 (`i^3` gives `-i`,
   `i^-1` gives `-i`), an `i` in a denominator moves up (`1/(2i)` gives `-i / 2`), and

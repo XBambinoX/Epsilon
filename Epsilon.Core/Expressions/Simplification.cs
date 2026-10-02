@@ -214,11 +214,15 @@ public static class Simplifier
                                     e2.IsProvablyPositive(assumptions);
                 if (!zeroBaseSafe)
                     return expr;
+                // Integer powers compose for any base: (x^2)^3 = x^6, (x^-1)^2 = x^-2.
+                bool innerIsInteger = e1 is Constant ce1 && ce1.Value.IsInteger;
+                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
+                if (innerIsInteger && outerIsInteger)
+                    return combined;
                 // Power is the principal value: a non-integer exponent of a negative base is
                 // undefined over the reals. So (x^3)^(1/3) is undefined for x < 0 while x is not -
-                // an odd inner exponent is only a domain enlargement unless e2 is an integer.
-                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
-                if (e1 is Constant ce1 && IsOddInteger(ce1.Value) && (outerIsInteger || mode == SimplifyMode.Generic))
+                // an odd inner exponent with a non-integer outer one only enlarges the domain.
+                if (e1 is Constant ce1Odd && IsOddInteger(ce1Odd.Value) && mode == SimplifyMode.Generic)
                     return combined;
                 // A non-integer inner exponent (x^(1/2), x^(1/3)) is undefined for b < 0, so
                 // collapsing only enlarges the domain - fine in Generic mode. An even integer

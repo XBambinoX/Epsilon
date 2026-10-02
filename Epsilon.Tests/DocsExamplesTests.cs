@@ -305,6 +305,7 @@ public class SimplificationDocTests
     [Theory]
     [InlineData("sqrt(x^2)", "abs(x)")]
     [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^3", "x^6")]
     [InlineData("1/3 + 1/6", "1/2")]
     [InlineData("2^-2", "1/4")]
     [InlineData("sqrt(9/4)", "3/2")]
