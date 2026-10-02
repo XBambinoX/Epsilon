@@ -749,33 +749,41 @@ public static class Simplifier
         ApplyPythagoreanIdentities(combined, termIndex, ref constantSum, assumptions, mode);
 
         combined.RemoveAll(t => t.Coefficient.IsZero);
+        Expr result = BuildSum(combined, constantSum);
 
-        Expr Rebuild(Rational coef, Expr term) =>
+        // An unchanged sum keeps its instance, and with it the cached hash codes.
+        return result.Equals(sum) ? sum : result;
+    }
+
+    // Builds c1*t1 + c2*t2 + ... + constant in the given order, writing negative coefficients as
+    // subtraction: x - 2y + 3. The coefficients must be nonzero. Also used by Expand.
+    internal static Expr BuildSum(IReadOnlyList<(Rational Coefficient, Expr Term)> terms, Rational constant)
+    {
+        static Expr Rebuild(Rational coef, Expr term) =>
             coef.IsOne ? term :
             coef.Equals(Rational.MinusOne) ? new Negate(term) :
             new Multiply(new Constant(coef), term);
 
-        if (combined.Count == 0)
-            return new Constant(constantSum);
+        if (terms.Count == 0)
+            return new Constant(constant);
 
-        Expr result = Rebuild(combined[0].Coefficient, combined[0].Term);
-        for (int i = 1; i < combined.Count; i++)
+        Expr result = Rebuild(terms[0].Coefficient, terms[0].Term);
+        for (int i = 1; i < terms.Count; i++)
         {
-            var (coef, term) = combined[i];
+            var (coef, term) = terms[i];
             result = coef.Sign < 0
                 ? new Subtract(result, Rebuild(-coef, term))
                 : new Add(result, Rebuild(coef, term));
         }
 
-        if (!constantSum.IsZero)
+        if (!constant.IsZero)
         {
-            result = constantSum.Sign < 0
-                ? new Subtract(result, new Constant(-constantSum))
-                : new Add(result, new Constant(constantSum));
+            result = constant.Sign < 0
+                ? new Subtract(result, new Constant(-constant))
+                : new Add(result, new Constant(constant));
         }
 
-        // An unchanged sum keeps its instance, and with it the cached hash codes.
-        return result.Equals(sum) ? sum : result;
+        return result;
     }
 
     private static void CollectFactors(Expr expr, Dictionary<Expr, Rational> factors, ref Rational coefficient)

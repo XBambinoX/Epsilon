@@ -133,6 +133,12 @@ Base for nodes with one argument: `Negate` and the one-argument functions.
 | `Generic` | Default. The result may be defined at more points than the original (`x/x` → `1`). |
 | `Strict` | The result has exactly the same domain; domain-enlarging rewrites need assumptions. |
 
+### `Expander` (static class)
+
+| Member | Description |
+|---|---|
+| `Expr Expand(this Expr expr, SimplifyMode mode = Generic)` | Multiplies out products and positive integer powers of sums, also inside function arguments, and simplifies the result. A quotient stays one fraction with its numerator and denominator expanded; a number as the denominator divides every term. |
+
 ### `Canonicalizer` (static class)
 
 | Member | Description |

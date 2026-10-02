@@ -76,6 +76,12 @@ e.Simplify().Print();                     // 1      Generic (default): may becom
 e.Simplify(SimplifyMode.Strict).Print();  // x / x  Strict: keeps exactly the same domain
 ```
 
+`Expand` multiplies out the brackets that `Simplify` keeps:
+
+```csharp
+ExprParser.Parse("(x + 1)^2 - x^2").Expand().Print();   // 2x + 1
+```
+
 ### Assumptions
 
 Tell the simplifier what you know about your variables to unlock rules that are only valid
@@ -183,8 +189,8 @@ Alongside them the core keeps improving:
 - **Equation solver** — symbolic solutions of `f(x) = g(x)` with every branch:
   `sin(x) = 1/2` → `π/6 + 2πk, 5π/6 + 2πk`, verified by substitution, with a clearly
   marked numeric fallback.
-- Polynomial expansion, piecewise expressions (derivatives of `floor`, `min`, `max`) and
-  faster evaluation for hot loops.
+- Piecewise expressions (derivatives of `floor`, `min`, `max`) and faster evaluation for
+  hot loops.
 
 ## Building from source
 

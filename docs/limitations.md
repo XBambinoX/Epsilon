@@ -4,8 +4,8 @@ Epsilon follows one rule above all: **never wrong, sometimes unsimplified**. Mos
 limitations below are therefore things the library *doesn't do yet*, not wrong answers. The
 few places where a result can surprise you are marked **⚠**.
 
-**All of this is planned to be addressed in upcoming versions of the core** — expansion,
-exact function values, more identities, piecewise derivatives, complex rounding functions,
+**All of this is planned to be addressed in upcoming versions of the core** — exact
+function values, more identities, piecewise derivatives, complex rounding functions,
 a symbolic equation solver, a safer root-finding API, protection against deep nesting and
 faster simplification. The only exception is `min`/`max` over the complex numbers, which
 can't exist mathematically. See the [roadmap](../README.md#roadmap) for the order.
@@ -14,23 +14,6 @@ Everything here reflects version 1.0.0. Each example is checked by a test
 (in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
 
 ## Algebra
-
-### No expansion of products and powers
-
-There is no `Expand` operation, and `Simplify` does not multiply out brackets. Two forms of
-the same polynomial may therefore not simplify to the same thing:
-
-```csharp
-ExprParser.Parse("(x + 1)^2 - x^2").Simplify().Print();   // -x^2 + (x + 1)^2
-ExprParser.Parse("(x + 1)*(x - 1)").Simplify().Print();   // (x + 1) * (x - 1)
-```
-
-For the same reason `TryFactorReal` and `TryFactorComplex` only accept a polynomial that is
-already expanded:
-
-```csharp
-ExprParser.Parse("(x - 2)^4").TryFactorReal("x").Success;   // false
-```
 
 ### Factoring is exact but limited
 

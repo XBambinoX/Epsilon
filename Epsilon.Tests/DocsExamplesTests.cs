@@ -8,14 +8,6 @@ namespace Epsilon.Tests.Core;
 public class LimitationsDocTests
 {
     [Fact]
-    public void No_expansion()
-    {
-        Assert.Equal("-x^2 + (x + 1)^2", ExprParser.Parse("(x + 1)^2 - x^2").Simplify().Print());
-        Assert.Equal("(x + 1) * (x - 1)", ExprParser.Parse("(x + 1)*(x - 1)").Simplify().Print());
-        Assert.False(ExprParser.Parse("(x - 2)^4").TryFactorReal("x").Success);
-    }
-
-    [Fact]
     public void Factoring_is_limited()
     {
         Assert.False(ExprParser.Parse("x^4 + 1").TryFactorReal("x").Success);
@@ -362,6 +354,26 @@ public class SimplificationDocTests
     {
         Assert.Equal("1", ExprParser.Parse("x/x").Simplify(Assumptions.None.AssumeNonZero("x"), SimplifyMode.Strict).Print());
     }
+
+    [Theory]
+    [InlineData("(x + 1)^2 - x^2", "2x + 1")]
+    [InlineData("(x + 1)*(x - 1)", "x^2 - 1")]
+    [InlineData("sin((x + 1)^2)", "sin(x^2 + 2x + 1)")]
+    [InlineData("(x + 1)^2/(x - 1)", "(x^2 + 2x + 1) / (x - 1)")]
+    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]
+    [InlineData("(x + 1)^-2", "(x + 1)^-2")]
+    public void Expanding(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Fact]
+    public void Expanding_modes()
+    {
+        Expr e = ExprParser.Parse("(sqrt(x) + 1)^2");
+        Assert.Equal("x + 2sqrt(x) + 1", e.Expand().Print());
+        Assert.Equal("2sqrt(x) + sqrt(x)^2 + 1", e.Expand(SimplifyMode.Strict).Print());
+    }
 }
 
 public class AssumptionsDocTests
@@ -493,6 +505,7 @@ public class DifferentiationDocTests
         Expr tangent = f.Evaluate(a) + df.Evaluate(a) * (new Variable("x") - a);
         Assert.Equal("6 * (x - 3) + 9", tangent.Simplify().Print());
         Assert.Equal(15, tangent.Evaluate(4));
+        Assert.Equal("6x - 9", tangent.Expand().Print());
     }
 }
 
@@ -501,6 +514,7 @@ public class FactoringDocTests
     [Theory]
     [InlineData("x^2 - 5x + 6", "(x - 2) * (x - 3)")]
     [InlineData("x^3 - x", "(x + 1) * (x - 1) * x")]
+    [InlineData("(x^2 - 1)*(x - 1)", "(x + 1) * (x - 1)^2")]
     [InlineData("x^3 - 3x^2 + 3x - 1", "(x - 1)^3")]
     [InlineData("2x^2 - x - 1", "2 * (x + 1/2) * (x - 1)")]
     [InlineData("0.5x^2 - 0.5", "(1/2) * (x + 1) * (x - 1)")]
@@ -525,7 +539,6 @@ public class FactoringDocTests
     [InlineData("sin(x)")]
     [InlineData("5")]
     [InlineData("x^2 - a")]
-    [InlineData("(x - 2)^4")]
     [InlineData("x^3 - 2")]
     public void Failures(string input)
     {

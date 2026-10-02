@@ -13,8 +13,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   equation overloads of `FindRealRoots` and `FindComplexRoots` did, but the right side may be
   a plain number: `ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4)` gives the three
   solutions of `sin(x) = 0.5` in [-4, 4].
+- `Expand` multiplies out products and positive integer powers of sums and simplifies the
+  result, so like terms combine: `(x + 1)^2 - x^2` gives `2x + 1`, `(x + 1)*(x - 1)` gives
+  `x^2 - 1`. Function arguments are expanded too. A quotient stays one fraction with its
+  numerator and denominator expanded, unless the denominator is a number: `(x + 1)^2/2`
+  gives `(1/2) * x^2 + x + 1/2`.
 
 ### Changed
+
+- `TryFactorReal` and `TryFactorComplex` expand their input first, so the polynomial no
+  longer has to be written out: `(x - 2)^4` and `(x^2 - 1)*(x - 1)` are factored instead of
+  returning `false`.
 
 - `Simplify` handles a sum as a whole: each term is simplified once, then all of them are
   combined in one pass. Before, every shorter sum inside it (the first two terms, the first

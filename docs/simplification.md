@@ -66,9 +66,41 @@ ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 ```
 
 Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
-a non-negative expression, and more. What it *doesn't* know yet — expansion, double-angle
-formulas, logarithm rules, exact values such as `sin(π/6)` — is listed in
+a non-negative expression, and more. What it *doesn't* know yet — double-angle formulas,
+logarithm rules, exact values such as `sin(π/6)` — is listed in
 [limitations](limitations.md#algebra).
+
+## Expanding
+
+```csharp
+Expr Expand(this Expr expr, SimplifyMode mode = SimplifyMode.Generic)
+```
+
+`Simplify` leaves brackets as they are: `(x + 1)^2` stays a square. `Expand` multiplies out
+products and positive integer powers of sums and simplifies the result, so like terms
+combine. Arguments of functions are expanded too:
+
+```csharp
+ExprParser.Parse("(x + 1)^2 - x^2").Expand().Print();   // 2x + 1
+ExprParser.Parse("(x + 1)*(x - 1)").Expand().Print();   // x^2 - 1
+ExprParser.Parse("sin((x + 1)^2)").Expand().Print();    // sin(x^2 + 2x + 1)
+```
+
+A quotient stays one fraction, with its numerator and denominator expanded, unless the
+denominator is a number: then every term is divided. Negative powers are left as they are:
+
+```csharp
+ExprParser.Parse("(x + 1)^2/(x - 1)").Expand().Print();   // (x^2 + 2x + 1) / (x - 1)
+ExprParser.Parse("(x + 1)^2/2").Expand().Print();         // (1/2) * x^2 + x + 1/2
+ExprParser.Parse("(x + 1)^-2").Expand().Print();          // (x + 1)^-2
+```
+
+The mode is the one of `Simplify` (see below): `(sqrt(x) + 1)^2` expands to
+`x + 2sqrt(x) + 1` in Generic mode, while Strict mode keeps `sqrt(x)^2`, which is undefined
+for x < 0.
+
+The result can be much longer than the input: `(x + 1)^n` has n + 1 terms and
+`(x + y + z)^n` about n^2/2. `(x + 1)^100` takes about 50 ms.
 
 ## Generic and Strict mode
 

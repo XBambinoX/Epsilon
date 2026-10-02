@@ -1496,6 +1496,25 @@ public class PolynomialFactoringTests
         var (_, success) = expr.TryFactorReal("x");
         Assert.False(success);
     }
+
+    [Theory]
+    [InlineData("(x - 2)^4", "(x - 2)^4", "(x - 2)^4")]
+    [InlineData("(x + 1)*(x - 2)*x", "(x + 1) * (x - 2) * x", "(x + 1) * (x - 2) * x")]
+    [InlineData("3(x - 1)^2 (x + 2)", "3 * (x + 2) * (x - 1)^2", "3 * (x + 2) * (x - 1)^2")]
+    [InlineData("(x + 1)^2/2", "(1/2) * (x + 1)^2", "(1/2) * (x + 1)^2")]
+    [InlineData("(x^2 + 1)*(x - 1)", "(x^2 + 1) * (x - 1)", "(x + i) * (x - 1) * (x - i)")]
+    public void Factors_a_polynomial_that_is_not_expanded(string input, string real, string complex)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        var (realFactored, realSuccess) = expr.TryFactorReal("x");
+        var (complexFactored, complexSuccess) = expr.TryFactorComplex("x");
+
+        Assert.True(realSuccess);
+        Assert.True(complexSuccess);
+        Assert.Equal(real, realFactored.Print());
+        Assert.Equal(complex, complexFactored.Print());
+    }
 }
 
 public class AbsValueTests
@@ -3378,6 +3397,86 @@ public class CachedHashTests
     }
 }
 
+public class ExpandTests
+{
+    [Theory]
+    [InlineData("(x + 1)^2 - x^2", "2x + 1")]
+    [InlineData("(x + 1)*(x - 1)", "x^2 - 1")]
+    [InlineData("(x - 2)^4", "x^4 - 8x^3 + 24x^2 - 32x + 16")]
+    [InlineData("(x + 1)^2 (x - 1)", "x^3 + x^2 - x - 1")]
+    [InlineData("(1 + x)^3 (1 - x)^3", "-x^6 + 3x^4 - 3x^2 + 1")]
+    [InlineData("-(x + 1)*(x - 2)", "-x^2 + x + 2")]
+    [InlineData("6(x - 3) + 9", "6x - 9")]
+    [InlineData("x*(x + 1) - x^2", "x")]
+    [InlineData("(x + y)^2", "2x * y + x^2 + y^2")]
+    [InlineData("(2x)^3", "8x^3")]
+    [InlineData("(x*y)^2", "x^2 * y^2")]
+    public void Multiplies_out_products_and_powers_of_sums(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]   // dividing by a number divides every term
+    [InlineData("(x + 1)^2/(x - 1)^2", "(x^2 + 2x + 1) / (x^2 - 2x + 1)")]
+    [InlineData("((x + 1)/y)^2", "(x^2 + 2x + 1) / y^2")]
+    [InlineData("x*(y + (x + 1)/y)", "x * y + (x^2 + x) / y")]
+    [InlineData("x/(x - 1) + 2x/(x - 1)", "3x / (x - 1)")]
+    [InlineData("(x + 1)^-2", "(x + 1)^-2")]               // negative powers are kept
+    public void Keeps_a_quotient_as_one_fraction(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Fact]
+    public void Expands_function_arguments_and_simplifies_the_result()
+    {
+        Assert.Equal("sin(x^2 + 2x + 1)", ExprParser.Parse("sin((x + 1)^2)").Expand().Print());
+        Assert.Equal("2cos(x) * sin(x) + 1", ExprParser.Parse("(sin(x) + cos(x))^2").Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("(sqrt(x) + 1)^2", "x + 2sqrt(x) + 1", "2sqrt(x) + sqrt(x)^2 + 1")]
+    [InlineData("(x + 1/x)^2", "x^2 + 1 / x^2 + 2", "x^2 + 1 / x^2 + 2x / x")]
+    // Merging the powers gives (x + 1)^2, which is multiplied out in turn.
+    [InlineData("(x + 1)^(1/2) * (x + 1)^(3/2)", "x^2 + 2x + 1", "(x + 1)^(1/2) * (x + 1)^(3/2)")]
+    public void Simplifies_in_the_given_mode(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        Assert.Equal(generic, expr.Expand().Print());
+        Assert.Equal(strict, expr.Expand(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(x + y)^5 - (x - y)^3 * y")]
+    [InlineData("(x^2 + x*y + 1)^3 / (y + 2)")]
+    [InlineData("(sin(x) + y)^2 * (x - 1)")]
+    [InlineData("((x + 1)/(y + 3))^3 - x")]
+    [InlineData("(x - y/2)^4 * (x + 1/3)")]
+    public void Keeps_the_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Expr expanded = expr.Expand();
+
+        foreach (var (x, y) in new[] { (0.3, -1.7), (1.9, 0.6), (-2.4, 2.2) })
+        {
+            double expected = expr.Evaluate(("x", x), ("y", y));
+            Assert.Equal(expected, expanded.Evaluate(("x", x), ("y", y)), 1e-9 * Math.Max(1, Math.Abs(expected)));
+        }
+    }
+
+    [Fact]
+    public void Combines_like_terms_of_a_high_power()
+    {
+        Expr expanded = ExprParser.Parse("(x + 1)^20").Expand();
+
+        Assert.StartsWith("x^20 + 20x^19 + 190x^18 + ", expanded.Print());
+        Assert.EndsWith(" + 190x^2 + 20x + 1", expanded.Print());
+        Assert.Equal(1048576, expanded.Evaluate(1));
+    }
+}
+
 public class PrintStyleTests
 {
     [Theory]
@@ -3469,6 +3568,7 @@ public class ReadmeExamplesTests
 
         Assert.Equal("1", e.Simplify().Print());
         Assert.Equal("x / x", e.Simplify(SimplifyMode.Strict).Print());
+        Assert.Equal("2x + 1", ExprParser.Parse("(x + 1)^2 - x^2").Expand().Print());
     }
 
     [Fact]

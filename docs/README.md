@@ -15,7 +15,7 @@ documentation, which your IDE shows as you type.
 |---|---|
 | [Expressions](expressions.md) | The `Expr` tree: building expressions with C# operators, node types, equality, traversal, substitution |
 | [Parsing](parsing.md) | The text syntax: operators, precedence, functions, constants, variables, error messages |
-| [Simplification](simplification.md) | What `Simplify` does, `Generic` vs `Strict` mode, the domain guarantee |
+| [Simplification](simplification.md) | What `Simplify` does, `Expand`, `Generic` vs `Strict` mode, the domain guarantee |
 | [Assumptions](assumptions.md) | Telling the simplifier what you know about variables |
 | [Differentiation](differentiation.md) | Derivatives, partial and higher derivatives, supported functions |
 | [Factoring](factoring.md) | Exact polynomial factoring over the reals and the complex numbers |
