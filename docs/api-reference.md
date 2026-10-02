@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.0.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.1.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 
@@ -133,6 +133,12 @@ Base for nodes with one argument: `Negate` and the one-argument functions.
 | `Generic` | Default. The result may be defined at more points than the original (`x/x` → `1`). |
 | `Strict` | The result has exactly the same domain; domain-enlarging rewrites need assumptions. |
 
+### `Expander` (static class)
+
+| Member | Description |
+|---|---|
+| `Expr Expand(this Expr expr, SimplifyMode mode = Generic)` | Multiplies out products and positive integer powers of sums, also inside function arguments, and simplifies the result. A quotient stays one fraction with its numerator and denominator expanded; a number as the denominator divides every term. |
+
 ### `Canonicalizer` (static class)
 
 | Member | Description |
@@ -230,11 +236,15 @@ Guide: [Root finding](root-finding.md).
 |---|---|
 | `IReadOnlyList<double> FindRealRoots(this Expr expr, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | All real roots of `expr = 0` for its only variable, ascending. Undefined points are never roots. |
 | `IReadOnlyList<double> FindRealRoots(this Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | The same for a named variable, with values for the others. |
-| `IReadOnlyList<double> FindRealRoots(this Expr left, Expr right, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | Real solutions of `left = right`. |
-| `IReadOnlyList<double> FindRealRoots(this Expr left, Expr right, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | The same for a named variable. |
+| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | Real solutions of `left = right`, ascending. `right` may be a plain number. |
+| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | The same for a named variable. |
 | `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex roots in a rectangle, by Newton's method from a grid of starting points. |
 | `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, string variable, IReadOnlyDictionary<string, ComplexNumber>? fixedBindings, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | The same for a named variable. |
-| `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr left, Expr right, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex solutions of `left = right`. |
+| `IReadOnlyList<ComplexNumber> SolveComplexNumerically(this Expr left, Expr right, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex solutions of `left = right`. `right` may be a plain number. |
+
+Obsolete since 1.1: `FindRealRoots(this Expr left, Expr right, ...)` and
+`FindComplexRoots(this Expr left, Expr right, ...)`, the old names of `SolveNumerically` and
+`SolveComplexNumerically`. A plain number as `right` made them pick the range overload instead.
 
 ### `RootFinder` (static class)
 
@@ -373,7 +383,7 @@ A complex number with `double` parts; the result of `EvaluateComplex`. Guide:
 | `static ComplexNumber Asin`, `Acos`, `Atan` | Inverse trigonometric functions, principal values. |
 | `static ComplexNumber Sinh`, `Cosh`, `Tanh`, `Coth`, `Sech`, `Csch` | Hyperbolic functions. |
 | `static ComplexNumber Asinh`, `Acosh`, `Atanh` | Inverse hyperbolic functions, principal values. |
-| `+ - * /`, unary `-` | Arithmetic; division avoids overflow. |
+| `+ - * /`, unary `-` | Arithmetic; division avoids overflow. `z / 0` is infinite in the direction of `z` (`1/0` = inf, `i/0` = inf*i), `0/0` is NaN. |
 | `==`, `!=`, `Equals` | Exact equality of both parts. |
 | implicit from `double` | A real number. |
 | `string ToString()` | `1 - 2i`, `3`, `NaN`; culture-invariant. |

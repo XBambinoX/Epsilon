@@ -20,7 +20,21 @@ public static class RootFindingExtensions
     private const double InfMappingEdgeEpsilon = 1e-9;
 
     private const int DefaultComplexGridSteps = 12;
-    private const double ComplexRootMergeTolerance = 1e-6;
+    private const int MaxComplexPolishSteps = 50;
+
+    // Where IsSameComplexRoot looks at |f| between two candidates: the fractional parts of
+    // k * golden ratio, spread over (0, 1) but never in step with evenly spaced roots. Samples at
+    // k/16 would all land on roots of sin(10x) between -0.8pi and 0.8pi and merge the two.
+    private static readonly double[] SegmentSamples =
+        [.. Enumerable.Range(1, 16).Select(k => k * 0.6180339887498949 % 1)];
+
+    // The equation overloads of FindRealRoots/FindComplexRoots were a trap: a plain number as the
+    // right side converts to Expr only implicitly, so the range overload wins and
+    // sin.FindRealRoots(-1, 2, 3) searched sin(x) = 0 on [-1, 2] instead of solving sin(x) = -1.
+    private const string ObsoleteRealEquation =
+        "Use SolveNumerically. A plain number as the right side makes FindRealRoots pick its range overload instead.";
+    private const string ObsoleteComplexEquation =
+        "Use SolveComplexNumerically. A plain number as the right side makes FindComplexRoots pick its rectangle overload instead.";
 
     /// <summary>
     /// All real solutions of the equation <paramref name="left"/> = <paramref name="right"/> for
@@ -37,7 +51,7 @@ public static class RootFindingExtensions
     /// <returns>The roots in ascending order, each to about full double precision.</returns>
     /// <exception cref="ArgumentException">A limit is NaN or <paramref name="leftLimit"/> ≥ <paramref name="rightLimit"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="scanSteps"/> is less than 2.</exception>
-    public static IReadOnlyList<double> FindRealRoots(
+    public static IReadOnlyList<double> SolveNumerically(
         this Expr left,
         Expr right,
         string variable,
@@ -49,6 +63,44 @@ public static class RootFindingExtensions
         Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindRealRoots(variable, fixedBindings, leftLimit, rightLimit, scanSteps);
     }
+
+    /// <summary>
+    /// All real solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's
+    /// only variable. See <see cref="SolveNumerically(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
+    public static IReadOnlyList<double> SolveNumerically(
+        this Expr left,
+        Expr right,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps)
+    {
+        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
+        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
+    }
+
+    /// <summary>Obsolete: use <see cref="SolveNumerically(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteRealEquation)]
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr left,
+        Expr right,
+        string variable,
+        IReadOnlyDictionary<string, double>? fixedBindings = null,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps) =>
+        left.SolveNumerically(right, variable, fixedBindings, leftLimit, rightLimit, scanSteps);
+
+    /// <summary>Obsolete: use <see cref="SolveNumerically(Expr, Expr, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteRealEquation)]
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr left,
+        Expr right,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps) =>
+        left.SolveNumerically(right, leftLimit, rightLimit, scanSteps);
 
     /// <summary>
     /// All real roots of <paramref name="expr"/> = 0 for <paramref name="variable"/> in the range,
@@ -95,22 +147,6 @@ public static class RootFindingExtensions
         Func<double, double> mapToX = MakeInfiniteMapping(leftLimit, rightLimit, leftInf, rightInf, out double tMin, out double tMax);
 
         return ScanForRealRoots(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
-    }
-
-    /// <summary>
-    /// All real solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's
-    /// only variable. See <see cref="FindRealRoots(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
-    public static IReadOnlyList<double> FindRealRoots(
-        this Expr left,
-        Expr right,
-        double leftLimit = double.NegativeInfinity,
-        double rightLimit = double.PositiveInfinity,
-        int scanSteps = DefaultRealScanSteps)
-    {
-        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
-        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
     }
 
     /// <summary>
@@ -335,7 +371,9 @@ public static class RootFindingExtensions
     /// </summary>
     /// <remarks>
     /// A numeric method without a completeness guarantee: a root is found only if some grid start
-    /// converges to it. Increase <paramref name="gridSteps"/> for more starting points.
+    /// converges to it. Increase <paramref name="gridSteps"/> for more starting points. Each root
+    /// is reported once, a multiple root too; roots so close that |f| &lt; 1e-10 everywhere between
+    /// them can't be told apart and are reported as one.
     /// </remarks>
     /// <param name="expr">The function whose zeros are wanted.</param>
     /// <param name="variable">The variable to solve for.</param>
@@ -362,7 +400,12 @@ public static class RootFindingExtensions
         if (gridSteps < 1)
             throw new ArgumentOutOfRangeException(nameof(gridSteps));
 
-        var roots = new List<ComplexNumber>();
+        Expr derivative = expr.Differentiate(variable);
+        var f = RootFinder.ComplexFunction(expr, variable, fixedBindings);
+        var df = RootFinder.ComplexFunction(derivative, variable, fixedBindings);
+        var d2f = RootFinder.ComplexFunction(derivative.Differentiate(variable), variable, fixedBindings);
+
+        var roots = new List<(ComplexNumber Root, double Residual)>();
 
         double reStep = (reMax - reMin) / gridSteps;
         double imStep = (imMax - imMin) / gridSteps;
@@ -375,14 +418,17 @@ public static class RootFindingExtensions
                 double im = imMin + j * imStep;
 
                 var guess = new ComplexNumber(re, im);
-                var (root, found) = expr.TryFindComplexRoot(variable, guess, fixedBindings);
+                var (root, found) = RootFinder.NewtonComplex(f, df, guess);
+                if (!found || root is not ComplexNumber r)
+                    continue;
 
-                if (found && root is ComplexNumber r && IsWithinBounds(r, reMin, reMax, imMin, imMax))
-                    TryAddComplex(roots, r);
+                var (polished, residual) = PolishComplexRoot(f, df, d2f, r);
+                if (IsWithinBounds(polished, reMin, reMax, imMin, imMax))
+                    AddComplexRoot(roots, f, polished, residual);
             }
         }
 
-        return roots;
+        return [.. roots.Select(r => r.Root)];
     }
 
     /// <summary>
@@ -406,7 +452,7 @@ public static class RootFindingExtensions
     /// See <see cref="FindComplexRoots(Expr, string, IReadOnlyDictionary{string, ComplexNumber}, double, double, double, double, int)"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
-    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
+    public static IReadOnlyList<ComplexNumber> SolveComplexNumerically(
         this Expr left,
         Expr right,
         double reMin, double reMax,
@@ -417,6 +463,16 @@ public static class RootFindingExtensions
         return diff.FindComplexRoots(reMin, reMax, imMin, imMax, gridSteps);
     }
 
+    /// <summary>Obsolete: use <see cref="SolveComplexNumerically(Expr, Expr, double, double, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteComplexEquation)]
+    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
+        this Expr left,
+        Expr right,
+        double reMin, double reMax,
+        double imMin, double imMax,
+        int gridSteps = DefaultComplexGridSteps) =>
+        left.SolveComplexNumerically(right, reMin, reMax, imMin, imMax, gridSteps);
+
     private static bool IsWithinBounds(ComplexNumber z, double reMin, double reMax, double imMin, double imMax)
     {
         double margin = 0.05 * Math.Max(reMax - reMin, imMax - imMin);
@@ -424,10 +480,60 @@ public static class RootFindingExtensions
                z.Imaginary >= imMin - margin && z.Imaginary <= imMax + margin;
     }
 
-    private static void TryAddComplex(List<ComplexNumber> roots, ComplexNumber candidate)
+    // Newton's method converges only linearly to a root of multiplicity m and stops (|f| < 1e-10)
+    // about (1e-10)^(1/m) away from it, at a different point for every start: (x - 1)^2 gave 80
+    // roots around 0.99999. Newton's method on f/f', whose roots are all simple, converges
+    // quadratically whatever m is: z -= f f' / (f'^2 - f f''). A step is kept only if it lowers
+    // |f|: once rounding noise dominates next to the root, a step can jump far away from it.
+    private static (ComplexNumber Root, double Residual) PolishComplexRoot(
+        Func<ComplexNumber, ComplexNumber> f, Func<ComplexNumber, ComplexNumber> df,
+        Func<ComplexNumber, ComplexNumber> d2f, ComplexNumber z)
     {
-        if (!roots.Any(r => (r - candidate).Magnitude < ComplexRootMergeTolerance))
-            roots.Add(candidate);
+        ComplexNumber fz = f(z);
+
+        for (int i = 0; i < MaxComplexPolishSteps && fz != ComplexNumber.Zero; i++)
+        {
+            ComplexNumber d1 = df(z);
+            ComplexNumber next = z - fz * d1 / (d1 * d1 - fz * d2f(z));
+            if (!double.IsFinite(next.Real) || !double.IsFinite(next.Imaginary))
+                break;
+
+            ComplexNumber fNext = f(next);
+            if (!(fNext.Magnitude < fz.Magnitude)) // also stops on NaN
+                break;
+
+            (z, fz) = (next, fNext);
+        }
+
+        return (z, fz.Magnitude);
+    }
+
+    // Keeps one entry per root: the candidate with the smallest |f|.
+    private static void AddComplexRoot(
+        List<(ComplexNumber Root, double Residual)> roots, Func<ComplexNumber, ComplexNumber> f,
+        ComplexNumber candidate, double residual)
+    {
+        int index = roots.FindIndex(r => IsSameComplexRoot(f, r.Root, candidate));
+        if (index < 0)
+            roots.Add((candidate, residual));
+        else if (residual < roots[index].Residual)
+            roots[index] = (candidate, residual);
+    }
+
+    // Two candidates are the same root when |f| stays below the root tolerance between them:
+    // every point there counts as a root, so the two can't be told apart. This merges the
+    // candidates for a multiple root of an expanded polynomial, which rounding noise leaves
+    // slightly scattered, while x^3 - x keeps -1 and 1 (|f| reaches 0.38 between them).
+    private static bool IsSameComplexRoot(Func<ComplexNumber, ComplexNumber> f, ComplexNumber a, ComplexNumber b)
+    {
+        if (a == b)
+            return true;
+
+        foreach (double t in SegmentSamples)
+            if (!(f(a + (b - a) * t).Magnitude < RootFinder.DefaultTolerance))
+                return false;
+
+        return true;
     }
 
     // A root on the edge of the domain is accepted if f is (nearly) 0 at the last defined

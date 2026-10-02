@@ -100,6 +100,9 @@ public static class Simplifier
 
     private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
+        if (expr is Add or Subtract)
+            return SimplifySum(expr, assumptions, mode, cache).Canonicalize();
+
         Expr simplifiedChildren = expr.MapChildren(child => SimplifyCached(child, assumptions, mode, cache));
         return ApplyRules(simplifiedChildren, assumptions, mode, cache).Canonicalize();
     }
@@ -122,48 +125,20 @@ public static class Simplifier
             ? !expr.IsProvablyNonPositive(assumptions)
             : expr.IsProvablyPositive(assumptions);
 
+    // Sums never get here: SimplifySum handles a whole Add/Subtract chain at once.
     private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
-        Expr flattened = FlattenAndCombine(expr);
-        if (!flattened.Equals(expr))
-            return flattened.Canonicalize();
-
         Expr combinedProduct = CombineProductFactors(expr, assumptions, mode);
         if (!combinedProduct.Equals(expr))
             return combinedProduct.Canonicalize();
 
         switch (expr)
         {
-            case Add(Constant a, Constant b):
-                return new Constant(a.Value + b.Value);
-
-            case Add(var l, var r) when r.Equals(new Constant(0)):
-                return l;
-
-            case Add(var l, var r) when l.Equals(new Constant(0)):
-                return r;
-
-            case Subtract(Constant a, Constant b):
-                return new Constant(a.Value - b.Value);
-
-            case Subtract(var l, var r) when l.Equals(r):
-                return new Constant(0);
-
-            case Subtract(Constant zero, var x) when zero.Value.IsZero:
-                return new Negate(x);
-
             case Negate(Constant c):
                 return new Constant(-c.Value);
 
             case Negate(Negate(var a)):
                 return a;
-
-            // a - (-b) = a + b
-            case Subtract(var a, Negate(var b)):
-                return new Add(a, b);
-
-            case Subtract(var l, var r) when r.Equals(new Constant(0)):
-                return l;
 
             // Constant folding, 1 * x and equal-base merging for products are all done by
             // CombineProductFactors above; only 0 * x is deliberately left to this rule.
@@ -185,11 +160,24 @@ public static class Simplifier
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
 
+            case Divide(var numerator, var denominator)
+                when TryReduceConstantFactors(numerator, denominator, assumptions, mode, cache, out Expr? reduced):
+                return reduced!;
+
+            // 1/i = i^-1 = -i: an i in the denominator moves up with a minus sign, a/(b*i) = -a*i/b.
+            case Divide(var a, var d) when TryRemoveFactor(d, new ImaginaryUnit(), out Expr? rest):
+                Expr moved = new Negate(new Multiply(a, new ImaginaryUnit()));
+                return rest is null ? moved : new Divide(moved, rest);
+
             // Integer exponent: exact BigInteger power. 0^negative is undefined
             // (division by zero), so that combination is excluded and left symbolic.
             case Power(Constant b, Constant e)
                 when e.Value.IsInteger && !(b.Value.IsZero && e.Value.Sign < 0):
                 return new Constant(b.Value.Pow((int)e.Value.Numerator));
+
+            // i^2 = -1, and on with period 4: i^3 = -i, i^4 = 1, i^-1 = -i.
+            case Power(ImaginaryUnit, Constant e) when e.Value.IsInteger:
+                return ImaginaryUnitPower(e.Value.Numerator);
 
             // Root exponent (+-1/n): exact result only if b is a perfect n-th power.
             // NOT approximated via Math.Pow - an inexact root stays symbolic rather than
@@ -226,11 +214,15 @@ public static class Simplifier
                                     e2.IsProvablyPositive(assumptions);
                 if (!zeroBaseSafe)
                     return expr;
+                // Integer powers compose for any base: (x^2)^3 = x^6, (x^-1)^2 = x^-2.
+                bool innerIsInteger = e1 is Constant ce1 && ce1.Value.IsInteger;
+                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
+                if (innerIsInteger && outerIsInteger)
+                    return combined;
                 // Power is the principal value: a non-integer exponent of a negative base is
                 // undefined over the reals. So (x^3)^(1/3) is undefined for x < 0 while x is not -
-                // an odd inner exponent is only a domain enlargement unless e2 is an integer.
-                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
-                if (e1 is Constant ce1 && IsOddInteger(ce1.Value) && (outerIsInteger || mode == SimplifyMode.Generic))
+                // an odd inner exponent with a non-integer outer one only enlarges the domain.
+                if (e1 is Constant ce1Odd && IsOddInteger(ce1Odd.Value) && mode == SimplifyMode.Generic)
                     return combined;
                 // A non-integer inner exponent (x^(1/2), x^(1/3)) is undefined for b < 0, so
                 // collapsing only enlarges the domain - fine in Generic mode. An even integer
@@ -258,6 +250,10 @@ public static class Simplifier
             case Divide(Divide(var a, var b), var c):
                 return new Divide(a, new Multiply(b, c));
 
+            // a / (b/c) = a*c / b; the left side is undefined where c = 0, the right side isn't.
+            case Divide(var a, Divide(var b, var c)) when NonZeroForDomain(c, assumptions, mode):
+                return new Divide(new Multiply(a, c), b);
+
             // x^n / x^m = x^(n-m)
             case Divide(Power(var b1, var e1), Power(var b2, var e2))
                 when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
@@ -283,21 +279,15 @@ public static class Simplifier
                 when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
-            case Sin(Constant c) when c.Value.IsZero:
-                return new Constant(0);
-
-            case Cos(Constant c) when c.Value.IsZero:
-                return new Constant(1);
-
-            case Tan(Constant c) when c.Value.IsZero:
-                return new Constant(0);
-
-            // sin(x)^2 + cos(x)^2 = 1 and its variants live in FlattenAndCombine
-            // (ApplyPythagoreanIdentity), where the whole sum is visible at once.
+            // sin(x)^2 + cos(x)^2 = 1, sec(x)^2 - tan(x)^2 = 1, csc(x)^2 - cot(x)^2 = 1 and their
+            // variants live in SimplifySum, where the whole sum is visible at once.
 
             // ln(exp(a)) = a: exp(a) is always strictly positive for real a,
             // so ln is always defined on its result - no assumption needed.
             case Ln(Exp(var a)):
+                return a;
+
+            case Ln(Power(EulerNumber, var a)):
                 return a;
 
             case Exp(Ln(var a)) when PositiveForDomain(a, assumptions, mode):
@@ -338,26 +328,6 @@ public static class Simplifier
                     x1.Equals(x2):
                 return new Power(new Cot(x1), new Constant(2));
 
-            // sec(x)^2 - tan(x)^2 = 1, valid only where cos(x) != 0
-            case Subtract(
-                Power(Sec(var x1), Constant e1),
-                Power(Tan(var x2), Constant e2))
-                when e1.Value == 2 &&
-                    e2.Value == 2 &&
-                    x1.Equals(x2) &&
-                    NonZeroForDomain(new Cos(x1), assumptions, mode):
-                return new Constant(1);
-
-            // csc(x)^2 - cot(x)^2 = 1, valid only where sin(x) != 0
-            case Subtract(
-                Power(Csc(var x1), Constant e1),
-                Power(Cot(var x2), Constant e2))
-                when e1.Value == 2 &&
-                    e2.Value == 2 &&
-                    x1.Equals(x2) &&
-                    NonZeroForDomain(new Sin(x1), assumptions, mode):
-                return new Constant(1);
-
             // Exact perfect-square root; not a perfect square stays symbolic (falls through).
             case Sqrt(Constant c)
                 when c.Value.Sign >= 0 && TryExactRoot(c.Value, 2, out Rational sqrtValue):
@@ -372,6 +342,10 @@ public static class Simplifier
             case NthRoot(Constant c, Constant n) when TryExactRealRoot(c.Value, n.Value, out Rational nthRootValue):
                 return new Constant(nthRootValue);
 
+            // sin(pi/6) = 1/2, asin(1/2) = pi/6, sqrt(8) = 2sqrt(2), ln(1) = 0 and similar.
+            case var _ when ExactValues.TryEvaluate(expr, out Expr? exact):
+                return exact;
+
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
 
@@ -383,6 +357,9 @@ public static class Simplifier
 
             case Abs(var a) when a.IsProvablyNegative(assumptions):
                 return new Negate(a);
+
+            case Sign(Constant c):
+                return new Constant(c.Value.Sign);
 
             case Sign(var a) when a.IsProvablyPositive(assumptions):
                 return new Constant(1);
@@ -409,6 +386,41 @@ public static class Simplifier
                 return expr;
         }
     }
+
+    // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
+    // the product was the factor itself.
+    private static bool TryRemoveFactor(Expr product, Expr factor, out Expr? rest)
+    {
+        rest = null;
+        if (product.Equals(factor))
+            return true;
+
+        if (product is not Multiply(var left, var right))
+            return false;
+
+        if (TryRemoveFactor(left, factor, out Expr? leftRest))
+        {
+            rest = leftRest is null ? right : new Multiply(leftRest, right);
+            return true;
+        }
+
+        if (TryRemoveFactor(right, factor, out Expr? rightRest))
+        {
+            rest = rightRest is null ? left : new Multiply(left, rightRest);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Expr ImaginaryUnitPower(System.Numerics.BigInteger n) =>
+        (int)((n % 4 + 4) % 4) switch
+        {
+            0 => new Constant(1),
+            1 => new ImaginaryUnit(),
+            2 => new Constant(-1),
+            _ => new Negate(new ImaginaryUnit())
+        };
 
     // BigInteger.IsEven instead of a (long) cast, which overflows for huge integers.
     private static bool IsOddInteger(Rational value) =>
@@ -528,41 +540,60 @@ public static class Simplifier
         return true;
     }
 
+    // Recurses through Negate, so -(2x) is the term x with coefficient -2 and merges with x.
     private static (Rational Coefficient, Expr Term) ExtractCoefficient(Expr expr) => expr switch
     {
-        Negate(var t) => (Rational.MinusOne, t),
+        Negate(var t) when ExtractCoefficient(t) is var (c, inner) => (-c, inner),
         Multiply(Constant c, var t) => (c.Value, t),
         Multiply(var t, Constant c) => (c.Value, t),
         Divide(var t, Constant c) when !c.Value.IsZero => (Rational.One / c.Value, t),
         _ => (Rational.One, expr)
     };
 
-    // Flattens a chain of Add/Subtract into a flat list of (coefficient, term) pairs.
-    private static void CollectTerms(Expr expr, Rational sign, List<(Rational Coefficient, Expr Term)> terms)
+    // Flattens a chain of Add/Subtract into a flat list of (coefficient, term) pairs, in order,
+    // simplifying each term first. A term that simplifies to a sum (ln(exp(a + b))) is flattened
+    // too; its own terms are simplified already. Uses an explicit stack, not recursion: a sum of
+    // n terms is a chain n levels deep.
+    private static List<(Rational Coefficient, Expr Term)> CollectTerms(Expr sum, Func<Expr, Expr> simplifyTerm)
     {
-        switch (expr)
+        var terms = new List<(Rational Coefficient, Expr Term)>();
+        var pending = new Stack<(Expr Expr, Rational Sign, bool Simplified)>();
+        pending.Push((sum, Rational.One, false));
+
+        while (pending.TryPop(out var item))
         {
-            case Add(var l, var r):
-                CollectTerms(l, sign, terms);
-                CollectTerms(r, sign, terms);
-                break;
-            case Subtract(var l, var r):
-                CollectTerms(l, sign, terms);
-                CollectTerms(r, -sign, terms);
-                break;
-            default:
-                var (coef, term) = ExtractCoefficient(expr);
-                terms.Add((coef * sign, term));
-                break;
+            switch (item.Expr)
+            {
+                case Add(var l, var r):
+                    pending.Push((r, item.Sign, item.Simplified));
+                    pending.Push((l, item.Sign, item.Simplified));
+                    break;
+                case Subtract(var l, var r):
+                    pending.Push((r, -item.Sign, item.Simplified));
+                    pending.Push((l, item.Sign, item.Simplified));
+                    break;
+                default:
+                    Expr simplified = item.Simplified ? item.Expr : simplifyTerm(item.Expr);
+                    if (simplified is Add or Subtract)
+                    {
+                        pending.Push((simplified, item.Sign, true));
+                        break;
+                    }
+
+                    var (coef, term) = ExtractCoefficient(simplified);
+                    terms.Add((coef * item.Sign, term));
+                    break;
+            }
         }
+
+        return terms;
     }
 
-    // Combines like terms across an entire Add/Subtract chain, then rebuilds it.
-    private static bool IsSinSquared(Expr term, out Expr argument)
+    private static bool IsSquareOf<TFunction>(Expr term, out Expr argument) where TFunction : UnaryExpr
     {
-        if (term is Power(Sin(var a), Constant e) && e.Value == 2)
+        if (term is Power(TFunction f, Constant e) && e.Value == 2)
         {
-            argument = a;
+            argument = f.Argument;
             return true;
         }
 
@@ -570,39 +601,71 @@ public static class Simplifier
         return false;
     }
 
-    private static bool IsCosSquared(Expr term, out Expr argument)
+    private static Expr Square(Expr expr) => new Power(expr, new Constant(2));
+
+    // For sin(x)^2, sec(x)^2 or csc(x)^2: the other square q^2 of its Pythagorean identity, the
+    // sign s in p^2 = 1 + s*q^2, and the function that must not be 0 for both to be defined
+    // (null for sin and cos, defined everywhere).
+    private static bool TryGetPythagoreanPartner(Expr term, out Expr partner, out int sign, out Expr? nonZero)
     {
-        if (term is Power(Cos(var a), Constant e) && e.Value == 2)
+        if (IsSquareOf<Sin>(term, out Expr x))
+            (partner, sign, nonZero) = (Square(new Cos(x)), -1, null);
+        else if (IsSquareOf<Sec>(term, out x))
+            (partner, sign, nonZero) = (Square(new Tan(x)), 1, new Cos(x));
+        else if (IsSquareOf<Csc>(term, out x))
+            (partner, sign, nonZero) = (Square(new Cot(x)), 1, new Sin(x));
+        else
         {
-            argument = a;
-            return true;
+            (partner, sign, nonZero) = (null!, 0, null);
+            return false;
         }
 
-        argument = null!;
-        return false;
+        return true;
     }
 
-    // sin(x)^2 + cos(x)^2 = 1, applied to the whole flattened sum rather than to a fixed
-    // two-node shape, so it works with other terms in between, any coefficients and any
-    // order: sin^2 + cos^2 + 1 -> 2, 2sin^2 + 3cos^2 -> 2 + cos^2, 1 - sin^2 -> cos^2.
-    // Holds for every real x, so it is valid in both Strict and Generic mode.
-    private static void ApplyPythagoreanIdentity(
-        List<(Rational Coefficient, Expr Term)> terms, Dictionary<Expr, int> termIndex, ref Rational constant)
+    // sin^2 + cos^2 = 1, sec^2 - tan^2 = 1 and csc^2 - cot^2 = 1 (same argument), applied to the
+    // whole flattened sum rather than to a fixed two-node shape, so they work with other terms
+    // in between, any coefficients and any order: sin^2 + cos^2 + 1 -> 2, 2sin^2 + 3cos^2 ->
+    // 2 + cos^2, 1 - sin^2 -> cos^2, 2sec^2 - tan^2 -> sec^2 + 1.
+    private static void ApplyPythagoreanIdentities(
+        List<(Rational Coefficient, Expr Term)> terms, Dictionary<Expr, int> termIndex, ref Rational constant,
+        Assumptions assumptions, SimplifyMode mode)
     {
-        // Step 1: a*sin^2 + b*cos^2 = a + (b - a)*cos^2 - eliminates the sin^2 term.
+        // Step 1: where both squares p^2 and q^2 of an identity p^2 = 1 + s*q^2 occur, the one
+        // with the smaller coefficient is rewritten in terms of the other (on a tie, q is kept):
+        //   a*p^2 + b*q^2 = a + (s*a + b)*q^2 = -s*b + (a + s*b)*p^2.
+        // For sin/cos the square that is kept gets a positive coefficient. If both cancel
+        // (sec^2 - tan^2 = 1), the left side was undefined where cos(x) = 0 (sin(x) = 0 for
+        // csc/cot) and the right side isn't, so Strict mode needs that excluded by the assumptions.
         for (int i = 0; i < terms.Count; i++)
         {
-            var (sinCoef, sinTerm) = terms[i];
-            if (sinCoef.IsZero || !IsSinSquared(sinTerm, out Expr x))
+            var (a, pTerm) = terms[i];
+            if (a.IsZero || !TryGetPythagoreanPartner(pTerm, out Expr qTerm, out int s, out Expr? nonZero))
                 continue;
 
-            Expr cosSquared = new Power(new Cos(x), new Constant(2));
-            if (!termIndex.TryGetValue(cosSquared, out int j) || terms[j].Coefficient.IsZero)
+            if (!termIndex.TryGetValue(qTerm, out int j) || terms[j].Coefficient.IsZero)
                 continue;
 
-            constant += sinCoef;
-            terms[j] = (terms[j].Coefficient - sinCoef, terms[j].Term);
-            terms[i] = (Rational.Zero, sinTerm);
+            Rational b = terms[j].Coefficient;
+            Rational sa = s > 0 ? a : -a, sb = s > 0 ? b : -b;
+
+            bool keepP = b < a;
+            Rational keptCoefficient = keepP ? a + sb : sa + b;
+            if (keptCoefficient.IsZero && nonZero is not null && !NonZeroForDomain(nonZero, assumptions, mode))
+                continue;
+
+            if (keepP)
+            {
+                constant -= sb;
+                terms[i] = (keptCoefficient, pTerm);
+                terms[j] = (Rational.Zero, qTerm);
+            }
+            else
+            {
+                constant += a;
+                terms[i] = (Rational.Zero, pTerm);
+                terms[j] = (keptCoefficient, qTerm);
+            }
         }
 
         // Step 2: c - c*sin^2 = c*cos^2 and c - c*cos^2 = c*sin^2. Runs after step 1, so
@@ -614,8 +677,8 @@ public static class Simplifier
                 continue;
 
             Expr? swapped =
-                IsSinSquared(term, out Expr sinArg) ? new Power(new Cos(sinArg), new Constant(2)) :
-                IsCosSquared(term, out Expr cosArg) ? new Power(new Sin(cosArg), new Constant(2)) :
+                IsSquareOf<Sin>(term, out Expr sinArg) ? Square(new Cos(sinArg)) :
+                IsSquareOf<Cos>(term, out Expr cosArg) ? Square(new Sin(cosArg)) :
                 null;
 
             if (swapped is null)
@@ -626,7 +689,7 @@ public static class Simplifier
         }
     }
 
-    // The product counterpart of FlattenAndCombine: works on a whole Multiply chain instead
+    // The product counterpart of SimplifySum: works on a whole Multiply chain instead
     // of one binary node, so repeated factors merge even when they aren't adjacent in the
     // tree - x*y*x*y -> x^2*y^2 and 2*x*3*x -> 6*x^2 (the binary rules only caught the
     // first pair). Constants are multiplied together; equal bases get their exponents
@@ -707,13 +770,14 @@ public static class Simplifier
             ? new Constant(c1.Value + c2.Value)
             : new Add(e1, e2);
 
-    private static Expr FlattenAndCombine(Expr expr)
+    // A sum is simplified as a whole: each term of the Add/Subtract chain is simplified (through
+    // the cache), then like terms, constants and the trigonometric identities are combined over
+    // all of them in one pass. Simplifying every prefix of the chain as a node of its own, as for
+    // other nodes, took time growing with the square of the number of terms and recursed once per
+    // term; binary rules such as sec^2 - tan^2 = 1 also fired only on neighbouring terms.
+    private static Expr SimplifySum(Expr sum, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
-        if (expr is not (Add or Subtract))
-            return expr;
-
-        var raw = new List<(Rational Coefficient, Expr Term)>();
-        CollectTerms(expr, Rational.One, raw);
+        var raw = CollectTerms(sum, term => SimplifyCached(term, assumptions, mode, cache));
 
         Rational constantSum = Rational.Zero;
         var combined = new List<(Rational Coefficient, Expr Term)>();
@@ -739,32 +803,41 @@ public static class Simplifier
             }
         }
 
-        ApplyPythagoreanIdentity(combined, termIndex, ref constantSum);
+        ApplyPythagoreanIdentities(combined, termIndex, ref constantSum, assumptions, mode);
 
         combined.RemoveAll(t => t.Coefficient.IsZero);
+        Expr result = BuildSum(combined, constantSum);
 
-        Expr Rebuild(Rational coef, Expr term) =>
+        // An unchanged sum keeps its instance, and with it the cached hash codes.
+        return result.Equals(sum) ? sum : result;
+    }
+
+    // Builds c1*t1 + c2*t2 + ... + constant in the given order, writing negative coefficients as
+    // subtraction: x - 2y + 3. The coefficients must be nonzero. Also used by Expand.
+    internal static Expr BuildSum(IReadOnlyList<(Rational Coefficient, Expr Term)> terms, Rational constant)
+    {
+        static Expr Rebuild(Rational coef, Expr term) =>
             coef.IsOne ? term :
             coef.Equals(Rational.MinusOne) ? new Negate(term) :
             new Multiply(new Constant(coef), term);
 
-        if (combined.Count == 0)
-            return new Constant(constantSum);
+        if (terms.Count == 0)
+            return new Constant(constant);
 
-        Expr result = Rebuild(combined[0].Coefficient, combined[0].Term);
-        for (int i = 1; i < combined.Count; i++)
+        Expr result = Rebuild(terms[0].Coefficient, terms[0].Term);
+        for (int i = 1; i < terms.Count; i++)
         {
-            var (coef, term) = combined[i];
+            var (coef, term) = terms[i];
             result = coef.Sign < 0
                 ? new Subtract(result, Rebuild(-coef, term))
                 : new Add(result, Rebuild(coef, term));
         }
 
-        if (!constantSum.IsZero)
+        if (!constant.IsZero)
         {
-            result = constantSum.Sign < 0
-                ? new Subtract(result, new Constant(-constantSum))
-                : new Add(result, new Constant(constantSum));
+            result = constant.Sign < 0
+                ? new Subtract(result, new Constant(-constant))
+                : new Add(result, new Constant(constant));
         }
 
         return result;
@@ -827,6 +900,38 @@ public static class Simplifier
 
         return result ?? new Constant(coefficient); // everything cancelled — pure coefficient (often 1)
     }
+
+    // The constant factors of a quotient are reduced like a fraction, with the sign in the
+    // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x). Both sides are
+    // multiplied by the same nonzero number, so the domain stays the same.
+    private static bool TryReduceConstantFactors(
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+    {
+        result = null;
+
+        // 0/d and division by 0 are left to their own rules.
+        Rational top = ConstantFactor(numerator), bottom = ConstantFactor(denominator);
+        if (top.IsZero || bottom.IsZero)
+            return false;
+
+        Rational ratio = top / bottom;
+        if (top == new Rational(ratio.Numerator) && bottom == new Rational(ratio.Denominator))
+            return false; // already in lowest terms
+
+        var scale = new Constant(new Rational(ratio.Denominator) / bottom);
+        result = SimplifyCached(
+            new Divide(new Multiply(scale, numerator), new Multiply(scale, denominator)), assumptions, mode, cache);
+        return true;
+    }
+
+    // The product of the constant factors of a product: 6 for -2x * (-3y), 1 for anything else.
+    private static Rational ConstantFactor(Expr expr) => expr switch
+    {
+        Constant c => c.Value,
+        Negate(var a) => -ConstantFactor(a),
+        Multiply(var l, var r) => ConstantFactor(l) * ConstantFactor(r),
+        _ => Rational.One
+    };
 
     private static bool TryCancelCommonFactors(
         Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)

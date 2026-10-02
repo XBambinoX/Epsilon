@@ -56,6 +56,7 @@ Numbers are arbitrary-precision rationals, never floating point, so nothing is l
 
 ```csharp
 ExprParser.Parse("0.1 + 0.2").Simplify().Print();       // 3/10
+ExprParser.Parse("cos(3pi/4)").Simplify().Print();      // -sqrt(2) / 2
 ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print();
                                                          // (x + sqrt(2)) * (x - sqrt(2))
 ```
@@ -74,6 +75,12 @@ Expr e = ExprParser.Parse("x/x");
 
 e.Simplify().Print();                     // 1      Generic (default): may become defined at x = 0
 e.Simplify(SimplifyMode.Strict).Print();  // x / x  Strict: keeps exactly the same domain
+```
+
+`Expand` multiplies out the brackets that `Simplify` keeps:
+
+```csharp
+ExprParser.Parse("(x + 1)^2 - x^2").Expand().Print();   // 2x + 1
 ```
 
 ### Assumptions
@@ -105,7 +112,7 @@ of the domain — and complex roots via Newton's method:
 
 ```csharp
 ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots();              // [-1, 1]
-ExprParser.Parse("sin(x)").FindRealRoots(ExprParser.Parse("1/2"), -4, 4);
+ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
                                                                  // ≈ [-3.665, 0.524, 2.618]
 ExprParser.Parse("x^2 + 1").FindComplexRoots(-2, 2, -2, 2);      // ≈ [-i, i]
 ```
@@ -168,12 +175,12 @@ changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/
 
 This package is the core. The next areas are built on it as separate packages, in this order:
 
-1. **Calculus** — symbolic and numeric integration (improper integrals included), gradients,
+1. **Linear algebra** — symbolic and numeric matrices and the operations on them.
+2. **Calculus** — symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.
    Planned next, as far as time and energy allow: limits (including multivariable limits in
    2D and 3D), double and triple integrals, surface and contour integrals, Lebesgue
    integration and more.
-2. **Linear algebra** — symbolic and numeric matrices and the operations on them.
 3. **Transforms** — Fourier, wavelets and more.
 4. **Probability theory** — under consideration.
 5. Further areas as the library grows.
@@ -183,8 +190,8 @@ Alongside them the core keeps improving:
 - **Equation solver** — symbolic solutions of `f(x) = g(x)` with every branch:
   `sin(x) = 1/2` → `π/6 + 2πk, 5π/6 + 2πk`, verified by substitution, with a clearly
   marked numeric fallback.
-- Polynomial expansion, piecewise expressions (derivatives of `floor`, `min`, `max`) and
-  faster evaluation for hot loops.
+- Piecewise expressions (derivatives of `floor`, `min`, `max`) and faster evaluation for
+  hot loops.
 
 ## Building from source
 

@@ -58,6 +58,9 @@ ComplexNumber.FromPolar(2, Math.PI / 2);       // ≈ 2i
 - Functions: `Exp`, `Log`, `Sqrt`, `Pow`, `Sin`, `Cos`, `Tan`, `Asin`, `Acos`, `Atan`, the
   hyperbolic functions and their inverses — all principal values.
 - `Pow(0, w)`: 1 for w = 0, 0 for Re(w) > 0, ∞ for a negative real w, NaN otherwise.
+- Division by zero follows real `double` division, so `EvaluateComplex` agrees with
+  `Evaluate`: `z / 0` is infinite in the direction of `z` (`1/0` is inf, `-1/0` is -inf,
+  `i/0` is inf*i), and `0/0` is NaN.
 
 ## Constants in expressions
 
@@ -68,3 +71,12 @@ ComplexNumber.FromPolar(2, Math.PI / 2);       // ≈ 2i
 | `i` | `ImaginaryUnit` | i; only in [complex evaluation](evaluation.md#complex-values) |
 
 They stay symbolic — `2pi` is `2 * π`, not `6.28…` — until you evaluate.
+
+`Simplify` knows that `i^2 = -1`, so integer powers of `i` and an `i` in a denominator are
+worked out:
+
+```csharp
+ExprParser.Parse("i^3").Simplify().Print();                  // -i
+ExprParser.Parse("1/(2i)").Simplify().Print();               // -i / 2
+ExprParser.Parse("(x + i)*(x - i)").Expand().Print();        // x^2 + 1
+```

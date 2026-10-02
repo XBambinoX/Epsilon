@@ -14,6 +14,13 @@ ExprParser.Parse("x^2 - 5x + 6").TryFactorReal("x").Factored.Print();   // (x - 
 ExprParser.Parse("x^3 - x").TryFactorReal("x").Factored.Print();        // (x + 1) * (x - 1) * x
 ```
 
+The polynomial doesn't have to be written out: it is [expanded](simplification.md#expanding)
+first.
+
+```csharp
+ExprParser.Parse("(x^2 - 1)*(x - 1)").TryFactorReal("x").Factored.Print();   // (x + 1) * (x - 1)^2
+```
+
 ## What it finds
 
 **Rational roots** become linear factors, with their multiplicity. A leading coefficient
@@ -55,7 +62,6 @@ ExprParser.Parse("x^4 - 1").TryFactorComplex("x").Factored.Print();
 
 - the expression isn't a polynomial in the variable (`sin(x)`), or it's a constant;
 - other variables appear in it (`x^2 - a`);
-- the polynomial isn't expanded (`(x - 2)^4`) — there is no expansion yet;
 - nothing could be split off exactly (`x^3 - 2`, whose roots are cube roots).
 
 ```csharp

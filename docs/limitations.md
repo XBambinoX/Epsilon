@@ -4,33 +4,16 @@ Epsilon follows one rule above all: **never wrong, sometimes unsimplified**. Mos
 limitations below are therefore things the library *doesn't do yet*, not wrong answers. The
 few places where a result can surprise you are marked **⚠**.
 
-**All of this is planned to be addressed in upcoming versions of the core** — expansion,
-exact function values, more identities, piecewise derivatives, complex rounding functions,
-a symbolic equation solver, a safer root-finding API, protection against deep nesting and
-faster simplification. The only exception is `min`/`max` over the complex numbers, which
-can't exist mathematically. See the [roadmap](../README.md#roadmap) for the order.
+**All of this is planned to be addressed in upcoming versions of the core** — exact
+values at more points, more identities, piecewise derivatives, complex rounding functions,
+a symbolic equation solver and protection against deep nesting. The only exception is
+`min`/`max` over the complex numbers, which can't exist mathematically. See the
+[roadmap](../README.md#roadmap) for the order.
 
-Everything here reflects version 1.0.0. Each example is checked by a test
+Everything here reflects version 1.1.0. Each example is checked by a test
 (in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
 
 ## Algebra
-
-### No expansion of products and powers
-
-There is no `Expand` operation, and `Simplify` does not multiply out brackets. Two forms of
-the same polynomial may therefore not simplify to the same thing:
-
-```csharp
-ExprParser.Parse("(x + 1)^2 - x^2").Simplify().Print();   // -x^2 + (x + 1)^2
-ExprParser.Parse("(x + 1)*(x - 1)").Simplify().Print();   // (x + 1) * (x - 1)
-```
-
-For the same reason `TryFactorReal` and `TryFactorComplex` only accept a polynomial that is
-already expanded:
-
-```csharp
-ExprParser.Parse("(x - 2)^4").TryFactorReal("x").Success;   // false
-```
 
 ### Factoring is exact but limited
 
@@ -43,23 +26,26 @@ ExprParser.Parse("x^3 + x + 1").TryFactorReal("x").Success; // false: its real r
 ExprParser.Parse("x^2 - y^2").TryFactorReal("x").Success;   // false: other variables are not supported
 ```
 
-### No exact values of functions
+### Exact values only at the usual points
 
-Functions of constants are not evaluated symbolically, and radicals are not reduced:
+`Simplify` knows the trigonometric functions at multiples of pi/6 and pi/4, their inverses at
+the matching values, and square roots of rational numbers
+([details](simplification.md#what-it-does)). Other angles, logarithms of other numbers and
+roots written as powers are left as they are:
 
 ```csharp
-ExprParser.Parse("sin(pi/6)").Simplify().Print();   // sin(π / 6)   (not 1/2)
-ExprParser.Parse("asin(1/2)").Simplify().Print();   // asin(1/2)    (not π / 6)
-ExprParser.Parse("sqrt(8)").Simplify().Print();     // sqrt(8)      (not 2sqrt(2))
+ExprParser.Parse("sin(pi/12)").Simplify().Print();   // sin(π / 12)   (not (sqrt(6) - sqrt(2)) / 4)
+ExprParser.Parse("ln(8)").Simplify().Print();        // ln(8)         (not 3ln(2))
+ExprParser.Parse("8^(1/2)").Simplify().Print();      // 8^(1/2)       (not 2sqrt(2))
 ```
 
 `Evaluate` still gives the numeric values.
 
 ### Few identities
 
-`Simplify` knows the Pythagorean identity (`sin(x)^2 + cos(x)^2 = 1`), `sin/cos = tan` and
-similar quotients, and inverse pairs such as `ln(exp(x)) = x`. It does not apply
-double-angle formulas or logarithm rules:
+`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1` and the `sec`/`tan`,
+`csc`/`cot` forms), `sin/cos = tan` and similar quotients, and inverse pairs such as
+`ln(exp(x)) = x`. It does not apply double-angle formulas or logarithm rules:
 
 ```csharp
 ExprParser.Parse("2sin(x)cos(x)").Simplify().Print();     // 2cos(x) * sin(x)
@@ -82,7 +68,7 @@ above), so `false` means "not shown to be equal", not "different".
 ### No symbolic equation solver
 
 There is no way yet to solve `sin(x) = 1/2` symbolically as `π/6 + 2πk, 5π/6 + 2πk`. Use
-`FindRealRoots` for numeric solutions in a range. A symbolic solver is planned for 1.1 (see
+`SolveNumerically` for numeric solutions in a range. A symbolic solver is planned for 1.2 (see
 the [roadmap](../README.md#roadmap)).
 
 ## Parsing and output
@@ -111,13 +97,6 @@ ExprParser.Parse("floor(x)").Differentiate("x");   // NotSupportedException
 - `floor`, `ceiling`, `round` and `sign` can't be evaluated with `EvaluateComplex` yet and
   throw `NotSupportedException` (planned). `min` and `max` never will: complex numbers are
   not ordered.
-- **⚠** Division by zero differs between real and complex evaluation. Real `1/0` is
-  `+∞` (IEEE rules); complex `1/0` is `NaN`:
-
-```csharp
-ExprParser.Parse("1/x").Evaluate(0);          // ∞
-ExprParser.Parse("1/x").EvaluateComplex(0);   // NaN
-```
 
 ## Root finding
 
@@ -151,35 +130,7 @@ ExprParser.Parse("exp(-x^2)").FindRealRoots().Count;     // 4, all spurious
 Keep the range where the function is representable, or check a root by evaluating
 something that doesn't underflow (for `exp`, its logarithm).
 
-### ⚠ Overload trap: a number as the right-hand side
-
-A plain number passed as the right-hand side of an equation binds to the **range** overload,
-because `double` is a better match than the implicit conversion to `Expr`:
-
-```csharp
-Expr s = ExprParser.Parse("sin(x)");
-
-s.FindRealRoots(-1, 2, 3);          // roots of sin(x) = 0 in [-1, 2] with 3 steps: [0]
-s.FindRealRoots((Expr)(-1), 2, 3);  // roots of sin(x) = -1 in [2, 3]: []
-```
-
-Cast the number to `Expr` (or use `ExprParser.Parse("-1")`) to get the equation overload.
-The same applies to `FindComplexRoots`. The API will be changed in a future version.
-
-### ⚠ Complex roots: repeated roots are reported many times
-
-`FindComplexRoots` starts Newton's method from every point of a grid and merges results
-closer than `1e-6`. Near a root of multiplicity 2 or more, Newton converges slowly and stops
-at many slightly different points, so the result contains dozens of near-duplicates:
-
-```csharp
-ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2).Count;   // 98, all ≈ 1
-ExprParser.Parse("x^3 - 1").FindComplexRoots(-2, 2, -2, 2).Count;        // 3: simple roots are fine
-```
-
-For polynomials, `TryFactorComplex` gives exact roots with their multiplicity.
-
-## Robustness and performance
+## Robustness
 
 - **⚠ Very deep expressions can still overflow the stack in `Simplify` and `Differentiate`.**
   `Parse` rejects input nested more than 256 levels deep or with a tree more than 500 levels
@@ -189,10 +140,6 @@ For polynomials, `TryFactorComplex` gives exact roots with their multiplicity.
   checked — they can still throw `StackOverflowException`, which terminates the process and
   can't be caught. If you simplify or differentiate **untrusted input**, keep it well below
   the limits or run on a thread with a larger stack.
-- **`Simplify` time grows with the square of the size of a sum.** Three times as many
-  terms take about ten times as long: 300 like terms take about 10 ms, 300 distinct terms
-  (nothing combines) about 100 ms. `Evaluate` is fast (about 100 ns for a 25-node
-  expression), so for hot loops simplify once and evaluate many times.
 
 ## Not in the package
 

@@ -3,7 +3,7 @@ namespace Epsilon.Core;
 /// <summary>Newton's method from a single starting point.</summary>
 public static class RootFinder
 {
-    private const double DefaultTolerance = 1e-10;
+    internal const double DefaultTolerance = 1e-10;
     private const int MaxIterations = 100;
 
     /// <summary>
@@ -89,24 +89,42 @@ public static class RootFinder
         int maxIterations = MaxIterations)
     {
         Expr derivative = expr.Differentiate(variable);
-        ComplexNumber z = initialGuess;
+        return NewtonComplex(
+            ComplexFunction(expr, variable, fixedBindings),
+            ComplexFunction(derivative, variable, fixedBindings),
+            initialGuess, tolerance, maxIterations);
+    }
 
-        Dictionary<string, ComplexNumber> BuildBindings(ComplexNumber value)
+    /// <summary><paramref name="expr"/> as a function of <paramref name="variable"/>, with the other variables fixed.</summary>
+    internal static Func<ComplexNumber, ComplexNumber> ComplexFunction(
+        Expr expr, string variable, IReadOnlyDictionary<string, ComplexNumber>? fixedBindings)
+    {
+        // One dictionary per function, with the variable overwritten on every call.
+        var bindings = fixedBindings is null
+            ? new Dictionary<string, ComplexNumber>()
+            : new Dictionary<string, ComplexNumber>(fixedBindings);
+
+        return z =>
         {
-            var dict = fixedBindings is null
-                ? new Dictionary<string, ComplexNumber>()
-                : new Dictionary<string, ComplexNumber>(fixedBindings);
-            dict[variable] = value;
-            return dict;
-        }
+            bindings[variable] = z;
+            return expr.EvaluateComplex(bindings);
+        };
+    }
+
+    /// <summary>The Newton iteration of <see cref="TryFindComplexRoot(Expr, string, ComplexNumber, IReadOnlyDictionary{string, ComplexNumber}, double, int)"/> for a derivative computed once by the caller.</summary>
+    internal static (ComplexNumber? Root, bool Found) NewtonComplex(
+        Func<ComplexNumber, ComplexNumber> f, Func<ComplexNumber, ComplexNumber> derivative,
+        ComplexNumber initialGuess, double tolerance = DefaultTolerance, int maxIterations = MaxIterations)
+    {
+        ComplexNumber z = initialGuess;
 
         for (int i = 0; i < maxIterations; i++)
         {
-            ComplexNumber fz = expr.EvaluateComplex(BuildBindings(z));
+            ComplexNumber fz = f(z);
             if (fz.Magnitude < tolerance)
                 return (z, true);
 
-            ComplexNumber dfz = derivative.EvaluateComplex(BuildBindings(z));
+            ComplexNumber dfz = derivative(z);
             if (dfz.Magnitude < 1e-14)
                 return (null, false);
 

@@ -60,9 +60,20 @@ public readonly struct ComplexNumber : IEquatable<ComplexNumber>
 
     // Smith's algorithm: divides through by the larger component of b first, so the
     // intermediate |b|^2 of the textbook formula (which overflows for |b| ~ 1e155) never appears.
-    /// <summary>Quotient, computed with Smith's algorithm to avoid overflow for large divisors.</summary>
+    /// <summary>
+    /// Quotient, computed with Smith's algorithm to avoid overflow for large divisors. Division by
+    /// zero follows real <see cref="double"/> division: z / 0 is infinite in the direction of z
+    /// (1/0 = inf, -1/0 = -inf, i/0 = inf*i) and 0/0 is NaN.
+    /// </summary>
     public static ComplexNumber operator /(ComplexNumber a, ComplexNumber b)
     {
+        // A real or purely imaginary divisor is divided directly: Smith's formula would multiply
+        // a part of a by the zero ratio, and infinity * 0 turns an infinite part into NaN.
+        if (b.Imaginary == 0)
+            return b.Real == 0 ? DivideByZero(a) : new(a.Real / b.Real, a.Imaginary / b.Real);
+        if (b.Real == 0)
+            return new(a.Imaginary / b.Imaginary, -a.Real / b.Imaginary);
+
         if (Math.Abs(b.Real) >= Math.Abs(b.Imaginary))
         {
             double ratio = b.Imaginary / b.Real;
@@ -79,6 +90,17 @@ public readonly struct ComplexNumber : IEquatable<ComplexNumber>
                 (a.Real * ratio + a.Imaginary) / denom,
                 (a.Imaginary * ratio - a.Real) / denom);
         }
+    }
+
+    // Zero is always stored as +0, so each part follows real division by +0, as Evaluate does:
+    // x / +0 is inf or -inf, NaN for x = 0. A zero part of a non-zero numerator stays 0, so the
+    // result points in the direction of a (i/0 = inf*i, not NaN + inf*i).
+    private static ComplexNumber DivideByZero(ComplexNumber a)
+    {
+        if (a == Zero)
+            return new(double.NaN, double.NaN);
+
+        return new(a.Real == 0 ? 0 : a.Real / 0.0, a.Imaginary == 0 ? 0 : a.Imaginary / 0.0);
     }
 
     /// <summary>e^z.</summary>

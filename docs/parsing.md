@@ -133,4 +133,4 @@ stack:
 
 Anything `Parse` accepts can be evaluated and printed even on a 1 MB stack. `Simplify` and
 `Differentiate` on input near these limits can still overflow it; see
-[limitations](limitations.md#robustness-and-performance).
+[limitations](limitations.md#robustness).

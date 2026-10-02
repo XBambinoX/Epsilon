@@ -77,4 +77,9 @@ tangent.Simplify().Print();   // 6 * (x - 3) + 9
 tangent.Evaluate(4);          // 15
 ```
 
-`Simplify` doesn't multiply out brackets yet, so the result stays in point-slope form.
+`Simplify` doesn't multiply out brackets, so the result stays in point-slope form.
+[`Expand`](simplification.md#expanding) does:
+
+```csharp
+tangent.Expand().Print();   // 6x - 9
+```

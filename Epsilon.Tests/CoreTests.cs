@@ -131,6 +131,15 @@ public class SimplifierTests
         Assert.Equal(0, simplified.Evaluate(new Dictionary<string, double>()));
     }
 
+    [Theory]
+    [InlineData("-(2x) + x", "-x")]          // was -2x + x: -(2x) counted as the term 2x
+    [InlineData("x - -(3x)", "4x")]
+    [InlineData("-(-(2x)) - x", "x")]
+    public void Negated_multiples_combine_with_like_terms(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
 
     [Fact]
     public void Canonicalizes_zero_minus_x_to_negation()
@@ -402,7 +411,7 @@ public class RootFindingEdgeCaseTests
         // x^2 = 4  =>  x = ±2
         Expr left = ExprParser.Parse("x^2");
         Expr right = ExprParser.Parse("4");
-        var roots = left.FindRealRoots(right, -10, 10);
+        var roots = left.SolveNumerically(right, -10, 10);
         Assert.Equal(2, roots.Count);
     }
 
@@ -453,10 +462,149 @@ public class RootFindingEdgeCaseTests
         // x^2 = -4  =>  x = ±2i
         Expr left = ExprParser.Parse("x^2");
         Expr right = ExprParser.Parse("0 - 4");
-        var roots = left.FindComplexRoots(right, -5, 5, -5, 5, gridSteps: 8);
+        var roots = left.SolveComplexNumerically(right, -5, 5, -5, 5, gridSteps: 8);
 
         Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary - 2.0) < 1e-3);
         Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary + 2.0) < 1e-3);
+    }
+}
+
+public class ComplexRootMultiplicityTests
+{
+    [Theory]
+    [InlineData("(x - 1)^2", 1, 1e-12)]                                    // was 80 roots around 0.99999
+    [InlineData("x^2 - 2x + 1", 1, 1e-12)]
+    [InlineData("(x - 1)^3", 1, 1e-12)]                                    // was 150
+    [InlineData("x^3 - 3x^2 + 3x - 1", 1, 1e-6)]                           // expanded: rounding limits the precision
+    [InlineData("x^4 - 4x^3 + 6x^2 - 4x + 1", 1, 1e-4)]
+    [InlineData("(x - 1)^7", 1, 1e-12)]
+    [InlineData("x^5", 0, 1e-12)]                                          // was 161, up to 0.009 away from 0
+    [InlineData("(exp(x) - 1)^2", 0, 1e-12)]                               // was 50
+    public void Multiple_root_is_reported_once(string input, double expected, double precision)
+    {
+        var roots = ExprParser.Parse(input).FindComplexRoots(-3, 3, -3, 3);
+
+        ComplexNumber root = Assert.Single(roots);
+        Assert.True((root - expected).Magnitude < precision, $"{root} is not within {precision} of {expected}");
+    }
+
+    [Fact]
+    public void Multiple_and_simple_roots_together()
+    {
+        var roots = ExprParser.Parse("(x - 1)^2 * (x + 2)").FindComplexRoots(-3, 3, -3, 3)
+            .OrderBy(z => z.Real).ToList();
+
+        Assert.Equal(2, roots.Count);                                      // was 37
+        Assert.True((roots[0] + 2).Magnitude < 1e-12);
+        Assert.True((roots[1] - 1).Magnitude < 1e-12);
+    }
+
+    [Theory]
+    [InlineData("(x^2 + 1)^2")]
+    [InlineData("x^4 + 2x^2 + 1")]
+    public void Double_complex_roots_are_reported_once(string input)
+    {
+        var roots = ExprParser.Parse(input).FindComplexRoots(-3, 3, -3, 3).OrderBy(z => z.Imaginary).ToList();
+
+        Assert.Equal(2, roots.Count);                                      // was 55
+        Assert.True((roots[0] + ComplexNumber.ImaginaryUnit).Magnitude < 1e-9);
+        Assert.True((roots[1] - ComplexNumber.ImaginaryUnit).Magnitude < 1e-9);
+    }
+
+    [Fact]
+    public void Close_simple_roots_stay_apart()
+    {
+        var roots = ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-3, 3, -3, 3).OrderBy(z => z.Real).ToList();
+
+        Assert.Equal(2, roots.Count);
+        Assert.True((roots[0] - 1).Magnitude < 1e-12);
+        Assert.True((roots[1] - 1.001).Magnitude < 1e-12);
+    }
+
+    [Fact]
+    public void Root_between_two_roots_does_not_merge_them()
+    {
+        var roots = ExprParser.Parse("x^3 - x").FindComplexRoots(-3, 3, -3, 3).Select(z => z.Real).Order().ToList();
+
+        Assert.Equal(3, roots.Count);
+        Assert.Equal(-1, roots[0], precision: 12);
+        Assert.Equal(0, roots[1], precision: 12);
+        Assert.Equal(1, roots[2], precision: 12);
+    }
+
+    [Fact]
+    public void Evenly_spaced_roots_are_not_merged()
+    {
+        // Merge checks at k/16 of the segment would all hit roots between -0.8pi and 0.8pi.
+        var roots = ExprParser.Parse("sin(10x)").FindComplexRoots(-3, 3, -0.5, 0.5, gridSteps: 60)
+            .Select(z => z.Real / (Math.PI / 10)).Order().ToList();
+
+        Assert.Equal(Enumerable.Range(-10, 21).Select(k => (double)k), roots.Select(k => Math.Round(k)));
+        Assert.All(roots, k => Assert.Equal(Math.Round(k), k, precision: 9));
+    }
+}
+
+public class SolveNumericallyTests
+{
+    [Fact]
+    public void Number_as_right_side_is_the_equation()
+    {
+        // FindRealRoots(0.5, -4, 4) took 0.5 and -4 for the range and threw.
+        var roots = ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
+
+        Assert.Equal(3, roots.Count);
+        Assert.Equal(-7 * Math.PI / 6, roots[0], precision: 12);
+        Assert.Equal(Math.PI / 6, roots[1], precision: 12);
+        Assert.Equal(5 * Math.PI / 6, roots[2], precision: 12);
+    }
+
+    [Fact]
+    public void Negative_number_as_right_side_is_the_equation()
+    {
+        // FindRealRoots(-1, 2, 3) silently gave the root 0 of sin(x) = 0 in [-1, 2].
+        Expr sin = ExprParser.Parse("sin(x)");
+
+        Assert.Empty(sin.SolveNumerically(-1, 2, 3));
+        Assert.Equal(-Math.PI / 2, Assert.Single(sin.SolveNumerically(-1, -2, -1)), precision: 8);
+    }
+
+    [Fact]
+    public void Named_variable_with_number_as_right_side()
+    {
+        var a = new Dictionary<string, double> { ["a"] = 2 };
+
+        Assert.Equal([3.0], ExprParser.Parse("a*x").SolveNumerically(6, "x", a));
+        Assert.Equal([-3.0, 3.0], ExprParser.Parse("x^2").SolveNumerically(ExprParser.Parse("a + 7"), "x", a));
+    }
+
+    [Fact]
+    public void Undefined_points_are_not_solutions()
+    {
+        Assert.Equal([1.0], ExprParser.Parse("x^2/x").SolveNumerically(ExprParser.Parse("x^2"), -10, 10));
+    }
+
+    [Fact]
+    public void Complex_number_as_right_side_is_the_equation()
+    {
+        // FindComplexRoots(1, -1, 1, -7, 7) took 1 and -1 for the real range and threw.
+        var roots = ExprParser.Parse("exp(x)").SolveComplexNumerically(1, -1, 1, -7, 7)
+            .OrderBy(z => z.Imaginary).ToList();
+
+        Assert.Equal(3, roots.Count);
+        Assert.All(roots, z => Assert.Equal(0, z.Real, precision: 12));
+        Assert.Equal(-2 * Math.PI, roots[0].Imaginary, precision: 12);
+        Assert.Equal(0, roots[1].Imaginary, precision: 12);
+        Assert.Equal(2 * Math.PI, roots[2].Imaginary, precision: 12);
+    }
+
+    [Fact]
+    public void Obsolete_equation_overloads_still_work()
+    {
+#pragma warning disable CS0618 // the old names are kept for compatibility and must keep working
+        Assert.Equal([0.0, 2.0], ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("2x"), -10, 10));
+        Assert.Equal([-3.0, 3.0], ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("9"), "x"));
+        Assert.Equal(2, ExprParser.Parse("x^2").FindComplexRoots(ExprParser.Parse("-4"), -3, 3, -3, 3).Count);
+#pragma warning restore CS0618
     }
 }
 
@@ -1348,6 +1496,25 @@ public class PolynomialFactoringTests
         var (_, success) = expr.TryFactorReal("x");
         Assert.False(success);
     }
+
+    [Theory]
+    [InlineData("(x - 2)^4", "(x - 2)^4", "(x - 2)^4")]
+    [InlineData("(x + 1)*(x - 2)*x", "(x + 1) * (x - 2) * x", "(x + 1) * (x - 2) * x")]
+    [InlineData("3(x - 1)^2 (x + 2)", "3 * (x + 2) * (x - 1)^2", "3 * (x + 2) * (x - 1)^2")]
+    [InlineData("(x + 1)^2/2", "(1/2) * (x + 1)^2", "(1/2) * (x + 1)^2")]
+    [InlineData("(x^2 + 1)*(x - 1)", "(x^2 + 1) * (x - 1)", "(x + i) * (x - 1) * (x - i)")]
+    public void Factors_a_polynomial_that_is_not_expanded(string input, string real, string complex)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        var (realFactored, realSuccess) = expr.TryFactorReal("x");
+        var (complexFactored, complexSuccess) = expr.TryFactorComplex("x");
+
+        Assert.True(realSuccess);
+        Assert.True(complexSuccess);
+        Assert.Equal(real, realFactored.Print());
+        Assert.Equal(complex, complexFactored.Print());
+    }
 }
 
 public class AbsValueTests
@@ -1912,6 +2079,29 @@ public class PythagoreanIdentityTests
     }
 
     [Theory]
+    [InlineData("sec(x)^2 - tan(x)^2", "1")]
+    [InlineData("tan(x)^2 - sec(x)^2", "-1")]                 // the old two-node rule needed sec^2 first
+    [InlineData("y - csc(x)^2 + cot(x)^2", "y - 1")]          // and the two terms next to each other
+    [InlineData("2sec(x)^2 - 2tan(x)^2", "2")]
+    [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]      // the smaller coefficient's square goes
+    [InlineData("sec(x)^2 - 2tan(x)^2", "-sec(x)^2 + 2")]
+    [InlineData("3sin(x)^2 + 2cos(x)^2", "sin(x)^2 + 2")]     // was -cos(x)^2 + 3
+    [InlineData("sin(x)^2 - tan(x)^2 + cos(x)^2 + sec(x)^2", "2")]
+    public void Applies_sec_tan_and_csc_cot_identities_across_the_whole_sum(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input, "x", "y").Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sec(x)^2 - tan(x)^2", "sec(x)^2 - tan(x)^2")]    // 1 would be defined where cos(x) = 0
+    [InlineData("csc(x)^2 - cot(x)^2", "csc(x)^2 - cot(x)^2")]
+    [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]          // sec(x)^2 keeps the domain
+    public void Strict_mode_cancels_sec_and_tan_only_if_the_domain_stays(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input, "x").Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
     [InlineData("sin(x)^2 + cos(y)^2", "cos(y)^2 + sin(x)^2")] // different arguments
     [InlineData("5 - sin(x)^2", "-sin(x)^2 + 5")]                // constant doesn't match the coefficient
     public void Leaves_non_matching_sums_alone(string input, string expected)
@@ -2095,6 +2285,54 @@ public class ExactFactoringTests
     }
 }
 
+public class ImaginaryUnitSimplificationTests
+{
+    [Theory]
+    [InlineData("i^2", "-1")]
+    [InlineData("i^3", "-i")]
+    [InlineData("i^4", "1")]
+    [InlineData("i^-1", "-i")]
+    [InlineData("i^1001", "i")]
+    [InlineData("i*i", "-1")]
+    [InlineData("2i*3i", "-6")]
+    [InlineData("x*i*i", "-x")]
+    [InlineData("1/i", "-i")]
+    [InlineData("1/(2i)", "-i / 2")]
+    [InlineData("1/(-i)", "i")]
+    [InlineData("x/(y*i)", "-i * x / y")]
+    [InlineData("1/(1 + i)", "1 / (1 + i)")]   // complex denominators are not rationalized
+    public void Uses_i_squared_is_minus_one(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(x + i)*(x - i)", "x^2 + 1")]
+    [InlineData("(1 + i)^2", "2 * i")]
+    [InlineData("(1 + i)^4", "-4")]
+    [InlineData("(2 + i)/i", "1 - 2 * i")]
+    public void Expands_with_i_squared_is_minus_one(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("x*i^3 + y/(2i)")]
+    [InlineData("(x + 2i)^3 / (y*i)")]
+    public void Keeps_the_complex_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+        var bindings = new[] { ("x", new ComplexNumber(0.3, -0.7)), ("y", new ComplexNumber(-1.1, 0.4)) };
+
+        ComplexNumber expected = expr.EvaluateComplex(bindings);
+        Assert.True((expected - expr.Simplify().EvaluateComplex(bindings)).Magnitude < 1e-12);
+        Assert.True((expected - expr.Expand().EvaluateComplex(bindings)).Magnitude < 1e-12);
+    }
+}
+
 public class ComplexEdgeCaseTests
 {
     [Theory]
@@ -2174,6 +2412,55 @@ public class ComplexEdgeCaseTests
         Assert.Equal(expectedIm, result.Imaginary, precision: 12);
     }
 
+    [Theory]
+    [InlineData(1, 0, double.PositiveInfinity, 0)]                       // was NaN
+    [InlineData(-1, 0, double.NegativeInfinity, 0)]
+    [InlineData(0, 1, 0, double.PositiveInfinity)]                       // i/0 = inf*i, not NaN + inf*i
+    [InlineData(0, -2, 0, double.NegativeInfinity)]
+    [InlineData(1, 1, double.PositiveInfinity, double.PositiveInfinity)]
+    [InlineData(-3, 2, double.NegativeInfinity, double.PositiveInfinity)]
+    public void Division_by_zero_is_infinite_in_the_direction_of_the_numerator(
+        double a, double b, double expectedRe, double expectedIm)
+    {
+        ComplexNumber result = new ComplexNumber(a, b) / ComplexNumber.Zero;
+        Assert.Equal(expectedRe, result.Real);
+        Assert.Equal(expectedIm, result.Imaginary);
+    }
+
+    [Fact]
+    public void Zero_divided_by_zero_is_undefined()
+    {
+        ComplexNumber result = ComplexNumber.Zero / ComplexNumber.Zero;
+        Assert.True(double.IsNaN(result.Real) && double.IsNaN(result.Imaginary));
+    }
+
+    [Fact]
+    public void Division_by_real_or_imaginary_number_keeps_infinite_parts()
+    {
+        var infinity = new ComplexNumber(double.PositiveInfinity);
+
+        Assert.Equal(infinity, infinity / new ComplexNumber(2));                        // was inf + NaN*i
+        Assert.Equal(new ComplexNumber(0, double.NegativeInfinity), infinity / ComplexNumber.ImaginaryUnit);
+    }
+
+    [Theory]
+    [InlineData("1/x", 0)]
+    [InlineData("-1/x", 0)]
+    [InlineData("x/0", -2)]
+    [InlineData("atanh(x)", 1)]      // ln(2/0) / 2: was NaN
+    [InlineData("atanh(x)", -1)]     // ln(0/2) / 2: was NaN
+    [InlineData("csch(x)", 0)]
+    [InlineData("coth(x)", 0)]
+    public void Complex_evaluation_at_a_pole_matches_real_evaluation(string input, double x)
+    {
+        Expr expr = ExprParser.Parse(input, "x");
+        ComplexNumber result = expr.EvaluateComplex(x);
+
+        Assert.True(double.IsInfinity(expr.Evaluate(x)));
+        Assert.Equal(expr.Evaluate(x), result.Real);
+        Assert.Equal(0, result.Imaginary);
+    }
+
     [Fact]
     public void Sqrt_of_huge_number_is_finite()
     {
@@ -2183,6 +2470,90 @@ public class ComplexEdgeCaseTests
         ComplexNumber squared = root * root;
         Assert.Equal(1.0, squared.Real / 1e300, precision: 12);
         Assert.Equal(1.0, squared.Imaginary / 1e300, precision: 12);
+    }
+}
+
+public class QuotientConstantFactorTests
+{
+    [Theory]
+    [InlineData("2x/2", "x")]
+    [InlineData("4x/6", "2x / 3")]
+    [InlineData("2*(pi/6)", "π / 3")]
+    [InlineData("x/(-2)", "-x / 2")]
+    [InlineData("-x/(-2)", "x / 2")]
+    [InlineData("(2y)/(4x)", "y / (2x)")]
+    [InlineData("(-3x)/(6y)", "-x / (2y)")]
+    [InlineData("(1/2)*x/y", "x / (2y)")]
+    [InlineData("x/2 + 3x/6", "x")]          // 3x/6 = x/2 is a like term now
+    [InlineData("(2x + 2)/2", "(2x + 2) / 2")] // a sum is not factored
+    public void Reduces_the_numbers_like_a_fraction(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("0/x", "0 / x")]
+    [InlineData("2x/0", "2x / 0")]
+    [InlineData("2*x*x^-1/4", "x^-1 * x / 2")]  // only the numbers change, x * x^-1 stays
+    public void Keeps_the_domain_in_strict_mode(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("1/(x/2)", "2 / x", "2 / x")]
+    [InlineData("3/(x/2)", "6 / x", "6 / x")]
+    [InlineData("1/(1/x)", "x", "1 / (1 / x)")]          // undefined at x = 0
+    [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
+    [InlineData("y/(x/y)", "y^2 / x", "y / (x / y)")]
+    [InlineData("(1/x)/(1/y)", "y / x", "1 / (x / y)")]
+    [InlineData("1/(x/0)", "1 / (x / 0)", "1 / (x / 0)")] // never divides by a literal 0
+    public void Divides_by_a_quotient(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Divides_by_a_quotient_in_strict_mode_when_the_inner_denominator_is_nonzero()
+    {
+        Assumptions xNonZero = Assumptions.None.AssumeNonZero("x");
+        Assert.Equal("x / 2", ExprParser.Parse("1/(2/x)").Simplify(xNonZero, SimplifyMode.Strict).Print());
+    }
+}
+
+public class PowerOfPowerTests
+{
+    [Theory]
+    [InlineData("(x^2)^3", "x^6", "x^6")]
+    [InlineData("(x^3)^2", "x^6", "x^6")]
+    [InlineData("(x^-1)^2", "x^-2", "x^-2")]
+    [InlineData("(x^2)^-1", "x^-2", "x^-2")]
+    [InlineData("((x + 1)^2)^3", "(x + 1)^6", "(x + 1)^6")]
+    [InlineData("(sin(x)^2)^2", "sin(x)^4", "sin(x)^4")]
+    // Defined at x = 0 after combining, but not before.
+    [InlineData("(x^-2)^-1", "x^2", "(x^-2)^-1")]
+    // A non-integer outer exponent: (x^2)^(1/2) is |x|, and x^(2y) is undefined for x < 0.
+    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^y", "(x^2)^y", "(x^2)^y")]
+    public void Combines_two_integer_exponents(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Simplify_and_expand_agree()
+    {
+        Expr expr = ExprParser.Parse("(x^2)^3");
+        Assert.Equal(expr.Expand(), expr.Simplify());
     }
 }
 
@@ -3079,6 +3450,37 @@ public class SimplifyCacheTests
 
         Assert.True(allocated < 500_000_000, $"Simplify allocated {allocated / 1_000_000} MB");
     }
+
+    private static long AllocatedBySimplify(Expr expr)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        expr.Simplify();
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
+    // 1x + 2x^2 + ... - built in code, as Parse limits how deep a tree may be.
+    private static Expr DistinctSum(int terms)
+    {
+        Expr x = new Variable("x");
+        Expr sum = x;
+        for (int k = 2; k <= terms; k++)
+            sum = new Add(sum, new Multiply(new Constant(k), new Power(x, new Constant(k))));
+        return sum;
+    }
+
+    // A sum is simplified term by term and combined once, so the work grows with the number of
+    // terms. Simplifying every shorter sum inside the chain as well, as Simplify used to, made it
+    // grow with the square: 10 times the terms took about 100 times the allocations.
+    [Fact]
+    public void Simplify_work_grows_linearly_with_the_size_of_a_sum()
+    {
+        AllocatedBySimplify(DistinctSum(10)); // warm-up
+
+        long small = AllocatedBySimplify(DistinctSum(100));
+        long large = AllocatedBySimplify(DistinctSum(1000));
+
+        Assert.True(large < 20 * small, $"100 terms: {small / 1000} KB, 1000 terms: {large / 1000} KB");
+    }
 }
 
 public class CachedHashTests
@@ -3124,6 +3526,187 @@ public class CachedHashTests
 
         Assert.Equal(a.GetHashCode(), b.GetHashCode());
         Assert.Equal(a, b);
+    }
+}
+
+public class ExactValuesTests
+{
+    [Theory]
+    [InlineData("sin(pi/6)", "1/2")]
+    [InlineData("sin(-7pi/6)", "1/2")]   // periodic and odd
+    [InlineData("sin(100pi)", "0")]
+    [InlineData("cos(3pi/4)", "-sqrt(2) / 2")]
+    [InlineData("cos(pi)", "-1")]
+    [InlineData("tan(pi/3)", "sqrt(3)")]
+    [InlineData("tan(-pi/4)", "-1")]
+    [InlineData("cot(pi/6)", "sqrt(3)")]
+    [InlineData("cot(pi/2)", "0")]
+    [InlineData("sec(2pi/3)", "-2")]
+    [InlineData("csc(pi/3)", "2sqrt(3) / 3")]
+    public void Trigonometric_functions_at_multiples_of_pi_over_6_and_4(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("tan(pi/2)", "tan(π / 2)")]
+    [InlineData("sec(pi/2)", "sec(π / 2)")]
+    [InlineData("csc(0)", "csc(0)")]
+    [InlineData("cot(pi)", "cot(π)")]
+    [InlineData("sin(pi/12)", "sin(π / 12)")]
+    [InlineData("sin(1)", "sin(1)")]
+    [InlineData("asin(2)", "asin(2)")]
+    [InlineData("sqrt(-8)", "sqrt(-8)")]
+    [InlineData("nthroot(-4, 2)", "nthroot(-4, 2)")]
+    public void Leaves_undefined_points_and_other_arguments_alone(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("asin(1/2)", "π / 6")]
+    [InlineData("asin(-sqrt(3)/2)", "-π / 3")]
+    [InlineData("asin(1/sqrt(2))", "π / 4")]
+    [InlineData("acos(-1/2)", "2 * π / 3")]
+    [InlineData("acos(1)", "0")]
+    [InlineData("atan(sqrt(3)/3)", "π / 6")]
+    [InlineData("atan(-1)", "-π / 4")]
+    public void Inverse_trigonometric_functions(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sqrt(8)", "2sqrt(2)")]
+    [InlineData("sqrt(1/2)", "sqrt(2) / 2")]
+    [InlineData("sqrt(12/5)", "2sqrt(15) / 5")]
+    [InlineData("sqrt(6)", "sqrt(6)")]
+    [InlineData("nthroot(-16, 3)", "-2nthroot(2, 3)")]
+    [InlineData("nthroot(16/27, 3)", "2nthroot(2, 3) / 3")]
+    [InlineData("nthroot(1/2, 3)", "nthroot(1/2, 3)")]
+    [InlineData("sqrt(2)*sqrt(3)", "sqrt(6)")]
+    [InlineData("2/sqrt(2)", "sqrt(2)")]
+    [InlineData("sqrt(2)^3", "2sqrt(2)")]
+    [InlineData("2sin(pi/3)", "sqrt(3)")]
+    [InlineData("1/sin(pi/4)", "sqrt(2)")]
+    [InlineData("sin(pi/3)^-2", "4/3")]
+    [InlineData("sin(pi/4)^2 + cos(pi/4)^2", "1")]
+    public void Roots_of_rationals_and_arithmetic_with_them(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("ln(1)", "0")]
+    [InlineData("ln(e)", "1")]
+    [InlineData("ln(e^x)", "x")]
+    [InlineData("exp(0)", "1")]
+    [InlineData("sinh(0)", "0")]
+    [InlineData("cosh(0)", "1")]
+    [InlineData("tanh(0)", "0")]
+    [InlineData("sech(0)", "1")]
+    [InlineData("asinh(0)", "0")]
+    [InlineData("acosh(1)", "0")]
+    [InlineData("atanh(0)", "0")]
+    [InlineData("sign(0)", "0")]
+    public void Exponential_logarithm_and_hyperbolic_functions(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sin(-7pi/6) + cos(5pi/3) - tan(7pi/6)")]
+    [InlineData("sec(3pi/4) * csc(-pi/3) + cot(5pi/6)")]
+    [InlineData("asin(-sqrt(2)/2) + acos(-sqrt(3)/2) + atan(1/sqrt(3))")]
+    [InlineData("sqrt(72/5) - nthroot(-54, 3) + sqrt(3)^5 / sqrt(6)")]
+    public void Keeps_the_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Expr simplified = expr.Simplify();
+
+        Assert.Empty(simplified.GetVariables());
+        Assert.DoesNotContain("sin", simplified.Print());
+        Assert.Equal(expr.Evaluate(0), simplified.Evaluate(0), 1e-12);
+    }
+}
+
+public class ExpandTests
+{
+    [Theory]
+    [InlineData("(x + 1)^2 - x^2", "2x + 1")]
+    [InlineData("(x + 1)*(x - 1)", "x^2 - 1")]
+    [InlineData("(x - 2)^4", "x^4 - 8x^3 + 24x^2 - 32x + 16")]
+    [InlineData("(x + 1)^2 (x - 1)", "x^3 + x^2 - x - 1")]
+    [InlineData("(1 + x)^3 (1 - x)^3", "-x^6 + 3x^4 - 3x^2 + 1")]
+    [InlineData("-(x + 1)*(x - 2)", "-x^2 + x + 2")]
+    [InlineData("6(x - 3) + 9", "6x - 9")]
+    [InlineData("x*(x + 1) - x^2", "x")]
+    [InlineData("(x + y)^2", "2x * y + x^2 + y^2")]
+    [InlineData("(2x)^3", "8x^3")]
+    [InlineData("(x*y)^2", "x^2 * y^2")]
+    public void Multiplies_out_products_and_powers_of_sums(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]   // dividing by a number divides every term
+    [InlineData("(x + 1)^2/(x - 1)^2", "(x^2 + 2x + 1) / (x^2 - 2x + 1)")]
+    [InlineData("((x + 1)/y)^2", "(x^2 + 2x + 1) / y^2")]
+    [InlineData("x*(y + (x + 1)/y)", "x * y + (x^2 + x) / y")]
+    [InlineData("x/(x - 1) + 2x/(x - 1)", "3x / (x - 1)")]
+    [InlineData("(x + 1)^-2", "(x + 1)^-2")]               // negative powers are kept
+    public void Keeps_a_quotient_as_one_fraction(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Fact]
+    public void Expands_function_arguments_and_simplifies_the_result()
+    {
+        Assert.Equal("sin(x^2 + 2x + 1)", ExprParser.Parse("sin((x + 1)^2)").Expand().Print());
+        Assert.Equal("2cos(x) * sin(x) + 1", ExprParser.Parse("(sin(x) + cos(x))^2").Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("(sqrt(x) + 1)^2", "x + 2sqrt(x) + 1", "2sqrt(x) + sqrt(x)^2 + 1")]
+    [InlineData("(x + 1/x)^2", "x^2 + 1 / x^2 + 2", "x^2 + 1 / x^2 + 2x / x")]
+    // Merging the powers gives (x + 1)^2, which is multiplied out in turn.
+    [InlineData("(x + 1)^(1/2) * (x + 1)^(3/2)", "x^2 + 2x + 1", "(x + 1)^(1/2) * (x + 1)^(3/2)")]
+    public void Simplifies_in_the_given_mode(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+
+        Assert.Equal(generic, expr.Expand().Print());
+        Assert.Equal(strict, expr.Expand(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(x + y)^5 - (x - y)^3 * y")]
+    [InlineData("(x^2 + x*y + 1)^3 / (y + 2)")]
+    [InlineData("(sin(x) + y)^2 * (x - 1)")]
+    [InlineData("((x + 1)/(y + 3))^3 - x")]
+    [InlineData("(x - y/2)^4 * (x + 1/3)")]
+    public void Keeps_the_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Expr expanded = expr.Expand();
+
+        foreach (var (x, y) in new[] { (0.3, -1.7), (1.9, 0.6), (-2.4, 2.2) })
+        {
+            double expected = expr.Evaluate(("x", x), ("y", y));
+            Assert.Equal(expected, expanded.Evaluate(("x", x), ("y", y)), 1e-9 * Math.Max(1, Math.Abs(expected)));
+        }
+    }
+
+    [Fact]
+    public void Combines_like_terms_of_a_high_power()
+    {
+        Expr expanded = ExprParser.Parse("(x + 1)^20").Expand();
+
+        Assert.StartsWith("x^20 + 20x^19 + 190x^18 + ", expanded.Print());
+        Assert.EndsWith(" + 190x^2 + 20x + 1", expanded.Print());
+        Assert.Equal(1048576, expanded.Evaluate(1));
     }
 }
 
@@ -3208,6 +3791,7 @@ public class ReadmeExamplesTests
     public void Exact_arithmetic()
     {
         Assert.Equal("3/10", ExprParser.Parse("0.1 + 0.2").Simplify().Print());
+        Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
         Assert.Equal("(x + sqrt(2)) * (x - sqrt(2))", ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print());
     }
 
@@ -3218,6 +3802,7 @@ public class ReadmeExamplesTests
 
         Assert.Equal("1", e.Simplify().Print());
         Assert.Equal("x / x", e.Simplify(SimplifyMode.Strict).Print());
+        Assert.Equal("2x + 1", ExprParser.Parse("(x + 1)^2 - x^2").Expand().Print());
     }
 
     [Fact]
@@ -3240,7 +3825,7 @@ public class ReadmeExamplesTests
     {
         Assert.Equal([-1.0, 1.0], ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots());
 
-        var sinRoots = ExprParser.Parse("sin(x)").FindRealRoots(ExprParser.Parse("1/2"), -4, 4);
+        var sinRoots = ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
         Assert.Equal(3, sinRoots.Count);
         Assert.Equal(-3.665, sinRoots[0], precision: 3);
         Assert.Equal(0.524, sinRoots[1], precision: 3);

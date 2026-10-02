@@ -52,16 +52,17 @@ See [limitations](limitations.md#root-finding) for examples.
 
 ## Equations
 
-Pass the right-hand side as an `Expr` to solve `left = right`:
+`SolveNumerically` solves `left = right` with the same search; the range comes after the
+right-hand side, which can be an expression or a plain number:
 
 ```csharp
-ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("2x"), -10, 10);   // [0, 2]
-ExprParser.Parse("cos(x)").FindRealRoots(ExprParser.Parse("x"));          // [0.7390851332151607]
+ExprParser.Parse("x^2").SolveNumerically(ExprParser.Parse("2x"), -10, 10);   // [0, 2]
+ExprParser.Parse("cos(x)").SolveNumerically(ExprParser.Parse("x"));          // [0.7390851332151607]
+ExprParser.Parse("sin(x)").SolveNumerically(0.5, 0, 4);                      // [0.5235987755982989, 2.6179938779914944]
 ```
 
-⚠ A plain number as the right-hand side binds to the range overload instead: write
-`(Expr)0.5` or `ExprParser.Parse("1/2")`, not `0.5`. See
-[limitations](limitations.md#-overload-trap-a-number-as-the-right-hand-side).
+Version 1.0 had these as `FindRealRoots(right, ...)` overloads, which still work but are
+obsolete: a plain number there was taken for the start of the range.
 
 ## Several variables
 
@@ -74,7 +75,8 @@ ExprParser.Parse("x^2 - a").FindRealRoots("x", a);   // [-3, 3]
 ```
 
 The full signature is `FindRealRoots(variable, fixedBindings, leftLimit, rightLimit,
-scanSteps)`, and there is a matching one for equations.
+scanSteps)`, and `SolveNumerically(right, variable, fixedBindings, leftLimit, rightLimit,
+scanSteps)` for equations.
 
 ## Complex roots
 
@@ -89,14 +91,25 @@ every point of a `(gridSteps + 1)²` grid:
 ```csharp
 ExprParser.Parse("x^3 - 1").FindComplexRoots(-2, 2, -2, 2);
 // ≈ [-0.5 - 0.866i, 1, -0.5 + 0.866i]
-ExprParser.Parse("exp(x)").FindComplexRoots(ExprParser.Parse("1"), -1, 1, -7, 7);
+ExprParser.Parse("exp(x)").SolveComplexNumerically(1, -1, 1, -7, 7);
 // ≈ [-6.283i, 0, 6.283i]
 ```
 
 The roots come in no particular order. A root is found only if some starting point
 converges to it, so there is no completeness guarantee; increase `gridSteps` for more starting
-points. ⚠ Roots of multiplicity 2 or more are currently reported many times — see
-[limitations](limitations.md#-complex-roots-repeated-roots-are-reported-many-times).
+points.
+
+Each root is reported once, a multiple root too. Roots so close that `|f| < 1e-10` on the
+whole segment between them can't be told apart and are reported as one:
+
+```csharp
+ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2);        // [1], up to rounding
+ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-2, 2, -2, 2); // [1, 1.001]
+```
+
+For a multiple root of an expanded polynomial, rounding limits the precision: the triple root
+of `x^3 - 3x^2 + 3x - 1` comes out up to about `1e-8` away from 1. `TryFactorComplex` gives
+exact roots with their multiplicity.
 
 ## A single root near a guess
 
