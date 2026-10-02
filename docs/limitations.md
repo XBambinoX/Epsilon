@@ -57,9 +57,9 @@ ExprParser.Parse("sqrt(8)").Simplify().Print();     // sqrt(8)      (not 2sqrt(2
 
 ### Few identities
 
-`Simplify` knows the Pythagorean identity (`sin(x)^2 + cos(x)^2 = 1`), `sin/cos = tan` and
-similar quotients, and inverse pairs such as `ln(exp(x)) = x`. It does not apply
-double-angle formulas or logarithm rules:
+`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1` and the `sec`/`tan`,
+`csc`/`cot` forms), `sin/cos = tan` and similar quotients, and inverse pairs such as
+`ln(exp(x)) = x`. It does not apply double-angle formulas or logarithm rules:
 
 ```csharp
 ExprParser.Parse("2sin(x)cos(x)").Simplify().Print();     // 2cos(x) * sin(x)
@@ -144,7 +144,7 @@ ExprParser.Parse("exp(-x^2)").FindRealRoots().Count;     // 4, all spurious
 Keep the range where the function is representable, or check a root by evaluating
 something that doesn't underflow (for `exp`, its logarithm).
 
-## Robustness and performance
+## Robustness
 
 - **⚠ Very deep expressions can still overflow the stack in `Simplify` and `Differentiate`.**
   `Parse` rejects input nested more than 256 levels deep or with a tree more than 500 levels
@@ -154,10 +154,6 @@ something that doesn't underflow (for `exp`, its logarithm).
   checked — they can still throw `StackOverflowException`, which terminates the process and
   can't be caught. If you simplify or differentiate **untrusted input**, keep it well below
   the limits or run on a thread with a larger stack.
-- **`Simplify` time grows with the square of the size of a sum.** Three times as many
-  terms take about ten times as long: 300 like terms take about 10 ms, 300 distinct terms
-  (nothing combines) about 100 ms. `Evaluate` is fast (about 100 ns for a 25-node
-  expression), so for hot loops simplify once and evaluate many times.
 
 ## Not in the package
 

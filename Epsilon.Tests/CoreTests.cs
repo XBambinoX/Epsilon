@@ -131,6 +131,15 @@ public class SimplifierTests
         Assert.Equal(0, simplified.Evaluate(new Dictionary<string, double>()));
     }
 
+    [Theory]
+    [InlineData("-(2x) + x", "-x")]          // was -2x + x: -(2x) counted as the term 2x
+    [InlineData("x - -(3x)", "4x")]
+    [InlineData("-(-(2x)) - x", "x")]
+    public void Negated_multiples_combine_with_like_terms(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
 
     [Fact]
     public void Canonicalizes_zero_minus_x_to_negation()
@@ -2051,6 +2060,29 @@ public class PythagoreanIdentityTests
     }
 
     [Theory]
+    [InlineData("sec(x)^2 - tan(x)^2", "1")]
+    [InlineData("tan(x)^2 - sec(x)^2", "-1")]                 // the old two-node rule needed sec^2 first
+    [InlineData("y - csc(x)^2 + cot(x)^2", "y - 1")]          // and the two terms next to each other
+    [InlineData("2sec(x)^2 - 2tan(x)^2", "2")]
+    [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]      // the smaller coefficient's square goes
+    [InlineData("sec(x)^2 - 2tan(x)^2", "-sec(x)^2 + 2")]
+    [InlineData("3sin(x)^2 + 2cos(x)^2", "sin(x)^2 + 2")]     // was -cos(x)^2 + 3
+    [InlineData("sin(x)^2 - tan(x)^2 + cos(x)^2 + sec(x)^2", "2")]
+    public void Applies_sec_tan_and_csc_cot_identities_across_the_whole_sum(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input, "x", "y").Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("sec(x)^2 - tan(x)^2", "sec(x)^2 - tan(x)^2")]    // 1 would be defined where cos(x) = 0
+    [InlineData("csc(x)^2 - cot(x)^2", "csc(x)^2 - cot(x)^2")]
+    [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]          // sec(x)^2 keeps the domain
+    public void Strict_mode_cancels_sec_and_tan_only_if_the_domain_stays(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input, "x").Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
     [InlineData("sin(x)^2 + cos(y)^2", "cos(y)^2 + sin(x)^2")] // different arguments
     [InlineData("5 - sin(x)^2", "-sin(x)^2 + 5")]                // constant doesn't match the coefficient
     public void Leaves_non_matching_sums_alone(string input, string expected)
@@ -3266,6 +3298,37 @@ public class SimplifyCacheTests
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
 
         Assert.True(allocated < 500_000_000, $"Simplify allocated {allocated / 1_000_000} MB");
+    }
+
+    private static long AllocatedBySimplify(Expr expr)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        expr.Simplify();
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
+    // 1x + 2x^2 + ... - built in code, as Parse limits how deep a tree may be.
+    private static Expr DistinctSum(int terms)
+    {
+        Expr x = new Variable("x");
+        Expr sum = x;
+        for (int k = 2; k <= terms; k++)
+            sum = new Add(sum, new Multiply(new Constant(k), new Power(x, new Constant(k))));
+        return sum;
+    }
+
+    // A sum is simplified term by term and combined once, so the work grows with the number of
+    // terms. Simplifying every shorter sum inside the chain as well, as Simplify used to, made it
+    // grow with the square: 10 times the terms took about 100 times the allocations.
+    [Fact]
+    public void Simplify_work_grows_linearly_with_the_size_of_a_sum()
+    {
+        AllocatedBySimplify(DistinctSum(10)); // warm-up
+
+        long small = AllocatedBySimplify(DistinctSum(100));
+        long large = AllocatedBySimplify(DistinctSum(1000));
+
+        Assert.True(large < 20 * small, $"100 terms: {small / 1000} KB, 1000 terms: {large / 1000} KB");
     }
 }
 

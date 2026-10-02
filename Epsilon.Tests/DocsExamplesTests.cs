@@ -329,6 +329,8 @@ public class SimplificationDocTests
     [InlineData("2sin(x)^2 + 2cos(x)^2 + 1", "3")]
     [InlineData("1 - sin(x)^2", "cos(x)^2")]
     [InlineData("sec(x)^2 - tan(x)^2", "1")]
+    [InlineData("y - csc(x)^2 + cot(x)^2", "y - 1")]
+    [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]
     [InlineData("sin(x)/cos(x)", "tan(x)")]
     [InlineData("ln(exp(x))", "x")]
     [InlineData("exp(ln(x))", "x")]
