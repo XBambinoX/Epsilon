@@ -159,19 +159,6 @@ s.FindRealRoots((Expr)(-1), 2, 3);  // roots of sin(x) = -1 in [2, 3]: []
 Cast the number to `Expr` (or use `ExprParser.Parse("-1")`) to get the equation overload.
 The same applies to `FindComplexRoots`. The API will be changed in a future version.
 
-### ⚠ Complex roots: repeated roots are reported many times
-
-`FindComplexRoots` starts Newton's method from every point of a grid and merges results
-closer than `1e-6`. Near a root of multiplicity 2 or more, Newton converges slowly and stops
-at many slightly different points, so the result contains dozens of near-duplicates:
-
-```csharp
-ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2).Count;   // 98, all ≈ 1
-ExprParser.Parse("x^3 - 1").FindComplexRoots(-2, 2, -2, 2).Count;        // 3: simple roots are fine
-```
-
-For polynomials, `TryFactorComplex` gives exact roots with their multiplicity.
-
 ## Robustness and performance
 
 - **⚠ Very deep expressions can still overflow the stack in `Simplify` and `Differentiate`.**

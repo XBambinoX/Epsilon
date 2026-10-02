@@ -95,8 +95,19 @@ ExprParser.Parse("exp(x)").FindComplexRoots(ExprParser.Parse("1"), -1, 1, -7, 7)
 
 The roots come in no particular order. A root is found only if some starting point
 converges to it, so there is no completeness guarantee; increase `gridSteps` for more starting
-points. ⚠ Roots of multiplicity 2 or more are currently reported many times — see
-[limitations](limitations.md#-complex-roots-repeated-roots-are-reported-many-times).
+points.
+
+Each root is reported once, a multiple root too. Roots so close that `|f| < 1e-10` on the
+whole segment between them can't be told apart and are reported as one:
+
+```csharp
+ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2);        // [1], up to rounding
+ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-2, 2, -2, 2); // [1, 1.001]
+```
+
+For a multiple root of an expanded polynomial, rounding limits the precision: the triple root
+of `x^3 - 3x^2 + 3x - 1` comes out up to about `1e-8` away from 1. `TryFactorComplex` gives
+exact roots with their multiplicity.
 
 ## A single root near a guess
 

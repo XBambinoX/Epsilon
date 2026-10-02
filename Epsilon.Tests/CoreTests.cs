@@ -460,6 +460,81 @@ public class RootFindingEdgeCaseTests
     }
 }
 
+public class ComplexRootMultiplicityTests
+{
+    [Theory]
+    [InlineData("(x - 1)^2", 1, 1e-12)]                                    // was 80 roots around 0.99999
+    [InlineData("x^2 - 2x + 1", 1, 1e-12)]
+    [InlineData("(x - 1)^3", 1, 1e-12)]                                    // was 150
+    [InlineData("x^3 - 3x^2 + 3x - 1", 1, 1e-6)]                           // expanded: rounding limits the precision
+    [InlineData("x^4 - 4x^3 + 6x^2 - 4x + 1", 1, 1e-4)]
+    [InlineData("(x - 1)^7", 1, 1e-12)]
+    [InlineData("x^5", 0, 1e-12)]                                          // was 161, up to 0.009 away from 0
+    [InlineData("(exp(x) - 1)^2", 0, 1e-12)]                               // was 50
+    public void Multiple_root_is_reported_once(string input, double expected, double precision)
+    {
+        var roots = ExprParser.Parse(input).FindComplexRoots(-3, 3, -3, 3);
+
+        ComplexNumber root = Assert.Single(roots);
+        Assert.True((root - expected).Magnitude < precision, $"{root} is not within {precision} of {expected}");
+    }
+
+    [Fact]
+    public void Multiple_and_simple_roots_together()
+    {
+        var roots = ExprParser.Parse("(x - 1)^2 * (x + 2)").FindComplexRoots(-3, 3, -3, 3)
+            .OrderBy(z => z.Real).ToList();
+
+        Assert.Equal(2, roots.Count);                                      // was 37
+        Assert.True((roots[0] + 2).Magnitude < 1e-12);
+        Assert.True((roots[1] - 1).Magnitude < 1e-12);
+    }
+
+    [Theory]
+    [InlineData("(x^2 + 1)^2")]
+    [InlineData("x^4 + 2x^2 + 1")]
+    public void Double_complex_roots_are_reported_once(string input)
+    {
+        var roots = ExprParser.Parse(input).FindComplexRoots(-3, 3, -3, 3).OrderBy(z => z.Imaginary).ToList();
+
+        Assert.Equal(2, roots.Count);                                      // was 55
+        Assert.True((roots[0] + ComplexNumber.ImaginaryUnit).Magnitude < 1e-9);
+        Assert.True((roots[1] - ComplexNumber.ImaginaryUnit).Magnitude < 1e-9);
+    }
+
+    [Fact]
+    public void Close_simple_roots_stay_apart()
+    {
+        var roots = ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-3, 3, -3, 3).OrderBy(z => z.Real).ToList();
+
+        Assert.Equal(2, roots.Count);
+        Assert.True((roots[0] - 1).Magnitude < 1e-12);
+        Assert.True((roots[1] - 1.001).Magnitude < 1e-12);
+    }
+
+    [Fact]
+    public void Root_between_two_roots_does_not_merge_them()
+    {
+        var roots = ExprParser.Parse("x^3 - x").FindComplexRoots(-3, 3, -3, 3).Select(z => z.Real).Order().ToList();
+
+        Assert.Equal(3, roots.Count);
+        Assert.Equal(-1, roots[0], precision: 12);
+        Assert.Equal(0, roots[1], precision: 12);
+        Assert.Equal(1, roots[2], precision: 12);
+    }
+
+    [Fact]
+    public void Evenly_spaced_roots_are_not_merged()
+    {
+        // Merge checks at k/16 of the segment would all hit roots between -0.8pi and 0.8pi.
+        var roots = ExprParser.Parse("sin(10x)").FindComplexRoots(-3, 3, -0.5, 0.5, gridSteps: 60)
+            .Select(z => z.Real / (Math.PI / 10)).Order().ToList();
+
+        Assert.Equal(Enumerable.Range(-10, 21).Select(k => (double)k), roots.Select(k => Math.Round(k)));
+        Assert.All(roots, k => Assert.Equal(Math.Round(k), k, precision: 9));
+    }
+}
+
 public class CanonicalizationTests
 {
     [Fact]

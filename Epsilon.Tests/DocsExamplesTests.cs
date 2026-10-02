@@ -96,13 +96,6 @@ public class LimitationsDocTests
         Assert.Equal([0.0], s.FindRealRoots(-1, 2, 3));
         Assert.Empty(s.FindRealRoots((Expr)(-1), 2, 3));
     }
-
-    [Fact]
-    public void Complex_roots_repeated()
-    {
-        Assert.Equal(98, ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2).Count);
-        Assert.Equal(3, ExprParser.Parse("x^3 - 1").FindComplexRoots(-2, 2, -2, 2).Count);
-    }
 }
 
 // Additions to docs/limitations.md found while writing the guides.
@@ -609,6 +602,21 @@ public class RootFindingDocTests
         Assert.Equal(-2 * Math.PI, exp[0].Imaginary, precision: 9);
         Assert.Equal(0, exp[1].Imaginary, precision: 9);
         Assert.Equal(2 * Math.PI, exp[2].Imaginary, precision: 9);
+    }
+
+    [Fact]
+    public void Complex_roots_multiple_and_close()
+    {
+        ComplexNumber doubleRoot = Assert.Single(ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2));
+        Assert.True((doubleRoot - 1).Magnitude < 1e-12);
+
+        var close = ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-2, 2, -2, 2).OrderBy(z => z.Real).ToList();
+        Assert.Equal(2, close.Count);
+        Assert.Equal(1, close[0].Real, precision: 12);
+        Assert.Equal(1.001, close[1].Real, precision: 12);
+
+        ComplexNumber tripleRoot = Assert.Single(ExprParser.Parse("x^3 - 3x^2 + 3x - 1").FindComplexRoots(-2, 2, -2, 2));
+        Assert.True((tripleRoot - 1).Magnitude < 1e-8);
     }
 
     [Fact]

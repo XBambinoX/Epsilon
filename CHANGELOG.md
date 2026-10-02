@@ -15,6 +15,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `i/0` = inf*i) and `0/0` stays NaN. Dividing an infinite value by a real or imaginary
   number also keeps it infinite instead of producing NaN, so `atanh(1)`, `atanh(-1)`,
   `csch(0)` and `coth(0)` now give inf or -inf in complex evaluation too.
+- `FindComplexRoots` reported a root of multiplicity 2 or more dozens of times, each copy
+  slightly off: `(x - 1)^2` gave 80 roots around 0.99999 and `x^5` gave 161 up to 0.009
+  away from 0. Every root found is now refined by a method that converges fast whatever the
+  multiplicity, and results are merged when `|f| < 1e-10` on the whole segment between them,
+  so each root is reported once: `(x - 1)^2` gives `[1]`, `x^5` gives `[0]`. Simple roots
+  also come out more precise (`x^2 + 1`: real part about `1e-17` instead of `1e-11`).
 
 ## [1.0.1] — 2026-10-01
 
