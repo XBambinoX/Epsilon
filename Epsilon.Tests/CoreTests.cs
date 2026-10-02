@@ -2285,6 +2285,54 @@ public class ExactFactoringTests
     }
 }
 
+public class ImaginaryUnitSimplificationTests
+{
+    [Theory]
+    [InlineData("i^2", "-1")]
+    [InlineData("i^3", "-i")]
+    [InlineData("i^4", "1")]
+    [InlineData("i^-1", "-i")]
+    [InlineData("i^1001", "i")]
+    [InlineData("i*i", "-1")]
+    [InlineData("2i*3i", "-6")]
+    [InlineData("x*i*i", "-x")]
+    [InlineData("1/i", "-i")]
+    [InlineData("1/(2i)", "-i / 2")]
+    [InlineData("1/(-i)", "i")]
+    [InlineData("x/(y*i)", "-i * x / y")]
+    [InlineData("1/(1 + i)", "1 / (1 + i)")]   // complex denominators are not rationalized
+    public void Uses_i_squared_is_minus_one(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(x + i)*(x - i)", "x^2 + 1")]
+    [InlineData("(1 + i)^2", "2 * i")]
+    [InlineData("(1 + i)^4", "-4")]
+    [InlineData("(2 + i)/i", "1 - 2 * i")]
+    public void Expands_with_i_squared_is_minus_one(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Expand().Print());
+    }
+
+    [Theory]
+    [InlineData("x*i^3 + y/(2i)")]
+    [InlineData("(x + 2i)^3 / (y*i)")]
+    public void Keeps_the_complex_value(string input)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+        var bindings = new[] { ("x", new ComplexNumber(0.3, -0.7)), ("y", new ComplexNumber(-1.1, 0.4)) };
+
+        ComplexNumber expected = expr.EvaluateComplex(bindings);
+        Assert.True((expected - expr.Simplify().EvaluateComplex(bindings)).Magnitude < 1e-12);
+        Assert.True((expected - expr.Expand().EvaluateComplex(bindings)).Magnitude < 1e-12);
+    }
+}
+
 public class ComplexEdgeCaseTests
 {
     [Theory]

@@ -71,3 +71,12 @@ ComplexNumber.FromPolar(2, Math.PI / 2);       // ≈ 2i
 | `i` | `ImaginaryUnit` | i; only in [complex evaluation](evaluation.md#complex-values) |
 
 They stay symbolic — `2pi` is `2 * π`, not `6.28…` — until you evaluate.
+
+`Simplify` knows that `i^2 = -1`, so integer powers of `i` and an `i` in a denominator are
+worked out:
+
+```csharp
+ExprParser.Parse("i^3").Simplify().Print();                  // -i
+ExprParser.Parse("1/(2i)").Simplify().Print();               // -i / 2
+ExprParser.Parse("(x + i)*(x - i)").Expand().Print();        // x^2 + 1
+```

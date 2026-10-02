@@ -164,11 +164,20 @@ public static class Simplifier
                 when TryReduceConstantFactors(numerator, denominator, assumptions, mode, cache, out Expr? reduced):
                 return reduced!;
 
+            // 1/i = i^-1 = -i: an i in the denominator moves up with a minus sign, a/(b*i) = -a*i/b.
+            case Divide(var a, var d) when TryRemoveFactor(d, new ImaginaryUnit(), out Expr? rest):
+                Expr moved = new Negate(new Multiply(a, new ImaginaryUnit()));
+                return rest is null ? moved : new Divide(moved, rest);
+
             // Integer exponent: exact BigInteger power. 0^negative is undefined
             // (division by zero), so that combination is excluded and left symbolic.
             case Power(Constant b, Constant e)
                 when e.Value.IsInteger && !(b.Value.IsZero && e.Value.Sign < 0):
                 return new Constant(b.Value.Pow((int)e.Value.Numerator));
+
+            // i^2 = -1, and on with period 4: i^3 = -i, i^4 = 1, i^-1 = -i.
+            case Power(ImaginaryUnit, Constant e) when e.Value.IsInteger:
+                return ImaginaryUnitPower(e.Value.Numerator);
 
             // Root exponent (+-1/n): exact result only if b is a perfect n-th power.
             // NOT approximated via Math.Pow - an inexact root stays symbolic rather than
@@ -373,6 +382,41 @@ public static class Simplifier
                 return expr;
         }
     }
+
+    // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
+    // the product was the factor itself.
+    private static bool TryRemoveFactor(Expr product, Expr factor, out Expr? rest)
+    {
+        rest = null;
+        if (product.Equals(factor))
+            return true;
+
+        if (product is not Multiply(var left, var right))
+            return false;
+
+        if (TryRemoveFactor(left, factor, out Expr? leftRest))
+        {
+            rest = leftRest is null ? right : new Multiply(leftRest, right);
+            return true;
+        }
+
+        if (TryRemoveFactor(right, factor, out Expr? rightRest))
+        {
+            rest = rightRest is null ? left : new Multiply(left, rightRest);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Expr ImaginaryUnitPower(System.Numerics.BigInteger n) =>
+        (int)((n % 4 + 4) % 4) switch
+        {
+            0 => new Constant(1),
+            1 => new ImaginaryUnit(),
+            2 => new Constant(-1),
+            _ => new Negate(new ImaginaryUnit())
+        };
 
     // BigInteger.IsEven instead of a (long) cast, which overflows for huge integers.
     private static bool IsOddInteger(Rational value) =>

@@ -803,6 +803,14 @@ public class NumbersDocTests
         Assert.Equal(0, p.Real, precision: 12);
         Assert.Equal(2, p.Imaginary, precision: 12);
     }
+
+    [Fact]
+    public void Imaginary_unit_in_expressions()
+    {
+        Assert.Equal("-i", ExprParser.Parse("i^3").Simplify().Print());
+        Assert.Equal("-i / 2", ExprParser.Parse("1/(2i)").Simplify().Print());
+        Assert.Equal("x^2 + 1", ExprParser.Parse("(x + i)*(x - i)").Expand().Print());
+    }
 }
 
 // docs/api-reference.md must list every public type, member and enum value. A new public
