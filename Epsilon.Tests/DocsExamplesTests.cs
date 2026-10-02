@@ -318,6 +318,8 @@ public class SimplificationDocTests
     [InlineData("(2x)/(4x)", "1/2")]
     [InlineData("(x^2*y)/(x*y)", "x")]
     [InlineData("x^3/x", "x^2")]
+    [InlineData("4x/6", "2x / 3")]
+    [InlineData("x/(-2)", "-x / 2")]
     [InlineData("2sin(x)^2 + 2cos(x)^2 + 1", "3")]
     [InlineData("1 - sin(x)^2", "cos(x)^2")]
     [InlineData("sec(x)^2 - tan(x)^2", "1")]

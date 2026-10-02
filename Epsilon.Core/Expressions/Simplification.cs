@@ -160,6 +160,10 @@ public static class Simplifier
             case Divide(var n, var d) when d.Equals(new Constant(1)):
                 return n;
 
+            case Divide(var numerator, var denominator)
+                when TryReduceConstantFactors(numerator, denominator, assumptions, mode, cache, out Expr? reduced):
+                return reduced!;
+
             // Integer exponent: exact BigInteger power. 0^negative is undefined
             // (division by zero), so that combination is excluded and left symbolic.
             case Power(Constant b, Constant e)
@@ -844,6 +848,38 @@ public static class Simplifier
 
         return result ?? new Constant(coefficient); // everything cancelled — pure coefficient (often 1)
     }
+
+    // The constant factors of a quotient are reduced like a fraction, with the sign in the
+    // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x). Both sides are
+    // multiplied by the same nonzero number, so the domain stays the same.
+    private static bool TryReduceConstantFactors(
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+    {
+        result = null;
+
+        // 0/d and division by 0 are left to their own rules.
+        Rational top = ConstantFactor(numerator), bottom = ConstantFactor(denominator);
+        if (top.IsZero || bottom.IsZero)
+            return false;
+
+        Rational ratio = top / bottom;
+        if (top == new Rational(ratio.Numerator) && bottom == new Rational(ratio.Denominator))
+            return false; // already in lowest terms
+
+        var scale = new Constant(new Rational(ratio.Denominator) / bottom);
+        result = SimplifyCached(
+            new Divide(new Multiply(scale, numerator), new Multiply(scale, denominator)), assumptions, mode, cache);
+        return true;
+    }
+
+    // The product of the constant factors of a product: 6 for -2x * (-3y), 1 for anything else.
+    private static Rational ConstantFactor(Expr expr) => expr switch
+    {
+        Constant c => c.Value,
+        Negate(var a) => -ConstantFactor(a),
+        Multiply(var l, var r) => ConstantFactor(l) * ConstantFactor(r),
+        _ => Rational.One
+    };
 
     private static bool TryCancelCommonFactors(
         Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)

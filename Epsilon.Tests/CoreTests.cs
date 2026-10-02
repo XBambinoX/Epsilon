@@ -2425,6 +2425,37 @@ public class ComplexEdgeCaseTests
     }
 }
 
+public class QuotientConstantFactorTests
+{
+    [Theory]
+    [InlineData("2x/2", "x")]
+    [InlineData("4x/6", "2x / 3")]
+    [InlineData("2*(pi/6)", "π / 3")]
+    [InlineData("x/(-2)", "-x / 2")]
+    [InlineData("-x/(-2)", "x / 2")]
+    [InlineData("(2y)/(4x)", "y / (2x)")]
+    [InlineData("(-3x)/(6y)", "-x / (2y)")]
+    [InlineData("(1/2)*x/y", "x / (2y)")]
+    [InlineData("x/2 + 3x/6", "x")]          // 3x/6 = x/2 is a like term now
+    [InlineData("(2x + 2)/2", "(2x + 2) / 2")] // a sum is not factored
+    public void Reduces_the_numbers_like_a_fraction(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("0/x", "0 / x")]
+    [InlineData("2x/0", "2x / 0")]
+    [InlineData("2*x*x^-1/4", "x^-1 * x / 2")]  // only the numbers change, x * x^-1 stays
+    public void Keeps_the_domain_in_strict_mode(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

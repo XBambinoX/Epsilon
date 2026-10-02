@@ -44,12 +44,14 @@ ExprParser.Parse("x*(-y)*x").Simplify().Print();      // -x^2 * y
 ExprParser.Parse("(x + 1) - 1").Simplify().Print();   // x
 ```
 
-**Common factors cancel** in quotients:
+**Common factors cancel** in quotients, and the numbers in them reduce like a fraction:
 
 ```csharp
 ExprParser.Parse("(2x)/(4x)").Simplify().Print();       // 1/2
 ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();   // x
 ExprParser.Parse("x^3/x").Simplify().Print();           // x^2
+ExprParser.Parse("4x/6").Simplify().Print();            // 2x / 3
+ExprParser.Parse("x/(-2)").Simplify().Print();          // -x / 2
 ```
 
 **Identities.** The Pythagorean identities (`sin^2 + cos^2 = 1`, `sec^2 - tan^2 = 1`,
