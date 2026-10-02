@@ -230,11 +230,15 @@ Guide: [Root finding](root-finding.md).
 |---|---|
 | `IReadOnlyList<double> FindRealRoots(this Expr expr, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | All real roots of `expr = 0` for its only variable, ascending. Undefined points are never roots. |
 | `IReadOnlyList<double> FindRealRoots(this Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | The same for a named variable, with values for the others. |
-| `IReadOnlyList<double> FindRealRoots(this Expr left, Expr right, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | Real solutions of `left = right`. |
-| `IReadOnlyList<double> FindRealRoots(this Expr left, Expr right, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | The same for a named variable. |
+| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | Real solutions of `left = right`, ascending. `right` may be a plain number. |
+| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | The same for a named variable. |
 | `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex roots in a rectangle, by Newton's method from a grid of starting points. |
 | `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, string variable, IReadOnlyDictionary<string, ComplexNumber>? fixedBindings, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | The same for a named variable. |
-| `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr left, Expr right, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex solutions of `left = right`. |
+| `IReadOnlyList<ComplexNumber> SolveComplexNumerically(this Expr left, Expr right, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex solutions of `left = right`. `right` may be a plain number. |
+
+Obsolete since 1.1: `FindRealRoots(this Expr left, Expr right, ...)` and
+`FindComplexRoots(this Expr left, Expr right, ...)`, the old names of `SolveNumerically` and
+`SolveComplexNumerically`. A plain number as `right` made them pick the range overload instead.
 
 ### `RootFinder` (static class)
 

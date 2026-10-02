@@ -28,6 +28,14 @@ public static class RootFindingExtensions
     private static readonly double[] SegmentSamples =
         [.. Enumerable.Range(1, 16).Select(k => k * 0.6180339887498949 % 1)];
 
+    // The equation overloads of FindRealRoots/FindComplexRoots were a trap: a plain number as the
+    // right side converts to Expr only implicitly, so the range overload wins and
+    // sin.FindRealRoots(-1, 2, 3) searched sin(x) = 0 on [-1, 2] instead of solving sin(x) = -1.
+    private const string ObsoleteRealEquation =
+        "Use SolveNumerically. A plain number as the right side makes FindRealRoots pick its range overload instead.";
+    private const string ObsoleteComplexEquation =
+        "Use SolveComplexNumerically. A plain number as the right side makes FindComplexRoots pick its rectangle overload instead.";
+
     /// <summary>
     /// All real solutions of the equation <paramref name="left"/> = <paramref name="right"/> for
     /// <paramref name="variable"/> in the range. Points where either side is undefined are never
@@ -43,7 +51,7 @@ public static class RootFindingExtensions
     /// <returns>The roots in ascending order, each to about full double precision.</returns>
     /// <exception cref="ArgumentException">A limit is NaN or <paramref name="leftLimit"/> ≥ <paramref name="rightLimit"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="scanSteps"/> is less than 2.</exception>
-    public static IReadOnlyList<double> FindRealRoots(
+    public static IReadOnlyList<double> SolveNumerically(
         this Expr left,
         Expr right,
         string variable,
@@ -55,6 +63,44 @@ public static class RootFindingExtensions
         Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindRealRoots(variable, fixedBindings, leftLimit, rightLimit, scanSteps);
     }
+
+    /// <summary>
+    /// All real solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's
+    /// only variable. See <see cref="SolveNumerically(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
+    public static IReadOnlyList<double> SolveNumerically(
+        this Expr left,
+        Expr right,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps)
+    {
+        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
+        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
+    }
+
+    /// <summary>Obsolete: use <see cref="SolveNumerically(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteRealEquation)]
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr left,
+        Expr right,
+        string variable,
+        IReadOnlyDictionary<string, double>? fixedBindings = null,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps) =>
+        left.SolveNumerically(right, variable, fixedBindings, leftLimit, rightLimit, scanSteps);
+
+    /// <summary>Obsolete: use <see cref="SolveNumerically(Expr, Expr, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteRealEquation)]
+    public static IReadOnlyList<double> FindRealRoots(
+        this Expr left,
+        Expr right,
+        double leftLimit = double.NegativeInfinity,
+        double rightLimit = double.PositiveInfinity,
+        int scanSteps = DefaultRealScanSteps) =>
+        left.SolveNumerically(right, leftLimit, rightLimit, scanSteps);
 
     /// <summary>
     /// All real roots of <paramref name="expr"/> = 0 for <paramref name="variable"/> in the range,
@@ -101,22 +147,6 @@ public static class RootFindingExtensions
         Func<double, double> mapToX = MakeInfiniteMapping(leftLimit, rightLimit, leftInf, rightInf, out double tMin, out double tMax);
 
         return ScanForRealRoots(expr, variable, fixedBindings, mapToX, tMin, tMax, scanSteps);
-    }
-
-    /// <summary>
-    /// All real solutions of <paramref name="left"/> = <paramref name="right"/> for the equation's
-    /// only variable. See <see cref="FindRealRoots(Expr, Expr, string, IReadOnlyDictionary{string, double}, double, double, int)"/>.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
-    public static IReadOnlyList<double> FindRealRoots(
-        this Expr left,
-        Expr right,
-        double leftLimit = double.NegativeInfinity,
-        double rightLimit = double.PositiveInfinity,
-        int scanSteps = DefaultRealScanSteps)
-    {
-        Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
-        return diff.FindRealRoots(leftLimit, rightLimit, scanSteps);
     }
 
     /// <summary>
@@ -422,7 +452,7 @@ public static class RootFindingExtensions
     /// See <see cref="FindComplexRoots(Expr, string, IReadOnlyDictionary{string, ComplexNumber}, double, double, double, double, int)"/>.
     /// </summary>
     /// <exception cref="InvalidOperationException">The equation does not have exactly one variable.</exception>
-    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
+    public static IReadOnlyList<ComplexNumber> SolveComplexNumerically(
         this Expr left,
         Expr right,
         double reMin, double reMax,
@@ -432,6 +462,16 @@ public static class RootFindingExtensions
         Expr diff = new Subtract(left, right).Simplify(SimplifyMode.Strict); // keep singular points: x^2/x = 0 has no root at 0
         return diff.FindComplexRoots(reMin, reMax, imMin, imMax, gridSteps);
     }
+
+    /// <summary>Obsolete: use <see cref="SolveComplexNumerically(Expr, Expr, double, double, double, double, int)"/>.</summary>
+    [Obsolete(ObsoleteComplexEquation)]
+    public static IReadOnlyList<ComplexNumber> FindComplexRoots(
+        this Expr left,
+        Expr right,
+        double reMin, double reMax,
+        double imMin, double imMax,
+        int gridSteps = DefaultComplexGridSteps) =>
+        left.SolveComplexNumerically(right, reMin, reMax, imMin, imMax, gridSteps);
 
     private static bool IsWithinBounds(ComplexNumber z, double reMin, double reMax, double imMin, double imMax)
     {

@@ -82,7 +82,7 @@ above), so `false` means "not shown to be equal", not "different".
 ### No symbolic equation solver
 
 There is no way yet to solve `sin(x) = 1/2` symbolically as `π/6 + 2πk, 5π/6 + 2πk`. Use
-`FindRealRoots` for numeric solutions in a range. A symbolic solver is planned for 1.1 (see
+`SolveNumerically` for numeric solutions in a range. A symbolic solver is planned for 1.1 (see
 the [roadmap](../README.md#roadmap)).
 
 ## Parsing and output
@@ -143,21 +143,6 @@ ExprParser.Parse("exp(-x^2)").FindRealRoots().Count;     // 4, all spurious
 
 Keep the range where the function is representable, or check a root by evaluating
 something that doesn't underflow (for `exp`, its logarithm).
-
-### ⚠ Overload trap: a number as the right-hand side
-
-A plain number passed as the right-hand side of an equation binds to the **range** overload,
-because `double` is a better match than the implicit conversion to `Expr`:
-
-```csharp
-Expr s = ExprParser.Parse("sin(x)");
-
-s.FindRealRoots(-1, 2, 3);          // roots of sin(x) = 0 in [-1, 2] with 3 steps: [0]
-s.FindRealRoots((Expr)(-1), 2, 3);  // roots of sin(x) = -1 in [2, 3]: []
-```
-
-Cast the number to `Expr` (or use `ExprParser.Parse("-1")`) to get the equation overload.
-The same applies to `FindComplexRoots`. The API will be changed in a future version.
 
 ## Robustness and performance
 

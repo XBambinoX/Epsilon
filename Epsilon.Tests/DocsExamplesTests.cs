@@ -87,15 +87,6 @@ public class LimitationsDocTests
         Assert.Equal(31, ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1, 5000).Count);
         Assert.Equal([1.0], ExprParser.Parse("(x - 1)*(x - 1.0000001)").FindRealRoots(-10, 10));
     }
-
-    [Fact]
-    public void Number_as_right_hand_side_binds_to_the_range_overload()
-    {
-        Expr s = ExprParser.Parse("sin(x)");
-
-        Assert.Equal([0.0], s.FindRealRoots(-1, 2, 3));
-        Assert.Empty(s.FindRealRoots((Expr)(-1), 2, 3));
-    }
 }
 
 // Additions to docs/limitations.md found while writing the guides.
@@ -576,8 +567,9 @@ public class RootFindingDocTests
     [Fact]
     public void Equations()
     {
-        Assert.Equal([0.0, 2.0], ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("2x"), -10, 10));
-        Assert.Equal([0.7390851332151607], ExprParser.Parse("cos(x)").FindRealRoots(ExprParser.Parse("x")));
+        Assert.Equal([0.0, 2.0], ExprParser.Parse("x^2").SolveNumerically(ExprParser.Parse("2x"), -10, 10));
+        Assert.Equal([0.7390851332151607], ExprParser.Parse("cos(x)").SolveNumerically(ExprParser.Parse("x")));
+        Assert.Equal([0.5235987755982989, 2.6179938779914944], ExprParser.Parse("sin(x)").SolveNumerically(0.5, 0, 4));
     }
 
     [Fact]
@@ -597,7 +589,7 @@ public class RootFindingDocTests
         Assert.Equal(1, cube[1].Real, precision: 9);
         Assert.Equal(Math.Sqrt(3) / 2, cube[2].Imaginary, precision: 9);
 
-        var exp = ExprParser.Parse("exp(x)").FindComplexRoots(ExprParser.Parse("1"), -1, 1, -7, 7).OrderBy(z => z.Imaginary).ToList();
+        var exp = ExprParser.Parse("exp(x)").SolveComplexNumerically(1, -1, 1, -7, 7).OrderBy(z => z.Imaginary).ToList();
         Assert.Equal(3, exp.Count);
         Assert.Equal(-2 * Math.PI, exp[0].Imaginary, precision: 9);
         Assert.Equal(0, exp[1].Imaginary, precision: 9);

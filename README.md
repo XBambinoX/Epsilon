@@ -105,7 +105,7 @@ of the domain — and complex roots via Newton's method:
 
 ```csharp
 ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots();              // [-1, 1]
-ExprParser.Parse("sin(x)").FindRealRoots(ExprParser.Parse("1/2"), -4, 4);
+ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
                                                                  // ≈ [-3.665, 0.524, 2.618]
 ExprParser.Parse("x^2 + 1").FindComplexRoots(-2, 2, -2, 2);      // ≈ [-i, i]
 ```

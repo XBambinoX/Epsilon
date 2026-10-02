@@ -7,6 +7,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `SolveNumerically` and `SolveComplexNumerically` solve `left = right` numerically, like the
+  equation overloads of `FindRealRoots` and `FindComplexRoots` did, but the right side may be
+  a plain number: `ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4)` gives the three
+  solutions of `sin(x) = 0.5` in [-4, 4].
+
+### Deprecated
+
+- The equation overloads `FindRealRoots(this Expr left, Expr right, ...)` and
+  `FindComplexRoots(this Expr left, Expr right, ...)`; use `SolveNumerically` and
+  `SolveComplexNumerically`. A plain number as the right side never reached them: C# picked
+  the range overload instead, so `sin.FindRealRoots(-1, 2, 3)` searched `sin(x) = 0` on
+  [-1, 2] and `sin.FindRealRoots(0.5, -4, 4)` threw. They still work and will be removed in
+  a future major version.
+
 ### Fixed
 
 - Complex division by zero returned NaN while real division returned an infinity, so

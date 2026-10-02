@@ -402,7 +402,7 @@ public class RootFindingEdgeCaseTests
         // x^2 = 4  =>  x = ±2
         Expr left = ExprParser.Parse("x^2");
         Expr right = ExprParser.Parse("4");
-        var roots = left.FindRealRoots(right, -10, 10);
+        var roots = left.SolveNumerically(right, -10, 10);
         Assert.Equal(2, roots.Count);
     }
 
@@ -453,7 +453,7 @@ public class RootFindingEdgeCaseTests
         // x^2 = -4  =>  x = ±2i
         Expr left = ExprParser.Parse("x^2");
         Expr right = ExprParser.Parse("0 - 4");
-        var roots = left.FindComplexRoots(right, -5, 5, -5, 5, gridSteps: 8);
+        var roots = left.SolveComplexNumerically(right, -5, 5, -5, 5, gridSteps: 8);
 
         Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary - 2.0) < 1e-3);
         Assert.Contains(roots, r => Math.Abs(r.Real) < 1e-3 && Math.Abs(r.Imaginary + 2.0) < 1e-3);
@@ -532,6 +532,70 @@ public class ComplexRootMultiplicityTests
 
         Assert.Equal(Enumerable.Range(-10, 21).Select(k => (double)k), roots.Select(k => Math.Round(k)));
         Assert.All(roots, k => Assert.Equal(Math.Round(k), k, precision: 9));
+    }
+}
+
+public class SolveNumericallyTests
+{
+    [Fact]
+    public void Number_as_right_side_is_the_equation()
+    {
+        // FindRealRoots(0.5, -4, 4) took 0.5 and -4 for the range and threw.
+        var roots = ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
+
+        Assert.Equal(3, roots.Count);
+        Assert.Equal(-7 * Math.PI / 6, roots[0], precision: 12);
+        Assert.Equal(Math.PI / 6, roots[1], precision: 12);
+        Assert.Equal(5 * Math.PI / 6, roots[2], precision: 12);
+    }
+
+    [Fact]
+    public void Negative_number_as_right_side_is_the_equation()
+    {
+        // FindRealRoots(-1, 2, 3) silently gave the root 0 of sin(x) = 0 in [-1, 2].
+        Expr sin = ExprParser.Parse("sin(x)");
+
+        Assert.Empty(sin.SolveNumerically(-1, 2, 3));
+        Assert.Equal(-Math.PI / 2, Assert.Single(sin.SolveNumerically(-1, -2, -1)), precision: 8);
+    }
+
+    [Fact]
+    public void Named_variable_with_number_as_right_side()
+    {
+        var a = new Dictionary<string, double> { ["a"] = 2 };
+
+        Assert.Equal([3.0], ExprParser.Parse("a*x").SolveNumerically(6, "x", a));
+        Assert.Equal([-3.0, 3.0], ExprParser.Parse("x^2").SolveNumerically(ExprParser.Parse("a + 7"), "x", a));
+    }
+
+    [Fact]
+    public void Undefined_points_are_not_solutions()
+    {
+        Assert.Equal([1.0], ExprParser.Parse("x^2/x").SolveNumerically(ExprParser.Parse("x^2"), -10, 10));
+    }
+
+    [Fact]
+    public void Complex_number_as_right_side_is_the_equation()
+    {
+        // FindComplexRoots(1, -1, 1, -7, 7) took 1 and -1 for the real range and threw.
+        var roots = ExprParser.Parse("exp(x)").SolveComplexNumerically(1, -1, 1, -7, 7)
+            .OrderBy(z => z.Imaginary).ToList();
+
+        Assert.Equal(3, roots.Count);
+        Assert.All(roots, z => Assert.Equal(0, z.Real, precision: 12));
+        Assert.Equal(-2 * Math.PI, roots[0].Imaginary, precision: 12);
+        Assert.Equal(0, roots[1].Imaginary, precision: 12);
+        Assert.Equal(2 * Math.PI, roots[2].Imaginary, precision: 12);
+    }
+
+    [Fact]
+    public void Obsolete_equation_overloads_still_work()
+    {
+#pragma warning disable CS0618 // the old names are kept for compatibility and must keep working
+        Assert.Equal([0.0, 2.0], ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("2x"), -10, 10));
+        Assert.Equal([-3.0, 3.0], ExprParser.Parse("x^2").FindRealRoots(ExprParser.Parse("9"), "x"));
+        Assert.Equal(2, ExprParser.Parse("x^2").FindComplexRoots(ExprParser.Parse("-4"), -3, 3, -3, 3).Count);
+#pragma warning restore CS0618
     }
 }
 
@@ -3364,7 +3428,7 @@ public class ReadmeExamplesTests
     {
         Assert.Equal([-1.0, 1.0], ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots());
 
-        var sinRoots = ExprParser.Parse("sin(x)").FindRealRoots(ExprParser.Parse("1/2"), -4, 4);
+        var sinRoots = ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
         Assert.Equal(3, sinRoots.Count);
         Assert.Equal(-3.665, sinRoots[0], precision: 3);
         Assert.Equal(0.524, sinRoots[1], precision: 3);

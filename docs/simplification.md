@@ -99,8 +99,8 @@ More examples of the difference:
 Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both modes.
 
 **Use Strict when the undefined points matter** — for example, when you look for where an
-expression is undefined, or before root finding. `FindRealRoots` simplifies in Strict mode
-internally, so `x^2/x` has no root at 0.
+expression is undefined, or before root finding. `SolveNumerically` simplifies `left - right`
+in Strict mode internally, so `x^2/x = 0` has no solution at 0.
 
 Even Generic mode never folds a literal `0/0` and never changes a value that is defined:
 
