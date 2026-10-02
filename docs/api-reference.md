@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.0.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.1.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 

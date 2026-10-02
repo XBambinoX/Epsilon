@@ -56,6 +56,7 @@ Numbers are arbitrary-precision rationals, never floating point, so nothing is l
 
 ```csharp
 ExprParser.Parse("0.1 + 0.2").Simplify().Print();       // 3/10
+ExprParser.Parse("cos(3pi/4)").Simplify().Print();      // -sqrt(2) / 2
 ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print();
                                                          // (x + sqrt(2)) * (x - sqrt(2))
 ```
@@ -174,12 +175,12 @@ changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/
 
 This package is the core. The next areas are built on it as separate packages, in this order:
 
-1. **Calculus** — symbolic and numeric integration (improper integrals included), gradients,
+1. **Linear algebra** — symbolic and numeric matrices and the operations on them.
+2. **Calculus** — symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.
    Planned next, as far as time and energy allow: limits (including multivariable limits in
    2D and 3D), double and triple integrals, surface and contour integrals, Lebesgue
    integration and more.
-2. **Linear algebra** — symbolic and numeric matrices and the operations on them.
 3. **Transforms** — Fourier, wavelets and more.
 4. **Probability theory** — under consideration.
 5. Further areas as the library grows.

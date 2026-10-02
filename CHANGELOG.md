@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-03
+
 ### Added
 
 - `SolveNumerically` and `SolveComplexNumerically` solve `left = right` numerically, like the
@@ -32,7 +34,6 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `TryFactorReal` and `TryFactorComplex` expand their input first, so the polynomial no
   longer has to be written out: `(x - 2)^4` and `(x^2 - 1)*(x - 1)` are factored instead of
   returning `false`.
-
 - `Simplify` handles a sum as a whole: each term is simplified once, then all of them are
   combined in one pass. Before, every shorter sum inside it (the first two terms, the first
   three, ...) was simplified as well, so the time grew with the square of the number of
@@ -163,6 +164,7 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.0.1...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.1.0...HEAD
+[1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.0
 [1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/v1.0.0

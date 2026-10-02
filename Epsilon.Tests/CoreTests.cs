@@ -3791,6 +3791,7 @@ public class ReadmeExamplesTests
     public void Exact_arithmetic()
     {
         Assert.Equal("3/10", ExprParser.Parse("0.1 + 0.2").Simplify().Print());
+        Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
         Assert.Equal("(x + sqrt(2)) * (x - sqrt(2))", ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print());
     }
 
