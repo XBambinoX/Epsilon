@@ -57,6 +57,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `4x / 6` and `2*(pi/6)` gave `2 * π / 6`. They now reduce like a fraction, with the sign
   in the numerator: `x`, `2x / 3`, `π / 3`, and `x/(-2)` gives `-x / 2`. A number in a sum
   is not factored out: `(2x + 2)/2` stays as it is.
+- Dividing by a quotient was not simplified: `1/(x/2)` stayed as it was. Now `a/(b/c)` becomes
+  `a*c/b`, so `1/(x/2)` gives `2 / x` and `y/(x/y)` gives `y^2 / x`. The left side is undefined
+  where `c = 0`, so in Strict mode this needs `c` to be provably nonzero: `1/(2/x)` gives
+  `x / 2` in Generic mode and stays in Strict mode.
 - Complex division by zero returned NaN while real division returned an infinity, so
   `EvaluateComplex` disagreed with `Evaluate` at poles: `1/x` at 0 gave NaN instead of inf.
   Now `z / 0` is infinite in the direction of `z` (`1/0` = inf, `-1/0` = -inf,

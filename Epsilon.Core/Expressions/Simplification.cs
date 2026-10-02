@@ -237,6 +237,10 @@ public static class Simplifier
             case Divide(Divide(var a, var b), var c):
                 return new Divide(a, new Multiply(b, c));
 
+            // a / (b/c) = a*c / b; the left side is undefined where c = 0, the right side isn't.
+            case Divide(var a, Divide(var b, var c)) when NonZeroForDomain(c, assumptions, mode):
+                return new Divide(new Multiply(a, c), b);
+
             // x^n / x^m = x^(n-m)
             case Divide(Power(var b1, var e1), Power(var b2, var e2))
                 when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):

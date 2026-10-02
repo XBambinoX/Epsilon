@@ -149,6 +149,7 @@ More examples of the difference:
 |---|---|---|---|
 | `x^3/x` | `x^2` | `x^3 / x` | x = 0 |
 | `0/x` | `0` | `0 / x` | x = 0 |
+| `1/(2/x)` | `x / 2` | `1 / (2 / x)` | x = 0 |
 | `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
 | `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
 | `tan(x)*cot(x)` | `1` | `cot(x) * tan(x)` | multiples of π/2 |

@@ -2454,6 +2454,29 @@ public class QuotientConstantFactorTests
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
     }
+
+    [Theory]
+    [InlineData("1/(x/2)", "2 / x", "2 / x")]
+    [InlineData("3/(x/2)", "6 / x", "6 / x")]
+    [InlineData("1/(1/x)", "x", "1 / (1 / x)")]          // undefined at x = 0
+    [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
+    [InlineData("y/(x/y)", "y^2 / x", "y / (x / y)")]
+    [InlineData("(1/x)/(1/y)", "y / x", "1 / (x / y)")]
+    [InlineData("1/(x/0)", "1 / (x / 0)", "1 / (x / 0)")] // never divides by a literal 0
+    public void Divides_by_a_quotient(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input, "x", "y");
+
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Divides_by_a_quotient_in_strict_mode_when_the_inner_denominator_is_nonzero()
+    {
+        Assumptions xNonZero = Assumptions.None.AssumeNonZero("x");
+        Assert.Equal("x / 2", ExprParser.Parse("1/(2/x)").Simplify(xNonZero, SimplifyMode.Strict).Print());
+    }
 }
 
 public class ProductCombiningTests
