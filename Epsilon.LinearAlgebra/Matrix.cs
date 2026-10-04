@@ -227,10 +227,11 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
             throw new ArgumentException($"Cannot multiply a {matrix.Size} matrix by a vector of length {vector.Length}.");
     }
 
+    // operation starts the message: "The trace", "Solve".
     internal void CheckSquare(string operation)
     {
         if (!IsSquare)
-            throw new InvalidOperationException($"The {operation} is defined only for square matrices, not for a {Size} matrix.");
+            throw new InvalidOperationException($"{operation} needs a square matrix, not a {Size} matrix.");
     }
 
     internal static T NotNull(T entry, int row, int column) =>

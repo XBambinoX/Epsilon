@@ -19,7 +19,7 @@ public static class NumericMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square.</exception>
         public double Trace()
         {
-            matrix.CheckSquare("trace");
+            matrix.CheckSquare("The trace");
 
             double sum = 0;
             for (int i = 0; i < matrix.Rows; i++)
@@ -27,6 +27,65 @@ public static class NumericMatrixExtensions
 
             return sum;
         }
+
+        /// <summary>
+        /// The determinant, by LU decomposition with partial pivoting; 0 if the matrix is singular
+        /// to working precision.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is not square or has an entry that is NaN or infinite.</exception>
+        public double Determinant()
+        {
+            matrix.CheckSquare("The determinant");
+            return new LuDecomposition(matrix).Determinant();
+        }
+
+        /// <summary>The inverse, by LU decomposition with partial pivoting.</summary>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, is singular to working precision or has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> Inverse()
+        {
+            matrix.CheckSquare("The inverse");
+
+            int n = matrix.Rows;
+            var identity = Matrix<double>.Identity(n);
+            return new Matrix<double>(n, n, new LuDecomposition(matrix).Solve(identity.Entries, n));
+        }
+
+        /// <summary>The solution x of A * x = b, by LU decomposition with partial pivoting.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many entries as the matrix has rows.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, is singular to working precision or has an entry that is NaN or infinite.
+        /// </exception>
+        public Vector<double> Solve(Vector<double> b)
+        {
+            matrix.CheckSquare("Solve");
+            if (b.Length != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
+
+            return new Vector<double>(new LuDecomposition(matrix).Solve(b.ToMatrix().Entries, 1));
+        }
+
+        /// <summary>The solution X of A * X = B: column j of X solves the system for column j of B.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many rows as the matrix.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, is singular to working precision or has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> Solve(Matrix<double> b)
+        {
+            matrix.CheckSquare("Solve");
+            if (b.Rows != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
+
+            return new Matrix<double>(matrix.Rows, b.Columns, new LuDecomposition(matrix).Solve(b.Entries, b.Columns));
+        }
+
+        /// <summary>
+        /// The rank to working precision: the number of linearly independent rows. An entry counts
+        /// as zero when elimination reduces it to the rounding error of the terms it came from.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public int Rank() => new LuDecomposition(matrix).Rank;
 
         /// <summary>The entry-wise sum.</summary>
         /// <exception cref="ArgumentException">The matrices have different sizes.</exception>

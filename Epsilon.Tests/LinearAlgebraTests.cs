@@ -296,7 +296,7 @@ public class NumericArithmeticTests
         Assert.Equal(0, Matrix<double>.FromRows().Trace());
 
         var ex = Assert.Throws<InvalidOperationException>(() => A.Trace());
-        Assert.Equal("The trace is defined only for square matrices, not for a 2 x 3 matrix.", ex.Message);
+        Assert.Equal("The trace needs a square matrix, not a 2 x 3 matrix.", ex.Message);
     }
 
     [Fact]
@@ -395,5 +395,150 @@ public class SymbolicArithmeticTests
         Assert.Equal(Vector.Create(P("a*x + b"), P("c*x + d")), Abcd * w);
         Assert.Equal(Vector.Create(P("2a"), P("2b")), 2 * v);
         Assert.Equal(Vector.Create(P("-a"), P("-b")), -v);
+    }
+}
+
+public class NumericLuTests
+{
+    private static readonly Matrix<double> Singular3 = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+    private static readonly Matrix<double> BadlyScaled = Matrix<double>.FromRows([1e-20, 0], [0, 1]);
+
+    private static void AssertClose(Matrix<double> expected, Matrix<double> actual, double tolerance = 1e-12)
+    {
+        Assert.Equal(expected.Rows, actual.Rows);
+        Assert.Equal(expected.Columns, actual.Columns);
+        for (int i = 0; i < expected.Rows; i++)
+            for (int j = 0; j < expected.Columns; j++)
+                Assert.True(Math.Abs(expected[i, j] - actual[i, j]) <= tolerance,
+                    $"Entry ({i}, {j}): expected {expected[i, j]}, got {actual[i, j]}.");
+    }
+
+    private static Matrix<double> Hilbert(int n) => Matrix<double>.Create(n, n, (i, j) => 1.0 / (i + j + 1));
+
+    [Fact]
+    public void Determinant_of_regular_matrices()
+    {
+        Assert.Equal(-6, Matrix<double>.FromRows([4, 3], [6, 3]).Determinant(), precision: 12);
+        Assert.Equal(49, Matrix<double>.FromRows([2, -3, 1], [2, 0, -1], [1, 4, 5]).Determinant(), precision: 12);
+        Assert.Equal(1, Matrix<double>.Identity(4).Determinant());
+        Assert.Equal(-1, Matrix<double>.FromRows([0, 1], [1, 0]).Determinant());
+        Assert.Equal(1, Matrix<double>.FromRows().Determinant());
+    }
+
+    [Fact]
+    public void Singular_matrices_have_determinant_zero()
+    {
+        Assert.Equal(0, Matrix<double>.FromRows([1, 2], [2, 4]).Determinant());
+        // The last pivot comes out as about 1e-16; it is rounding noise, so the determinant is 0.
+        Assert.Equal(0, Singular3.Determinant());
+        Assert.Equal(0, Matrix<double>.Zero(3, 3).Determinant());
+    }
+
+    [Fact]
+    public void Badly_scaled_matrices_are_not_singular()
+    {
+        Assert.Equal(1e-20, BadlyScaled.Determinant());
+        Assert.Equal(2, BadlyScaled.Rank());
+        Assert.Equal(Matrix<double>.FromRows([1e20, 0], [0, 1]), BadlyScaled.Inverse());
+    }
+
+    [Fact]
+    public void Determinant_inverse_and_solve_need_a_square_matrix()
+    {
+        var wide = Matrix<double>.Zero(2, 3);
+
+        Assert.Equal("The determinant needs a square matrix, not a 2 x 3 matrix.",
+            Assert.Throws<InvalidOperationException>(() => wide.Determinant()).Message);
+        Assert.Equal("The inverse needs a square matrix, not a 2 x 3 matrix.",
+            Assert.Throws<InvalidOperationException>(() => wide.Inverse()).Message);
+        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix.",
+            Assert.Throws<InvalidOperationException>(() => wide.Solve([1, 2])).Message);
+    }
+
+    [Fact]
+    public void Solve_a_system()
+    {
+        var m = Matrix<double>.FromRows([4, 3], [6, 3]);
+
+        AssertClose(Matrix<double>.FromRows([1], [2]), m.Solve([10, 12]));
+        // A zero in the corner needs a row swap; nothing is rounded here.
+        Assert.Equal([3.0, 2.0], Matrix<double>.FromRows([0, 1], [1, 0]).Solve([2, 3]));
+    }
+
+    [Fact]
+    public void Solve_several_right_hand_sides_at_once()
+    {
+        var a = Matrix<double>.FromRows([2, -3, 1], [2, 0, -1], [1, 4, 5]);
+        var x = Matrix<double>.FromRows([1, 0], [2, -1], [3, 4]);
+
+        AssertClose(x, a.Solve(a * x));
+    }
+
+    [Fact]
+    public void Solve_rejects_singular_matrices_and_wrong_lengths()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Singular3.Solve([1, 2, 3]));
+        Assert.Equal("The matrix is singular: its rank is 2, not 3, to working precision.", ex.Message);
+
+        var lengths = Assert.Throws<ArgumentException>(() => Matrix<double>.Identity(3).Solve([1, 2]));
+        Assert.StartsWith("The right-hand side has 2 entries, but the matrix has 3 rows.", lengths.Message);
+    }
+
+    [Fact]
+    public void Inverse_of_regular_matrices()
+    {
+        var m = Matrix<double>.FromRows([4, 7], [2, 6]);
+
+        AssertClose(Matrix<double>.FromRows([0.6, -0.7], [-0.2, 0.4]), m.Inverse());
+        AssertClose(Matrix<double>.Identity(2), m * m.Inverse());
+        Assert.Equal(0, Matrix<double>.FromRows().Inverse().Rows);
+        Assert.Throws<InvalidOperationException>(() => Singular3.Inverse());
+    }
+
+    [Fact]
+    public void Ill_conditioned_but_regular_matrices_are_inverted()
+    {
+        // The Hilbert matrix of size 6 has a condition number of about 1.5e7.
+        var h = Hilbert(6);
+
+        Assert.Equal(6, h.Rank());
+        AssertClose(Matrix<double>.Identity(6), h * h.Inverse(), tolerance: 1e-6);
+        Assert.Equal(36, h.Inverse()[0, 0], precision: 4);
+    }
+
+    [Fact]
+    public void Rank_of_any_shape()
+    {
+        Assert.Equal(2, Singular3.Rank());
+        Assert.Equal(1, Matrix<double>.FromRows([1, 2], [2, 4], [3, 6]).Rank());
+        Assert.Equal(2, Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).Rank());
+        Assert.Equal(2, Matrix<double>.FromRows([0, 1, 2], [0, 2, 5]).Rank());
+        Assert.Equal(0, Matrix<double>.Zero(3, 3).Rank());
+        Assert.Equal(0, Matrix<double>.FromRows().Rank());
+        Assert.Equal(5, Matrix<double>.Identity(5).Rank());
+    }
+
+    [Fact]
+    public void Solution_of_a_random_system_has_a_small_residual()
+    {
+        var random = new Random(1);
+        var a = Matrix<double>.Create(30, 30, (_, _) => random.NextDouble() * 2 - 1);
+        var b = Vector.Create(Enumerable.Range(0, 30).Select(_ => random.NextDouble()).ToArray());
+
+        var residual = a * a.Solve(b) - b;
+
+        Assert.All(residual, r => Assert.True(Math.Abs(r) < 1e-12, $"Residual {r}."));
+    }
+
+    [Fact]
+    public void Non_finite_entries_are_rejected()
+    {
+        var nan = Matrix<double>.FromRows([1, 2], [double.NaN, 4]);
+        var infinite = Matrix<double>.FromRows([1, double.PositiveInfinity]);
+
+        Assert.Equal("The matrix has a non-finite entry at (1, 0): NaN.",
+            Assert.Throws<InvalidOperationException>(() => nan.Determinant()).Message);
+        Assert.Equal("The matrix has a non-finite entry at (0, 1): Infinity.",
+            Assert.Throws<InvalidOperationException>(() => infinite.Rank()).Message);
     }
 }

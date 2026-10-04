@@ -27,7 +27,7 @@ public static class SymbolicMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square.</exception>
         public Expr Trace()
         {
-            matrix.CheckSquare("trace");
+            matrix.CheckSquare("The trace");
             return Sum(matrix.Rows, i => matrix[i, i]);
         }
 
