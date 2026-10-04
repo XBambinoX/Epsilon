@@ -1,3 +1,5 @@
+#if false
+//TODO: port to the new immutable Matrix<T> of Epsilon.LinearAlgebra
 using Epsilon.Core;
 using Epsilon.LinearAlgebra;
 
@@ -102,3 +104,4 @@ public static class HessianExtensions
     public static ComplexNumber LaplacianAt(this Expr expr, params (string Name, ComplexNumber Value)[] point) =>
         expr.LaplacianAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 }
+#endif
