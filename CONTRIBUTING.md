@@ -29,9 +29,10 @@ dotnet test
 | Project | Contents |
 |---|---|
 | `Epsilon.Core` | The library published as the `Epsilon` package |
+| `Epsilon.LinearAlgebra` | The library published as the `Epsilon.LinearAlgebra` package |
 | `Epsilon.Tests` | xUnit tests |
 | `Epsilon.Benchmarks` | BenchmarkDotNet benchmarks for parsing, simplification, differentiation and evaluation |
-| `Epsilon.Calculus`, `Epsilon.LinearAlgebra` | Experimental modules, not packaged yet |
+| `Epsilon.Calculus` | Experimental module, not packaged yet |
 
 For a change that may affect speed, compare the benchmarks before and after it. They only
 give meaningful numbers in Release:
@@ -87,17 +88,22 @@ If `main` moves on while your pull request is open, update your branch with
   condition (see [Simplification](docs/simplification.md#the-guarantee)); when in doubt,
   leave the expression unsimplified.
 - **Document public members.** The build generates XML documentation, and every public
-  member needs a `///` comment and a line in [docs/api-reference.md](docs/api-reference.md)
-  (`ApiReferenceDocTests` fails until it has one).
-- **Keep the docs in sync.** Examples in `Epsilon.Core/README.md` (the package README),
-  the repository `README.md` and `docs/` are mirrored by `ReadmeExamplesTests`,
-  `RepositoryReadmeExamplesTests` and `DocsExamplesTests`. If you change a result shown
-  there, update the text and the test together. Lifting a [limitation](docs/limitations.md) means removing
+  member needs a `///` comment and a line in the API reference of its package:
+  [docs/api-reference.md](docs/api-reference.md) for the core,
+  [Epsilon.LinearAlgebra/docs/api-reference.md](Epsilon.LinearAlgebra/docs/api-reference.md)
+  for linear algebra (`ApiReferenceDocTests` and `LinearAlgebraApiReferenceDocTests` fail
+  until it has one).
+- **Keep the docs in sync.** Every example in the READMEs and guides is mirrored by a test:
+  `Epsilon.Core/README.md` (the package README) by `ReadmeExamplesTests`, the repository
+  `README.md` by `RepositoryReadmeExamplesTests`, `docs/` by `DocsExamplesTests`, and the
+  README and guide of `Epsilon.LinearAlgebra` by the tests in `LinearAlgebraDocsTests.cs`.
+  If you change a result shown there, update the text and the test together. Lifting a [limitation](docs/limitations.md) means removing
   it from that page.
 - Code, comments and commit messages are in English. Commit messages follow
   [Conventional Commits](https://www.conventionalcommits.org/): `fix(Simplifier): ...`,
   `feat(Parser): ...`, `docs: ...`.
-- Add a line to the `CHANGELOG.md` for changes users will notice.
+- Add a line to the changelog of the package, `Epsilon.Core/CHANGELOG.md` or
+  `Epsilon.LinearAlgebra/CHANGELOG.md`, for changes users will notice.
 
 ## Worked example: adding a function
 
@@ -234,7 +240,7 @@ public class SinhTests
 - its derivative in [docs/differentiation.md](docs/differentiation.md);
 - the node in [docs/api-reference.md](docs/api-reference.md) and
   [docs/expressions.md](docs/expressions.md#node-types);
-- a line under a new version in `CHANGELOG.md`: `- sinh, the hyperbolic sine.`
+- a line under a new version in `Epsilon.Core/CHANGELOG.md`: `- sinh, the hyperbolic sine.`
 
 ### 8. Commit and open a pull request
 

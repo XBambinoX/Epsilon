@@ -30,7 +30,7 @@ documentation, which your IDE shows as you type.
   description.
 - [Known limitations](limitations.md) — what the core doesn't do yet, and where results can
   surprise you.
-- [Changelog](../CHANGELOG.md)
+- [Changelog](../Epsilon.Core/CHANGELOG.md)
 - [Contributing](../CONTRIBUTING.md)
 
 Every code example in these pages is checked by a test in

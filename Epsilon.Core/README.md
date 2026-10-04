@@ -160,7 +160,7 @@ the [API reference](https://github.com/XBambinoX/Epsilon/blob/main/docs/api-refe
 lists every public type and member.
 Before relying on something, check the
 [known limitations](https://github.com/XBambinoX/Epsilon/blob/main/docs/limitations.md);
-changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/main/CHANGELOG.md).
+changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/CHANGELOG.md).
 
 ## Design principles
 

@@ -143,6 +143,7 @@ something that doesn't underflow (for `exp`, its logarithm).
 
 ## Not in the package
 
-The repository also contains `Epsilon.Calculus` (integration, gradients, Hessians) and
-`Epsilon.LinearAlgebra` (matrices). They are experimental and not part of the `Epsilon`
-package; their APIs will change before they are published.
+Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`; its
+[guide](../Epsilon.LinearAlgebra/docs/guide.md#limitations) lists its own limitations. The
+repository also contains `Epsilon.Calculus` (integration, gradients, Hessians). It is
+experimental and not published yet; its API will change before it is.

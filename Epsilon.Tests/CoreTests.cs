@@ -3857,18 +3857,3 @@ public class ReadmeExamplesTests
         Assert.Equal("Unknown identifier 'sen' at position 0. Declared variables: x.", ex.Message);
     }
 }
-
-// Every example in the repository README.md, which gives one example per package.
-public class RepositoryReadmeExamplesTests
-{
-    [Fact]
-    public void Core()
-    {
-        Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
-
-        Assert.Equal("3x^2 - 4x + 1", f.Differentiate("x").Print());
-        Assert.Equal("(x - 1)^2 * x", f.TryFactorReal("x").Factored.Print());
-        Assert.Equal([0.0, 1.0], f.FindRealRoots(-10, 10));
-        Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
-    }
-}

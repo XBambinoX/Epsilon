@@ -15,12 +15,14 @@ dependencies beyond the .NET base library.
 | Package | What it does | NuGet |
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
+| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions or doubles: exact symbolic determinant, inverse and solve, LU decomposition for numbers | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 
-Linear algebra and calculus are in development in this repository; see the
-[roadmap](#roadmap). Every package targets .NET 10:
+Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
+targets .NET 10, and the packages built on the core bring it with them:
 
 ```bash
 dotnet add package Epsilon
+dotnet add package Epsilon.LinearAlgebra
 ```
 
 ## Core
@@ -39,6 +41,22 @@ ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 The [core README](Epsilon.Core/README.md) walks through every feature; the
 [guides](docs/README.md) and the [API reference](docs/api-reference.md) cover it in detail.
 
+## Linear algebra
+
+```csharp
+using Epsilon.LinearAlgebra;
+
+var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
+
+m.Determinant().Print();                                           // a * d - b * c
+Matrix<Expr>.Parse("[[1, 2], [3, 4]]").Inverse().Print();          // [[-2, 1], [3/2, -1/2]]
+Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]).Rank();   // 2
+```
+
+The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
+[guide](Epsilon.LinearAlgebra/docs/guide.md) and the
+[API reference](Epsilon.LinearAlgebra/docs/api-reference.md) cover it in detail.
+
 ## Design principles
 
 - **Exact first.** Rationals instead of doubles; exact factoring or none at all.
@@ -51,9 +69,10 @@ The [core README](Epsilon.Core/README.md) walks through every feature; the
 
 ## Roadmap
 
-The next areas are built on the core as separate packages, in this order:
+The areas built on the core as separate packages, in this order:
 
-1. **Linear algebra** - symbolic and numeric matrices and the operations on them.
+1. **Linear algebra** - available as `Epsilon.LinearAlgebra`. Next: least squares (QR),
+   numeric eigenvalues, SVD, complex and fast rational matrices.
 2. **Calculus** - symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.
    Planned next, as far as time and energy allow: limits (including multivariable limits in
