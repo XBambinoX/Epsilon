@@ -9,7 +9,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [1.0.0] - 2026-10-04
 
-The first release. It needs `Epsilon` 1.1.0 or later.
+The first release. It depends on `Epsilon` 1.1.1 or later.
 
 ### Added
 

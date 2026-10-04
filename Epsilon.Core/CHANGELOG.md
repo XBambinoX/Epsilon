@@ -7,6 +7,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-04
+
+The library is unchanged; this release updates the package README.
+
+### Fixed
+
+- The links in the package README to the guides, the API reference and the known
+  limitations, which moved to `Epsilon.Core/docs/` in the repository.
+
+### Changed
+
+- The package README links to the roadmap of the repository instead of repeating it.
+
 ## [1.1.0] - 2026-10-03
 
 ### Added
@@ -164,7 +177,8 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.1.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.1.1...HEAD
+[1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.1
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.0
 [1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/v1.0.0

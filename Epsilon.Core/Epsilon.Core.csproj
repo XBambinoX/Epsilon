@@ -15,7 +15,7 @@
     <PackageId>Epsilon</PackageId>
     <!-- The latest released version. publish.yml packs the core with the version from the tag;
          the packages built on the core depend on Epsilon >= this version. -->
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>Max Zakharov</Authors>
     <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly and find real and complex roots. No dependencies.</Description>
     <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;roots;parser;latex</PackageTags>
