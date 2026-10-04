@@ -17,7 +17,8 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
     {
     }
 
-    private Vector(Matrix<T> column)
+    // Wraps a matrix with one column.
+    internal Vector(Matrix<T> column)
     {
         _column = column;
     }
@@ -88,6 +89,19 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
 
     /// <summary>The entries in brackets, culture-invariant: <c>[1, 2, 3]</c>.</summary>
     public override string ToString() => "[" + string.Join(", ", this.Select(Matrix<T>.Format)) + "]";
+
+    // Applies combine to the entries at the same position of two vectors of the same length.
+    internal Vector<T> Combine(Vector<T> other, Func<T, T, T> combine, string operation)
+    {
+        CheckSameLength(other, operation);
+        return new Vector<T>(_column.Combine(other._column, combine, operation));
+    }
+
+    internal void CheckSameLength(Vector<T> other, string operation)
+    {
+        if (Length != other.Length)
+            throw new ArgumentException($"Cannot {operation} vectors of different lengths: {Length} and {other.Length}.");
+    }
 }
 
 /// <summary>Creates vectors; collection expressions such as <c>[1, 2, 3]</c> use it too.</summary>

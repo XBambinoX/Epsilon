@@ -195,6 +195,44 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
 
     internal static string Format(T entry) => FormattableString.Invariant($"{entry}");
 
+    // The row-major entries, for the arithmetic of each entry type.
+    internal ReadOnlySpan<T> Entries => _entries;
+
+    // The size for error messages: "2 x 3".
+    internal string Size => $"{Rows} x {Columns}";
+
+    // Applies combine to the entries at the same position of two matrices of the same size.
+    internal Matrix<T> Combine(Matrix<T> other, Func<T, T, T> combine, string operation)
+    {
+        if (Rows != other.Rows || Columns != other.Columns)
+            throw new ArgumentException($"Cannot {operation} matrices of different sizes: {Size} and {other.Size}.");
+
+        var entries = new T[_entries.Length];
+        for (int k = 0; k < entries.Length; k++)
+            entries[k] = combine(_entries[k], other._entries[k]);
+
+        return new Matrix<T>(Rows, Columns, entries);
+    }
+
+    internal static void CheckProduct(Matrix<T> left, Matrix<T> right)
+    {
+        if (left.Columns != right.Rows)
+            throw new ArgumentException(
+                $"Cannot multiply a {left.Size} matrix by a {right.Size} matrix: {left.Columns} columns on the left, {right.Rows} rows on the right.");
+    }
+
+    internal static void CheckProduct(Matrix<T> matrix, Vector<T> vector)
+    {
+        if (matrix.Columns != vector.Length)
+            throw new ArgumentException($"Cannot multiply a {matrix.Size} matrix by a vector of length {vector.Length}.");
+    }
+
+    internal void CheckSquare(string operation)
+    {
+        if (!IsSquare)
+            throw new InvalidOperationException($"The {operation} is defined only for square matrices, not for a {Size} matrix.");
+    }
+
     internal static T NotNull(T entry, int row, int column) =>
         entry ?? throw new ArgumentNullException(nameof(entry), $"The entry at ({row}, {column}) is null.");
 
