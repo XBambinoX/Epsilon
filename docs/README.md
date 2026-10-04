@@ -1,7 +1,7 @@
 # Epsilon documentation
 
 Guides for the `Epsilon` package (namespace `Epsilon.Core`), version 1.1.0. For a
-one-page overview see the [main README](../README.md). Every public member also has XML
+one-page overview see the [package README](../Epsilon.Core/README.md). Every public member also has XML
 documentation, which your IDE shows as you type.
 
 ## Start here

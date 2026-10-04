@@ -89,9 +89,10 @@ If `main` moves on while your pull request is open, update your branch with
 - **Document public members.** The build generates XML documentation, and every public
   member needs a `///` comment and a line in [docs/api-reference.md](docs/api-reference.md)
   (`ApiReferenceDocTests` fails until it has one).
-- **Keep the docs in sync.** Examples in `README.md` and `docs/` are mirrored by
-  `ReadmeExamplesTests` and `DocsExamplesTests`. If you change a result shown there, update
-  the text and the test together. Lifting a [limitation](docs/limitations.md) means removing
+- **Keep the docs in sync.** Examples in `Epsilon.Core/README.md` (the package README),
+  the repository `README.md` and `docs/` are mirrored by `ReadmeExamplesTests`,
+  `RepositoryReadmeExamplesTests` and `DocsExamplesTests`. If you change a result shown
+  there, update the text and the test together. Lifting a [limitation](docs/limitations.md) means removing
   it from that page.
 - Code, comments and commit messages are in English. Commit messages follow
   [Conventional Commits](https://www.conventionalcommits.org/): `fix(Simplifier): ...`,
@@ -228,8 +229,8 @@ public class SinhTests
 ### 7. Documentation
 
 - a `///` comment on the class (the build warns about missing ones);
-- the function in the syntax table of [docs/parsing.md](docs/parsing.md) and the main
-  `README.md`;
+- the function in the syntax table of [docs/parsing.md](docs/parsing.md) and
+  [Epsilon.Core/README.md](Epsilon.Core/README.md);
 - its derivative in [docs/differentiation.md](docs/differentiation.md);
 - the node in [docs/api-reference.md](docs/api-reference.md) and
   [docs/expressions.md](docs/expressions.md#node-types);

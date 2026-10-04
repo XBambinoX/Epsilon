@@ -8,7 +8,7 @@ few places where a result can surprise you are marked **⚠**.
 values at more points, more identities, piecewise derivatives, complex rounding functions,
 a symbolic equation solver and protection against deep nesting. The only exception is
 `min`/`max` over the complex numbers, which can't exist mathematically. See the
-[roadmap](../README.md#roadmap) for the order.
+[roadmap](../Epsilon.Core/README.md#roadmap) for the order.
 
 Everything here reflects version 1.1.0. Each example is checked by a test
 (in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
@@ -69,7 +69,7 @@ above), so `false` means "not shown to be equal", not "different".
 
 There is no way yet to solve `sin(x) = 1/2` symbolically as `π/6 + 2πk, 5π/6 + 2πk`. Use
 `SolveNumerically` for numeric solutions in a range. A symbolic solver is planned for 1.2 (see
-the [roadmap](../README.md#roadmap)).
+the [roadmap](../Epsilon.Core/README.md#roadmap)).
 
 ## Parsing and output
 
