@@ -1,14 +1,14 @@
 name: Publish
 
-# Pushing a tag such as core-v1.0.1 publishes that version of the Epsilon package to nuget.org.
-# Every package gets its own tag prefix (core-v*, later calculus-v* and so on); v1.0.0 is
-# the only release tagged before this scheme.
+# Pushing a tag publishes one package to nuget.org: core-v1.0.1 publishes Epsilon 1.0.1,
+# linalg-v1.0.0 publishes Epsilon.LinearAlgebra 1.0.0. Every package gets its own tag prefix
+# (later calculus-v* and so on); v1.0.0 is the only release tagged before this scheme.
 # Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
 # GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
 # this repository and workflow file.
 on:
   push:
-    tags: ["core-v*"]
+    tags: ["core-v*", "linalg-v*"]
 
 permissions:
   contents: read
@@ -28,8 +28,26 @@ jobs:
       - run: dotnet build Epsilon.slnx -c Release --no-restore
       - run: dotnet test Epsilon.slnx -c Release --no-build
 
-      # The version comes from the tag (core-v1.0.1 -> 1.0.1), so the csproj can't get out of sync.
-      - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#core-v}
+      # The core takes its version from the tag (core-v1.0.1 -> 1.0.1). A package built on the
+      # core keeps its version in its csproj and the tag must match it: a global -p:Version
+      # would reach the core project too and lower the package's dependency to Epsilon >= that
+      # version.
+      - name: Pack
+        run: |
+          case "$GITHUB_REF_NAME" in
+            core-v*)
+              dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#core-v}
+              ;;
+            linalg-v*)
+              project=Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj
+              version=$(dotnet msbuild $project -getProperty:Version)
+              if [ "$version" != "${GITHUB_REF_NAME#linalg-v}" ]; then
+                echo "::error::The tag $GITHUB_REF_NAME does not match the version $version in $project."
+                exit 1
+              fi
+              dotnet pack $project -c Release -o artifacts
+              ;;
+          esac
 
       - uses: NuGet/login@v1
         id: nuget-login

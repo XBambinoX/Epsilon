@@ -3762,8 +3762,8 @@ public class PrintStyleTests
     }
 }
 
-// Every example in README.md, with the result its comment shows. If one of these fails,
-// update the README together with the code.
+// Every example in Epsilon.Core/README.md (the README of the NuGet package), with the result
+// its comment shows. If one of these fails, update the README together with the code.
 public class ReadmeExamplesTests
 {
     private static readonly Expr F = ExprParser.Parse("x^3 - 2x^2 + x", "x");

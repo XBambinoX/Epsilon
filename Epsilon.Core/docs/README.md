@@ -1,7 +1,7 @@
 # Epsilon documentation
 
 Guides for the `Epsilon` package (namespace `Epsilon.Core`), version 1.1.0. For a
-one-page overview see the [main README](../README.md). Every public member also has XML
+one-page overview see the [package README](../README.md). Every public member also has XML
 documentation, which your IDE shows as you type.
 
 ## Start here
@@ -31,7 +31,7 @@ documentation, which your IDE shows as you type.
 - [Known limitations](limitations.md) — what the core doesn't do yet, and where results can
   surprise you.
 - [Changelog](../CHANGELOG.md)
-- [Contributing](../CONTRIBUTING.md)
+- [Contributing](../../CONTRIBUTING.md)
 
 Every code example in these pages is checked by a test in
 `Epsilon.Tests/DocsExamplesTests.cs`, so the results shown are the results you get.

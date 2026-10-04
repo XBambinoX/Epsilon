@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -6,12 +6,41 @@
     <Nullable>enable</Nullable>
     <!-- Ships the /// docs with the package so IntelliSense shows them to library users. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Experimental: not published until its API is stabilized like Epsilon.Core. -->
-    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <ItemGroup> 
-    <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" /> 
+  <!-- NuGet package. It depends on the Epsilon package at the <Version> of Epsilon.Core.csproj,
+       so the core's csproj must name a released version with everything this project uses. -->
+  <PropertyGroup>
+    <PackageId>Epsilon.LinearAlgebra</PackageId>
+    <!-- Not passed as -p:Version when packing: a global Version would reach the core project
+         too and make the dependency "Epsilon >= this version". publish.yml checks the tag
+         against it instead. -->
+    <Version>1.0.0</Version>
+    <Authors>Max Zakharov</Authors>
+    <Description>Linear algebra for the Epsilon symbolic math library: immutable matrices and vectors of expressions or doubles. Exact symbolic determinant, characteristic polynomial, inverse and solve without division; LU decomposition for doubles with singularity detection to working precision.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;linear-algebra;matrix;vector;determinant;inverse;eigenvalues;latex</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- Symbols (.snupkg) and Source Link, so users can step into the library's source. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
   </ItemGroup>
 
 </Project>

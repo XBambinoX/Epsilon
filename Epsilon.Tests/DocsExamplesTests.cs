@@ -3,7 +3,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Tests.Core;
 
-// Every example in docs/limitations.md, with the result it shows. When a limitation is lifted,
+// Every example in Epsilon.Core/docs/limitations.md, with the result it shows. When a limitation is lifted,
 // one of these fails: update or remove the section in the docs together with the test.
 public class LimitationsDocTests
 {
@@ -81,7 +81,7 @@ public class LimitationsDocTests
     }
 }
 
-// Additions to docs/limitations.md found while writing the guides.
+// Additions to Epsilon.Core/docs/limitations.md found while writing the guides.
 public class LimitationsDocAdditionsTests
 {
     [Fact]
@@ -98,7 +98,7 @@ public class LimitationsDocAdditionsTests
     }
 }
 
-// Every example in the guides under docs/, one class per page, with the result it shows.
+// Every example in the guides under Epsilon.Core/docs/, one class per page, with the result it shows.
 // If one of these fails, update the page together with the code.
 public class GettingStartedDocTests
 {
@@ -814,41 +814,61 @@ public class NumbersDocTests
     }
 }
 
-// docs/api-reference.md must list every public type, member and enum value. A new public
+// Epsilon.Core/docs/api-reference.md must list every public type, member and enum value. A new public
 // member fails this test until it is documented there.
 public class ApiReferenceDocTests
 {
-    private static readonly HashSet<string> DocumentedNames = LoadDocumentedNames();
+    [Fact]
+    public void Every_public_type_and_member_is_listed() =>
+        Assert.Empty(ApiReferencePages.Missing(typeof(Expr).Assembly, "Epsilon.Core", "docs", "api-reference.md"));
+}
 
-    // Every identifier that occurs inside a `code span` of the page.
-    private static HashSet<string> LoadDocumentedNames()
+// Checks an API reference page against the public surface of an assembly. A name counts as
+// listed when it occurs as an identifier inside a `code span` of the page.
+public static class ApiReferencePages
+{
+    public static List<string> Missing(System.Reflection.Assembly assembly, params string[] page)
+    {
+        var documented = DocumentedNames(Path.Combine(page));
+        return PublicNames(assembly)
+            .Where(name => !documented.Contains(name.Split('.').Last()))
+            .Distinct()
+            .Order()
+            .ToList();
+    }
+
+    // Every identifier that occurs inside a `code span` of the page, which is found by walking
+    // up from the test binaries to the repository root.
+    private static HashSet<string> DocumentedNames(string relativePath)
     {
         string dir = AppContext.BaseDirectory;
-        while (!File.Exists(Path.Combine(dir, "docs", "api-reference.md")))
-            dir = Path.GetDirectoryName(dir) ?? throw new FileNotFoundException("docs/api-reference.md not found");
+        while (!File.Exists(Path.Combine(dir, relativePath)))
+            dir = Path.GetDirectoryName(dir) ?? throw new FileNotFoundException($"{relativePath} not found");
 
-        string text = File.ReadAllText(Path.Combine(dir, "docs", "api-reference.md"));
+        string text = File.ReadAllText(Path.Combine(dir, relativePath));
         return System.Text.RegularExpressions.Regex.Matches(text, "`([^`]+)`")
             .SelectMany(m => System.Text.RegularExpressions.Regex.Matches(m.Groups[1].Value, @"[A-Za-z_]\w*"))
             .Select(m => m.Value)
             .ToHashSet();
     }
 
-    private static IEnumerable<string> PublicNames()
+    private static IEnumerable<string> PublicNames(System.Reflection.Assembly assembly)
     {
         const System.Reflection.BindingFlags Declared =
             System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic |
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Static |
             System.Reflection.BindingFlags.DeclaredOnly;
 
-        foreach (Type type in typeof(Expr).Assembly.GetExportedTypes())
+        // Names with '<' are compiler-generated, such as the grouping types of C# 14 extension blocks.
+        foreach (Type type in assembly.GetExportedTypes().Where(t => !t.Name.Contains('<')))
         {
-            yield return type.Name;
+            string typeName = type.Name.Split('`')[0];   // Matrix`1 is written Matrix<T>
+            yield return typeName;
 
             if (type.IsEnum)
             {
                 foreach (string value in Enum.GetNames(type))
-                    yield return $"{type.Name}.{value}";
+                    yield return $"{typeName}.{value}";
                 continue;
             }
 
@@ -856,28 +876,18 @@ public class ApiReferenceDocTests
             {
                 bool visible = member switch
                 {
+                    // Operators are listed by their symbols. Extension operators (C# 14) are
+                    // plain static methods named op_..., without the special-name flag.
                     System.Reflection.MethodInfo m => (m.IsPublic || m.IsFamily || m.IsFamilyOrAssembly) && !m.IsSpecialName
-                        && m.GetBaseDefinition() == m,   // overrides are documented on the base
+                        && !m.Name.StartsWith("op_") && m.GetBaseDefinition() == m,   // overrides are documented on the base
                     System.Reflection.PropertyInfo p => p.GetMethod is { } g && (g.IsPublic || g.IsFamily) && g.GetBaseDefinition() == g,
                     System.Reflection.FieldInfo f => f.IsPublic || f.IsFamily,
                     _ => false
                 };
                 if (visible)
-                    yield return $"{type.Name}.{member.Name}";
+                    yield return $"{typeName}.{(member.Name == "Item" ? "this" : member.Name)}";   // an indexer is written this[...]
             }
         }
-    }
-
-    [Fact]
-    public void Every_public_type_and_member_is_listed()
-    {
-        var missing = PublicNames()
-            .Where(name => !DocumentedNames.Contains(name.Split('.').Last()))
-            .Distinct()
-            .Order()
-            .ToList();
-
-        Assert.Empty(missing);
     }
 }
 
