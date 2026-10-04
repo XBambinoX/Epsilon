@@ -7,7 +7,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-The first release, 1.0.0. It needs `Epsilon` 1.1.0 or later.
+## [1.0.0] - 2026-10-04
+
+The first release. It needs `Epsilon` 1.1.0 or later.
 
 ### Added
 
@@ -38,4 +40,5 @@ The first release, 1.0.0. It needs `Epsilon` 1.1.0 or later.
 
 See [Limitations](docs/guide.md#limitations) in the guide.
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/commits/main/Epsilon.LinearAlgebra
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.0.0...HEAD
+[1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.0.0
