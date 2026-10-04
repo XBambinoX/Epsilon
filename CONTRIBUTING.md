@@ -12,7 +12,7 @@ Please include:
 - what you got and what you expected.
 
 A wrong result — `Simplify` changing a value, a false root — is the most serious kind of bug
-for this library, and gets fixed first. Check [known limitations](docs/limitations.md)
+for this library, and gets fixed first. Check [known limitations](Epsilon.Core/docs/limitations.md)
 before reporting something that isn't supported yet.
 
 ## Building
@@ -85,19 +85,19 @@ If `main` moves on while your pull request is open, update your branch with
   own.
 - **Every fix comes with a regression test** that fails without it.
 - **Correctness first.** A rewrite rule that is valid only under a condition must check the
-  condition (see [Simplification](docs/simplification.md#the-guarantee)); when in doubt,
+  condition (see [Simplification](Epsilon.Core/docs/simplification.md#the-guarantee)); when in doubt,
   leave the expression unsimplified.
 - **Document public members.** The build generates XML documentation, and every public
   member needs a `///` comment and a line in the API reference of its package:
-  [docs/api-reference.md](docs/api-reference.md) for the core,
+  [Epsilon.Core/docs/api-reference.md](Epsilon.Core/docs/api-reference.md) for the core,
   [Epsilon.LinearAlgebra/docs/api-reference.md](Epsilon.LinearAlgebra/docs/api-reference.md)
   for linear algebra (`ApiReferenceDocTests` and `LinearAlgebraApiReferenceDocTests` fail
   until it has one).
 - **Keep the docs in sync.** Every example in the READMEs and guides is mirrored by a test:
   `Epsilon.Core/README.md` (the package README) by `ReadmeExamplesTests`, the repository
-  `README.md` by `RepositoryReadmeExamplesTests`, `docs/` by `DocsExamplesTests`, and the
+  `README.md` by `RepositoryReadmeExamplesTests`, `Epsilon.Core/docs/` by `DocsExamplesTests`, and the
   README and guide of `Epsilon.LinearAlgebra` by the tests in `LinearAlgebraDocsTests.cs`.
-  If you change a result shown there, update the text and the test together. Lifting a [limitation](docs/limitations.md) means removing
+  If you change a result shown there, update the text and the test together. Lifting a [limitation](Epsilon.Core/docs/limitations.md) means removing
   it from that page.
 - Code, comments and commit messages are in English. Commit messages follow
   [Conventional Commits](https://www.conventionalcommits.org/): `fix(Simplifier): ...`,
@@ -187,7 +187,7 @@ tree. A new name can collide with existing ones: `a * sinh(x)` must not be print
 ### 5. Simplification (optional)
 
 Only add rules that are always valid, or that check their condition — see
-[the guarantee](docs/simplification.md#the-guarantee). Exact values are the safest kind:
+[the guarantee](Epsilon.Core/docs/simplification.md#the-guarantee). Exact values are the safest kind:
 `sinh(0) = 0` holds everywhere. They live in `Epsilon.Core/Expressions/ExactValues.cs`. A rule that is valid only on part of the domain, like
 `asinh(sinh(x)) = x` for complex `x`, needs a guard or has to wait.
 
@@ -235,11 +235,11 @@ public class SinhTests
 ### 7. Documentation
 
 - a `///` comment on the class (the build warns about missing ones);
-- the function in the syntax table of [docs/parsing.md](docs/parsing.md) and
+- the function in the syntax table of [Epsilon.Core/docs/parsing.md](Epsilon.Core/docs/parsing.md) and
   [Epsilon.Core/README.md](Epsilon.Core/README.md);
-- its derivative in [docs/differentiation.md](docs/differentiation.md);
-- the node in [docs/api-reference.md](docs/api-reference.md) and
-  [docs/expressions.md](docs/expressions.md#node-types);
+- its derivative in [Epsilon.Core/docs/differentiation.md](Epsilon.Core/docs/differentiation.md);
+- the node in [Epsilon.Core/docs/api-reference.md](Epsilon.Core/docs/api-reference.md) and
+  [Epsilon.Core/docs/expressions.md](Epsilon.Core/docs/expressions.md#node-types);
 - a line under a new version in `Epsilon.Core/CHANGELOG.md`: `- sinh, the hyperbolic sine.`
 
 ### 8. Commit and open a pull request

@@ -39,7 +39,7 @@ ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ```
 
 The [core README](Epsilon.Core/README.md) walks through every feature; the
-[guides](docs/README.md) and the [API reference](docs/api-reference.md) cover it in detail.
+[guides](Epsilon.Core/docs/README.md) and the [API reference](Epsilon.Core/docs/api-reference.md) cover it in detail.
 
 ## Linear algebra
 

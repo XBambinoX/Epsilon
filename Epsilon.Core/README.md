@@ -152,14 +152,14 @@ ExprParser.Parse("sen(x)", "x");
 
 ## Documentation
 
-The [guides](https://github.com/XBambinoX/Epsilon/blob/main/docs/README.md) cover every
-feature in detail: [parsing](https://github.com/XBambinoX/Epsilon/blob/main/docs/parsing.md),
-[simplification](https://github.com/XBambinoX/Epsilon/blob/main/docs/simplification.md),
-[root finding](https://github.com/XBambinoX/Epsilon/blob/main/docs/root-finding.md) and more;
-the [API reference](https://github.com/XBambinoX/Epsilon/blob/main/docs/api-reference.md)
+The [guides](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/README.md) cover every
+feature in detail: [parsing](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/parsing.md),
+[simplification](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/simplification.md),
+[root finding](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/root-finding.md) and more;
+the [API reference](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/api-reference.md)
 lists every public type and member.
 Before relying on something, check the
-[known limitations](https://github.com/XBambinoX/Epsilon/blob/main/docs/limitations.md);
+[known limitations](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/limitations.md);
 changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/CHANGELOG.md).
 
 ## Design principles

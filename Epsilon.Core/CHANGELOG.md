@@ -119,7 +119,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   enough to terminate the process. It now throws `FormatException` for input nested more
   than 256 levels deep or with a tree more than 500 levels deep (such as a chain of more
   than 500 terms). `Simplify` and `Differentiate` on input near these limits can still
-  overflow a 1 MB stack; see [limitations](../docs/limitations.md#robustness).
+  overflow a 1 MB stack; see [limitations](docs/limitations.md#robustness).
 
 ## [1.0.0] — 2026-09-29
 
@@ -162,7 +162,7 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 ### Known limitations
 
-See [docs/limitations.md](../docs/limitations.md).
+See [docs/limitations.md](docs/limitations.md).
 
 [Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.1.0...HEAD
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.0

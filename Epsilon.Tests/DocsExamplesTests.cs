@@ -3,7 +3,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Tests.Core;
 
-// Every example in docs/limitations.md, with the result it shows. When a limitation is lifted,
+// Every example in Epsilon.Core/docs/limitations.md, with the result it shows. When a limitation is lifted,
 // one of these fails: update or remove the section in the docs together with the test.
 public class LimitationsDocTests
 {
@@ -81,7 +81,7 @@ public class LimitationsDocTests
     }
 }
 
-// Additions to docs/limitations.md found while writing the guides.
+// Additions to Epsilon.Core/docs/limitations.md found while writing the guides.
 public class LimitationsDocAdditionsTests
 {
     [Fact]
@@ -98,7 +98,7 @@ public class LimitationsDocAdditionsTests
     }
 }
 
-// Every example in the guides under docs/, one class per page, with the result it shows.
+// Every example in the guides under Epsilon.Core/docs/, one class per page, with the result it shows.
 // If one of these fails, update the page together with the code.
 public class GettingStartedDocTests
 {
@@ -814,13 +814,13 @@ public class NumbersDocTests
     }
 }
 
-// docs/api-reference.md must list every public type, member and enum value. A new public
+// Epsilon.Core/docs/api-reference.md must list every public type, member and enum value. A new public
 // member fails this test until it is documented there.
 public class ApiReferenceDocTests
 {
     [Fact]
     public void Every_public_type_and_member_is_listed() =>
-        Assert.Empty(ApiReferencePages.Missing(typeof(Expr).Assembly, "docs", "api-reference.md"));
+        Assert.Empty(ApiReferencePages.Missing(typeof(Expr).Assembly, "Epsilon.Core", "docs", "api-reference.md"));
 }
 
 // Checks an API reference page against the public surface of an assembly. A name counts as
