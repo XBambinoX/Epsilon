@@ -3,12 +3,13 @@ using Epsilon.Core;
 namespace Epsilon.LinearAlgebra;
 
 /// <summary>
-/// Arithmetic on matrices and vectors of expressions. Unlike the operators of <see cref="Expr"/>,
-/// which only build a tree, these compute: every entry of the result is simplified.
+/// Arithmetic, determinant, inverse and entry-wise operations on matrices of expressions. Unlike
+/// the operators of <see cref="Expr"/>, which only build a tree, the arithmetic computes: every
+/// entry of the result is simplified.
 /// </summary>
-public static class SymbolicMatrixExtensions
+public static partial class SymbolicMatrixExtensions
 {
-    private static readonly Expr ZeroEntry = new Constant(0);
+    internal static readonly Expr ZeroEntry = new Constant(0);
     private static readonly Expr OneEntry = new Constant(1);
 
     extension(Matrix<Expr> matrix)
@@ -159,47 +160,6 @@ public static class SymbolicMatrixExtensions
         public static Matrix<Expr> operator /(Matrix<Expr> value, Expr scalar) => value.Map(a => (a / scalar).Simplify());
     }
 
-    extension(Vector<Expr> vector)
-    {
-        /// <summary>The vector of <paramref name="length"/> zeros.</summary>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="length"/> is negative.</exception>
-        public static Vector<Expr> Zero(int length)
-        {
-            ArgumentOutOfRangeException.ThrowIfNegative(length);
-            return new Vector<Expr>(Enumerable.Repeat(ZeroEntry, length).ToArray());
-        }
-
-        /// <summary>The simplified dot product: the sum of the products of the entries at the same index.</summary>
-        /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
-        public Expr Dot(Vector<Expr> other)
-        {
-            vector.CheckSameLength(other, "multiply");
-            return Sum(vector.Length, i => vector[i] * other[i]);
-        }
-
-        /// <summary>The entry-wise sum, simplified.</summary>
-        /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
-        public static Vector<Expr> operator +(Vector<Expr> left, Vector<Expr> right) =>
-            left.Combine(right, (a, b) => (a + b).Simplify(), "add");
-
-        /// <summary>The entry-wise difference, simplified.</summary>
-        /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
-        public static Vector<Expr> operator -(Vector<Expr> left, Vector<Expr> right) =>
-            left.Combine(right, (a, b) => (a - b).Simplify(), "subtract");
-
-        /// <summary>Every entry negated and simplified.</summary>
-        public static Vector<Expr> operator -(Vector<Expr> value) => value.Map(a => (-a).Simplify());
-
-        /// <summary>Every entry multiplied by the expression and simplified.</summary>
-        public static Vector<Expr> operator *(Expr scalar, Vector<Expr> value) => value.Map(a => (scalar * a).Simplify());
-
-        /// <summary>Every entry multiplied by the expression and simplified.</summary>
-        public static Vector<Expr> operator *(Vector<Expr> value, Expr scalar) => value.Map(a => (a * scalar).Simplify());
-
-        /// <summary>Every entry divided by the expression and simplified.</summary>
-        public static Vector<Expr> operator /(Vector<Expr> value, Expr scalar) => value.Map(a => (a / scalar).Simplify());
-    }
-
     // det(A) = (-1)^n c[n] for det(t I - A) = t^n + c[1] t^(n-1) + ... + c[n].
     private static Expr Determinant(Matrix<Expr> matrix, Expr[] coefficients) =>
         matrix.Rows % 2 == 0 ? coefficients[^1] : (-coefficients[^1]).Expand();
@@ -223,7 +183,7 @@ public static class SymbolicMatrixExtensions
     }
 
     // The simplified sum of term(0), ..., term(count - 1); 0 when there are no terms.
-    private static Expr Sum(int count, Func<int, Expr> term)
+    internal static Expr Sum(int count, Func<int, Expr> term)
     {
         if (count == 0)
             return ZeroEntry;

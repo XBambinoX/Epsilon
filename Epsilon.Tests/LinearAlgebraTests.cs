@@ -696,3 +696,134 @@ public class SymbolicDeterminantTests
         Assert.Equal(Matrix<Expr>.Identity(8), exact * exact.Inverse());
     }
 }
+
+public class SymbolicEntryWiseTests
+{
+    private static Expr P(string text) => ExprParser.Parse(text).Simplify();
+
+    [Fact]
+    public void Parse_reads_rows_of_expressions()
+    {
+        var m = Matrix<Expr>.Parse("[[x^2, min(a, b)], [ log(x, 2) , 1/2 ]]");
+
+        Assert.Equal(2, m.Rows);
+        Assert.Equal(2, m.Columns);
+        Assert.Equal(ExprParser.Parse("min(a, b)"), m[0, 1]);
+        Assert.Equal(ExprParser.Parse("log(x, 2)"), m[1, 0]);
+        // Not simplified, as with ExprParser.Parse.
+        Assert.Equal("1 / 2", m[1, 1].Print());
+    }
+
+    [Fact]
+    public void Parse_with_declared_variables()
+    {
+        Assert.Equal("[[theta, 2t]]", Matrix<Expr>.Parse("[[theta, 2t]]", ["theta", "t"]).Print());
+        Assert.Equal("[theta^2]", Vector<Expr>.Parse("[theta^2]", ["theta"]).Print());
+    }
+
+    [Fact]
+    public void Parse_empty_matrices_and_vectors()
+    {
+        Assert.Equal(0, Matrix<Expr>.Parse("[]").Rows);
+        Assert.Equal((1, 0), (Matrix<Expr>.Parse("[[]]").Rows, Matrix<Expr>.Parse("[[]]").Columns));
+        Assert.Equal(0, Vector<Expr>.Parse(" [ ] ").Length);
+    }
+
+    [Theory]
+    [InlineData("[[1, 2], [3]]", "Row 1 has 1 entries, but row 0 has 2.")]
+    [InlineData("[[1, 2], [3, 4]", "Expected ']' at position 15, found the end of the text.")]
+    [InlineData("[[1]] x", "Unexpected 'x' at position 6 after the closing ']'.")]
+    [InlineData("[[1, [2]]]", "Unexpected '[' at position 5.")]
+    [InlineData("1, 2", "Expected '[' at position 0, found '1'.")]
+    [InlineData("[[1, sen(x)]]", "Invalid entry at (0, 1), starting at position 5: Unknown identifier 'sen' at position 0. Declared variables: x.")]
+    public void Parse_errors_say_where(string text, string message)
+    {
+        var ex = Assert.Throws<FormatException>(() => Matrix<Expr>.Parse(text, ["x"]));
+        Assert.Equal(message, ex.Message);
+    }
+
+    [Fact]
+    public void Vector_parse_errors_name_the_index()
+    {
+        var ex = Assert.Throws<FormatException>(() => Vector<Expr>.Parse("[1, , 2]"));
+        Assert.StartsWith("Invalid entry at index 1, starting at position 4:", ex.Message);
+    }
+
+    [Fact]
+    public void Print_is_read_back_by_Parse()
+    {
+        var inverse = Matrix<Expr>.Parse("[[a, b], [c, d]]").Inverse();
+        Vector<Expr> v = [P("x^2"), P("1/2")];
+
+        Assert.Equal(inverse, Matrix<Expr>.Parse(inverse.Print()));
+        Assert.Equal("[x^2, 1/2]", v.Print());
+        // Parse reads 1/2 as a division, as ExprParser does; Simplify makes it the number again.
+        Assert.Equal(v, Vector<Expr>.Parse(v.Print()).Simplify());
+    }
+
+    [Fact]
+    public void LaTeX_uses_bmatrix()
+    {
+        Assert.Equal(@"\begin{bmatrix} x^{2} & \frac{1}{2} \\ 0 & 1 \end{bmatrix}",
+            Matrix<Expr>.Parse("[[x^2, 1/2], [0, 1]]").Simplify().ToLatex());
+        Assert.Equal(@"\begin{bmatrix} x^{2} \\ \frac{1}{2} \end{bmatrix}",
+            Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex());
+    }
+
+    [Fact]
+    public void Simplify_and_expand_every_entry()
+    {
+        Assert.Equal("[[1, 3/10]]", Matrix<Expr>.Parse("[[x/x, 0.1 + 0.2]]").Simplify().Print());
+        Assert.Equal("[[x / x]]", Matrix<Expr>.Parse("[[x/x]]").Simplify(SimplifyMode.Strict).Print());
+        Assert.Equal("[[x]]", Matrix<Expr>.Parse("[[sqrt(x^2)]]").Simplify(Assumptions.None.AssumePositive("x")).Print());
+        Assert.Equal("[[x^2 + 2x + 1]]", Matrix<Expr>.Parse("[[(x + 1)^2]]").Expand().Print());
+        Assert.Equal("[2x + 1]", Vector<Expr>.Parse("[(x + 1)^2 - x^2]").Expand().Print());
+    }
+
+    [Fact]
+    public void Differentiate_and_substitute_every_entry()
+    {
+        Assert.Equal("[[2x, cos(x)], [y, 0]]", Matrix<Expr>.Parse("[[x^2, sin(x)], [x*y, 1]]").Differentiate("x").Print());
+        Assert.Equal("[2x, 0]", Vector<Expr>.Parse("[x^2 + y, y]").Differentiate("x").Print());
+        // Not simplified, as with Expr.Substitute.
+        Assert.Equal("[[y + 1, (y + 1)^2]]", Matrix<Expr>.Parse("[[x, x^2]]").Substitute("x", ExprParser.Parse("y + 1")).Print());
+    }
+
+    [Fact]
+    public void Variables_of_all_entries()
+    {
+        Assert.Equal(["x", "y", "z"], Matrix<Expr>.Parse("[[x, y], [1, z]]").GetVariables().Order());
+        Assert.Empty(Vector<Expr>.Parse("[1, pi]").GetVariables());
+    }
+
+    [Fact]
+    public void Evaluate_every_entry()
+    {
+        var m = Matrix<Expr>.Parse("[[x, x*y], [1, y^2]]");
+
+        Assert.Equal(Matrix<double>.FromRows([2, 6], [1, 9]), m.Evaluate(("x", 2), ("y", 3)));
+        Assert.Equal(Matrix<double>.FromRows([2, 6], [1, 9]), m.Evaluate(new Dictionary<string, double> { ["x"] = 2, ["y"] = 3 }));
+        Assert.Equal(Matrix<double>.FromRows([3, 9]), Matrix<Expr>.Parse("[[x, x^2]]").Evaluate(3));
+        Assert.Equal([2.0, 5.0], Vector<Expr>.Parse("[2, x]").Evaluate(5));
+        Assert.Equal([2.0, 1.0], Vector<Expr>.Parse("[2, 1]").Evaluate(7));
+    }
+
+    [Fact]
+    public void Evaluate_with_one_value_needs_at_most_one_variable()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Matrix<Expr>.Parse("[[x, y]]").Evaluate(3));
+        Assert.Equal("Expected at most 1 variable, found 2: [x, y]. Use the overload with named values for several variables.", ex.Message);
+        Assert.Throws<ArgumentException>(() => Matrix<Expr>.Parse("[[x, y]]").Evaluate(("x", 1)));
+    }
+
+    [Fact]
+    public void Evaluate_over_the_complex_numbers()
+    {
+        ComplexNumber z = Vector<Expr>.Parse("[sqrt(x)]").EvaluateComplex(-4)[0];
+        Assert.Equal(0, z.Real, precision: 12);
+        Assert.Equal(2, z.Imaginary, precision: 12);
+
+        Matrix<ComplexNumber> m = Matrix<Expr>.Parse("[[x + y]]").EvaluateComplex(("x", ComplexNumber.ImaginaryUnit), ("y", 1));
+        Assert.Equal(new ComplexNumber(1, 1), m[0, 0]);
+    }
+}
