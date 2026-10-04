@@ -542,3 +542,157 @@ public class NumericLuTests
             Assert.Throws<InvalidOperationException>(() => infinite.Rank()).Message);
     }
 }
+
+public class SymbolicDeterminantTests
+{
+    private static Expr P(string text) => ExprParser.Parse(text).Simplify();
+
+    private static Matrix<Expr> M(params string[][] rows) =>
+        Matrix<Expr>.FromRows(rows.Select(row => row.Select(P).ToArray()).ToArray());
+
+    // Whether two expressions are equal as polynomials (or after Expand cancels their difference).
+    private static void AssertSame(Expr expected, Expr actual) =>
+        Assert.True((actual - expected).Expand() is Constant { Value.IsZero: true },
+            $"Expected {expected.Print()}, got {actual.Print()}.");
+
+    private static readonly Matrix<Expr> Abcd = M(["a", "b"], ["c", "d"]);
+    private static readonly Matrix<Expr> Regular3 = Matrix<Expr>.FromRows([2, -3, 1], [2, 0, -1], [1, 4, 5]);
+
+    [Fact]
+    public void Determinant_of_symbolic_matrices()
+    {
+        Assert.Equal("a * d - b * c", Abcd.Determinant().Print());
+        AssertSame(P("a*e*k + b*f*g + c*d*h - c*e*g - b*d*k - a*f*h"),
+            M(["a", "b", "c"], ["d", "e", "f"], ["g", "h", "k"]).Determinant());
+        AssertSame(P("a*d*f"), M(["a", "b", "c"], ["0", "d", "e"], ["0", "0", "f"]).Determinant());
+    }
+
+    [Fact]
+    public void Determinant_of_numbers_is_exact()
+    {
+        Assert.Equal(new Constant(49), Regular3.Determinant());
+
+        var hilbert = Matrix<Expr>.Create(4, 4, (i, j) => new Constant(new Rational(1, i + j + 1)));
+        Assert.Equal(new Constant(new Rational(1, 6048000)), hilbert.Determinant());
+    }
+
+    [Fact]
+    public void Determinant_cancels_what_cancels()
+    {
+        // (x + 1)(x - 3) - (x - 1)^2
+        Assert.Equal(new Constant(-4), M(["x + 1", "x - 1"], ["x - 1", "x - 3"]).Determinant());
+        Assert.Equal(new Constant(1), M(["cos(x)", "-sin(x)"], ["sin(x)", "cos(x)"]).Determinant());
+        Assert.Equal(new Constant(0), M(["x", "x + 1"], ["2x", "2x + 2"]).Determinant());
+    }
+
+    [Fact]
+    public void Determinant_of_small_sizes()
+    {
+        Assert.Equal(new Constant(1), Matrix<Expr>.FromRows().Determinant());
+        Assert.Equal(P("x^2"), M(["x^2"]).Determinant());
+        Assert.Equal("The determinant needs a square matrix, not a 1 x 2 matrix.",
+            Assert.Throws<InvalidOperationException>(() => M(["a", "b"]).Determinant()).Message);
+    }
+
+    [Fact]
+    public void Characteristic_polynomial()
+    {
+        var p = Matrix<Expr>.FromRows([2, 1], [1, 2]).CharacteristicPolynomial("t");
+
+        Assert.Equal("t^2 - 4t + 3", p.Print());
+        Assert.Equal([1.0, 3.0], p.FindRealRoots());
+        AssertSame(P("t^2 - (a + d)*t + a*d - b*c"), Abcd.CharacteristicPolynomial("t"));
+        Assert.Equal(new Constant(1), Matrix<Expr>.FromRows().CharacteristicPolynomial("t"));
+    }
+
+    [Fact]
+    public void Characteristic_polynomial_needs_a_new_variable()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => Abcd.CharacteristicPolynomial("c"));
+        Assert.StartsWith("The variable 'c' occurs in the entry at (1, 0).", ex.Message);
+    }
+
+    [Fact]
+    public void Adjugate_exists_for_singular_matrices_too()
+    {
+        Assert.Equal(M(["d", "-b"], ["-c", "a"]), Abcd.Adjugate());
+        Assert.Equal(Matrix<Expr>.FromRows([4, -2], [-2, 1]), Matrix<Expr>.FromRows([1, 2], [2, 4]).Adjugate());
+        Assert.Equal(Matrix<Expr>.FromRows([1]), M(["x"]).Adjugate());
+        Assert.Equal(49 * Matrix<Expr>.Identity(3), Regular3 * Regular3.Adjugate());
+    }
+
+    [Fact]
+    public void Inverse_of_numbers_is_exact()
+    {
+        Assert.Equal(M(["-2", "1"], ["3/2", "-1/2"]), Matrix<Expr>.FromRows([1, 2], [3, 4]).Inverse());
+        Assert.Equal(Matrix<Expr>.Identity(3), Regular3 * Regular3.Inverse());
+    }
+
+    [Fact]
+    public void Inverse_of_a_symbolic_matrix()
+    {
+        Matrix<Expr> inverse = Abcd.Inverse();
+        var numeric = Matrix<double>.FromRows([1, 2], [3, 5]).Inverse();
+
+        for (int i = 0; i < 2; i++)
+            for (int j = 0; j < 2; j++)
+                Assert.Equal(numeric[i, j], inverse[i, j].Evaluate(("a", 1), ("b", 2), ("c", 3), ("d", 5)), precision: 12);
+    }
+
+    [Fact]
+    public void Inverse_is_undefined_only_where_the_matrix_is_singular()
+    {
+        // Elimination with x as the pivot would divide by x; [[0, 1], [1, 0]] is its own inverse.
+        Matrix<Expr> inverse = M(["x", "1"], ["1", "x"]).Inverse();
+
+        Assert.Equal(Matrix<double>.FromRows([0, 1], [1, 0]), inverse.Map(e => e.Evaluate(0)));
+        Assert.True(double.IsNaN(inverse[0, 1].Evaluate(1)) || double.IsInfinity(inverse[0, 1].Evaluate(1)));
+    }
+
+    [Fact]
+    public void Inverse_of_a_rotation()
+    {
+        Assert.Equal(M(["cos(x)", "sin(x)"], ["-sin(x)", "cos(x)"]),
+            M(["cos(x)", "-sin(x)"], ["sin(x)", "cos(x)"]).Inverse());
+    }
+
+    [Fact]
+    public void Singular_matrices_have_no_inverse()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => M(["x", "x + 1"], ["2x", "2x + 2"]).Inverse());
+        Assert.Equal("The matrix is singular: its determinant is 0.", ex.Message);
+        Assert.Throws<InvalidOperationException>(() => Matrix<Expr>.FromRows([1, 2], [2, 4]).Solve([1, 2]));
+    }
+
+    [Fact]
+    public void Solve_by_Cramers_rule()
+    {
+        Assert.Equal(Vector.Create<Expr>(1, 2), Matrix<Expr>.FromRows([4, 3], [6, 3]).Solve([10, 12]));
+
+        Vector<Expr> x = Abcd.Solve([P("e"), P("f")]);
+        AssertSame(P("(d*e - b*f) / (a*d - b*c)"), x[0]);
+        AssertSame(P("(a*f - c*e) / (a*d - b*c)"), x[1]);
+    }
+
+    [Fact]
+    public void Solve_several_right_hand_sides_at_once()
+    {
+        var x = Matrix<Expr>.FromRows([1, 0], [2, -1], [3, 4]);
+
+        Assert.Equal(x, Regular3.Solve(Regular3 * x));
+        Assert.StartsWith("The right-hand side has 2 rows, but the matrix has 3.",
+            Assert.Throws<ArgumentException>(() => Regular3.Solve(Matrix<Expr>.Zero(2, 1))).Message);
+    }
+
+    [Fact]
+    public void Exact_results_agree_with_floating_point()
+    {
+        var random = new Random(7);
+        var numbers = Matrix<double>.Create(8, 8, (_, _) => random.Next(-9, 10));
+        var exact = numbers.Map(v => (Expr)(int)v);
+
+        Assert.Equal(new Constant(418040793), exact.Determinant());
+        Assert.Equal(418040793, numbers.Determinant(), precision: 4);
+        Assert.Equal(Matrix<Expr>.Identity(8), exact * exact.Inverse());
+    }
+}
