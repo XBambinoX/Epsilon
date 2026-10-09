@@ -40,6 +40,10 @@ public class LinearAlgebraReadmeExamplesTests
         var n = Matrix<double>.FromRows([2, 1], [4, 4]);
         Assert.Equal(4, n.Determinant());
         Assert.Equal("[1, 2]", n.Solve([4, 12]).ToString());
+
+        Vector<double> u = [3, 4];
+        Assert.Equal(5, u.Norm());
+        Assert.Equal("[0, 0, 1]", Vector.Create<double>(1, 0, 0).Cross([0, 1, 0]).ToString());
     }
 
     [Fact]
@@ -50,6 +54,11 @@ public class LinearAlgebraReadmeExamplesTests
 
         Vector<double> v = [1, 2, 3];
         Assert.Equal(32, v.Dot([4, 5, 6]));
+        Assert.Equal("[1, 2]", v[..2].ToString());
+
+        var g = Matrix<double>.FromRows([1, 2], [3, 4]);
+        Assert.Equal("[[3, 4]]", g[1.., ..].ToString());
+        Assert.Equal("[[1, 2, 5], [3, 4, 6]]", Matrix<double>.FromBlocks([g, Vector.Create(5.0, 6.0)]).ToString());
     }
 
     [Fact]
@@ -57,6 +66,26 @@ public class LinearAlgebraReadmeExamplesTests
     {
         Assert.Equal("[[2a, 2b], [2c, 2d]]", (2 * M).Print());
         Assert.Equal("[a * x + b * y, c * x + d * y]", (M * Vector<Expr>.Parse("[x, y]")).Print());
+        Assert.Equal("[[1, 10x], [0, 1]]", Matrix<Expr>.Parse("[[1, x], [0, 1]]").Pow(10).Print());
+    }
+
+    [Fact]
+    public void Vector_geometry()
+    {
+        Assert.Equal("[1, 1]", Vector.Create<double>(1, -1).Reflect([0, 1]).ToString());
+        Assert.Equal("5E+300", Vector.Create(3e300, 4e300).Norm().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("1E-10", Vector.Create<double>(1, 0).Angle([1, 1e-10]).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(0, Math.Acos(1 / Math.Sqrt(1 + 1e-20)));
+        Assert.Equal("π / 4", Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print());
+    }
+
+    [Fact]
+    public void Exact_rational_matrices()
+    {
+        var hilbert = Matrix<Rational>.Create(8, 8, (i, j) => new Rational(1, i + j + 1));
+        Assert.Equal(176679360, hilbert.Inverse()[7, 7]);
+        Assert.True(hilbert * hilbert.Inverse() == Matrix<Rational>.Identity(8));
+        Assert.Equal("[[-2, 1], [3/2, -1/2]]", Matrix<Rational>.FromRows([1, 2], [3, 4]).Inverse().ToString());
     }
 
     [Fact]
@@ -81,6 +110,10 @@ public class LinearAlgebraReadmeExamplesTests
         Assert.Equal("The matrix is singular: its rank is 2, not 3, to working precision.",
             Assert.Throws<InvalidOperationException>(() => s.Inverse()).Message);
         Assert.Equal(2, Matrix<double>.FromRows([1e-20, 0], [0, 1]).Rank());
+
+        var turn = Matrix<double>.FromRows([Math.Cos(Math.PI / 2), -1], [1, Math.Cos(Math.PI / 2)]);
+        Assert.Equal(6.123233995736766E-17, turn[0, 0]);
+        Assert.True(turn.IsApproximately(Matrix<double>.FromRows([0, -1], [1, 0])));
     }
 
     [Fact]
@@ -101,6 +134,8 @@ public class LinearAlgebraReadmeExamplesTests
 
         Assert.Equal("[[1 / 2, x + x]]", Matrix<Expr>.Parse("[[1/2, x + x]]").Print());
         Assert.Equal("[[1]]", (Matrix<Expr>.FromRows([new Variable("x") / new Variable("x")]) + Matrix<Expr>.Zero(1, 1)).Print());
+
+        Assert.NotEqual(Matrix<Rational>.Zero(2, 2), new Matrix<Rational>(new Rational[2, 2]));
     }
 }
 
@@ -120,6 +155,7 @@ public class LinearAlgebraGuideTests
         Assert.Equal("[[0, 1, 2], [10, 11, 12]]", Matrix<double>.Create(2, 3, (i, j) => 10 * i + j).ToString());
         Assert.Equal("[[1, 0], [0, 1]]", Matrix<double>.Identity(2).ToString());
         Assert.Equal("[[0, 0]]", Matrix<Expr>.Zero(1, 2).Print());
+        Assert.Equal("[[1, 0], [0, 2]]", Matrix<double>.FromDiagonal([1, 2]).ToString());
 
         Assert.StartsWith("Row 1 has 1 entries, but row 0 has 2.",
             Assert.Throws<ArgumentException>(() => Matrix<double>.FromRows([1, 2], [3])).Message);
@@ -140,6 +176,27 @@ public class LinearAlgebraGuideTests
     }
 
     [Fact]
+    public void Submatrices_blocks_and_the_diagonal()
+    {
+        var g = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+        Assert.Equal("[[4, 5], [7, 8]]", g[1.., ..2].ToString());
+        Assert.Equal("[[3], [6]]", g[..^1, 2..].ToString());
+        Assert.Equal("[1, 5, 9]", g.Diagonal().ToString());
+
+        var a2 = Matrix<double>.FromRows([1, 2], [3, 4]);
+        var i2 = Matrix<double>.Identity(2);
+        Assert.Equal("[[1, 2, 1, 0], [3, 4, 0, 1]]", Matrix<double>.FromBlocks([a2, i2]).ToString());
+        Assert.Equal("[[1, 2], [3, 4], [1, 0], [0, 1]]", Matrix<double>.FromBlocks([a2], [i2]).ToString());
+        Assert.Equal("[[1, 2, 5], [3, 4, 6]]", Matrix<double>.FromBlocks([a2, Vector.Create(5.0, 6.0)]).ToString());
+
+        Assert.StartsWith("Block (0, 1) has 3 rows, but block (0, 0) has 2.",
+            Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a2, Matrix<double>.Zero(3, 1)])).Message);
+        Assert.Equal(2, A.Diagonal().Length);
+        Assert.StartsWith("The range 1..4 is outside 0..3.",
+            Assert.Throws<ArgumentOutOfRangeException>(() => g[1..4, ..]).Message);
+    }
+
+    [Fact]
     public void Vectors()
     {
         Vector<double> v = [1, 2, 3];
@@ -147,6 +204,8 @@ public class LinearAlgebraGuideTests
 
         Assert.Equal(3, v.Length);
         Assert.Equal(1, v[0]);
+        Assert.Equal(3, v[^1]);
+        Assert.Equal("[1, 2]", v[..2].ToString());
         Matrix<double> column = v;
         Assert.Equal("[[1], [2], [3]]", column.ToString());
         Assert.Equal(32, v.Dot(w));
@@ -169,9 +228,52 @@ public class LinearAlgebraGuideTests
         Assert.Equal("a + d", M.Trace().Print());
         Assert.Equal("[[7, 10], [15, 22]]", (R * R).Print());
         Assert.Equal("[[1/2, 1], [3/2, 2]]", (R / 2).Print());
+        Assert.Equal("[[1, 10x], [0, 1]]", Matrix<Expr>.Parse("[[1, x], [0, 1]]").Pow(10).Print());
 
         Assert.Equal("Cannot multiply a 2 x 3 matrix by a 2 x 3 matrix: 3 columns on the left, 2 rows on the right.",
             Assert.Throws<ArgumentException>(() => A * A).Message);
+    }
+
+    [Fact]
+    public void Vector_geometry()
+    {
+        Vector<double> u = [3, 4];
+        Assert.Equal(5, u.Norm());
+        Assert.Equal("[0.6, 0.8]", u.Normalize().ToString());
+        Assert.Equal("[0, 0, 1]", Vector.Create<double>(1, 0, 0).Cross([0, 1, 0]).ToString());
+        Assert.Equal("[1, 1]", Vector.Create<double>(1, -1).Reflect([0, 1]).ToString());
+        Assert.Equal("[2.5, 12.5]", Vector<double>.Lerp([0, 10], [10, 20], 0.25).ToString());
+
+        Assert.Equal("[sqrt(2) / 2, sqrt(2) / 2]", Vector<Expr>.Parse("[1, 1]").Normalize().Print());
+        Assert.Equal("π / 4", Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print());
+        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]",
+            Vector<Expr>.Parse("[a, b, c]").Cross(Vector<Expr>.Parse("[x, y, z]")).Print());
+
+        Assert.Equal(5e300, Vector.Create(3e300, 4e300).Norm());
+        Assert.Equal(1e-10, Vector.Create<double>(1, 0).Angle([1, 1e-10]));
+        Assert.Equal(0, Math.Acos(1 / Math.Sqrt(1 + 1e-20)));
+
+        Assert.Throws<InvalidOperationException>(() => Vector<double>.Zero(2).Normalize());
+    }
+
+    [Fact]
+    public void Norms_and_approximate_equality()
+    {
+        double cos = Math.Cos(Math.PI / 2), sin = Math.Sin(Math.PI / 2);
+        var turn = Matrix<double>.FromRows([cos, -sin], [sin, cos]);
+        var exact = Matrix<double>.FromRows([0, -1], [1, 0]);
+
+        Assert.Equal(6.123233995736766E-17, cos);
+        Assert.False(turn == exact);
+        Assert.True(turn.IsApproximately(exact));
+
+        var h = Matrix<double>.FromRows([1, 2], [3, 4]);
+        var residual = h * h.Inverse() - Matrix<double>.Identity(2);
+        Assert.False(residual.IsApproximately(Matrix<double>.Zero(2, 2)));
+        Assert.True(residual.IsApproximately(Matrix<double>.Zero(2, 2), absoluteTolerance: 1e-12));
+
+        Assert.False(h.IsApproximately(Matrix<double>.Zero(2, 3)));
+        Assert.Equal(Math.Sqrt(30), h.FrobeniusNorm());
     }
 
     [Fact]
@@ -234,6 +336,40 @@ public class LinearAlgebraGuideTests
     }
 
     [Fact]
+    public void Exact_rational_matrices()
+    {
+        var q = Matrix<Rational>.FromRows([1, 2], [3, 4]);
+        Assert.Equal(-2, q.Determinant());
+        Assert.Equal("[[-2, 1], [3/2, -1/2]]", q.Inverse().ToString());
+        Assert.Equal("[-4, 9/2]", q.Solve([5, 6]).ToString());
+        Assert.Equal("[[1/3, 2/3], [1, 4/3]]", (q / 3).ToString());
+
+        var singular = Matrix<Rational>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+        Assert.Equal(2, singular.Rank());
+        Assert.Equal("The matrix is singular: its rank is 2, not 3.",
+            Assert.Throws<InvalidOperationException>(() => singular.Inverse()).Message);
+
+        var hilbert = Matrix<Rational>.Create(8, 8, (i, j) => new Rational(1, i + j + 1));
+        Assert.Equal(176679360, hilbert.Inverse()[7, 7]);
+        Assert.True(hilbert * hilbert.Inverse() == Matrix<Rational>.Identity(8));
+
+        // "doubles get right to only about eight digits"
+        double inDoubles = Matrix<double>.Create(8, 8, (i, j) => 1.0 / (i + j + 1)).Inverse()[7, 7];
+        double relativeError = Math.Abs(inDoubles - 176679360) / 176679360;
+        Assert.InRange(relativeError, 1e-9, 1e-7);
+
+        Assert.Throws<DivideByZeroException>(() => q / 0);
+    }
+
+    [Fact]
+    public void In_the_debugger()
+    {
+        Assert.Equal("2 x 3, [[1, 2, 3], [4, 5, 6]]", A.DebuggerDisplay);
+        Assert.Equal("Length = 3, [1, 2.5, 3]", Vector.Create(1, 2.5, 3).DebuggerDisplay);
+        Assert.Equal("1 x 1, [[3x^2 - 4x + 1]]", Matrix<Expr>.Parse("[[3x^2 - 4x + 1]]").Simplify().DebuggerDisplay);
+    }
+
+    [Fact]
     public void Entry_wise_operations()
     {
         Assert.Equal("[[x^2 + 2x + 1, x^2 - 1]]", Matrix<Expr>.Parse("[[(x + 1)^2, (x - 1)*(x + 1)]]").Expand().Print());
@@ -271,5 +407,11 @@ public class LinearAlgebraGuideTests
     {
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2]));
         Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", M.CharacteristicPolynomial("t").Print());
+
+        // Fails once the core makes default(Rational) a valid 0: then drop the limitation.
+        var defaults = new Matrix<Rational>(new Rational[2, 2]);
+        Assert.Equal("[[0/0, 0/0], [0/0, 0/0]]", defaults.ToString());
+        Assert.NotEqual(Matrix<Rational>.Zero(2, 2), defaults);
+        Assert.Throws<DivideByZeroException>(() => defaults + defaults);
     }
 }

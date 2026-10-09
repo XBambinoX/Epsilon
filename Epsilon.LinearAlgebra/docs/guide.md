@@ -1,6 +1,6 @@
 # Linear algebra guide
 
-The `Epsilon.LinearAlgebra` package, version 1.0.0, in detail. For a one-page overview see
+The `Epsilon.LinearAlgebra` package, version 1.1.0, in detail. For a one-page overview see
 the [package README](../README.md); every public member is listed in the
 [API reference](api-reference.md). The types are in the namespace `Epsilon.LinearAlgebra`;
 the expressions in them come from the core, namespace `Epsilon.Core`.
@@ -11,11 +11,15 @@ so the results shown are the results you get.
 **Contents:**
 [Matrices and vectors](#matrices-and-vectors) -
 [Arithmetic](#arithmetic) -
-[Symbols or numbers](#symbols-or-numbers) -
+[Vector geometry](#vector-geometry) -
+[Norms and approximate equality](#norms-and-approximate-equality) -
+[Symbols, rationals or numbers](#symbols-rationals-or-numbers) -
 [Symbolic determinant, inverse and systems](#symbolic-determinant-inverse-and-systems) -
 [Numeric determinant, inverse, systems and rank](#numeric-determinant-inverse-systems-and-rank) -
+[Exact rational matrices](#exact-rational-matrices) -
 [Entry-wise operations](#entry-wise-operations) -
 [Text and LaTeX](#text-and-latex) -
+[In the debugger](#in-the-debugger) -
 [Limitations](#limitations)
 
 ## Matrices and vectors
@@ -32,6 +36,7 @@ var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
 
 Matrix<double>.Identity(2);                                   // [[1, 0], [0, 1]]
 Matrix<Expr>.Zero(1, 2).Print();                              // [[0, 0]]
+Matrix<double>.FromDiagonal([1, 2]);                          // [[1, 0], [0, 2]]
 ```
 
 - The arrays are copied: changing them afterwards doesn't change the matrix.
@@ -39,7 +44,8 @@ Matrix<Expr>.Zero(1, 2).Print();                              // [[0, 0]]
   `Row 1 has 1 entries, but row 0 has 2.`
 - Entries can't be null.
 - Empty matrices are allowed: `FromRows()` is 0 x 0.
-- `Identity` and `Zero` exist for `double` and `Expr` entries, the types with arithmetic.
+- `Identity`, `Zero` and `FromDiagonal` exist for `double`, `Rational` and `Expr` entries,
+  the types with arithmetic.
 
 ### Reading a matrix
 
@@ -57,6 +63,33 @@ Indices start at 0; one outside the matrix throws `ArgumentOutOfRangeException`.
 `Column` return vectors, `Map` builds a matrix of the same size with any entry type, and
 `ToArray()` copies the entries into a `T[,]`.
 
+### Submatrices, blocks and the diagonal
+
+Ranges of rows and columns give a submatrix, with `^1` counting from the end. `FromBlocks`
+goes the other way and assembles a matrix from blocks:
+
+```csharp
+var g = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+g[1.., ..2];        // [[4, 5], [7, 8]]
+g[..^1, 2..];       // [[3], [6]]
+g.Diagonal();       // [1, 5, 9]
+
+var a2 = Matrix<double>.FromRows([1, 2], [3, 4]);
+var i2 = Matrix<double>.Identity(2);
+Matrix<double>.FromBlocks([a2, i2]);                         // [[1, 2, 1, 0], [3, 4, 0, 1]]
+Matrix<double>.FromBlocks([a2], [i2]);                       // [[1, 2], [3, 4], [1, 0], [0, 1]]
+Matrix<double>.FromBlocks([a2, Vector.Create(5.0, 6.0)]);    // [[1, 2, 5], [3, 4, 6]]
+```
+
+- `FromBlocks` takes the blocks row by row, like `FromRows`: the blocks of a row are placed
+  side by side and must have the same number of rows, and every row of blocks must add up to
+  the same number of columns. Otherwise it throws `ArgumentException` and names the block:
+  `Block (0, 1) has 3 rows, but block (0, 0) has 2.`
+- A vector is a block with one column, so the augmented matrix `[A | b]` of a system is
+  `FromBlocks([a, b])`.
+- `Diagonal()` works for any shape and has as many entries as the smaller dimension.
+- A range outside the matrix throws `ArgumentOutOfRangeException`: `The range 1..4 is outside 0..3.`
+
 ### Vectors
 
 `Vector<T>` is a column vector: a matrix with one column, indexed by one number. A collection
@@ -68,10 +101,13 @@ var w = Vector.Create(4.0, 5.0, 6.0);
 
 v.Length;                    // 3
 v[0];                        // 1
+v[^1];                       // 3
+v[..2];                      // [1, 2]
 Matrix<double> column = v;   // [[1], [2], [3]]
 ```
 
-A vector is an `IReadOnlyList<T>`, so LINQ and `foreach` work on it.
+A vector is an `IReadOnlyList<T>`, so LINQ and `foreach` work on it. A range such as `v[..2]`
+calls `Slice(start, length)`.
 
 ### Equality and text
 
@@ -88,8 +124,8 @@ For a matrix of expressions use `Print()`, which prints the entries as `Expr.Pri
 
 ## Arithmetic
 
-The arithmetic is defined for matrices and vectors of `double` and of `Expr`. Other entry
-types have no arithmetic: the operators don't compile for them.
+The arithmetic is defined for matrices and vectors of `double`, of `Rational` and of `Expr`.
+Other entry types have no arithmetic: the operators don't compile for them.
 
 | Operation | Result |
 |---|---|
@@ -97,9 +133,11 @@ types have no arithmetic: the operators don't compile for them.
 | `A * B` | The matrix product; `A` needs as many columns as `B` has rows. |
 | `A * v` | A matrix times a column vector: a vector. |
 | `s * A`, `A * s`, `A / s` | Every entry times or divided by the scalar. |
+| `A.Pow(n)` | A^n by repeated squaring; the identity for n = 0, a power of the inverse for negative n. |
+| `A.Hadamard(B)` | The entry-wise product; the sizes must agree. |
 | `A.Trace()` | The sum of the diagonal; the matrix must be square. |
 | `v + w`, `v - w`, `-v`, `s * v`, `v * s`, `v / s` | The same for vectors. |
-| `v.Dot(w)` | The dot product. |
+| `v.Dot(w)`, `v.Hadamard(w)` | The dot product and the entry-wise product. |
 
 With expressions every entry of a result is simplified. The scalars can be numbers or
 expressions, and numbers stay exact:
@@ -113,7 +151,11 @@ m.Trace().Print();                               // a + d
 var r = Matrix<Expr>.Parse("[[1, 2], [3, 4]]");
 (r * r).Print();                                 // [[7, 10], [15, 22]]
 (r / 2).Print();                                 // [[1/2, 1], [3/2, 2]]
+
+Matrix<Expr>.Parse("[[1, x], [0, 1]]").Pow(10).Print();   // [[1, 10x], [0, 1]]
 ```
+
+`Pow` needs at most 2 log2(n) products, so `Pow(int.MaxValue)` takes 60, not two billion.
 
 The simplification uses the default `Generic` mode of `Simplify`, so an entry `x/x` becomes
 `1`: the result may be defined at more points. The operators of `Expr` itself only build a
@@ -125,19 +167,109 @@ Sizes that don't fit throw an `ArgumentException` that names them:
 a * a;   // ArgumentException: Cannot multiply a 2 x 3 matrix by a 2 x 3 matrix: 3 columns on the left, 2 rows on the right.
 ```
 
-## Symbols or numbers
+## Vector geometry
 
-| | `Matrix<Expr>` | `Matrix<double>` |
-|---|---|---|
-| Entries | Symbols, functions, exact rationals | Floating point |
-| Determinant, inverse, solve | Exact, without division (Berkowitz) | LU decomposition with partial pivoting |
-| Rank | - | To working precision |
-| Cost | Grows with the size of the result | O(n^3) |
+For vectors of `double` and of `Expr`:
+
+| Method | Result |
+|---|---|
+| `v.Norm()`, `v.NormSquared()` | The Euclidean length sqrt(v . v), and v . v. |
+| `v.Normalize()` | The unit vector in the same direction. |
+| `v.Distance(w)` | The length of `v - w`. |
+| `v.Cross(w)` | The cross product of two vectors of length 3. |
+| `v.Angle(w)` | The angle between the vectors, in radians from 0 to pi. |
+| `v.ProjectOnto(w)` | The projection (v . w / w . w) w onto the line through `w`. |
+| `v.Reflect(n)` | The mirror image in the plane perpendicular to `n`, which need not have length 1. |
+| `Vector<T>.Lerp(start, end, t)` | (1 - t) start + t end: `start` at t = 0, `end` at t = 1. |
+| `v.Outer(w)` | The matrix v w^T. |
+
+The length is `Norm` because `Length` is the number of entries.
+
+```csharp
+Vector<double> u = [3, 4];
+u.Norm();                                          // 5
+u.Normalize();                                     // [0.6, 0.8]
+Vector.Create<double>(1, 0, 0).Cross([0, 1, 0]);   // [0, 0, 1]
+Vector.Create<double>(1, -1).Reflect([0, 1]);      // [1, 1]: a ball bouncing off the floor
+Vector<double>.Lerp([0, 10], [10, 20], 0.25);      // [2.5, 12.5]
+```
+
+With expressions the results are exact:
+
+```csharp
+Vector<Expr>.Parse("[1, 1]").Normalize().Print();                          // [sqrt(2) / 2, sqrt(2) / 2]
+Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print();   // π / 4
+Vector<Expr>.Parse("[a, b, c]").Cross(Vector<Expr>.Parse("[x, y, z]")).Print();
+// [b * z - c * y, c * x - a * z, a * y - b * x]
+```
+
+The numeric methods hold up at the extremes of floating point:
+
+```csharp
+Vector.Create(3e300, 4e300).Norm();               // 5E+300, not infinity
+Vector.Create<double>(1, 0).Angle([1, 1e-10]);    // 1E-10, not 0
+```
+
+`Norm` divides the entries by a power of two before squaring them, which is exact: the result
+is the naive one wherever that one neither overflows nor underflows. `Normalize`,
+`ProjectOnto` and `Reflect` scale the same way. `Angle` uses Kahan's formula
+2 atan2(|a - b|, |a + b|) of the unit vectors a and b, accurate at every angle; the arccosine
+of the cosine gives 0 above, because the cosine 1 - 5E-21 rounds to 1.
+
+`Normalize` and `Angle` throw for the zero vector, as do `ProjectOnto` onto it and `Reflect`
+in it: the direction is undefined. Vectors of `Rational` have the methods whose result stays
+rational: `NormSquared`, `Cross`, `ProjectOnto`, `Reflect`, `Lerp` and `Outer`.
+
+## Norms and approximate equality
+
+`FrobeniusNorm()` of a `double` or `Expr` matrix is the square root of the sum of the squares
+of all its entries: the norm of the entries as one long vector. The numeric one scales like
+`Norm`.
+
+Floating point rarely gives the exact zeros of a formula: a rotation by pi/2 has
+cos(pi/2) = 6.1E-17 where 0 is expected. `IsApproximately` compares matrices and vectors of
+`double` up to rounding:
+
+```csharp
+double cos = Math.Cos(Math.PI / 2), sin = Math.Sin(Math.PI / 2);
+var turn = Matrix<double>.FromRows([cos, -sin], [sin, cos]);
+var exact = Matrix<double>.FromRows([0, -1], [1, 0]);
+
+turn == exact;                  // false
+turn.IsApproximately(exact);    // true
+```
+
+Two matrices are close when ||A - B|| <= relativeTolerance * max(||A||, ||B||) in the
+Frobenius norm, with a relative tolerance of 1e-9 unless you pass another. Measured against
+the whole matrix, an entry that should be 0 doesn't spoil the comparison; a relative test entry
+by entry could never accept the 6.1E-17. Against the zero matrix the right side is 0 too, so
+pass an absolute tolerance there:
+
+```csharp
+var h = Matrix<double>.FromRows([1, 2], [3, 4]);
+var residual = h * h.Inverse() - Matrix<double>.Identity(2);
+residual.IsApproximately(Matrix<double>.Zero(2, 2));                            // false
+residual.IsApproximately(Matrix<double>.Zero(2, 2), absoluteTolerance: 1e-12);  // true
+```
+
+Matrices of different sizes are not close, infinite entries must be equal, and NaN is close to
+nothing. Matrices of `Rational` and `Expr` compare exactly with `==`.
+
+## Symbols, rationals or numbers
+
+| | `Matrix<Expr>` | `Matrix<Rational>` | `Matrix<double>` |
+|---|---|---|---|
+| Entries | Symbols, functions, exact rationals | Exact fractions | Floating point |
+| Determinant, inverse, solve | Exact, without division (Berkowitz) | Exact, Gaussian elimination | LU decomposition with partial pivoting |
+| Rank | - | Exact | To working precision |
+| Cost | Grows with the size of the result | Grows with the digits of the fractions | O(n^3) |
 
 A matrix of numbers as `Expr` computes exactly: an 8 x 8 matrix of integers has its exact
-determinant and inverse in tens of milliseconds. A fully symbolic determinant has n! terms,
-so a fully symbolic matrix gets slow beyond about 6 x 6. To move from symbols to numbers,
-`Evaluate` the matrix; see [Entry-wise operations](#entry-wise-operations).
+determinant and inverse in tens of milliseconds. `Matrix<Rational>` gives the same exact
+results in a fraction of a millisecond, as it never builds expressions; see
+[Exact rational matrices](#exact-rational-matrices). A fully symbolic determinant has n!
+terms, so a fully symbolic matrix gets slow beyond about 6 x 6. To move from symbols to
+numbers, `Evaluate` the matrix; see [Entry-wise operations](#entry-wise-operations).
 
 ## Symbolic determinant, inverse and systems
 
@@ -234,6 +366,40 @@ largest entry would call it singular. The same rule decides all four methods, so
 An entry that is NaN or infinite makes the result meaningless, so the four methods throw
 `InvalidOperationException` and name the entry: `The matrix has a non-finite entry at (0, 1): NaN.`
 
+## Exact rational matrices
+
+`Matrix<Rational>` computes with the exact fractions of the core by Gaussian elimination. As
+nothing is rounded, any pivot that isn't 0 will do, and there is no tolerance: a matrix is
+singular exactly when its determinant is 0. Integers convert to `Rational`; a fraction is
+`new Rational(1, 3)`:
+
+```csharp
+var q = Matrix<Rational>.FromRows([1, 2], [3, 4]);
+q.Determinant();    // -2
+q.Inverse();        // [[-2, 1], [3/2, -1/2]]
+q.Solve([5, 6]);    // [-4, 9/2]
+q / 3;              // [[1/3, 2/3], [1, 4/3]]
+
+var singular = Matrix<Rational>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+singular.Rank();      // 2
+singular.Inverse();   // InvalidOperationException: The matrix is singular: its rank is 2, not 3.
+```
+
+The Hilbert matrix, with entries 1 / (i + j + 1), is the classic ill-conditioned matrix. Its
+inverse has integer entries, which doubles get right to only about eight digits:
+
+```csharp
+var hilbert = Matrix<Rational>.Create(8, 8, (i, j) => new Rational(1, i + j + 1));
+hilbert.Inverse()[7, 7];                                       // 176679360
+hilbert * hilbert.Inverse() == Matrix<Rational>.Identity(8);   // true
+```
+
+`Trace`, `Determinant`, `Inverse`, `Solve`, `Rank`, `Pow` and `Hadamard` work as for doubles;
+dividing by 0 throws `DivideByZeroException`. The norms, `Normalize` and `Angle` are missing,
+as the norm of `[1, 1]` is sqrt(2) and not a rational. The fractions grow with the size of the
+matrix, but an 8 x 8 inverse still takes a fraction of a millisecond, against tens of
+milliseconds for the same numbers in a `Matrix<Expr>`.
+
 ## Entry-wise operations
 
 These do to every entry what the `Expr` method of the same name does, for matrices and
@@ -296,18 +462,31 @@ rotation.ToLatex();
 Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex();   // \begin{bmatrix} x^{2} \\ \frac{1}{2} \end{bmatrix}
 ```
 
+## In the debugger
+
+The debugger shows a matrix by its size and, up to 4 x 4, its entries: `2 x 3, [[1, 2, 3], [4, 5, 6]]`.
+A vector shows its length and entries: `Length = 3, [1, 2.5, 3]`. Larger ones show only the
+size, so that a huge matrix stays cheap to look at. Expressions appear printed, `3x^2 - 4x + 1`,
+not as their fully parenthesized `ToString`. Expanded, a matrix lists its rows and a vector its
+entries.
+
 ## Limitations
 
-What version 1.0.0 doesn't do yet:
+What version 1.1.0 doesn't do yet:
 
 - **Only square systems.** `Solve` needs a square matrix; least squares for other shapes (by
   QR decomposition) is planned.
 - **No numeric eigenvalues or SVD.** Eigenvalues are available as the roots of
   `CharacteristicPolynomial`.
-- **Rank only for doubles.** The rank of a symbolic matrix depends on the values of its
-  symbols.
-- **Arithmetic only for `double` and `Expr`.** A matrix of `ComplexNumber`, such as the result
-  of `EvaluateComplex`, or of `Rational` is a container without arithmetic.
+- **No rank for symbolic matrices.** It depends on the values of the symbols; matrices of
+  doubles and rationals have one.
+- **No arithmetic for `ComplexNumber`.** A matrix of complex numbers, such as the result of
+  `EvaluateComplex`, is a container without arithmetic.
+- **`default(Rational)` is not a valid 0.** In the core up to version 1.1.1 the default value
+  of `Rational` has denominator 0: it prints as `0/0`, isn't equal to `Rational.Zero`, and
+  adding it throws `DivideByZeroException`. So `new Matrix<Rational>(new Rational[2, 2])` is
+  not the zero matrix: build rational matrices with `FromRows`, `Create`, `Zero` or
+  `Identity`, or fill arrays with `Rational.Zero`.
 - **Characteristic polynomials of symbolic matrices print in the core's canonical order**,
   not by powers of the variable: `a * d + t^2 - b * c + (-a - d) * t`. The value is right;
   for numbers the order is the usual `t^2 - 4t + 3`.

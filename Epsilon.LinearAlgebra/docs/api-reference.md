@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.0.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.1.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guide](guide.md) explains the details, and your IDE shows the full XML documentation for
 every member.
