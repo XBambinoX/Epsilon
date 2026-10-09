@@ -108,9 +108,20 @@ Extension members of `Vector<double>`.
 | Member | Description |
 |---|---|
 | `static Vector<double> Zero(int length)` | The zero vector. |
+| `static Vector<double> Lerp(Vector<double> start, Vector<double> end, double t)` | (1 - t) start + t end: `start` at t = 0, `end` at t = 1; other values extrapolate. |
 | `+`, `-` (binary and unary) | Entry by entry. Throws `ArgumentException` for different lengths. |
 | `*`, `/` with a `double` | Every entry times or divided by the number. |
 | `double Dot(Vector<double> other)` | The dot product. |
+| `double Norm()`, `double NormSquared()` | The Euclidean norm (length) and its square. `Norm` neither overflows nor underflows. |
+| `Vector<double> Normalize()` | The unit vector in the same direction. Throws `InvalidOperationException` for the zero vector. |
+| `double Distance(Vector<double> other)` | The norm of the difference. |
+| `Vector<double> Cross(Vector<double> other)` | The cross product of two vectors of length 3. |
+| `double Angle(Vector<double> other)` | In radians, from 0 to pi; accurate at small angles too. Throws for a zero vector. |
+| `Vector<double> ProjectOnto(Vector<double> onto)` | The projection (v . w / w . w) w onto the line through `onto`. |
+| `Vector<double> Reflect(Vector<double> normal)` | The mirror image in the plane perpendicular to `normal`, which need not have length 1. |
+| `Matrix<double> Outer(Vector<double> other)` | The outer product v w^T. |
+
+The members that take two vectors throw `ArgumentException` for different lengths.
 
 ---
 
@@ -185,8 +196,12 @@ Extension members of `Vector<Expr>`.
 |---|---|
 | `static Vector<Expr> Zero(int length)` | The zero vector. |
 | `static Vector<Expr> Parse(string text)`, `Parse(string text, string[] variableNames)` | Reads `[a, b, c]`; the entries are not simplified. |
+| `static Vector<Expr> Lerp(Vector<Expr> start, Vector<Expr> end, Expr t)` | (1 - t) start + t end, simplified. |
 | `+`, `-` (binary and unary), `*` and `/` with an `Expr` | Entry by entry, simplified. |
 | `Expr Dot(Vector<Expr> other)` | The simplified dot product. |
+| `Expr Norm()`, `Expr NormSquared()` | sqrt(v . v) and v . v, simplified: `[3, 4]` has norm 5. |
+| `Normalize`, `Distance`, `Cross`, `ProjectOnto`, `Reflect`, `Outer` | As for `double`, exact and simplified: `[1, 1]` normalizes to `[sqrt(2) / 2, sqrt(2) / 2]`. |
+| `Expr Angle(Vector<Expr> other)` | The arccosine of v . w over the product of the norms, simplified: `[1, 0]` and `[1, 1]` give pi / 4. |
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |

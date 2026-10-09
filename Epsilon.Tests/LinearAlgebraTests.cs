@@ -398,6 +398,235 @@ public class SymbolicArithmeticTests
     }
 }
 
+public class NumericVectorOperationsTests
+{
+    [Fact]
+    public void Norm_and_its_square()
+    {
+        Vector<double> v = [3, 4];
+
+        Assert.Equal(5, v.Norm());
+        Assert.Equal(25, v.NormSquared());
+        Assert.Equal(Math.Sqrt(10), Vector.Create<double>(1, 3).Norm());
+        Assert.Equal(0, Vector<double>.Zero(0).Norm());
+    }
+
+    [Fact]
+    public void Norm_neither_overflows_nor_underflows()
+    {
+        // The naive sqrt(9e600 + 16e600) is infinite and sqrt(9e-640 + 16e-640) is 0.
+        Assert.Equal(5e300, Vector.Create(3e300, 4e300).Norm());
+        Assert.Equal(5e-320, Vector.Create(3e-320, 4e-320).Norm());
+
+        Assert.Equal(double.PositiveInfinity, Vector.Create(double.NegativeInfinity, 1).Norm());
+        Assert.True(double.IsNaN(Vector.Create(double.NaN, 1).Norm()));
+    }
+
+    [Fact]
+    public void Normalize_gives_the_unit_vector()
+    {
+        Assert.Equal([0.6, 0.8], Vector.Create<double>(3, 4).Normalize());
+        Assert.Equal([0.0, -1.0, 0.0], Vector.Create<double>(0, -7, 0).Normalize());
+
+        // Exact scaling first: the naive norms are infinite and 0, which give [0, 0] and NaN.
+        Assert.Equal(1, Vector.Create(1.5e308, 1.5e308).Normalize().Norm(), precision: 15);
+        Assert.Equal(1, Vector.Create(1e-320, 1e-320).Normalize().Norm(), precision: 15);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector<double>.Zero(2).Normalize());
+        Assert.Equal("Cannot normalize the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Distance_between_points()
+    {
+        Assert.Equal(5, Vector.Create<double>(1, 1).Distance([4, 5]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 1).Distance([1]));
+        Assert.Equal("Cannot measure the distance between vectors of different lengths: 2 and 1.", ex.Message);
+    }
+
+    [Fact]
+    public void Cross_product()
+    {
+        Vector<double> a = [1, 2, 3];
+        Vector<double> b = [4, 5, 6];
+
+        Assert.Equal([0.0, 0.0, 1.0], Vector.Create<double>(1, 0, 0).Cross([0, 1, 0]));
+        Assert.Equal([-3.0, 6.0, -3.0], a.Cross(b));
+        Assert.Equal(-a.Cross(b), b.Cross(a));
+        Assert.Equal(0, a.Cross(b).Dot(a));
+        Assert.Equal(0, a.Cross(b).Dot(b));
+    }
+
+    [Fact]
+    public void Cross_product_needs_three_entries()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector.Create<double>(1, 2).Cross([1, 2, 3]));
+        Assert.Equal("The cross product needs vectors of length 3, not 2.", ex.Message);
+
+        var argEx = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 2, 3).Cross([1, 2, 3, 4]));
+        Assert.StartsWith("The cross product needs vectors of length 3, not 4.", argEx.Message);
+        Assert.Equal("other", argEx.ParamName);
+    }
+
+    [Fact]
+    public void Angle_in_radians()
+    {
+        Vector<double> x = [1, 0];
+
+        Assert.Equal(Math.PI / 2, x.Angle([0, 1]));
+        Assert.Equal(Math.PI / 4, x.Angle([1, 1]));
+        Assert.Equal(Math.PI, x.Angle([-2, 0]));
+        Assert.Equal(0, Vector.Create<double>(1, 2).Angle([2, 4]));
+    }
+
+    [Fact]
+    public void Small_angles_stay_accurate()
+    {
+        // acos of the cosine gives 0: the cosine 1 - 5e-21 rounds to 1.
+        Assert.Equal(1e-10, Vector.Create<double>(1, 0).Angle([1, 1e-10]), 1e-25);
+        Assert.Equal(Math.PI - 1e-10, Vector.Create<double>(1, 0).Angle([-1, 1e-10]), 1e-15);
+    }
+
+    [Fact]
+    public void Angle_with_the_zero_vector_is_undefined()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector<double>.Zero(2).Angle([1, 0]));
+        Assert.Equal("The angle with the zero vector is undefined.", ex.Message);
+
+        var argEx = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).Angle(Vector<double>.Zero(2)));
+        Assert.Equal("other", argEx.ParamName);
+    }
+
+    [Fact]
+    public void Projection_onto_a_line()
+    {
+        Assert.Equal([2.0, 0.0], Vector.Create<double>(2, 3).ProjectOnto([5, 0]));
+        Assert.Equal([0.5, 0.5], Vector.Create<double>(1, 0).ProjectOnto([1, 1]));
+        Assert.Equal([0.5e-300, 0.5e-300], Vector.Create(1e-300, 0).ProjectOnto([1e-300, 1e-300]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).ProjectOnto([0, 0]));
+        Assert.StartsWith("Cannot project onto the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Reflection_in_a_plane()
+    {
+        // A ball moving down and right bounces off the floor.
+        Assert.Equal([1.0, 1.0], Vector.Create<double>(1, -1).Reflect([0, 1]));
+        Assert.Equal([1.0, 1.0], Vector.Create<double>(1, -1).Reflect([0, 5]));
+        Assert.Equal([-1.0, -3.0], Vector.Create<double>(3, 1).Reflect([1, 1]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).Reflect([0, 0]));
+        Assert.StartsWith("The normal is the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Lerp_between_points()
+    {
+        Vector<double> start = [0, 10];
+        Vector<double> end = [10, 20];
+
+        Assert.Equal(start, Vector<double>.Lerp(start, end, 0));
+        Assert.Equal(end, Vector<double>.Lerp(start, end, 1));
+        Assert.Equal([2.5, 12.5], Vector<double>.Lerp(start, end, 0.25));
+        Assert.Equal([20.0, 30.0], Vector<double>.Lerp(start, end, 2));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector<double>.Lerp(start, [1], 0.5));
+        Assert.Equal("Cannot interpolate between vectors of different lengths: 2 and 1.", ex.Message);
+    }
+
+    [Fact]
+    public void Outer_product()
+    {
+        Vector<double> v = [1, 2];
+        Vector<double> w = [3, 4, 5];
+
+        Assert.Equal(Matrix<double>.FromRows([3, 4, 5], [6, 8, 10]), v.Outer(w));
+        Assert.Equal(v.ToMatrix() * w.ToMatrix().Transpose(), v.Outer(w));
+    }
+}
+
+public class SymbolicVectorOperationsTests
+{
+    private static Vector<Expr> V(string text) => Vector<Expr>.Parse(text).Simplify();
+
+    [Fact]
+    public void Norm_and_its_square()
+    {
+        Assert.Equal("sqrt(a^2 + b^2)", V("[a, b]").Norm().Print());
+        Assert.Equal("a^2 + b^2", V("[a, b]").NormSquared().Print());
+        Assert.Equal("5", V("[3, 4]").Norm().Print());
+        Assert.Equal("abs(x)", V("[x, 0]").Norm().Print());
+    }
+
+    [Fact]
+    public void Normalize_is_exact()
+    {
+        Assert.Equal("[3/5, 4/5]", V("[3, 4]").Normalize().Print());
+        Assert.Equal("[sqrt(2) / 2, sqrt(2) / 2]", V("[1, 1]").Normalize().Print());
+        Assert.Equal("[a / sqrt(a^2 + b^2), b / sqrt(a^2 + b^2)]", V("[a, b]").Normalize().Print());
+
+        Assert.Throws<InvalidOperationException>(() => V("[x - x, 0]").Normalize());
+    }
+
+    [Fact]
+    public void Distance_between_points()
+    {
+        Assert.Equal("sqrt((a - c)^2 + (b - d)^2)", V("[a, b]").Distance(V("[c, d]")).Print());
+        Assert.Equal("5", V("[1, 1]").Distance(V("[4, 5]")).Print());
+    }
+
+    [Fact]
+    public void Cross_product()
+    {
+        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]", V("[a, b, c]").Cross(V("[x, y, z]")).Print());
+        Assert.Equal("[0, 0, 1]", V("[1, 0, 0]").Cross(V("[0, 1, 0]")).Print());
+        Assert.Throws<InvalidOperationException>(() => V("[a, b]").Cross(V("[x, y, z]")));
+    }
+
+    [Fact]
+    public void Angle_at_the_usual_points_is_exact()
+    {
+        Assert.Equal("π / 4", V("[1, 0]").Angle(V("[1, 1]")).Print());
+        Assert.Equal("π / 2", V("[1, 0]").Angle(V("[0, 1]")).Print());
+        Assert.Equal("π", V("[1, 0]").Angle(V("[-1, 0]")).Print());
+        Assert.Equal("acos(sqrt(3) / 3)", V("[1, 0, 0]").Angle(V("[1, 1, 1]")).Print());
+        Assert.Equal("acos((a * c + b * d) / (sqrt(a^2 + b^2) * sqrt(c^2 + d^2)))", V("[a, b]").Angle(V("[c, d]")).Print());
+
+        var ex = Assert.Throws<ArgumentException>(() => V("[1, 0]").Angle(V("[0, 0]")));
+        Assert.StartsWith("The angle with the zero vector is undefined.", ex.Message);
+    }
+
+    [Fact]
+    public void Projection_and_reflection()
+    {
+        Assert.Equal("[a, 0]", V("[a, b]").ProjectOnto(V("[1, 0]")).Print());
+        Assert.Equal("[(x + y) / 2, (x + y) / 2]", V("[x, y]").ProjectOnto(V("[1, 1]")).Print());
+        Assert.Equal("[x, -y]", V("[x, y]").Reflect(V("[0, 1]")).Print());
+        Assert.Equal("[-y, -x]", V("[x, y]").Reflect(V("[1, 1]")).Print());
+
+        Assert.Throws<ArgumentException>(() => V("[a, b]").ProjectOnto(V("[0, 0]")));
+        Assert.Throws<ArgumentException>(() => V("[a, b]").Reflect(V("[0, 0]")));
+    }
+
+    [Fact]
+    public void Lerp_with_a_symbolic_parameter()
+    {
+        var t = new Variable("t");
+
+        Assert.Equal("[t * x, 2t + 1]", Vector<Expr>.Lerp(V("[0, 1]"), V("[x, 3]"), t).Print());
+        Assert.Equal(V("[a, b]"), Vector<Expr>.Lerp(V("[a, b]"), V("[c, d]"), 0));
+        Assert.Equal(V("[c, d]"), Vector<Expr>.Lerp(V("[a, b]"), V("[c, d]"), 1));
+    }
+
+    [Fact]
+    public void Outer_product()
+    {
+        Assert.Equal("[[a * x, a * y, 2a], [b * x, b * y, 2b]]", V("[a, b]").Outer(V("[x, y, 2]")).Print());
+    }
+}
+
 public class NumericLuTests
 {
     private static readonly Matrix<double> Singular3 = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
