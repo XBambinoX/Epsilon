@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, determinant, inverse, solve and rank of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve and rank of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -14,6 +14,85 @@ public static class NumericMatrixExtensions
         /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
         public static Matrix<double> Zero(int rows, int columns) =>
             Matrix<double>.Create(rows, columns, (_, _) => 0);
+
+        /// <summary>
+        /// The square matrix with the entries of <paramref name="diagonal"/> on the main diagonal
+        /// and zeros elsewhere: <c>Matrix&lt;double&gt;.FromDiagonal([1, 2, 3])</c>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="diagonal"/> is null.</exception>
+        public static Matrix<double> FromDiagonal(Vector<double> diagonal)
+        {
+            ArgumentNullException.ThrowIfNull(diagonal);
+            return Matrix<double>.Create(diagonal.Length, diagonal.Length, (i, j) => i == j ? diagonal[i] : 0);
+        }
+
+        /// <summary>
+        /// The integer power A^n by repeated squaring: the identity for n = 0, and a power of the
+        /// inverse for negative n.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, or n is negative and the matrix has no inverse (see <see cref="Inverse"/>).
+        /// </exception>
+        public Matrix<double> Pow(int exponent)
+        {
+            matrix.CheckSquare("Pow");
+            return Matrix<double>.Power(exponent < 0 ? matrix.Inverse() : matrix, exponent,
+                Matrix<double>.Identity(matrix.Rows), (a, b) => a * b);
+        }
+
+        /// <summary>The Hadamard product: the products of the entries at the same position.</summary>
+        /// <exception cref="ArgumentException">The matrices have different sizes.</exception>
+        public Matrix<double> Hadamard(Matrix<double> other) =>
+            matrix.Combine(other, (a, b) => a * b, "take the Hadamard product of");
+
+        /// <summary>
+        /// The Frobenius norm: the square root of the sum of the squares of all entries, the
+        /// Euclidean norm of the entries as one vector. Neither overflows nor underflows.
+        /// </summary>
+        public double FrobeniusNorm() => NumericVectorExtensions.EuclideanNorm(matrix.Entries);
+
+        /// <summary>
+        /// Whether the matrices are equal up to rounding: of the same size, with
+        /// ||A - B|| &lt;= max(relativeTolerance * max(||A||, ||B||), absoluteTolerance) in the
+        /// Frobenius norm. Measured against the whole matrix, an entry that should be 0, such as
+        /// cos(pi/2) = 6e-17 in a rotation, does not spoil the comparison; but against the zero
+        /// matrix only <paramref name="absoluteTolerance"/> helps. Infinite entries must be equal,
+        /// and NaN is never close to anything.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="other"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
+        public bool IsApproximately(Matrix<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)
+        {
+            ArgumentNullException.ThrowIfNull(other);
+            CheckTolerance(relativeTolerance, nameof(relativeTolerance));
+            CheckTolerance(absoluteTolerance, nameof(absoluteTolerance));
+
+            if (matrix.Rows != other.Rows || matrix.Columns != other.Columns)
+                return false;
+
+            // Infinities are compared exactly and left out of the norms, where they would make
+            // every finite difference look small.
+            ReadOnlySpan<double> left = matrix.Entries, right = other.Entries;
+            var difference = new double[left.Length];
+            var finiteLeft = new double[left.Length];
+            var finiteRight = new double[left.Length];
+            for (int k = 0; k < left.Length; k++)
+            {
+                if (double.IsFinite(left[k]) && double.IsFinite(right[k]))
+                {
+                    difference[k] = left[k] - right[k];
+                    finiteLeft[k] = left[k];
+                    finiteRight[k] = right[k];
+                }
+                else if (left[k] != right[k])   // also when either is NaN
+                {
+                    return false;
+                }
+            }
+
+            double scale = Math.Max(NumericVectorExtensions.EuclideanNorm(finiteLeft), NumericVectorExtensions.EuclideanNorm(finiteRight));
+            return NumericVectorExtensions.EuclideanNorm(difference) <= Math.Max(relativeTolerance * scale, absoluteTolerance);
+        }
 
         /// <summary>The sum of the diagonal entries.</summary>
         /// <exception cref="InvalidOperationException">The matrix is not square.</exception>
@@ -124,6 +203,12 @@ public static class NumericMatrixExtensions
 
         /// <summary>Every entry divided by the number.</summary>
         public static Matrix<double> operator /(Matrix<double> value, double scalar) => value.Map(a => a / scalar);
+    }
+
+    private static void CheckTolerance(double tolerance, string paramName)
+    {
+        if (!(tolerance >= 0))
+            throw new ArgumentOutOfRangeException(paramName, tolerance, "A tolerance must be a number >= 0.");
     }
 
     // The row-major entries of left * right, where right has the given number of columns.

@@ -157,6 +157,78 @@ public class MatrixTests
             CultureInfo.CurrentCulture = culture;
         }
     }
+
+    [Fact]
+    public void Ranges_give_a_submatrix()
+    {
+        var m = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+
+        Assert.Equal(Matrix<double>.FromRows([4, 5], [7, 8]), m[1.., ..2]);
+        Assert.Equal(Matrix<double>.FromRows([2], [5]), m[..^1, 1..2]);
+        Assert.Equal(m, m[.., ..]);
+
+        Matrix<double> empty = m[0..0, ..];
+        Assert.Equal(0, empty.Rows);
+        Assert.Equal(3, empty.Columns);
+    }
+
+    [Fact]
+    public void Ranges_outside_the_matrix_throw()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => A[1..3, ..]);
+        Assert.StartsWith("The range 1..3 is outside 0..2.", ex.Message);
+        Assert.Equal("rows", ex.ParamName);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => A[.., 2..1]);
+    }
+
+    [Fact]
+    public void Diagonal_of_any_shape()
+    {
+        Assert.Equal([1.0, 5.0], A.Diagonal());
+        Assert.Equal([1.0, 5.0], A.Transpose().Diagonal());
+        Assert.Equal(0, Matrix<double>.FromRows().Diagonal().Length);
+    }
+
+    [Fact]
+    public void Blocks_join_side_by_side_and_on_top_of_each_other()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+        var i = Matrix<double>.Identity(2);
+
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 1, 0], [3, 4, 0, 1]), Matrix<double>.FromBlocks([a, i]));
+        Assert.Equal(Matrix<double>.FromRows([1, 2], [3, 4], [1, 0], [0, 1]), Matrix<double>.FromBlocks([a], [i]));
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 0], [3, 4, 0], [0, 0, 9]),
+            Matrix<double>.FromBlocks([a, Matrix<double>.Zero(2, 1)], [Matrix<double>.Zero(1, 2), Matrix<double>.FromRows([9])]));
+        Assert.Equal(0, Matrix<double>.FromBlocks().Rows);
+    }
+
+    [Fact]
+    public void A_vector_is_a_block_with_one_column()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+        Vector<double> b = [5, 6];
+
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 5], [3, 4, 6]), Matrix<double>.FromBlocks([a, b]));
+    }
+
+    [Fact]
+    public void Blocks_must_fit_together()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+        var ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a, Matrix<double>.Zero(3, 1)]));
+        Assert.StartsWith("Block (0, 1) has 3 rows, but block (0, 0) has 2.", ex.Message);
+
+        ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a], [Matrix<double>.Zero(1, 3)]));
+        Assert.StartsWith("Block row 1 has 3 columns, but block row 0 has 2.", ex.Message);
+
+        ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a], []));
+        Assert.StartsWith("Block row 1 is empty.", ex.Message);
+
+        ex = Assert.Throws<ArgumentNullException>(() => Matrix<double>.FromBlocks([a, null!]));
+        Assert.StartsWith("Block (0, 1) is null.", ex.Message);
+    }
 }
 
 public class VectorTests
@@ -218,6 +290,28 @@ public class VectorTests
         Assert.Equal(v.GetHashCode(), Vector.Create(1.0, 2.5).GetHashCode());
         Assert.Equal("[1, 2.5]", v.ToString());
         Assert.Equal("[]", Vector.Create<double>().ToString());
+    }
+
+    [Fact]
+    public void Indices_and_ranges_from_the_end()
+    {
+        Vector<double> v = [1, 2, 3, 4];
+
+        Assert.Equal(4, v[^1]);
+        Assert.Equal([1.0, 2.0, 3.0], v[..3]);
+        Assert.Equal([2.0, 3.0], v[1..^1]);
+        Assert.Equal(0, v[4..].Length);
+        Assert.Equal([2.0, 3.0], v.Slice(1, 2));
+    }
+
+    [Fact]
+    public void Ranges_outside_the_vector_throw()
+    {
+        Vector<double> v = [1, 2, 3, 4];
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => v[2..5]);
+        Assert.StartsWith("The range 2..5 is outside 0..4.", ex.Message);
+        Assert.Throws<ArgumentOutOfRangeException>(() => v.Slice(3, -1));
     }
 }
 
@@ -395,6 +489,606 @@ public class SymbolicArithmeticTests
         Assert.Equal(Vector.Create(P("a*x + b"), P("c*x + d")), Abcd * w);
         Assert.Equal(Vector.Create(P("2a"), P("2b")), 2 * v);
         Assert.Equal(Vector.Create(P("-a"), P("-b")), -v);
+    }
+}
+
+public class NumericVectorOperationsTests
+{
+    [Fact]
+    public void Norm_and_its_square()
+    {
+        Vector<double> v = [3, 4];
+
+        Assert.Equal(5, v.Norm());
+        Assert.Equal(25, v.NormSquared());
+        Assert.Equal(Math.Sqrt(10), Vector.Create<double>(1, 3).Norm());
+        Assert.Equal(0, Vector<double>.Zero(0).Norm());
+    }
+
+    [Fact]
+    public void Norm_neither_overflows_nor_underflows()
+    {
+        // The naive sqrt(9e600 + 16e600) is infinite and sqrt(9e-640 + 16e-640) is 0.
+        Assert.Equal(5e300, Vector.Create(3e300, 4e300).Norm());
+        Assert.Equal(5e-320, Vector.Create(3e-320, 4e-320).Norm());
+
+        Assert.Equal(double.PositiveInfinity, Vector.Create(double.NegativeInfinity, 1).Norm());
+        Assert.True(double.IsNaN(Vector.Create(double.NaN, 1).Norm()));
+    }
+
+    [Fact]
+    public void Normalize_gives_the_unit_vector()
+    {
+        Assert.Equal([0.6, 0.8], Vector.Create<double>(3, 4).Normalize());
+        Assert.Equal([0.0, -1.0, 0.0], Vector.Create<double>(0, -7, 0).Normalize());
+
+        // Exact scaling first: the naive norms are infinite and 0, which give [0, 0] and NaN.
+        Assert.Equal(1, Vector.Create(1.5e308, 1.5e308).Normalize().Norm(), precision: 15);
+        Assert.Equal(1, Vector.Create(1e-320, 1e-320).Normalize().Norm(), precision: 15);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector<double>.Zero(2).Normalize());
+        Assert.Equal("Cannot normalize the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Distance_between_points()
+    {
+        Assert.Equal(5, Vector.Create<double>(1, 1).Distance([4, 5]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 1).Distance([1]));
+        Assert.Equal("Cannot measure the distance between vectors of different lengths: 2 and 1.", ex.Message);
+    }
+
+    [Fact]
+    public void Cross_product()
+    {
+        Vector<double> a = [1, 2, 3];
+        Vector<double> b = [4, 5, 6];
+
+        Assert.Equal([0.0, 0.0, 1.0], Vector.Create<double>(1, 0, 0).Cross([0, 1, 0]));
+        Assert.Equal([-3.0, 6.0, -3.0], a.Cross(b));
+        Assert.Equal(-a.Cross(b), b.Cross(a));
+        Assert.Equal(0, a.Cross(b).Dot(a));
+        Assert.Equal(0, a.Cross(b).Dot(b));
+    }
+
+    [Fact]
+    public void Cross_product_needs_three_entries()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector.Create<double>(1, 2).Cross([1, 2, 3]));
+        Assert.Equal("The cross product needs vectors of length 3, not 2.", ex.Message);
+
+        var argEx = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 2, 3).Cross([1, 2, 3, 4]));
+        Assert.StartsWith("The cross product needs vectors of length 3, not 4.", argEx.Message);
+        Assert.Equal("other", argEx.ParamName);
+    }
+
+    [Fact]
+    public void Angle_in_radians()
+    {
+        Vector<double> x = [1, 0];
+
+        Assert.Equal(Math.PI / 2, x.Angle([0, 1]));
+        Assert.Equal(Math.PI / 4, x.Angle([1, 1]));
+        Assert.Equal(Math.PI, x.Angle([-2, 0]));
+        Assert.Equal(0, Vector.Create<double>(1, 2).Angle([2, 4]));
+    }
+
+    [Fact]
+    public void Small_angles_stay_accurate()
+    {
+        // acos of the cosine gives 0: the cosine 1 - 5e-21 rounds to 1.
+        Assert.Equal(1e-10, Vector.Create<double>(1, 0).Angle([1, 1e-10]), 1e-25);
+        Assert.Equal(Math.PI - 1e-10, Vector.Create<double>(1, 0).Angle([-1, 1e-10]), 1e-15);
+    }
+
+    [Fact]
+    public void Angle_with_the_zero_vector_is_undefined()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Vector<double>.Zero(2).Angle([1, 0]));
+        Assert.Equal("The angle with the zero vector is undefined.", ex.Message);
+
+        var argEx = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).Angle(Vector<double>.Zero(2)));
+        Assert.Equal("other", argEx.ParamName);
+    }
+
+    [Fact]
+    public void Projection_onto_a_line()
+    {
+        Assert.Equal([2.0, 0.0], Vector.Create<double>(2, 3).ProjectOnto([5, 0]));
+        Assert.Equal([0.5, 0.5], Vector.Create<double>(1, 0).ProjectOnto([1, 1]));
+        Assert.Equal([0.5e-300, 0.5e-300], Vector.Create(1e-300, 0).ProjectOnto([1e-300, 1e-300]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).ProjectOnto([0, 0]));
+        Assert.StartsWith("Cannot project onto the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Reflection_in_a_plane()
+    {
+        // A ball moving down and right bounces off the floor.
+        Assert.Equal([1.0, 1.0], Vector.Create<double>(1, -1).Reflect([0, 1]));
+        Assert.Equal([1.0, 1.0], Vector.Create<double>(1, -1).Reflect([0, 5]));
+        Assert.Equal([-1.0, -3.0], Vector.Create<double>(3, 1).Reflect([1, 1]));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 0).Reflect([0, 0]));
+        Assert.StartsWith("The normal is the zero vector.", ex.Message);
+    }
+
+    [Fact]
+    public void Lerp_between_points()
+    {
+        Vector<double> start = [0, 10];
+        Vector<double> end = [10, 20];
+
+        Assert.Equal(start, Vector<double>.Lerp(start, end, 0));
+        Assert.Equal(end, Vector<double>.Lerp(start, end, 1));
+        Assert.Equal([2.5, 12.5], Vector<double>.Lerp(start, end, 0.25));
+        Assert.Equal([20.0, 30.0], Vector<double>.Lerp(start, end, 2));
+
+        var ex = Assert.Throws<ArgumentException>(() => Vector<double>.Lerp(start, [1], 0.5));
+        Assert.Equal("Cannot interpolate between vectors of different lengths: 2 and 1.", ex.Message);
+    }
+
+    [Fact]
+    public void Outer_product()
+    {
+        Vector<double> v = [1, 2];
+        Vector<double> w = [3, 4, 5];
+
+        Assert.Equal(Matrix<double>.FromRows([3, 4, 5], [6, 8, 10]), v.Outer(w));
+        Assert.Equal(v.ToMatrix() * w.ToMatrix().Transpose(), v.Outer(w));
+    }
+}
+
+public class SymbolicVectorOperationsTests
+{
+    private static Vector<Expr> V(string text) => Vector<Expr>.Parse(text).Simplify();
+
+    [Fact]
+    public void Norm_and_its_square()
+    {
+        Assert.Equal("sqrt(a^2 + b^2)", V("[a, b]").Norm().Print());
+        Assert.Equal("a^2 + b^2", V("[a, b]").NormSquared().Print());
+        Assert.Equal("5", V("[3, 4]").Norm().Print());
+        Assert.Equal("abs(x)", V("[x, 0]").Norm().Print());
+    }
+
+    [Fact]
+    public void Normalize_is_exact()
+    {
+        Assert.Equal("[3/5, 4/5]", V("[3, 4]").Normalize().Print());
+        Assert.Equal("[sqrt(2) / 2, sqrt(2) / 2]", V("[1, 1]").Normalize().Print());
+        Assert.Equal("[a / sqrt(a^2 + b^2), b / sqrt(a^2 + b^2)]", V("[a, b]").Normalize().Print());
+
+        Assert.Throws<InvalidOperationException>(() => V("[x - x, 0]").Normalize());
+    }
+
+    [Fact]
+    public void Distance_between_points()
+    {
+        Assert.Equal("sqrt((a - c)^2 + (b - d)^2)", V("[a, b]").Distance(V("[c, d]")).Print());
+        Assert.Equal("5", V("[1, 1]").Distance(V("[4, 5]")).Print());
+    }
+
+    [Fact]
+    public void Cross_product()
+    {
+        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]", V("[a, b, c]").Cross(V("[x, y, z]")).Print());
+        Assert.Equal("[0, 0, 1]", V("[1, 0, 0]").Cross(V("[0, 1, 0]")).Print());
+        Assert.Throws<InvalidOperationException>(() => V("[a, b]").Cross(V("[x, y, z]")));
+    }
+
+    [Fact]
+    public void Angle_at_the_usual_points_is_exact()
+    {
+        Assert.Equal("π / 4", V("[1, 0]").Angle(V("[1, 1]")).Print());
+        Assert.Equal("π / 2", V("[1, 0]").Angle(V("[0, 1]")).Print());
+        Assert.Equal("π", V("[1, 0]").Angle(V("[-1, 0]")).Print());
+        Assert.Equal("acos(sqrt(3) / 3)", V("[1, 0, 0]").Angle(V("[1, 1, 1]")).Print());
+        Assert.Equal("acos((a * c + b * d) / (sqrt(a^2 + b^2) * sqrt(c^2 + d^2)))", V("[a, b]").Angle(V("[c, d]")).Print());
+
+        var ex = Assert.Throws<ArgumentException>(() => V("[1, 0]").Angle(V("[0, 0]")));
+        Assert.StartsWith("The angle with the zero vector is undefined.", ex.Message);
+    }
+
+    [Fact]
+    public void Projection_and_reflection()
+    {
+        Assert.Equal("[a, 0]", V("[a, b]").ProjectOnto(V("[1, 0]")).Print());
+        Assert.Equal("[(x + y) / 2, (x + y) / 2]", V("[x, y]").ProjectOnto(V("[1, 1]")).Print());
+        Assert.Equal("[x, -y]", V("[x, y]").Reflect(V("[0, 1]")).Print());
+        Assert.Equal("[-y, -x]", V("[x, y]").Reflect(V("[1, 1]")).Print());
+
+        Assert.Throws<ArgumentException>(() => V("[a, b]").ProjectOnto(V("[0, 0]")));
+        Assert.Throws<ArgumentException>(() => V("[a, b]").Reflect(V("[0, 0]")));
+    }
+
+    [Fact]
+    public void Lerp_with_a_symbolic_parameter()
+    {
+        var t = new Variable("t");
+
+        Assert.Equal("[t * x, 2t + 1]", Vector<Expr>.Lerp(V("[0, 1]"), V("[x, 3]"), t).Print());
+        Assert.Equal(V("[a, b]"), Vector<Expr>.Lerp(V("[a, b]"), V("[c, d]"), 0));
+        Assert.Equal(V("[c, d]"), Vector<Expr>.Lerp(V("[a, b]"), V("[c, d]"), 1));
+    }
+
+    [Fact]
+    public void Outer_product()
+    {
+        Assert.Equal("[[a * x, a * y, 2a], [b * x, b * y, 2b]]", V("[a, b]").Outer(V("[x, y, 2]")).Print());
+    }
+}
+
+public class NumericMatrixUtilityTests
+{
+    private static readonly Matrix<double> A = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+    [Fact]
+    public void FromDiagonal_puts_zeros_elsewhere()
+    {
+        Assert.Equal(Matrix<double>.FromRows([1, 0, 0], [0, 2, 0], [0, 0, 3]), Matrix<double>.FromDiagonal([1, 2, 3]));
+        Assert.Equal([1.0, 2.0, 3.0], Matrix<double>.FromDiagonal([1, 2, 3]).Diagonal());
+    }
+
+    [Fact]
+    public void Pow_by_repeated_squaring()
+    {
+        Assert.Equal(Matrix<double>.Identity(2), A.Pow(0));
+        Assert.Equal(A, A.Pow(1));
+        Assert.Equal(A * A * A * A * A, A.Pow(5));
+
+        // Exact: the entry is the exponent, after 2 * 31 products.
+        Assert.Equal(Matrix<double>.FromRows([1, int.MaxValue], [0, 1]), Matrix<double>.FromRows([1, 1], [0, 1]).Pow(int.MaxValue));
+        Assert.Equal(Matrix<double>.Identity(2), Matrix<double>.Identity(2).Pow(int.MinValue));
+    }
+
+    [Fact]
+    public void Negative_powers_are_powers_of_the_inverse()
+    {
+        var b = Matrix<double>.FromRows([2, 0], [0, 4]);
+
+        Assert.Equal(Matrix<double>.FromRows([0.25, 0], [0, 0.0625]), b.Pow(-2));
+        Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2], [2, 4]).Pow(-1));
+    }
+
+    [Fact]
+    public void Pow_needs_a_square_matrix()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2]).Pow(2));
+        Assert.Equal("Pow needs a square matrix, not a 1 x 2 matrix.", ex.Message);
+    }
+
+    [Fact]
+    public void Hadamard_multiplies_entry_by_entry()
+    {
+        Assert.Equal(Matrix<double>.FromRows([2, 0], [3, -4]), A.Hadamard(Matrix<double>.FromRows([2, 0], [1, -1])));
+        Assert.Equal([2.0, 4.0, 0.0], Vector.Create<double>(1, 2, 3).Hadamard([2, 2, 0]));
+
+        var ex = Assert.Throws<ArgumentException>(() => A.Hadamard(Matrix<double>.Zero(2, 3)));
+        Assert.Equal("Cannot take the Hadamard product of matrices of different sizes: 2 x 2 and 2 x 3.", ex.Message);
+        Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 2).Hadamard([1]));
+    }
+
+    [Fact]
+    public void Frobenius_norm()
+    {
+        Assert.Equal(Math.Sqrt(30), A.FrobeniusNorm());
+        Assert.Equal(5e300, Matrix<double>.FromRows([3e300], [4e300]).FrobeniusNorm());
+        Assert.Equal(0, Matrix<double>.Zero(2, 2).FrobeniusNorm());
+    }
+}
+
+public class SymbolicMatrixUtilityTests
+{
+    private static Matrix<Expr> M(string text) => Matrix<Expr>.Parse(text).Simplify();
+
+    private static readonly Matrix<Expr> Abcd = M("[[a, b], [c, d]]");
+
+    [Fact]
+    public void FromDiagonal_and_Diagonal()
+    {
+        Assert.Equal("[[a, 0], [0, b]]", Matrix<Expr>.FromDiagonal(Vector<Expr>.Parse("[a, b]")).Print());
+        Assert.Equal("[a, d]", Abcd.Diagonal().Print());
+    }
+
+    [Fact]
+    public void Pow_is_simplified()
+    {
+        Assert.Equal(Abcd * Abcd, Abcd.Pow(2));
+        Assert.Equal("[[1, 10x], [0, 1]]", M("[[1, x], [0, 1]]").Pow(10).Print());
+        Assert.Equal("[[1, -3x], [0, 1]]", M("[[1, x], [0, 1]]").Pow(-3).Print());
+        Assert.Equal(Matrix<Expr>.Identity(2), Abcd.Pow(0));
+    }
+
+    [Fact]
+    public void Negative_power_of_a_singular_matrix_throws()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => M("[[1, 2], [2, 4]]").Pow(-1));
+        Assert.Equal("The matrix is singular: its determinant is 0.", ex.Message);
+    }
+
+    [Fact]
+    public void Hadamard_and_Frobenius_norm()
+    {
+        Assert.Equal("[[a * x, 2b], [0, d * y]]", Abcd.Hadamard(M("[[x, 2], [0, y]]")).Print());
+        Assert.Equal("[a * x, 2b]", Vector<Expr>.Parse("[a, b]").Hadamard(Vector<Expr>.Parse("[x, 2]")).Print());
+        Assert.Equal("sqrt(a^2 + b^2 + c^2 + d^2)", Abcd.FrobeniusNorm().Print());
+        Assert.Equal("5", M("[[1, 2], [2, 4]]").FrobeniusNorm().Print());
+    }
+
+    [Fact]
+    public void Blocks_and_ranges_work_for_expressions()
+    {
+        Assert.Equal("[[a, b, x], [c, d, y]]", Matrix<Expr>.FromBlocks([Abcd, Vector<Expr>.Parse("[x, y]")]).Print());
+        Assert.Equal("[[c, d]]", Abcd[1.., ..].Print());
+    }
+}
+
+public class ApproximateEqualityTests
+{
+    private static readonly Matrix<double> A = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+    [Fact]
+    public void Rounding_errors_are_tolerated()
+    {
+        // cos(pi/2) is 6.1e-17, not 0: hopeless for a relative test entry by entry.
+        double c = Math.Cos(Math.PI / 2), s = Math.Sin(Math.PI / 2);
+        var rotation = Matrix<double>.FromRows([c, -s], [s, c]);
+        var exact = Matrix<double>.FromRows([0, -1], [1, 0]);
+
+        Assert.NotEqual(exact, rotation);
+        Assert.True(rotation.IsApproximately(exact));
+        Assert.True((A * A.Inverse()).IsApproximately(Matrix<double>.Identity(2)));
+    }
+
+    [Fact]
+    public void Differences_above_the_tolerance_count()
+    {
+        var shifted = A + 1e-6 * Matrix<double>.Identity(2);
+
+        Assert.False(A.IsApproximately(shifted));
+        Assert.True(A.IsApproximately(shifted, relativeTolerance: 1e-3));
+        Assert.True(A.IsApproximately(A + 1e-12 * Matrix<double>.Identity(2)));
+        Assert.False(A.IsApproximately(Matrix<double>.Zero(2, 3)));
+    }
+
+    [Fact]
+    public void The_zero_matrix_needs_an_absolute_tolerance()
+    {
+        var residual = A * A.Inverse() - Matrix<double>.Identity(2);
+
+        Assert.False(residual.IsApproximately(Matrix<double>.Zero(2, 2)));
+        Assert.True(residual.IsApproximately(Matrix<double>.Zero(2, 2), absoluteTolerance: 1e-12));
+    }
+
+    [Fact]
+    public void Infinities_must_match_and_NaN_never_does()
+    {
+        double inf = double.PositiveInfinity;
+
+        Assert.True(Matrix<double>.FromRows([inf, 1]).IsApproximately(Matrix<double>.FromRows([inf, 1])));
+        Assert.False(Matrix<double>.FromRows([inf, 1]).IsApproximately(Matrix<double>.FromRows([inf, 2])));
+        Assert.False(Matrix<double>.FromRows([inf]).IsApproximately(Matrix<double>.FromRows([-inf])));
+        Assert.False(Matrix<double>.FromRows([double.NaN]).IsApproximately(Matrix<double>.FromRows([double.NaN])));
+        Assert.False(Matrix<double>.FromRows([1e308]).IsApproximately(Matrix<double>.FromRows([-1e308])));
+    }
+
+    [Fact]
+    public void Vectors()
+    {
+        Assert.True(Vector.Create(1, 1e-17).IsApproximately([1, 0]));
+        Assert.False(Vector.Create(1e-17).IsApproximately([0]));
+        Assert.True(Vector.Create(1e-17).IsApproximately([0], absoluteTolerance: 1e-15));
+        Assert.False(Vector.Create<double>(1, 2).IsApproximately([1, 2, 0]));
+    }
+
+    [Fact]
+    public void Tolerances_must_be_numbers_from_zero_on()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => A.IsApproximately(A, -1));
+        Assert.Equal("relativeTolerance", ex.ParamName);
+
+        ex = Assert.Throws<ArgumentOutOfRangeException>(() => A.IsApproximately(A, absoluteTolerance: double.NaN));
+        Assert.Equal("absoluteTolerance", ex.ParamName);
+    }
+}
+
+public class DebuggerViewTests
+{
+    [Fact]
+    public void Small_matrices_show_their_entries()
+    {
+        Assert.Equal("2 x 3, [[1, 2, 3], [4, 5, 6]]", Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).DebuggerDisplay);
+        Assert.Equal("4 x 4, [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]", Matrix<double>.Identity(4).DebuggerDisplay);
+        Assert.Equal("5 x 5", Matrix<double>.Identity(5).DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Expressions_are_printed()
+    {
+        // ToString would give (((3 * (x ^ 2)) - (4 * x)) + 1).
+        Assert.Equal("1 x 2, [[3x^2 - 4x + 1, 1/2]]", Matrix<Expr>.Parse("[[3x^2 - 4x + 1, 1/2]]").Simplify().DebuggerDisplay);
+        Assert.Equal("Length = 2, [x^2, 1/2]", Vector<Expr>.Parse("[x^2, 1/2]").Simplify().DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Vectors_show_their_length()
+    {
+        Assert.Equal("Length = 3, [1, 2.5, 3]", Vector.Create(1, 2.5, 3).DebuggerDisplay);
+        Assert.Equal("Length = 17", Vector<double>.Zero(17).DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Expanding_shows_rows_and_entries()
+    {
+        var m = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+        Assert.Equal([m.Row(0), m.Row(1)], new MatrixDebugView<double>(m).Rows);
+        Assert.Equal([1.0, 2.0], new VectorDebugView<double>(m.Row(0)).Entries);
+    }
+
+    [Fact]
+    public void The_debugger_finds_the_views()
+    {
+        Assert.Equal("{DebuggerDisplay,nq}", DisplayOf(typeof(Matrix<>)));
+        Assert.Equal("{DebuggerDisplay,nq}", DisplayOf(typeof(Vector<>)));
+        Assert.Equal(typeof(MatrixDebugView<>), ProxyOf(typeof(Matrix<>)));
+        Assert.Equal(typeof(VectorDebugView<>), ProxyOf(typeof(Vector<>)));
+    }
+
+    private static string? DisplayOf(Type type) =>
+        type.GetCustomAttributes(typeof(System.Diagnostics.DebuggerDisplayAttribute), false)
+            .Cast<System.Diagnostics.DebuggerDisplayAttribute>().Single().Value;
+
+    private static Type? ProxyOf(Type type) =>
+        Type.GetType(type.GetCustomAttributes(typeof(System.Diagnostics.DebuggerTypeProxyAttribute), false)
+            .Cast<System.Diagnostics.DebuggerTypeProxyAttribute>().Single().ProxyTypeName);
+}
+
+public class RationalMatrixTests
+{
+    private static readonly Matrix<Rational> A = Matrix<Rational>.FromRows([1, 2], [3, 4]);
+    private static readonly Matrix<Rational> Singular3 = Matrix<Rational>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+
+    private static Rational Q(int numerator, int denominator) => new(numerator, denominator);
+
+    [Fact]
+    public void Identity_zero_and_diagonal()
+    {
+        Assert.Equal(Matrix<Rational>.FromRows([1, 0], [0, 1]), Matrix<Rational>.Identity(2));
+        Assert.Equal(Matrix<Rational>.FromRows([0, 0, 0]), Matrix<Rational>.Zero(1, 3));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 0], [0, Q(1, 2)]), Matrix<Rational>.FromDiagonal([1, Q(1, 2)]));
+        Assert.Equal([Rational.Zero, Rational.Zero], Vector<Rational>.Zero(2));
+    }
+
+    [Fact]
+    public void Arithmetic_is_exact()
+    {
+        Assert.Equal(Matrix<Rational>.FromRows([7, 10], [15, 22]), A * A);
+        Assert.Equal(Matrix<Rational>.FromRows([Q(1, 3), Q(2, 3)], [1, Q(4, 3)]), A / 3);
+        Assert.Equal(A / 3, A * Q(1, 3));
+        Assert.Equal(Matrix<Rational>.FromRows([2, 4], [6, 8]), 2 * A);
+        Assert.Equal(Matrix<Rational>.Zero(2, 2), A - A);
+        Assert.Equal(-A, Matrix<Rational>.Zero(2, 2) - A);
+        Assert.Equal([5, 11], A * Vector.Create<Rational>(1, 2));
+        Assert.Equal(5, A.Trace());
+    }
+
+    [Fact]
+    public void Division_by_zero_throws()
+    {
+        var ex = Assert.Throws<DivideByZeroException>(() => A / 0);
+        Assert.Equal("Cannot divide a matrix by 0.", ex.Message);
+        Assert.Throws<DivideByZeroException>(() => Vector.Create<Rational>(1) / 0);
+    }
+
+    [Fact]
+    public void Determinant_inverse_and_solve()
+    {
+        Assert.Equal(-2, A.Determinant());
+        Assert.Equal(Matrix<Rational>.FromRows([-2, 1], [Q(3, 2), Q(-1, 2)]), A.Inverse());
+        Assert.Equal([-4, Q(9, 2)], A.Solve([5, 6]));
+        Assert.Equal(A.Inverse(), A.Solve(Matrix<Rational>.Identity(2)));
+
+        // A zero first pivot needs a row swap, which flips the sign.
+        var swapped = Matrix<Rational>.FromRows([0, 1], [1, 0]);
+        Assert.Equal(-1, swapped.Determinant());
+        Assert.Equal(swapped, swapped.Inverse());
+    }
+
+    [Fact]
+    public void The_Hilbert_matrix_is_inverted_exactly()
+    {
+        // In doubles the inverse of this famously ill-conditioned matrix is off from the 7th digit on.
+        const int n = 8;
+        var hilbert = Matrix<Rational>.Create(n, n, (i, j) => Q(1, i + j + 1));
+
+        Matrix<Rational> inverse = hilbert.Inverse();
+        Assert.Equal(64, inverse[0, 0]);
+        Assert.Equal(176679360, inverse[7, 7]);
+        Assert.Equal(Matrix<Rational>.Identity(n), hilbert * inverse);
+        Assert.Equal(new Rational(1, System.Numerics.BigInteger.Parse("365356847125734485878112256000000")), hilbert.Determinant());
+    }
+
+    [Fact]
+    public void Singular_matrices_are_recognized_exactly()
+    {
+        Assert.Equal(0, Singular3.Determinant());
+        Assert.Equal(2, Singular3.Rank());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Singular3.Inverse());
+        Assert.Equal("The matrix is singular: its rank is 2, not 3.", ex.Message);
+        Assert.Throws<InvalidOperationException>(() => Singular3.Solve([1, 2, 3]));
+        Assert.Throws<InvalidOperationException>(() => Singular3.Pow(-1));
+    }
+
+    [Fact]
+    public void Rank_of_any_shape()
+    {
+        Assert.Equal(1, Matrix<Rational>.FromRows([1, 2, 3], [2, 4, 6]).Rank());
+        Assert.Equal(2, Matrix<Rational>.FromRows([0, 1], [0, 2], [1, 0]).Rank());
+        Assert.Equal(0, Matrix<Rational>.Zero(2, 2).Rank());
+        Assert.Equal(0, Matrix<Rational>.Zero(0, 3).Rank());
+    }
+
+    [Fact]
+    public void Square_matrices_are_required()
+    {
+        var wide = Matrix<Rational>.FromRows([1, 2, 3]);
+
+        Assert.Equal("The determinant needs a square matrix, not a 1 x 3 matrix.",
+            Assert.Throws<InvalidOperationException>(() => wide.Determinant()).Message);
+        Assert.Throws<InvalidOperationException>(() => wide.Inverse());
+        Assert.Throws<InvalidOperationException>(() => wide.Trace());
+        Assert.Throws<ArgumentException>(() => A.Solve([1, 2, 3]));
+    }
+
+    [Fact]
+    public void Powers_and_Hadamard()
+    {
+        Assert.Equal(A * A * A, A.Pow(3));
+        Assert.Equal(A.Inverse() * A.Inverse(), A.Pow(-2));
+        Assert.Equal(Matrix<Rational>.Identity(2), A.Pow(0));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 4], [9, 16]), A.Hadamard(A));
+    }
+}
+
+public class RationalVectorTests
+{
+    private static readonly Vector<Rational> V = [1, 2, 3];
+    private static readonly Vector<Rational> W = [4, 5, 6];
+
+    [Fact]
+    public void Products()
+    {
+        Assert.Equal(32, V.Dot(W));
+        Assert.Equal(14, V.NormSquared());
+        Assert.Equal([-3, 6, -3], V.Cross(W));
+        Assert.Equal([4, 10, 18], V.Hadamard(W));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 2], [2, 4], [3, 6]), V.Outer([1, 2]));
+    }
+
+    [Fact]
+    public void Projection_reflection_and_lerp_are_exact()
+    {
+        Assert.Equal([new Rational(3, 2), new Rational(3, 2), 0], V.ProjectOnto([1, 1, 0]));
+        Assert.Equal([1, 1, 0], Vector.Create<Rational>(1, -1, 0).Reflect([0, 2, 0]));
+        Assert.Equal([2, 3, 4], Vector<Rational>.Lerp(V, W, new Rational(1, 3)));
+
+        Assert.Throws<ArgumentException>(() => V.ProjectOnto(Vector<Rational>.Zero(3)));
+        Assert.Throws<ArgumentException>(() => V.Reflect(Vector<Rational>.Zero(3)));
+    }
+
+    [Fact]
+    public void Arithmetic()
+    {
+        Assert.Equal([5, 7, 9], V + W);
+        Assert.Equal([-3, -3, -3], V - W);
+        Assert.Equal([-1, -2, -3], -V);
+        Assert.Equal([new Rational(1, 2), 1, new Rational(3, 2)], V / 2);
+        Assert.Equal(2 * V, V * 2);
     }
 }
 

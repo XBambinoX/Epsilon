@@ -1,3 +1,5 @@
+using Epsilon.Core;
+
 namespace Epsilon.LinearAlgebra;
 
 /// <summary>
@@ -5,8 +7,14 @@ namespace Epsilon.LinearAlgebra;
 /// defined separately for each entry type, so only the types it is defined for support it.
 /// </summary>
 /// <typeparam name="T">The type of the entries.</typeparam>
+[System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
+[System.Diagnostics.DebuggerTypeProxy(typeof(MatrixDebugView<>))]
 public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
 {
+    // The debugger shows the entries of matrices up to 4 x 4, a transform; larger ones are
+    // expanded row by row instead, so that showing a huge matrix stays cheap.
+    internal const int DebuggerEntryLimit = 16;
+
     // Row-major: the entry at (row, column) is _entries[row * Columns + column].
     private readonly T[] _entries;
 
@@ -65,6 +73,64 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
         return new Matrix<T>(rows.Length, columns, entries);
     }
 
+    /// <summary>
+    /// A matrix assembled from blocks, given row by row like <see cref="FromRows"/>:
+    /// <c>FromBlocks([a, b], [c, d])</c>. The blocks of a row are placed side by side and the rows
+    /// stacked, so <c>FromBlocks([a, b])</c> joins horizontally and <c>FromBlocks([a], [b])</c>
+    /// vertically. A vector is a one-column block: <c>FromBlocks([a, v])</c> is the augmented matrix.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">A row or a block is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// A row of blocks is empty, its blocks have different numbers of rows, or the rows of blocks
+    /// have different numbers of columns.
+    /// </exception>
+    public static Matrix<T> FromBlocks(params Matrix<T>[][] rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+
+        int height = 0, width = 0;
+        for (int i = 0; i < rows.Length; i++)
+        {
+            Matrix<T>[] row = rows[i] ?? throw new ArgumentNullException(nameof(rows), $"Block row {i} is null.");
+            if (row.Length == 0)
+                throw new ArgumentException($"Block row {i} is empty.", nameof(rows));
+
+            int rowHeight = BlockAt(row, i, 0).Rows, rowWidth = 0;
+            for (int j = 0; j < row.Length; j++)
+            {
+                Matrix<T> block = BlockAt(row, i, j);
+                if (block.Rows != rowHeight)
+                    throw new ArgumentException($"Block ({i}, {j}) has {block.Rows} rows, but block ({i}, 0) has {rowHeight}.", nameof(rows));
+
+                rowWidth = checked(rowWidth + block.Columns);
+            }
+
+            if (i > 0 && rowWidth != width)
+                throw new ArgumentException($"Block row {i} has {rowWidth} columns, but block row 0 has {width}.", nameof(rows));
+
+            width = rowWidth;
+            height = checked(height + rowHeight);
+        }
+
+        var entries = new T[checked(height * width)];
+        int top = 0;
+        foreach (Matrix<T>[] row in rows)
+        {
+            int left = 0;
+            foreach (Matrix<T> block in row)
+            {
+                for (int r = 0; r < block.Rows; r++)
+                    block._entries.AsSpan(r * block.Columns, block.Columns).CopyTo(entries.AsSpan((top + r) * width + left));
+
+                left += block.Columns;
+            }
+
+            top += row[0].Rows;
+        }
+
+        return new Matrix<T>(height, width, entries);
+    }
+
     /// <summary>A <paramref name="rows"/> x <paramref name="columns"/> matrix whose entry at (i, j) is <c>entry(i, j)</c>.</summary>
     /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
     /// <exception cref="ArgumentNullException"><paramref name="entry"/> is null or returns null.</exception>
@@ -92,6 +158,36 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
             CheckColumn(column);
             return _entries[row * Columns + column];
         }
+    }
+
+    /// <summary>
+    /// The submatrix of the rows and columns in the ranges: <c>m[1.., ..2]</c> drops the first
+    /// row and keeps the first two columns.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">A range reaches outside the matrix.</exception>
+    public Matrix<T> this[Range rows, Range columns]
+    {
+        get
+        {
+            var (top, height) = Bounds(rows, Rows, nameof(rows));
+            var (left, width) = Bounds(columns, Columns, nameof(columns));
+
+            var entries = new T[height * width];
+            for (int i = 0; i < height; i++)
+                _entries.AsSpan((top + i) * Columns + left, width).CopyTo(entries.AsSpan(i * width));
+
+            return new Matrix<T>(height, width, entries);
+        }
+    }
+
+    /// <summary>The entries at (0, 0), (1, 1), ... of the main diagonal, as many as the smaller dimension.</summary>
+    public Vector<T> Diagonal()
+    {
+        var entries = new T[Math.Min(Rows, Columns)];
+        for (int i = 0; i < entries.Length; i++)
+            entries[i] = _entries[i * Columns + i];
+
+        return new Vector<T>(entries);
     }
 
     /// <summary>The entries of a row, as a vector.</summary>
@@ -195,6 +291,14 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
 
     internal static string Format(T entry) => FormattableString.Invariant($"{entry}");
 
+    // The debugger's summary: "2 x 3, [[1, 2, 3], [4, 5, 6]]" or only "100 x 100".
+    internal string DebuggerDisplay =>
+        _entries.Length > DebuggerEntryLimit ? Size
+        : Size + ", [" + string.Join(", ", Enumerable.Range(0, Rows).Select(i => Row(i).DebuggerEntries)) + "]";
+
+    // An expression is printed, which reads better than its fully parenthesized ToString.
+    internal static string DebuggerFormat(T entry) => entry is Expr expr ? expr.Print() : Format(entry);
+
     // The row-major entries, for the arithmetic of each entry type.
     internal ReadOnlySpan<T> Entries => _entries;
 
@@ -234,11 +338,47 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
             throw new InvalidOperationException($"{operation} needs a square matrix, not a {Size} matrix.");
     }
 
+    // factor^|exponent| of a square matrix by repeated squaring; the caller passes A^-1 as the
+    // factor for a negative exponent. Powers of one matrix commute, so the order of the products
+    // does not matter.
+    internal static Matrix<T> Power(Matrix<T> factor, int exponent, Matrix<T> identity, Func<Matrix<T>, Matrix<T>, Matrix<T>> multiply)
+    {
+        // Through long, so that int.MinValue has a magnitude too.
+        ulong remaining = (ulong)Math.Abs((long)exponent);
+        Matrix<T> square = factor;
+        Matrix<T>? result = null;
+
+        while (remaining > 0)
+        {
+            if ((remaining & 1) != 0)
+                result = result is null ? square : multiply(result, square);
+
+            remaining >>= 1;
+            if (remaining > 0)
+                square = multiply(square, square);
+        }
+
+        return result ?? identity;
+    }
+
+    // The offset and length of a range of count rows or columns.
+    internal static (int Offset, int Length) Bounds(Range range, int count, string paramName)
+    {
+        int start = range.Start.GetOffset(count), end = range.End.GetOffset(count);
+        if ((uint)end > (uint)count || (uint)start > (uint)end)
+            throw new ArgumentOutOfRangeException(paramName, $"The range {range} is outside 0..{count}.");
+
+        return (start, end - start);
+    }
+
     internal static T NotNull(T entry, int row, int column) =>
         entry ?? throw new ArgumentNullException(nameof(entry), $"The entry at ({row}, {column}) is null.");
 
     private static T[] RowAt(T[][] rows, int i) =>
         rows[i] ?? throw new ArgumentNullException(nameof(rows), $"Row {i} is null.");
+
+    private static Matrix<T> BlockAt(Matrix<T>[] row, int i, int j) =>
+        row[j] ?? throw new ArgumentNullException("rows", $"Block ({i}, {j}) is null.");
 
     private void CheckRow(int row)
     {

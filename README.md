@@ -15,7 +15,7 @@ dependencies beyond the .NET base library.
 | Package | What it does | NuGet |
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
-| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions or doubles: exact symbolic determinant, inverse and solve, LU decomposition for numbers | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
+| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU decomposition for doubles, vector geometry | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 
 Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
 targets .NET 10, and the packages built on the core bring it with them:
@@ -71,8 +71,10 @@ The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
 
 The areas built on the core as separate packages, in this order:
 
-1. **Linear algebra** - available as `Epsilon.LinearAlgebra`. Next: least squares (QR),
-   numeric eigenvalues, SVD, complex and fast rational matrices.
+1. **Linear algebra** - available as `Epsilon.LinearAlgebra`. Next, with games and real-time
+   code in mind: fixed-size vectors and matrices for `float` and `double`, transforms and
+   quaternions, compiling symbolic matrices to fast code, then least squares (QR),
+   eigenvalues and SVD.
 2. **Calculus** - symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.
    Planned next, as far as time and energy allow: limits (including multivariable limits in

@@ -7,6 +7,8 @@ namespace Epsilon.LinearAlgebra;
 /// </summary>
 /// <typeparam name="T">The type of the entries.</typeparam>
 [System.Runtime.CompilerServices.CollectionBuilder(typeof(Vector), nameof(Vector.Create))]
+[System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
+[System.Diagnostics.DebuggerTypeProxy(typeof(VectorDebugView<>))]
 public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T : notnull
 {
     // Length x 1; row-major storage of a single column is the plain list of entries.
@@ -39,6 +41,20 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
 
             return _column[index, 0];
         }
+    }
+
+    /// <summary>
+    /// The <paramref name="length"/> entries from index <paramref name="start"/> on. It makes
+    /// ranges work too: <c>v[..3]</c> is the first three entries, <c>v[1..^1]</c> all but the
+    /// first and the last.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The entries reach outside the vector.</exception>
+    public Vector<T> Slice(int start, int length)
+    {
+        if ((uint)start > (uint)Length || (uint)length > (uint)(Length - start))
+            throw new ArgumentOutOfRangeException(nameof(start), $"The range {start}..{start + length} is outside 0..{Length}.");
+
+        return new Vector<T>(_column[start..(start + length), ..]);
     }
 
     /// <summary>The vector as a <see cref="Length"/> x 1 matrix.</summary>
@@ -89,6 +105,12 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
 
     /// <summary>The entries in brackets, culture-invariant: <c>[1, 2, 3]</c>.</summary>
     public override string ToString() => "[" + string.Join(", ", this.Select(Matrix<T>.Format)) + "]";
+
+    // The debugger's summary: "Length = 3, [1, 2, 3]" or only "Length = 100".
+    internal string DebuggerDisplay =>
+        Length > Matrix<T>.DebuggerEntryLimit ? $"Length = {Length}" : $"Length = {Length}, {DebuggerEntries}";
+
+    internal string DebuggerEntries => "[" + string.Join(", ", this.Select(Matrix<T>.DebuggerFormat)) + "]";
 
     // Applies combine to the entries at the same position of two vectors of the same length.
     internal Vector<T> Combine(Vector<T> other, Func<T, T, T> combine, string operation)
