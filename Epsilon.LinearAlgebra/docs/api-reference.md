@@ -32,11 +32,14 @@ An immutable matrix of `Rows` x `Columns` entries.
 |---|---|
 | `Matrix(T[,] entries)` | A matrix with a copy of the array's entries. Throws `ArgumentNullException` for a null entry. |
 | `static Matrix<T> FromRows(params T[][] rows)` | A matrix from its rows, which are copied: `Matrix<double>.FromRows([1, 2], [3, 4])`. Throws `ArgumentException` if the rows have different lengths. |
+| `static Matrix<T> FromBlocks(params Matrix<T>[][] rows)` | A matrix from blocks, row by row: `FromBlocks([a, b], [c, d])`; a vector is a block with one column. Throws `ArgumentException` if the blocks do not fit together. |
 | `static Matrix<T> Create(int rows, int columns, Func<int, int, T> entry)` | The matrix whose entry at (i, j) is `entry(i, j)`. |
 | `int Rows`, `int Columns` | The size. |
 | `bool IsSquare` | Whether `Rows == Columns`. |
 | `T this[int row, int column]` | The entry at zero-based indices; throws `ArgumentOutOfRangeException` outside the matrix. |
+| `Matrix<T> this[Range rows, Range columns]` | The submatrix: `m[1.., ..2]`; throws `ArgumentOutOfRangeException` outside the matrix. |
 | `Vector<T> Row(int row)`, `Vector<T> Column(int column)` | A row or a column as a vector. |
+| `Vector<T> Diagonal()` | The main diagonal, as many entries as the smaller dimension. |
 | `Matrix<T> Transpose()` | The transpose. |
 | `Matrix<TResult> Map<TResult>(Func<T, TResult> map)` | The matrix of the same size with `map` applied to every entry. |
 | `T[,] ToArray()` | A copy of the entries. |
@@ -57,7 +60,8 @@ An immutable column vector: a matrix with one column. A collection expression cr
 | Member | Description |
 |---|---|
 | `int Length` | The number of entries. |
-| `T this[int index]` | The entry at a zero-based index; throws `ArgumentOutOfRangeException` outside the vector. |
+| `T this[int index]` | The entry at a zero-based index, also from the end: `v[^1]`; throws `ArgumentOutOfRangeException` outside the vector. |
+| `Vector<T> Slice(int start, int length)` | The entries from `start` on. It makes ranges work: `v[..3]`, `v[1..^1]`. |
 | `Matrix<T> ToMatrix()` | The `Length` x 1 matrix. |
 | implicit to `Matrix<T>` | The same, as a conversion. |
 | `Vector<TResult> Map<TResult>(Func<T, TResult> map)` | The vector with `map` applied to every entry. |
@@ -84,9 +88,13 @@ Extension members of `Matrix<double>`.
 |---|---|
 | `static Matrix<double> Identity(int size)` | The identity matrix. |
 | `static Matrix<double> Zero(int rows, int columns)` | The zero matrix. |
+| `static Matrix<double> FromDiagonal(Vector<double> diagonal)` | The diagonal matrix: `FromDiagonal([1, 2, 3])`. |
 | `+`, `-` (binary and unary) | Entry by entry. Throws `ArgumentException` for different sizes. |
 | `*` (matrix by matrix, matrix by `Vector<double>`) | The matrix product. Throws `ArgumentException` if the inner sizes differ. |
 | `*`, `/` with a `double` | Every entry times or divided by the number. |
+| `Matrix<double> Pow(int exponent)` | A^n by repeated squaring: the identity for n = 0, a power of the inverse for negative n. |
+| `Matrix<double> Hadamard(Matrix<double> other)` | The entry-wise product. Throws `ArgumentException` for different sizes. |
+| `double FrobeniusNorm()` | The square root of the sum of the squares of the entries; neither overflows nor underflows. |
 | `double Trace()` | The sum of the diagonal. Throws `InvalidOperationException` for a non-square matrix. |
 | `double Determinant()` | By LU decomposition with partial pivoting; 0 if singular to working precision. |
 | `Matrix<double> Inverse()` | Throws `InvalidOperationException` if singular to working precision. |
@@ -94,8 +102,8 @@ Extension members of `Matrix<double>`.
 | `Matrix<double> Solve(Matrix<double> b)` | The solution of A X = B, column by column. |
 | `int Rank()` | The rank to working precision, for any shape. |
 
-`Determinant`, `Inverse` and `Solve` need a square matrix, and all four throw
-`InvalidOperationException` for an entry that is NaN or infinite.
+`Pow`, `Determinant`, `Inverse` and `Solve` need a square matrix. `Determinant`, `Inverse`,
+`Solve` and `Rank` throw `InvalidOperationException` for an entry that is NaN or infinite.
 
 ---
 
@@ -120,6 +128,7 @@ Extension members of `Vector<double>`.
 | `Vector<double> ProjectOnto(Vector<double> onto)` | The projection (v . w / w . w) w onto the line through `onto`. |
 | `Vector<double> Reflect(Vector<double> normal)` | The mirror image in the plane perpendicular to `normal`, which need not have length 1. |
 | `Matrix<double> Outer(Vector<double> other)` | The outer product v w^T. |
+| `Vector<double> Hadamard(Vector<double> other)` | The entry-wise product. |
 
 The members that take two vectors throw `ArgumentException` for different lengths.
 
@@ -137,6 +146,7 @@ Extension members of `Matrix<Expr>`. Arithmetic results are simplified in the `G
 |---|---|
 | `static Matrix<Expr> Identity(int size)` | The identity matrix. |
 | `static Matrix<Expr> Zero(int rows, int columns)` | The zero matrix. |
+| `static Matrix<Expr> FromDiagonal(Vector<Expr> diagonal)` | The diagonal matrix. |
 | `static Matrix<Expr> Parse(string text)` | Reads `[[a, b], [c, d]]`; the entries are not simplified. Throws `FormatException`. |
 | `static Matrix<Expr> Parse(string text, string[] variableNames)` | The same with only these variables: `Parse("[[theta, 2t]]", ["theta", "t"])`. |
 
@@ -147,6 +157,9 @@ Extension members of `Matrix<Expr>`. Arithmetic results are simplified in the `G
 | `+`, `-` (binary and unary) | Entry by entry, simplified. |
 | `*` (matrix by matrix, matrix by `Vector<Expr>`) | The matrix product, simplified. |
 | `*`, `/` with an `Expr` | Every entry times or divided by the expression; numbers convert to `Expr`. |
+| `Matrix<Expr> Pow(int exponent)` | A^n, simplified; a power of the inverse for negative n. Throws `InvalidOperationException` for a non-square matrix, or for negative n if the determinant is 0. |
+| `Matrix<Expr> Hadamard(Matrix<Expr> other)` | The entry-wise product, simplified. |
+| `Expr FrobeniusNorm()` | The simplified square root of the sum of the squares of the entries. |
 | `Expr Trace()` | The simplified sum of the diagonal. |
 
 **Determinant, inverse and systems**
@@ -200,7 +213,7 @@ Extension members of `Vector<Expr>`.
 | `+`, `-` (binary and unary), `*` and `/` with an `Expr` | Entry by entry, simplified. |
 | `Expr Dot(Vector<Expr> other)` | The simplified dot product. |
 | `Expr Norm()`, `Expr NormSquared()` | sqrt(v . v) and v . v, simplified: `[3, 4]` has norm 5. |
-| `Normalize`, `Distance`, `Cross`, `ProjectOnto`, `Reflect`, `Outer` | As for `double`, exact and simplified: `[1, 1]` normalizes to `[sqrt(2) / 2, sqrt(2) / 2]`. |
+| `Normalize`, `Distance`, `Cross`, `ProjectOnto`, `Reflect`, `Outer`, `Hadamard` | As for `double`, exact and simplified: `[1, 1]` normalizes to `[sqrt(2) / 2, sqrt(2) / 2]`. |
 | `Expr Angle(Vector<Expr> other)` | The arccosine of v . w over the product of the norms, simplified: `[1, 0]` and `[1, 1]` give pi / 4. |
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |

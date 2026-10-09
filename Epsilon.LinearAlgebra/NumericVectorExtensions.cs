@@ -38,20 +38,7 @@ public static class NumericVectorExtensions
         /// The Euclidean norm (length) sqrt(v . v). It is the naive sum of squares where that one
         /// is accurate, but neither overflows for huge entries nor underflows for tiny ones.
         /// </summary>
-        public double Norm()
-        {
-            ReadOnlySpan<double> entries = vector.ToMatrix().Entries;
-            int exponent = ScaleExponent(entries);
-
-            double sum = 0;
-            foreach (double entry in entries)
-            {
-                double scaled = Math.ScaleB(entry, -exponent);
-                sum += scaled * scaled;
-            }
-
-            return Math.ScaleB(Math.Sqrt(sum), exponent);
-        }
+        public double Norm() => EuclideanNorm(vector.ToMatrix().Entries);
 
         /// <summary>The squared norm v . v; cheaper than <see cref="Norm"/> for comparing lengths.</summary>
         public double NormSquared() => vector.Dot(vector);
@@ -148,6 +135,11 @@ public static class NumericVectorExtensions
         public Matrix<double> Outer(Vector<double> other) =>
             Matrix<double>.Create(vector.Length, other.Length, (i, j) => vector[i] * other[j]);
 
+        /// <summary>The Hadamard product: the products of the entries at the same index, as when scaling by a vector.</summary>
+        /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
+        public Vector<double> Hadamard(Vector<double> other) =>
+            vector.Combine(other, (a, b) => a * b, "take the Hadamard product of");
+
         /// <summary>The entry-wise sum.</summary>
         /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
         public static Vector<double> operator +(Vector<double> left, Vector<double> right) =>
@@ -181,6 +173,22 @@ public static class NumericVectorExtensions
             throw new InvalidOperationException($"The cross product needs vectors of length 3, not {length}.");
         if (otherLength != 3)
             throw new ArgumentException($"The cross product needs vectors of length 3, not {otherLength}.", "other");
+    }
+
+    // sqrt of the sum of squares, after scaling by a power of two (see Scaled): the naive result
+    // wherever that one neither overflows nor underflows.
+    internal static double EuclideanNorm(ReadOnlySpan<double> entries)
+    {
+        int exponent = ScaleExponent(entries);
+
+        double sum = 0;
+        foreach (double entry in entries)
+        {
+            double scaled = Math.ScaleB(entry, -exponent);
+            sum += scaled * scaled;
+        }
+
+        return Math.ScaleB(Math.Sqrt(sum), exponent);
     }
 
     private static bool IsZero(Vector<double> vector) => vector.All(entry => entry == 0);

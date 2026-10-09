@@ -41,6 +41,20 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
         }
     }
 
+    /// <summary>
+    /// The <paramref name="length"/> entries from index <paramref name="start"/> on. It makes
+    /// ranges work too: <c>v[..3]</c> is the first three entries, <c>v[1..^1]</c> all but the
+    /// first and the last.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The entries reach outside the vector.</exception>
+    public Vector<T> Slice(int start, int length)
+    {
+        if ((uint)start > (uint)Length || (uint)length > (uint)(Length - start))
+            throw new ArgumentOutOfRangeException(nameof(start), $"The range {start}..{start + length} is outside 0..{Length}.");
+
+        return new Vector<T>(_column[start..(start + length), ..]);
+    }
+
     /// <summary>The vector as a <see cref="Length"/> x 1 matrix.</summary>
     public Matrix<T> ToMatrix() => _column;
 

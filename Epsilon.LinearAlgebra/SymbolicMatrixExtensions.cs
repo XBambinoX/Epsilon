@@ -3,9 +3,9 @@ using Epsilon.Core;
 namespace Epsilon.LinearAlgebra;
 
 /// <summary>
-/// Arithmetic, determinant, inverse and entry-wise operations on matrices of expressions. Unlike
-/// the operators of <see cref="Expr"/>, which only build a tree, the arithmetic computes: every
-/// entry of the result is simplified.
+/// Arithmetic, powers, determinant, inverse and entry-wise operations on matrices of expressions.
+/// Unlike the operators of <see cref="Expr"/>, which only build a tree, the arithmetic computes:
+/// every entry of the result is simplified.
 /// </summary>
 public static partial class SymbolicMatrixExtensions
 {
@@ -23,6 +23,39 @@ public static partial class SymbolicMatrixExtensions
         /// <exception cref="ArgumentOutOfRangeException">A dimension is negative.</exception>
         public static Matrix<Expr> Zero(int rows, int columns) =>
             Matrix<Expr>.Create(rows, columns, (_, _) => ZeroEntry);
+
+        /// <summary>
+        /// The square matrix with the entries of <paramref name="diagonal"/> on the main diagonal
+        /// and zeros elsewhere: <c>Matrix&lt;Expr&gt;.FromDiagonal(Vector&lt;Expr&gt;.Parse("[a, b]"))</c>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="diagonal"/> is null.</exception>
+        public static Matrix<Expr> FromDiagonal(Vector<Expr> diagonal)
+        {
+            ArgumentNullException.ThrowIfNull(diagonal);
+            return Matrix<Expr>.Create(diagonal.Length, diagonal.Length, (i, j) => i == j ? diagonal[i] : ZeroEntry);
+        }
+
+        /// <summary>
+        /// The integer power A^n by repeated squaring, every entry simplified: the identity for
+        /// n = 0, and a power of the inverse for negative n.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, or n is negative and the determinant is 0.
+        /// </exception>
+        public Matrix<Expr> Pow(int exponent)
+        {
+            matrix.CheckSquare("Pow");
+            return Matrix<Expr>.Power(exponent < 0 ? matrix.Inverse() : matrix, exponent,
+                Matrix<Expr>.Identity(matrix.Rows), (a, b) => a * b);
+        }
+
+        /// <summary>The Hadamard product: the simplified products of the entries at the same position.</summary>
+        /// <exception cref="ArgumentException">The matrices have different sizes.</exception>
+        public Matrix<Expr> Hadamard(Matrix<Expr> other) =>
+            matrix.Combine(other, (a, b) => (a * b).Simplify(), "take the Hadamard product of");
+
+        /// <summary>The Frobenius norm: the simplified square root of the sum of the squares of all entries.</summary>
+        public Expr FrobeniusNorm() => new Vector<Expr>(matrix.Entries.ToArray()).Norm();
 
         /// <summary>The simplified sum of the diagonal entries.</summary>
         /// <exception cref="InvalidOperationException">The matrix is not square.</exception>

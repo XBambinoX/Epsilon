@@ -157,6 +157,78 @@ public class MatrixTests
             CultureInfo.CurrentCulture = culture;
         }
     }
+
+    [Fact]
+    public void Ranges_give_a_submatrix()
+    {
+        var m = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+
+        Assert.Equal(Matrix<double>.FromRows([4, 5], [7, 8]), m[1.., ..2]);
+        Assert.Equal(Matrix<double>.FromRows([2], [5]), m[..^1, 1..2]);
+        Assert.Equal(m, m[.., ..]);
+
+        Matrix<double> empty = m[0..0, ..];
+        Assert.Equal(0, empty.Rows);
+        Assert.Equal(3, empty.Columns);
+    }
+
+    [Fact]
+    public void Ranges_outside_the_matrix_throw()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => A[1..3, ..]);
+        Assert.StartsWith("The range 1..3 is outside 0..2.", ex.Message);
+        Assert.Equal("rows", ex.ParamName);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => A[.., 2..1]);
+    }
+
+    [Fact]
+    public void Diagonal_of_any_shape()
+    {
+        Assert.Equal([1.0, 5.0], A.Diagonal());
+        Assert.Equal([1.0, 5.0], A.Transpose().Diagonal());
+        Assert.Equal(0, Matrix<double>.FromRows().Diagonal().Length);
+    }
+
+    [Fact]
+    public void Blocks_join_side_by_side_and_on_top_of_each_other()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+        var i = Matrix<double>.Identity(2);
+
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 1, 0], [3, 4, 0, 1]), Matrix<double>.FromBlocks([a, i]));
+        Assert.Equal(Matrix<double>.FromRows([1, 2], [3, 4], [1, 0], [0, 1]), Matrix<double>.FromBlocks([a], [i]));
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 0], [3, 4, 0], [0, 0, 9]),
+            Matrix<double>.FromBlocks([a, Matrix<double>.Zero(2, 1)], [Matrix<double>.Zero(1, 2), Matrix<double>.FromRows([9])]));
+        Assert.Equal(0, Matrix<double>.FromBlocks().Rows);
+    }
+
+    [Fact]
+    public void A_vector_is_a_block_with_one_column()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+        Vector<double> b = [5, 6];
+
+        Assert.Equal(Matrix<double>.FromRows([1, 2, 5], [3, 4, 6]), Matrix<double>.FromBlocks([a, b]));
+    }
+
+    [Fact]
+    public void Blocks_must_fit_together()
+    {
+        var a = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+        var ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a, Matrix<double>.Zero(3, 1)]));
+        Assert.StartsWith("Block (0, 1) has 3 rows, but block (0, 0) has 2.", ex.Message);
+
+        ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a], [Matrix<double>.Zero(1, 3)]));
+        Assert.StartsWith("Block row 1 has 3 columns, but block row 0 has 2.", ex.Message);
+
+        ex = Assert.Throws<ArgumentException>(() => Matrix<double>.FromBlocks([a], []));
+        Assert.StartsWith("Block row 1 is empty.", ex.Message);
+
+        ex = Assert.Throws<ArgumentNullException>(() => Matrix<double>.FromBlocks([a, null!]));
+        Assert.StartsWith("Block (0, 1) is null.", ex.Message);
+    }
 }
 
 public class VectorTests
@@ -218,6 +290,28 @@ public class VectorTests
         Assert.Equal(v.GetHashCode(), Vector.Create(1.0, 2.5).GetHashCode());
         Assert.Equal("[1, 2.5]", v.ToString());
         Assert.Equal("[]", Vector.Create<double>().ToString());
+    }
+
+    [Fact]
+    public void Indices_and_ranges_from_the_end()
+    {
+        Vector<double> v = [1, 2, 3, 4];
+
+        Assert.Equal(4, v[^1]);
+        Assert.Equal([1.0, 2.0, 3.0], v[..3]);
+        Assert.Equal([2.0, 3.0], v[1..^1]);
+        Assert.Equal(0, v[4..].Length);
+        Assert.Equal([2.0, 3.0], v.Slice(1, 2));
+    }
+
+    [Fact]
+    public void Ranges_outside_the_vector_throw()
+    {
+        Vector<double> v = [1, 2, 3, 4];
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => v[2..5]);
+        Assert.StartsWith("The range 2..5 is outside 0..4.", ex.Message);
+        Assert.Throws<ArgumentOutOfRangeException>(() => v.Slice(3, -1));
     }
 }
 
@@ -624,6 +718,111 @@ public class SymbolicVectorOperationsTests
     public void Outer_product()
     {
         Assert.Equal("[[a * x, a * y, 2a], [b * x, b * y, 2b]]", V("[a, b]").Outer(V("[x, y, 2]")).Print());
+    }
+}
+
+public class NumericMatrixUtilityTests
+{
+    private static readonly Matrix<double> A = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+    [Fact]
+    public void FromDiagonal_puts_zeros_elsewhere()
+    {
+        Assert.Equal(Matrix<double>.FromRows([1, 0, 0], [0, 2, 0], [0, 0, 3]), Matrix<double>.FromDiagonal([1, 2, 3]));
+        Assert.Equal([1.0, 2.0, 3.0], Matrix<double>.FromDiagonal([1, 2, 3]).Diagonal());
+    }
+
+    [Fact]
+    public void Pow_by_repeated_squaring()
+    {
+        Assert.Equal(Matrix<double>.Identity(2), A.Pow(0));
+        Assert.Equal(A, A.Pow(1));
+        Assert.Equal(A * A * A * A * A, A.Pow(5));
+
+        // Exact: the entry is the exponent, after 2 * 31 products.
+        Assert.Equal(Matrix<double>.FromRows([1, int.MaxValue], [0, 1]), Matrix<double>.FromRows([1, 1], [0, 1]).Pow(int.MaxValue));
+        Assert.Equal(Matrix<double>.Identity(2), Matrix<double>.Identity(2).Pow(int.MinValue));
+    }
+
+    [Fact]
+    public void Negative_powers_are_powers_of_the_inverse()
+    {
+        var b = Matrix<double>.FromRows([2, 0], [0, 4]);
+
+        Assert.Equal(Matrix<double>.FromRows([0.25, 0], [0, 0.0625]), b.Pow(-2));
+        Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2], [2, 4]).Pow(-1));
+    }
+
+    [Fact]
+    public void Pow_needs_a_square_matrix()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2]).Pow(2));
+        Assert.Equal("Pow needs a square matrix, not a 1 x 2 matrix.", ex.Message);
+    }
+
+    [Fact]
+    public void Hadamard_multiplies_entry_by_entry()
+    {
+        Assert.Equal(Matrix<double>.FromRows([2, 0], [3, -4]), A.Hadamard(Matrix<double>.FromRows([2, 0], [1, -1])));
+        Assert.Equal([2.0, 4.0, 0.0], Vector.Create<double>(1, 2, 3).Hadamard([2, 2, 0]));
+
+        var ex = Assert.Throws<ArgumentException>(() => A.Hadamard(Matrix<double>.Zero(2, 3)));
+        Assert.Equal("Cannot take the Hadamard product of matrices of different sizes: 2 x 2 and 2 x 3.", ex.Message);
+        Assert.Throws<ArgumentException>(() => Vector.Create<double>(1, 2).Hadamard([1]));
+    }
+
+    [Fact]
+    public void Frobenius_norm()
+    {
+        Assert.Equal(Math.Sqrt(30), A.FrobeniusNorm());
+        Assert.Equal(5e300, Matrix<double>.FromRows([3e300], [4e300]).FrobeniusNorm());
+        Assert.Equal(0, Matrix<double>.Zero(2, 2).FrobeniusNorm());
+    }
+}
+
+public class SymbolicMatrixUtilityTests
+{
+    private static Matrix<Expr> M(string text) => Matrix<Expr>.Parse(text).Simplify();
+
+    private static readonly Matrix<Expr> Abcd = M("[[a, b], [c, d]]");
+
+    [Fact]
+    public void FromDiagonal_and_Diagonal()
+    {
+        Assert.Equal("[[a, 0], [0, b]]", Matrix<Expr>.FromDiagonal(Vector<Expr>.Parse("[a, b]")).Print());
+        Assert.Equal("[a, d]", Abcd.Diagonal().Print());
+    }
+
+    [Fact]
+    public void Pow_is_simplified()
+    {
+        Assert.Equal(Abcd * Abcd, Abcd.Pow(2));
+        Assert.Equal("[[1, 10x], [0, 1]]", M("[[1, x], [0, 1]]").Pow(10).Print());
+        Assert.Equal("[[1, -3x], [0, 1]]", M("[[1, x], [0, 1]]").Pow(-3).Print());
+        Assert.Equal(Matrix<Expr>.Identity(2), Abcd.Pow(0));
+    }
+
+    [Fact]
+    public void Negative_power_of_a_singular_matrix_throws()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() => M("[[1, 2], [2, 4]]").Pow(-1));
+        Assert.Equal("The matrix is singular: its determinant is 0.", ex.Message);
+    }
+
+    [Fact]
+    public void Hadamard_and_Frobenius_norm()
+    {
+        Assert.Equal("[[a * x, 2b], [0, d * y]]", Abcd.Hadamard(M("[[x, 2], [0, y]]")).Print());
+        Assert.Equal("[a * x, 2b]", Vector<Expr>.Parse("[a, b]").Hadamard(Vector<Expr>.Parse("[x, 2]")).Print());
+        Assert.Equal("sqrt(a^2 + b^2 + c^2 + d^2)", Abcd.FrobeniusNorm().Print());
+        Assert.Equal("5", M("[[1, 2], [2, 4]]").FrobeniusNorm().Print());
+    }
+
+    [Fact]
+    public void Blocks_and_ranges_work_for_expressions()
+    {
+        Assert.Equal("[[a, b, x], [c, d, y]]", Matrix<Expr>.FromBlocks([Abcd, Vector<Expr>.Parse("[x, y]")]).Print());
+        Assert.Equal("[[c, d]]", Abcd[1.., ..].Print());
     }
 }
 

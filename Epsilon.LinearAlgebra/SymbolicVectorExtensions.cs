@@ -128,6 +128,11 @@ public static class SymbolicVectorExtensions
         public Matrix<Expr> Outer(Vector<Expr> other) =>
             Matrix<Expr>.Create(vector.Length, other.Length, (i, j) => (vector[i] * other[j]).Simplify());
 
+        /// <summary>The Hadamard product: the simplified products of the entries at the same index.</summary>
+        /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
+        public Vector<Expr> Hadamard(Vector<Expr> other) =>
+            vector.Combine(other, (a, b) => (a * b).Simplify(), "take the Hadamard product of");
+
         /// <summary>The entry-wise sum, simplified.</summary>
         /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
         public static Vector<Expr> operator +(Vector<Expr> left, Vector<Expr> right) =>
