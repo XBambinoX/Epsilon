@@ -95,6 +95,7 @@ Extension members of `Matrix<double>`.
 | `Matrix<double> Pow(int exponent)` | A^n by repeated squaring: the identity for n = 0, a power of the inverse for negative n. |
 | `Matrix<double> Hadamard(Matrix<double> other)` | The entry-wise product. Throws `ArgumentException` for different sizes. |
 | `double FrobeniusNorm()` | The square root of the sum of the squares of the entries; neither overflows nor underflows. |
+| `bool IsApproximately(Matrix<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)` | Equal up to rounding: the same size and \|\|A - B\|\| at most `relativeTolerance` times the larger norm (Frobenius), or at most `absoluteTolerance`, which is needed against the zero matrix. Infinite entries must be equal; NaN never is. |
 | `double Trace()` | The sum of the diagonal. Throws `InvalidOperationException` for a non-square matrix. |
 | `double Determinant()` | By LU decomposition with partial pivoting; 0 if singular to working precision. |
 | `Matrix<double> Inverse()` | Throws `InvalidOperationException` if singular to working precision. |
@@ -129,6 +130,7 @@ Extension members of `Vector<double>`.
 | `Vector<double> Reflect(Vector<double> normal)` | The mirror image in the plane perpendicular to `normal`, which need not have length 1. |
 | `Matrix<double> Outer(Vector<double> other)` | The outer product v w^T. |
 | `Vector<double> Hadamard(Vector<double> other)` | The entry-wise product. |
+| `bool IsApproximately(Vector<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)` | Equal up to rounding, as for matrices. Returns `false` for different lengths. |
 
 The members that take two vectors throw `ArgumentException` for different lengths.
 

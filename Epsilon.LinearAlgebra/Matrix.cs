@@ -1,3 +1,5 @@
+using Epsilon.Core;
+
 namespace Epsilon.LinearAlgebra;
 
 /// <summary>
@@ -5,8 +7,14 @@ namespace Epsilon.LinearAlgebra;
 /// defined separately for each entry type, so only the types it is defined for support it.
 /// </summary>
 /// <typeparam name="T">The type of the entries.</typeparam>
+[System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
+[System.Diagnostics.DebuggerTypeProxy(typeof(MatrixDebugView<>))]
 public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
 {
+    // The debugger shows the entries of matrices up to 4 x 4, a transform; larger ones are
+    // expanded row by row instead, so that showing a huge matrix stays cheap.
+    internal const int DebuggerEntryLimit = 16;
+
     // Row-major: the entry at (row, column) is _entries[row * Columns + column].
     private readonly T[] _entries;
 
@@ -282,6 +290,14 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
         "[" + string.Join(", ", Enumerable.Range(0, Rows).Select(i => Row(i).ToString())) + "]";
 
     internal static string Format(T entry) => FormattableString.Invariant($"{entry}");
+
+    // The debugger's summary: "2 x 3, [[1, 2, 3], [4, 5, 6]]" or only "100 x 100".
+    internal string DebuggerDisplay =>
+        _entries.Length > DebuggerEntryLimit ? Size
+        : Size + ", [" + string.Join(", ", Enumerable.Range(0, Rows).Select(i => Row(i).DebuggerEntries)) + "]";
+
+    // An expression is printed, which reads better than its fully parenthesized ToString.
+    internal static string DebuggerFormat(T entry) => entry is Expr expr ? expr.Print() : Format(entry);
 
     // The row-major entries, for the arithmetic of each entry type.
     internal ReadOnlySpan<T> Entries => _entries;

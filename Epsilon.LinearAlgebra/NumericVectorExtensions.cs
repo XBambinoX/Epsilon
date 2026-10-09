@@ -135,6 +135,20 @@ public static class NumericVectorExtensions
         public Matrix<double> Outer(Vector<double> other) =>
             Matrix<double>.Create(vector.Length, other.Length, (i, j) => vector[i] * other[j]);
 
+        /// <summary>
+        /// Whether the vectors are equal up to rounding: of the same length, with
+        /// |v - w| &lt;= max(relativeTolerance * max(|v|, |w|), absoluteTolerance). See
+        /// <see cref="NumericMatrixExtensions.IsApproximately"/>; against the zero vector only
+        /// <paramref name="absoluteTolerance"/> helps.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="other"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
+        public bool IsApproximately(Vector<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)
+        {
+            ArgumentNullException.ThrowIfNull(other);
+            return vector.ToMatrix().IsApproximately(other.ToMatrix(), relativeTolerance, absoluteTolerance);
+        }
+
         /// <summary>The Hadamard product: the products of the entries at the same index, as when scaling by a vector.</summary>
         /// <exception cref="ArgumentException">The vectors have different lengths.</exception>
         public Vector<double> Hadamard(Vector<double> other) =>

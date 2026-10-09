@@ -51,6 +51,49 @@ public static class NumericMatrixExtensions
         /// </summary>
         public double FrobeniusNorm() => NumericVectorExtensions.EuclideanNorm(matrix.Entries);
 
+        /// <summary>
+        /// Whether the matrices are equal up to rounding: of the same size, with
+        /// ||A - B|| &lt;= max(relativeTolerance * max(||A||, ||B||), absoluteTolerance) in the
+        /// Frobenius norm. Measured against the whole matrix, an entry that should be 0, such as
+        /// cos(pi/2) = 6e-17 in a rotation, does not spoil the comparison; but against the zero
+        /// matrix only <paramref name="absoluteTolerance"/> helps. Infinite entries must be equal,
+        /// and NaN is never close to anything.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="other"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
+        public bool IsApproximately(Matrix<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)
+        {
+            ArgumentNullException.ThrowIfNull(other);
+            CheckTolerance(relativeTolerance, nameof(relativeTolerance));
+            CheckTolerance(absoluteTolerance, nameof(absoluteTolerance));
+
+            if (matrix.Rows != other.Rows || matrix.Columns != other.Columns)
+                return false;
+
+            // Infinities are compared exactly and left out of the norms, where they would make
+            // every finite difference look small.
+            ReadOnlySpan<double> left = matrix.Entries, right = other.Entries;
+            var difference = new double[left.Length];
+            var finiteLeft = new double[left.Length];
+            var finiteRight = new double[left.Length];
+            for (int k = 0; k < left.Length; k++)
+            {
+                if (double.IsFinite(left[k]) && double.IsFinite(right[k]))
+                {
+                    difference[k] = left[k] - right[k];
+                    finiteLeft[k] = left[k];
+                    finiteRight[k] = right[k];
+                }
+                else if (left[k] != right[k])   // also when either is NaN
+                {
+                    return false;
+                }
+            }
+
+            double scale = Math.Max(NumericVectorExtensions.EuclideanNorm(finiteLeft), NumericVectorExtensions.EuclideanNorm(finiteRight));
+            return NumericVectorExtensions.EuclideanNorm(difference) <= Math.Max(relativeTolerance * scale, absoluteTolerance);
+        }
+
         /// <summary>The sum of the diagonal entries.</summary>
         /// <exception cref="InvalidOperationException">The matrix is not square.</exception>
         public double Trace()
@@ -160,6 +203,12 @@ public static class NumericMatrixExtensions
 
         /// <summary>Every entry divided by the number.</summary>
         public static Matrix<double> operator /(Matrix<double> value, double scalar) => value.Map(a => a / scalar);
+    }
+
+    private static void CheckTolerance(double tolerance, string paramName)
+    {
+        if (!(tolerance >= 0))
+            throw new ArgumentOutOfRangeException(paramName, tolerance, "A tolerance must be a number >= 0.");
     }
 
     // The row-major entries of left * right, where right has the given number of columns.

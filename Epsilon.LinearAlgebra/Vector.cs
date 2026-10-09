@@ -7,6 +7,8 @@ namespace Epsilon.LinearAlgebra;
 /// </summary>
 /// <typeparam name="T">The type of the entries.</typeparam>
 [System.Runtime.CompilerServices.CollectionBuilder(typeof(Vector), nameof(Vector.Create))]
+[System.Diagnostics.DebuggerDisplay("{DebuggerDisplay,nq}")]
+[System.Diagnostics.DebuggerTypeProxy(typeof(VectorDebugView<>))]
 public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T : notnull
 {
     // Length x 1; row-major storage of a single column is the plain list of entries.
@@ -103,6 +105,12 @@ public sealed class Vector<T> : IReadOnlyList<T>, IEquatable<Vector<T>> where T 
 
     /// <summary>The entries in brackets, culture-invariant: <c>[1, 2, 3]</c>.</summary>
     public override string ToString() => "[" + string.Join(", ", this.Select(Matrix<T>.Format)) + "]";
+
+    // The debugger's summary: "Length = 3, [1, 2, 3]" or only "Length = 100".
+    internal string DebuggerDisplay =>
+        Length > Matrix<T>.DebuggerEntryLimit ? $"Length = {Length}" : $"Length = {Length}, {DebuggerEntries}";
+
+    internal string DebuggerEntries => "[" + string.Join(", ", this.Select(Matrix<T>.DebuggerFormat)) + "]";
 
     // Applies combine to the entries at the same position of two vectors of the same length.
     internal Vector<T> Combine(Vector<T> other, Func<T, T, T> combine, string operation)

@@ -826,6 +826,127 @@ public class SymbolicMatrixUtilityTests
     }
 }
 
+public class ApproximateEqualityTests
+{
+    private static readonly Matrix<double> A = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+    [Fact]
+    public void Rounding_errors_are_tolerated()
+    {
+        // cos(pi/2) is 6.1e-17, not 0: hopeless for a relative test entry by entry.
+        double c = Math.Cos(Math.PI / 2), s = Math.Sin(Math.PI / 2);
+        var rotation = Matrix<double>.FromRows([c, -s], [s, c]);
+        var exact = Matrix<double>.FromRows([0, -1], [1, 0]);
+
+        Assert.NotEqual(exact, rotation);
+        Assert.True(rotation.IsApproximately(exact));
+        Assert.True((A * A.Inverse()).IsApproximately(Matrix<double>.Identity(2)));
+    }
+
+    [Fact]
+    public void Differences_above_the_tolerance_count()
+    {
+        var shifted = A + 1e-6 * Matrix<double>.Identity(2);
+
+        Assert.False(A.IsApproximately(shifted));
+        Assert.True(A.IsApproximately(shifted, relativeTolerance: 1e-3));
+        Assert.True(A.IsApproximately(A + 1e-12 * Matrix<double>.Identity(2)));
+        Assert.False(A.IsApproximately(Matrix<double>.Zero(2, 3)));
+    }
+
+    [Fact]
+    public void The_zero_matrix_needs_an_absolute_tolerance()
+    {
+        var residual = A * A.Inverse() - Matrix<double>.Identity(2);
+
+        Assert.False(residual.IsApproximately(Matrix<double>.Zero(2, 2)));
+        Assert.True(residual.IsApproximately(Matrix<double>.Zero(2, 2), absoluteTolerance: 1e-12));
+    }
+
+    [Fact]
+    public void Infinities_must_match_and_NaN_never_does()
+    {
+        double inf = double.PositiveInfinity;
+
+        Assert.True(Matrix<double>.FromRows([inf, 1]).IsApproximately(Matrix<double>.FromRows([inf, 1])));
+        Assert.False(Matrix<double>.FromRows([inf, 1]).IsApproximately(Matrix<double>.FromRows([inf, 2])));
+        Assert.False(Matrix<double>.FromRows([inf]).IsApproximately(Matrix<double>.FromRows([-inf])));
+        Assert.False(Matrix<double>.FromRows([double.NaN]).IsApproximately(Matrix<double>.FromRows([double.NaN])));
+        Assert.False(Matrix<double>.FromRows([1e308]).IsApproximately(Matrix<double>.FromRows([-1e308])));
+    }
+
+    [Fact]
+    public void Vectors()
+    {
+        Assert.True(Vector.Create(1, 1e-17).IsApproximately([1, 0]));
+        Assert.False(Vector.Create(1e-17).IsApproximately([0]));
+        Assert.True(Vector.Create(1e-17).IsApproximately([0], absoluteTolerance: 1e-15));
+        Assert.False(Vector.Create<double>(1, 2).IsApproximately([1, 2, 0]));
+    }
+
+    [Fact]
+    public void Tolerances_must_be_numbers_from_zero_on()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => A.IsApproximately(A, -1));
+        Assert.Equal("relativeTolerance", ex.ParamName);
+
+        ex = Assert.Throws<ArgumentOutOfRangeException>(() => A.IsApproximately(A, absoluteTolerance: double.NaN));
+        Assert.Equal("absoluteTolerance", ex.ParamName);
+    }
+}
+
+public class DebuggerViewTests
+{
+    [Fact]
+    public void Small_matrices_show_their_entries()
+    {
+        Assert.Equal("2 x 3, [[1, 2, 3], [4, 5, 6]]", Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).DebuggerDisplay);
+        Assert.Equal("4 x 4, [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]", Matrix<double>.Identity(4).DebuggerDisplay);
+        Assert.Equal("5 x 5", Matrix<double>.Identity(5).DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Expressions_are_printed()
+    {
+        // ToString would give (((3 * (x ^ 2)) - (4 * x)) + 1).
+        Assert.Equal("1 x 2, [[3x^2 - 4x + 1, 1/2]]", Matrix<Expr>.Parse("[[3x^2 - 4x + 1, 1/2]]").Simplify().DebuggerDisplay);
+        Assert.Equal("Length = 2, [x^2, 1/2]", Vector<Expr>.Parse("[x^2, 1/2]").Simplify().DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Vectors_show_their_length()
+    {
+        Assert.Equal("Length = 3, [1, 2.5, 3]", Vector.Create(1, 2.5, 3).DebuggerDisplay);
+        Assert.Equal("Length = 17", Vector<double>.Zero(17).DebuggerDisplay);
+    }
+
+    [Fact]
+    public void Expanding_shows_rows_and_entries()
+    {
+        var m = Matrix<double>.FromRows([1, 2], [3, 4]);
+
+        Assert.Equal([m.Row(0), m.Row(1)], new MatrixDebugView<double>(m).Rows);
+        Assert.Equal([1.0, 2.0], new VectorDebugView<double>(m.Row(0)).Entries);
+    }
+
+    [Fact]
+    public void The_debugger_finds_the_views()
+    {
+        Assert.Equal("{DebuggerDisplay,nq}", DisplayOf(typeof(Matrix<>)));
+        Assert.Equal("{DebuggerDisplay,nq}", DisplayOf(typeof(Vector<>)));
+        Assert.Equal(typeof(MatrixDebugView<>), ProxyOf(typeof(Matrix<>)));
+        Assert.Equal(typeof(VectorDebugView<>), ProxyOf(typeof(Vector<>)));
+    }
+
+    private static string? DisplayOf(Type type) =>
+        type.GetCustomAttributes(typeof(System.Diagnostics.DebuggerDisplayAttribute), false)
+            .Cast<System.Diagnostics.DebuggerDisplayAttribute>().Single().Value;
+
+    private static Type? ProxyOf(Type type) =>
+        Type.GetType(type.GetCustomAttributes(typeof(System.Diagnostics.DebuggerTypeProxyAttribute), false)
+            .Cast<System.Diagnostics.DebuggerTypeProxyAttribute>().Single().ProxyTypeName);
+}
+
 public class NumericLuTests
 {
     private static readonly Matrix<double> Singular3 = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);

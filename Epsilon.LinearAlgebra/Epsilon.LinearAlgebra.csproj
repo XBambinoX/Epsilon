@@ -43,4 +43,9 @@
     <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets tests check what the debugger shows, which is internal. -->
+    <InternalsVisibleTo Include="Epsilon.Tests" />
+  </ItemGroup>
+
 </Project>
