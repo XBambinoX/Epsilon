@@ -947,6 +947,151 @@ public class DebuggerViewTests
             .Cast<System.Diagnostics.DebuggerTypeProxyAttribute>().Single().ProxyTypeName);
 }
 
+public class RationalMatrixTests
+{
+    private static readonly Matrix<Rational> A = Matrix<Rational>.FromRows([1, 2], [3, 4]);
+    private static readonly Matrix<Rational> Singular3 = Matrix<Rational>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);
+
+    private static Rational Q(int numerator, int denominator) => new(numerator, denominator);
+
+    [Fact]
+    public void Identity_zero_and_diagonal()
+    {
+        Assert.Equal(Matrix<Rational>.FromRows([1, 0], [0, 1]), Matrix<Rational>.Identity(2));
+        Assert.Equal(Matrix<Rational>.FromRows([0, 0, 0]), Matrix<Rational>.Zero(1, 3));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 0], [0, Q(1, 2)]), Matrix<Rational>.FromDiagonal([1, Q(1, 2)]));
+        Assert.Equal([Rational.Zero, Rational.Zero], Vector<Rational>.Zero(2));
+    }
+
+    [Fact]
+    public void Arithmetic_is_exact()
+    {
+        Assert.Equal(Matrix<Rational>.FromRows([7, 10], [15, 22]), A * A);
+        Assert.Equal(Matrix<Rational>.FromRows([Q(1, 3), Q(2, 3)], [1, Q(4, 3)]), A / 3);
+        Assert.Equal(A / 3, A * Q(1, 3));
+        Assert.Equal(Matrix<Rational>.FromRows([2, 4], [6, 8]), 2 * A);
+        Assert.Equal(Matrix<Rational>.Zero(2, 2), A - A);
+        Assert.Equal(-A, Matrix<Rational>.Zero(2, 2) - A);
+        Assert.Equal([5, 11], A * Vector.Create<Rational>(1, 2));
+        Assert.Equal(5, A.Trace());
+    }
+
+    [Fact]
+    public void Division_by_zero_throws()
+    {
+        var ex = Assert.Throws<DivideByZeroException>(() => A / 0);
+        Assert.Equal("Cannot divide a matrix by 0.", ex.Message);
+        Assert.Throws<DivideByZeroException>(() => Vector.Create<Rational>(1) / 0);
+    }
+
+    [Fact]
+    public void Determinant_inverse_and_solve()
+    {
+        Assert.Equal(-2, A.Determinant());
+        Assert.Equal(Matrix<Rational>.FromRows([-2, 1], [Q(3, 2), Q(-1, 2)]), A.Inverse());
+        Assert.Equal([-4, Q(9, 2)], A.Solve([5, 6]));
+        Assert.Equal(A.Inverse(), A.Solve(Matrix<Rational>.Identity(2)));
+
+        // A zero first pivot needs a row swap, which flips the sign.
+        var swapped = Matrix<Rational>.FromRows([0, 1], [1, 0]);
+        Assert.Equal(-1, swapped.Determinant());
+        Assert.Equal(swapped, swapped.Inverse());
+    }
+
+    [Fact]
+    public void The_Hilbert_matrix_is_inverted_exactly()
+    {
+        // In doubles the inverse of this famously ill-conditioned matrix is off from the 7th digit on.
+        const int n = 8;
+        var hilbert = Matrix<Rational>.Create(n, n, (i, j) => Q(1, i + j + 1));
+
+        Matrix<Rational> inverse = hilbert.Inverse();
+        Assert.Equal(64, inverse[0, 0]);
+        Assert.Equal(176679360, inverse[7, 7]);
+        Assert.Equal(Matrix<Rational>.Identity(n), hilbert * inverse);
+        Assert.Equal(new Rational(1, System.Numerics.BigInteger.Parse("365356847125734485878112256000000")), hilbert.Determinant());
+    }
+
+    [Fact]
+    public void Singular_matrices_are_recognized_exactly()
+    {
+        Assert.Equal(0, Singular3.Determinant());
+        Assert.Equal(2, Singular3.Rank());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Singular3.Inverse());
+        Assert.Equal("The matrix is singular: its rank is 2, not 3.", ex.Message);
+        Assert.Throws<InvalidOperationException>(() => Singular3.Solve([1, 2, 3]));
+        Assert.Throws<InvalidOperationException>(() => Singular3.Pow(-1));
+    }
+
+    [Fact]
+    public void Rank_of_any_shape()
+    {
+        Assert.Equal(1, Matrix<Rational>.FromRows([1, 2, 3], [2, 4, 6]).Rank());
+        Assert.Equal(2, Matrix<Rational>.FromRows([0, 1], [0, 2], [1, 0]).Rank());
+        Assert.Equal(0, Matrix<Rational>.Zero(2, 2).Rank());
+        Assert.Equal(0, Matrix<Rational>.Zero(0, 3).Rank());
+    }
+
+    [Fact]
+    public void Square_matrices_are_required()
+    {
+        var wide = Matrix<Rational>.FromRows([1, 2, 3]);
+
+        Assert.Equal("The determinant needs a square matrix, not a 1 x 3 matrix.",
+            Assert.Throws<InvalidOperationException>(() => wide.Determinant()).Message);
+        Assert.Throws<InvalidOperationException>(() => wide.Inverse());
+        Assert.Throws<InvalidOperationException>(() => wide.Trace());
+        Assert.Throws<ArgumentException>(() => A.Solve([1, 2, 3]));
+    }
+
+    [Fact]
+    public void Powers_and_Hadamard()
+    {
+        Assert.Equal(A * A * A, A.Pow(3));
+        Assert.Equal(A.Inverse() * A.Inverse(), A.Pow(-2));
+        Assert.Equal(Matrix<Rational>.Identity(2), A.Pow(0));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 4], [9, 16]), A.Hadamard(A));
+    }
+}
+
+public class RationalVectorTests
+{
+    private static readonly Vector<Rational> V = [1, 2, 3];
+    private static readonly Vector<Rational> W = [4, 5, 6];
+
+    [Fact]
+    public void Products()
+    {
+        Assert.Equal(32, V.Dot(W));
+        Assert.Equal(14, V.NormSquared());
+        Assert.Equal([-3, 6, -3], V.Cross(W));
+        Assert.Equal([4, 10, 18], V.Hadamard(W));
+        Assert.Equal(Matrix<Rational>.FromRows([1, 2], [2, 4], [3, 6]), V.Outer([1, 2]));
+    }
+
+    [Fact]
+    public void Projection_reflection_and_lerp_are_exact()
+    {
+        Assert.Equal([new Rational(3, 2), new Rational(3, 2), 0], V.ProjectOnto([1, 1, 0]));
+        Assert.Equal([1, 1, 0], Vector.Create<Rational>(1, -1, 0).Reflect([0, 2, 0]));
+        Assert.Equal([2, 3, 4], Vector<Rational>.Lerp(V, W, new Rational(1, 3)));
+
+        Assert.Throws<ArgumentException>(() => V.ProjectOnto(Vector<Rational>.Zero(3)));
+        Assert.Throws<ArgumentException>(() => V.Reflect(Vector<Rational>.Zero(3)));
+    }
+
+    [Fact]
+    public void Arithmetic()
+    {
+        Assert.Equal([5, 7, 9], V + W);
+        Assert.Equal([-3, -3, -3], V - W);
+        Assert.Equal([-1, -2, -3], -V);
+        Assert.Equal([new Rational(1, 2), 1, new Rational(3, 2)], V / 2);
+        Assert.Equal(2 * V, V * 2);
+    }
+}
+
 public class NumericLuTests
 {
     private static readonly Matrix<double> Singular3 = Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]);

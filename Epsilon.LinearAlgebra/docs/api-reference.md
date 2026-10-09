@@ -13,12 +13,14 @@ listed here.
 [Vector](#vector) -
 [Matrices of double](#matrices-of-double) -
 [Vectors of double](#vectors-of-double) -
+[Matrices of rationals](#matrices-of-rationals) -
+[Vectors of rationals](#vectors-of-rationals) -
 [Matrices of expressions](#matrices-of-expressions) -
 [Vectors of expressions](#vectors-of-expressions)
 
-The operations for `double` and `Expr` entries are C# 14 extension members: they are called
-like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`, `Matrix<double>.Identity(3)`,
-`a + b`), but only compile for those entry types.
+The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
+are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
+`Matrix<double>.Identity(3)`, `a + b`), but only compile for those entry types.
 
 ---
 
@@ -133,6 +135,52 @@ Extension members of `Vector<double>`.
 | `bool IsApproximately(Vector<double> other, double relativeTolerance = 1e-9, double absoluteTolerance = 0)` | Equal up to rounding, as for matrices. Returns `false` for different lengths. |
 
 The members that take two vectors throw `ArgumentException` for different lengths.
+
+---
+
+## Matrices of rationals
+
+### `RationalMatrixExtensions` (static class)
+
+Extension members of `Matrix<Rational>`. The arithmetic is exact, so there is no tolerance: a
+matrix is singular exactly when its determinant is 0. Integers convert to `Rational`:
+`Matrix<Rational>.FromRows([1, 2], [3, 4])`.
+
+| Member | Description |
+|---|---|
+| `static Matrix<Rational> Identity(int size)` | The identity matrix. |
+| `static Matrix<Rational> Zero(int rows, int columns)` | The zero matrix. |
+| `static Matrix<Rational> FromDiagonal(Vector<Rational> diagonal)` | The diagonal matrix. |
+| `+`, `-` (binary and unary) | Entry by entry. Throws `ArgumentException` for different sizes. |
+| `*` (matrix by matrix, matrix by `Vector<Rational>`) | The matrix product. Throws `ArgumentException` if the inner sizes differ. |
+| `*`, `/` with a `Rational` | Every entry times or divided by the number; `/` throws `DivideByZeroException` for 0. |
+| `Rational Trace()` | The sum of the diagonal. |
+| `Rational Determinant()` | Exact, by Gaussian elimination. |
+| `Matrix<Rational> Inverse()` | Exact. Throws `InvalidOperationException` if singular. |
+| `Vector<Rational> Solve(Vector<Rational> b)`, `Matrix<Rational> Solve(Matrix<Rational> b)` | The exact solution of A x = b, or of A X = B column by column. |
+| `int Rank()` | The exact rank, for any shape. |
+| `Matrix<Rational> Pow(int exponent)` | A^n; a power of the inverse for negative n. |
+| `Matrix<Rational> Hadamard(Matrix<Rational> other)` | The entry-wise product. |
+
+`Trace`, `Determinant`, `Inverse`, `Solve` and `Pow` need a square matrix and throw
+`InvalidOperationException` otherwise.
+
+---
+
+## Vectors of rationals
+
+### `RationalVectorExtensions` (static class)
+
+Extension members of `Vector<Rational>`. The norm, normalization, distance and angles are not
+rational in general (the norm of `[1, 1]` is sqrt(2)); use vectors of `double` or `Expr` for them.
+
+| Member | Description |
+|---|---|
+| `static Vector<Rational> Zero(int length)` | The zero vector. |
+| `static Vector<Rational> Lerp(Vector<Rational> start, Vector<Rational> end, Rational t)` | (1 - t) start + t end. |
+| `+`, `-` (binary and unary), `*` and `/` with a `Rational` | Entry by entry. |
+| `Rational Dot(Vector<Rational> other)`, `Rational NormSquared()` | The dot product, and that of the vector with itself. |
+| `Cross`, `ProjectOnto`, `Reflect`, `Outer`, `Hadamard` | As for `double`, exact. |
 
 ---
 
