@@ -189,6 +189,57 @@ public readonly struct Matrix4x4<T> : IEquatable<Matrix4x4<T>>
         M21 * direction.X + M22 * direction.Y + M23 * direction.Z,
         M31 * direction.X + M32 * direction.Y + M33 * direction.Z);
 
+    /// <summary>The matrix as a 4 x 4 <see cref="Matrix{T}"/>, for the general algorithms.</summary>
+    public Matrix<T> ToMatrix() => new(4, 4,
+        [
+            M11, M12, M13, M14,
+            M21, M22, M23, M24,
+            M31, M32, M33, M34,
+            M41, M42, M43, M44,
+        ]);
+
+    /// <summary>
+    /// <see cref="TransformPoint"/> of every vector in <paramref name="points"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="points"/>, or overlaps it at another position.
+    /// </exception>
+    public void TransformPoints(ReadOnlySpan<Vector3<T>> points, Span<Vector3<T>> destination)
+    {
+        Destination.Check(points, destination);
+        for (int i = 0; i < points.Length; i++)
+            destination[i] = TransformPoint(points[i]);
+    }
+
+    /// <summary>
+    /// <see cref="TransformDirection"/> of every vector in <paramref name="directions"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="directions"/>, or overlaps it at another position.
+    /// </exception>
+    public void TransformDirections(ReadOnlySpan<Vector3<T>> directions, Span<Vector3<T>> destination)
+    {
+        Destination.Check(directions, destination);
+        for (int i = 0; i < directions.Length; i++)
+            destination[i] = TransformDirection(directions[i]);
+    }
+
+    /// <summary>
+    /// The product <c>m * v</c> of every vector in <paramref name="vectors"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="vectors"/>, or overlaps it at another position.
+    /// </exception>
+    public void Transform(ReadOnlySpan<Vector4<T>> vectors, Span<Vector4<T>> destination)
+    {
+        Destination.Check(vectors, destination);
+        for (int i = 0; i < vectors.Length; i++)
+            destination[i] = this * vectors[i];
+    }
+
     /// <summary>The matrix with <paramref name="map"/> applied to every entry; it also converts them: <c>m.Map(float.CreateTruncating)</c>.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="map"/> is null.</exception>
     public Matrix4x4<TResult> Map<TResult>(Func<T, TResult> map)
@@ -199,6 +250,23 @@ public readonly struct Matrix4x4<T> : IEquatable<Matrix4x4<T>>
     {
         ArgumentNullException.ThrowIfNull(map);
         return Matrix4x4<TResult>.FromRows(Row(0).Map(map), Row(1).Map(map), Row(2).Map(map), Row(3).Map(map));
+    }
+
+    /// <summary>The matrix with the entries of a 4 x 4 <see cref="Matrix{T}"/>.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="matrix"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="matrix"/> is not 4 x 4.</exception>
+    public static explicit operator Matrix4x4<T>(Matrix<T> matrix)
+    {
+        ArgumentNullException.ThrowIfNull(matrix);
+        if (matrix.Rows != 4 || matrix.Columns != 4)
+            throw new ArgumentException($"A Matrix4x4 needs a 4 x 4 matrix, not {matrix.Rows} x {matrix.Columns}.", nameof(matrix));
+
+        ReadOnlySpan<T> entries = matrix.Entries;
+        return new(
+            entries[0], entries[1], entries[2], entries[3],
+            entries[4], entries[5], entries[6], entries[7],
+            entries[8], entries[9], entries[10], entries[11],
+            entries[12], entries[13], entries[14], entries[15]);
     }
 
     /// <summary>The entry-wise sum.</summary>

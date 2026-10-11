@@ -92,6 +92,9 @@ public readonly struct Vector2<T> : IEquatable<Vector2<T>>
         return new(map(X), map(Y));
     }
 
+    /// <summary>The vector as a <see cref="Vector{T}"/> of length 2, for the general algorithms.</summary>
+    public Vector<T> ToVector() => [X, Y];
+
     /// <summary>The entries, for <c>var (x, y) = v;</c></summary>
     public void Deconstruct(out T x, out T y)
     {
@@ -101,6 +104,18 @@ public readonly struct Vector2<T> : IEquatable<Vector2<T>>
 
     /// <summary>The vector with the entries of the tuple: <c>Vector2&lt;double&gt; v = (1, 2);</c></summary>
     public static implicit operator Vector2<T>((T X, T Y) tuple) => new(tuple.X, tuple.Y);
+
+    /// <summary>The vector with the entries of a <see cref="Vector{T}"/> of length 2.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="vector"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="vector"/> has not 2 entries.</exception>
+    public static explicit operator Vector2<T>(Vector<T> vector)
+    {
+        ArgumentNullException.ThrowIfNull(vector);
+        if (vector.Length != 2)
+            throw new ArgumentException($"A Vector2 needs 2 entries, not {vector.Length}.", nameof(vector));
+
+        return new(vector[0], vector[1]);
+    }
 
     /// <summary>The entry-wise sum.</summary>
     public static Vector2<T> operator +(Vector2<T> left, Vector2<T> right) => new(left.X + right.X, left.Y + right.Y);

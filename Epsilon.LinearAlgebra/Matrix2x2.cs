@@ -91,6 +91,27 @@ public readonly struct Matrix2x2<T> : IEquatable<Matrix2x2<T>>
     /// </summary>
     public T Determinant() => M11 * M22 - M12 * M21;
 
+    /// <summary>The matrix as a 2 x 2 <see cref="Matrix{T}"/>, for the general algorithms.</summary>
+    public Matrix<T> ToMatrix() => new(2, 2,
+        [
+            M11, M12,
+            M21, M22,
+        ]);
+
+    /// <summary>
+    /// The product <c>m * v</c> of every vector in <paramref name="vectors"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="vectors"/>, or overlaps it at another position.
+    /// </exception>
+    public void Transform(ReadOnlySpan<Vector2<T>> vectors, Span<Vector2<T>> destination)
+    {
+        Destination.Check(vectors, destination);
+        for (int i = 0; i < vectors.Length; i++)
+            destination[i] = this * vectors[i];
+    }
+
     /// <summary>The matrix with <paramref name="map"/> applied to every entry; it also converts them: <c>m.Map(float.CreateTruncating)</c>.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="map"/> is null.</exception>
     public Matrix2x2<TResult> Map<TResult>(Func<T, TResult> map)
@@ -101,6 +122,21 @@ public readonly struct Matrix2x2<T> : IEquatable<Matrix2x2<T>>
     {
         ArgumentNullException.ThrowIfNull(map);
         return new(map(M11), map(M12), map(M21), map(M22));
+    }
+
+    /// <summary>The matrix with the entries of a 2 x 2 <see cref="Matrix{T}"/>.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="matrix"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="matrix"/> is not 2 x 2.</exception>
+    public static explicit operator Matrix2x2<T>(Matrix<T> matrix)
+    {
+        ArgumentNullException.ThrowIfNull(matrix);
+        if (matrix.Rows != 2 || matrix.Columns != 2)
+            throw new ArgumentException($"A Matrix2x2 needs a 2 x 2 matrix, not {matrix.Rows} x {matrix.Columns}.", nameof(matrix));
+
+        ReadOnlySpan<T> entries = matrix.Entries;
+        return new(
+            entries[0], entries[1],
+            entries[2], entries[3]);
     }
 
     /// <summary>The entry-wise sum.</summary>

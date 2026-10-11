@@ -162,6 +162,56 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
     public Vector2<T> TransformDirection(Vector2<T> direction) =>
         new(M11 * direction.X + M12 * direction.Y, M21 * direction.X + M22 * direction.Y);
 
+    /// <summary>The matrix as a 3 x 3 <see cref="Matrix{T}"/>, for the general algorithms.</summary>
+    public Matrix<T> ToMatrix() => new(3, 3,
+        [
+            M11, M12, M13,
+            M21, M22, M23,
+            M31, M32, M33,
+        ]);
+
+    /// <summary>
+    /// <see cref="TransformPoint"/> of every vector in <paramref name="points"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="points"/>, or overlaps it at another position.
+    /// </exception>
+    public void TransformPoints(ReadOnlySpan<Vector2<T>> points, Span<Vector2<T>> destination)
+    {
+        Destination.Check(points, destination);
+        for (int i = 0; i < points.Length; i++)
+            destination[i] = TransformPoint(points[i]);
+    }
+
+    /// <summary>
+    /// <see cref="TransformDirection"/> of every vector in <paramref name="directions"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="directions"/>, or overlaps it at another position.
+    /// </exception>
+    public void TransformDirections(ReadOnlySpan<Vector2<T>> directions, Span<Vector2<T>> destination)
+    {
+        Destination.Check(directions, destination);
+        for (int i = 0; i < directions.Length; i++)
+            destination[i] = TransformDirection(directions[i]);
+    }
+
+    /// <summary>
+    /// The product <c>m * v</c> of every vector in <paramref name="vectors"/>, written to
+    /// <paramref name="destination"/> at the same index. The destination may be the source itself.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="destination"/> is shorter than <paramref name="vectors"/>, or overlaps it at another position.
+    /// </exception>
+    public void Transform(ReadOnlySpan<Vector3<T>> vectors, Span<Vector3<T>> destination)
+    {
+        Destination.Check(vectors, destination);
+        for (int i = 0; i < vectors.Length; i++)
+            destination[i] = this * vectors[i];
+    }
+
     /// <summary>The matrix with <paramref name="map"/> applied to every entry; it also converts them: <c>m.Map(float.CreateTruncating)</c>.</summary>
     /// <exception cref="ArgumentNullException"><paramref name="map"/> is null.</exception>
     public Matrix3x3<TResult> Map<TResult>(Func<T, TResult> map)
@@ -172,6 +222,22 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
     {
         ArgumentNullException.ThrowIfNull(map);
         return new(map(M11), map(M12), map(M13), map(M21), map(M22), map(M23), map(M31), map(M32), map(M33));
+    }
+
+    /// <summary>The matrix with the entries of a 3 x 3 <see cref="Matrix{T}"/>.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="matrix"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="matrix"/> is not 3 x 3.</exception>
+    public static explicit operator Matrix3x3<T>(Matrix<T> matrix)
+    {
+        ArgumentNullException.ThrowIfNull(matrix);
+        if (matrix.Rows != 3 || matrix.Columns != 3)
+            throw new ArgumentException($"A Matrix3x3 needs a 3 x 3 matrix, not {matrix.Rows} x {matrix.Columns}.", nameof(matrix));
+
+        ReadOnlySpan<T> entries = matrix.Entries;
+        return new(
+            entries[0], entries[1], entries[2],
+            entries[3], entries[4], entries[5],
+            entries[6], entries[7], entries[8]);
     }
 
     /// <summary>The entry-wise sum.</summary>

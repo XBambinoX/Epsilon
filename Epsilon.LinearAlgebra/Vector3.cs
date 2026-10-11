@@ -107,6 +107,9 @@ public readonly struct Vector3<T> : IEquatable<Vector3<T>>
         return new(map(X), map(Y), map(Z));
     }
 
+    /// <summary>The vector as a <see cref="Vector{T}"/> of length 3, for the general algorithms.</summary>
+    public Vector<T> ToVector() => [X, Y, Z];
+
     /// <summary>The entries, for <c>var (x, y, z) = v;</c></summary>
     public void Deconstruct(out T x, out T y, out T z)
     {
@@ -117,6 +120,18 @@ public readonly struct Vector3<T> : IEquatable<Vector3<T>>
 
     /// <summary>The vector with the entries of the tuple: <c>Vector3&lt;double&gt; v = (1, 2, 3);</c></summary>
     public static implicit operator Vector3<T>((T X, T Y, T Z) tuple) => new(tuple.X, tuple.Y, tuple.Z);
+
+    /// <summary>The vector with the entries of a <see cref="Vector{T}"/> of length 3.</summary>
+    /// <exception cref="ArgumentNullException"><paramref name="vector"/> is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="vector"/> has not 3 entries.</exception>
+    public static explicit operator Vector3<T>(Vector<T> vector)
+    {
+        ArgumentNullException.ThrowIfNull(vector);
+        if (vector.Length != 3)
+            throw new ArgumentException($"A Vector3 needs 3 entries, not {vector.Length}.", nameof(vector));
+
+        return new(vector[0], vector[1], vector[2]);
+    }
 
     /// <summary>The entry-wise sum.</summary>
     public static Vector3<T> operator +(Vector3<T> left, Vector3<T> right) =>

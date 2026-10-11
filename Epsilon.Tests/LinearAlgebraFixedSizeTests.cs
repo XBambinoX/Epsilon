@@ -871,3 +871,188 @@ public class Matrix2x2Tests
         Assert.True(exact.IsApproximately(exact + 1e-6 * Matrix2x2<double>.Identity, relativeTolerance: 1e-3));
     }
 }
+
+public class FixedSizeInteropTests
+{
+    [Fact]
+    public void General_vectors_and_back()
+    {
+        Vector3<double> v = (1, 2, 3);
+
+        Assert.Equal(Vector.Create<double>(1, 2, 3), v.ToVector());
+        Assert.Equal(v, (Vector3<double>)Vector.Create<double>(1, 2, 3));
+        Assert.Equal(new Vector2<double>(1, 2), (Vector2<double>)new Vector2<double>(1, 2).ToVector());
+        Assert.Equal(new Vector4<int>(1, 2, 3, 4), (Vector4<int>)Vector.Create(1, 2, 3, 4));
+
+        var ex = Assert.Throws<ArgumentException>(() => (Vector3<double>)Vector.Create<double>(1, 2));
+        Assert.StartsWith("A Vector3 needs 3 entries, not 2.", ex.Message);
+        Assert.Throws<ArgumentNullException>(() => (Vector3<double>)(Vector<double>)null!);
+    }
+
+    [Fact]
+    public void General_matrices_and_back()
+    {
+        var m = Matrix4x4<double>.Translation((1, 2, 3));
+        Matrix<double> general = m.ToMatrix();
+
+        Assert.Equal(4, general.Rows);
+        Assert.Equal(3, general[2, 3]);
+        Assert.Equal(m, (Matrix4x4<double>)general);
+        Assert.Equal(Matrix<double>.Identity(3), Matrix3x3<double>.Identity.ToMatrix());
+        Assert.Equal(new Matrix2x2<double>(1, 2, 3, 4), (Matrix2x2<double>)Matrix<double>.FromRows([1, 2], [3, 4]));
+        Assert.Equal(Matrix<double>.FromRows([1, 2], [3, 4]), new Matrix2x2<double>(1, 2, 3, 4).ToMatrix());
+
+        var ex = Assert.Throws<ArgumentException>(() => (Matrix3x3<double>)Matrix<double>.Identity(4));
+        Assert.StartsWith("A Matrix3x3 needs a 3 x 3 matrix, not 4 x 4.", ex.Message);
+        Assert.Throws<ArgumentNullException>(() => (Matrix2x2<double>)(Matrix<double>)null!);
+    }
+
+    [Fact]
+    public void The_general_algorithms_apply_to_fixed_matrices()
+    {
+        var exact = new Matrix3x3<int>(2, 1, 0, 1, 2, 1, 0, 1, 2).ToMatrix().Map(x => (Epsilon.Core.Rational)x);
+
+        Assert.Equal(2, Matrix3x3<double>.Scale((1, 1, 0)).ToMatrix().Rank());
+        Assert.Equal(4, exact.Determinant());
+        Assert.Equal(new Epsilon.Core.Rational(3, 4), exact.Inverse()[0, 0]);
+    }
+
+    [Fact]
+    public void System_Numerics_vectors()
+    {
+        var v = new Vector3<float>(1, 2, 3);
+
+        Assert.Equal(new System.Numerics.Vector3(1, 2, 3), v.ToSystemNumerics());
+        Assert.Equal(v, Vector3<float>.FromSystemNumerics(new System.Numerics.Vector3(1, 2, 3)));
+        Assert.Equal(new System.Numerics.Vector2(1, 2), new Vector2<float>(1, 2).ToSystemNumerics());
+        Assert.Equal(new Vector2<float>(1, 2), Vector2<float>.FromSystemNumerics(new System.Numerics.Vector2(1, 2)));
+        Assert.Equal(new System.Numerics.Vector4(1, 2, 3, 4), new Vector4<float>(1, 2, 3, 4).ToSystemNumerics());
+        Assert.Equal(new Vector4<float>(1, 2, 3, 4), Vector4<float>.FromSystemNumerics(new System.Numerics.Vector4(1, 2, 3, 4)));
+    }
+
+    [Fact]
+    public void System_Numerics_matrices_are_transposed()
+    {
+        var translation = System.Numerics.Matrix4x4.CreateTranslation(1, 2, 3);
+
+        Assert.Equal(3, translation.M43);   // in the last row there, in the last column here
+        Assert.Equal(Matrix4x4<float>.Translation((1, 2, 3)), Matrix4x4<float>.FromSystemNumerics(translation));
+        Assert.Equal(translation, Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics());
+
+        // The rotations are the same maps.
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(System.Numerics.Matrix4x4.CreateRotationX(0.7f)).IsApproximately(Matrix4x4<float>.RotationX(0.7f)));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(System.Numerics.Matrix4x4.CreateRotationY(0.7f)).IsApproximately(Matrix4x4<float>.RotationY(0.7f)));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(System.Numerics.Matrix4x4.CreateRotationZ(0.7f)).IsApproximately(Matrix4x4<float>.RotationZ(0.7f)));
+        var axis = System.Numerics.Vector3.Normalize(new System.Numerics.Vector3(1, 2, 3));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(System.Numerics.Matrix4x4.CreateFromAxisAngle(axis, 0.7f)).IsApproximately(Matrix4x4<float>.Rotation((1, 2, 3), 0.7f)));
+    }
+
+    [Fact]
+    public void System_Numerics_maps_points_to_the_same_places()
+    {
+        // Row vectors there: scale first, then rotate, then move.
+        var a = System.Numerics.Matrix4x4.CreateScale(2) * System.Numerics.Matrix4x4.CreateRotationY(0.3f) * System.Numerics.Matrix4x4.CreateTranslation(5, 0, 1);
+        var b = System.Numerics.Matrix4x4.CreateRotationX(1.1f);
+        var ours = Matrix4x4<float>.FromSystemNumerics(a);
+        var point = new System.Numerics.Vector3(1, 2, 3);
+
+        Assert.True(ours.IsApproximately(Matrix4x4<float>.Translation((5, 0, 1)) * Matrix4x4<float>.RotationY(0.3f) * Matrix4x4<float>.Scale(2)));
+        Assert.True(Vector3<float>.FromSystemNumerics(System.Numerics.Vector3.Transform(point, a)).IsApproximately(ours.TransformPoint((1, 2, 3))));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(a * b).IsApproximately(Matrix4x4<float>.FromSystemNumerics(b) * ours));
+
+        Assert.True(System.Numerics.Matrix4x4.Invert(a, out var inverse));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(inverse).IsApproximately(ours.Inverse()));
+    }
+
+    [Fact]
+    public void Matrix3x2_is_an_affine_map_of_the_plane()
+    {
+        // Rotate, then move.
+        var numerics = System.Numerics.Matrix3x2.CreateRotation(0.5f) * System.Numerics.Matrix3x2.CreateTranslation(3, 4);
+        var ours = Matrix3x3<float>.FromSystemNumerics(numerics);
+
+        Assert.Equal(new Vector3<float>(0, 0, 1), ours.Row(2));
+        Assert.True(ours.IsApproximately(Matrix3x3<float>.Translation((3, 4)) * Matrix3x3<float>.RotationZ(0.5f)));
+        Assert.True(Vector2<float>.FromSystemNumerics(System.Numerics.Vector2.Transform(new(1, 2), numerics)).IsApproximately(ours.TransformPoint((1, 2))));
+        Assert.Equal(numerics, ours.ToSystemNumerics());
+
+        var ex = Assert.Throws<InvalidOperationException>(() => (Matrix3x3<float>.Identity with { M31 = 1 }).ToSystemNumerics());
+        Assert.Equal("Only a matrix with the last row [0, 0, 1] converts to a Matrix3x2, not [1, 0, 1].", ex.Message);
+    }
+
+    [Fact]
+    public void Batch_transforms_match_the_single_ones()
+    {
+        var m = Matrix4x4<double>.Translation((1, 0, 0)) * Matrix4x4<double>.Scale(2);
+        Vector3<double>[] points = [(0, 0, 0), (1, 1, 1), (-1, 2, 0)];
+        Vector4<double>[] homogeneous = [(1, 2, 3, 1), (1, 2, 3, 0)];
+        var results = new Vector3<double>[3];
+        var results4 = new Vector4<double>[2];
+
+        m.TransformPoints(points, results);
+        Assert.Equal(points.Select(m.TransformPoint), results);
+        m.TransformDirections(points, results);
+        Assert.Equal(points.Select(m.TransformDirection), results);
+        m.Transform(homogeneous, results4);
+        Assert.Equal(homogeneous.Select(v => m * v), results4);
+
+        var plane = Matrix3x3<double>.Translation((1, 2)) * Matrix3x3<double>.Scale((3, 3));
+        Vector2<double>[] points2 = [(1, 0), (0, 1)];
+        var results2 = new Vector2<double>[2];
+        plane.TransformPoints(points2, results2);
+        Assert.Equal(points2.Select(plane.TransformPoint), results2);
+        plane.TransformDirections(points2, results2);
+        Assert.Equal(points2.Select(plane.TransformDirection), results2);
+        plane.Transform(points, results);
+        Assert.Equal(points.Select(v => plane * v), results);
+
+        m.TransformPoints([], []);
+    }
+
+    [Fact]
+    public void Batch_transforms_work_in_place()
+    {
+        Vector3<double>[] points = [(0, 0, 0), (1, 1, 1)];
+        Vector2<int>[] cells = [(1, 0), (0, 1)];
+
+        (Matrix4x4<double>.Translation((1, 0, 0)) * Matrix4x4<double>.Scale(2)).TransformPoints(points, points);
+        new Matrix2x2<int>(0, -1, 1, 0).Transform(cells, cells);   // a quarter turn
+
+        Assert.Equal([new Vector3<double>(1, 0, 0), new Vector3<double>(3, 2, 2)], points);
+        Assert.Equal([new Vector2<int>(0, 1), new Vector2<int>(-1, 0)], cells);
+    }
+
+    [Fact]
+    public void Batch_destination_must_fit()
+    {
+        var m = Matrix4x4<double>.Identity;
+        var points = new Vector3<double>[3];
+
+        var ex = Assert.Throws<ArgumentException>(() => m.TransformPoints(points, new Vector3<double>[2]));
+        Assert.StartsWith("The destination has room for 2 vectors, not 3.", ex.Message);
+        Assert.Equal("destination", ex.ParamName);
+
+        ex = Assert.Throws<ArgumentException>(() => m.TransformPoints(points.AsSpan(0, 2), points.AsSpan(1, 2)));
+        Assert.StartsWith("The destination overlaps the source at another position.", ex.Message);
+
+        m.TransformPoints(points, new Vector3<double>[5]);   // room to spare is fine
+    }
+
+    [Fact]
+    public void Entries_are_stored_in_order_without_padding()
+    {
+        // A vertex buffer of floats, read as vectors without copying.
+        float[] buffer = [1, 2, 3, 4, 5, 6];
+        Span<Vector3<float>> vertices = System.Runtime.InteropServices.MemoryMarshal.Cast<float, Vector3<float>>(buffer.AsSpan());
+
+        Assert.Equal(2, vertices.Length);
+        Assert.Equal(new Vector3<float>(4, 5, 6), vertices[1]);
+        Matrix4x4<float>.Translation((1, 0, 0)).TransformPoints(vertices, vertices);
+        Assert.Equal(new float[] { 2, 2, 3, 5, 5, 6 }, buffer);
+
+        System.Numerics.Vector3[] numerics = [new(1, 2, 3)];
+        Assert.Equal(new Vector3<float>(1, 2, 3), System.Runtime.InteropServices.MemoryMarshal.Cast<System.Numerics.Vector3, Vector3<float>>(numerics)[0]);
+        Assert.Equal(16 * sizeof(double), System.Runtime.CompilerServices.Unsafe.SizeOf<Matrix4x4<double>>());
+        Assert.Equal(4 * sizeof(float), System.Runtime.CompilerServices.Unsafe.SizeOf<Vector4<float>>());
+    }
+}

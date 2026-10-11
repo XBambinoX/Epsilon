@@ -18,7 +18,8 @@ listed here.
 [Matrices of expressions](#matrices-of-expressions) -
 [Vectors of expressions](#vectors-of-expressions) -
 [Fixed-size vectors](#fixed-size-vectors) -
-[Fixed-size matrices](#fixed-size-matrices)
+[Fixed-size matrices](#fixed-size-matrices) -
+[System.Numerics](#systemnumerics)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
 are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
@@ -301,9 +302,14 @@ noted.
 | `Vector3<T> Hadamard(Vector3<T> other)` | The entry-wise product. |
 | `static Vector3<T> Lerp(Vector3<T> start, Vector3<T> end, T t)` | (1 - t) start + t end. |
 | `Vector3<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry; converts too: `v.Map(float.CreateTruncating)`. |
+| `Vector<T> ToVector()` | The same entries as a `Vector<T>`, for the general algorithms. |
+| explicit from `Vector<T>` | `(Vector3<double>)v`; throws `ArgumentException` unless `v` has 3 entries. |
 | `void Deconstruct(out T x, out T y, out T z)` | `var (x, y, z) = v;` |
 | `bool Equals(Vector3<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`, so NaN equals NaN. |
 | `string ToString()` | The entries in brackets, culture-invariant: `[1, 2, 3]`. |
+
+The entries are stored in order without padding, so a span of numbers can be read as a span of
+vectors without copying: `MemoryMarshal.Cast<float, Vector3<float>>(buffer)`.
 
 ### `FloatingPointVectorExtensions` (static class)
 
@@ -360,7 +366,12 @@ no `Translation`, `TransformPoint` or `TransformDirection`.
 | `*` (matrix by matrix, matrix by `Vector4<T>`) | The matrix product. |
 | `Vector3<T> TransformPoint(Vector3<T> point)` | (x, y, z, 1) mapped and divided by w unless w is 1; for `Matrix3x3<T>` a `Vector2<T>`. |
 | `Vector3<T> TransformDirection(Vector3<T> direction)` | (x, y, z, 0) mapped: translations leave it alone. |
+| `void TransformPoints(ReadOnlySpan<Vector3<T>> points, Span<Vector3<T>> destination)` | `TransformPoint` of every point, into `destination`, which may be `points` itself; for `Matrix3x3<T>` spans of `Vector2<T>`. Throws `ArgumentException` if `destination` is shorter or overlaps `points` at another position. |
+| `void TransformDirections(ReadOnlySpan<Vector3<T>> directions, Span<Vector3<T>> destination)` | The same with `TransformDirection`. |
+| `void Transform(ReadOnlySpan<Vector4<T>> vectors, Span<Vector4<T>> destination)` | The same with `m * v`; the only one of the three for `Matrix2x2<T>`. |
 | `Matrix4x4<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry: `m.Map(float.CreateTruncating)`. |
+| `Matrix<T> ToMatrix()` | The same entries as a `Matrix<T>`, for the general algorithms: `m.ToMatrix().Rank()`. |
+| explicit from `Matrix<T>` | `(Matrix4x4<double>)m`; throws `ArgumentException` unless `m` is 4 x 4. |
 | `bool Equals(Matrix4x4<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`. |
 | `string ToString()` | The rows in brackets, culture-invariant: `[[1, 0], ...]`. |
 
@@ -377,3 +388,20 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
 | `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
 | `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
+
+---
+
+## System.Numerics
+
+### `SystemNumericsExtensions` (static class)
+
+Conversions between the fixed-size types of `float` and those of System.Numerics. System.Numerics
+multiplies row vectors from the left (`v * M`), so its matrices are the transposes of these: the
+conversions transpose, a map stays the same map, and `a * b` here is `b * a` there.
+
+| Member | Description |
+|---|---|
+| `System.Numerics.Vector3 ToSystemNumerics()` | Of `Vector2<float>`, `Vector3<float>`, `Vector4<float>`: the same vector. |
+| `static Vector3<float> FromSystemNumerics(System.Numerics.Vector3 value)` | And back, for all three sizes. |
+| `System.Numerics.Matrix4x4 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix4x4 value)` | Of `Matrix4x4<float>`: the transpose, so the translation moves from the last column to the last row. |
+| `System.Numerics.Matrix3x2 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix3x2 value)` | Of `Matrix3x3<float>`: an affine map of the plane. `ToSystemNumerics` throws `InvalidOperationException` unless the last row is (0, 0, 1). |
