@@ -735,3 +735,139 @@ public class FloatingPointMatrixTests
         Assert.Equal("relativeTolerance", ex.ParamName);
     }
 }
+
+public class Matrix2x2Tests
+{
+    private static readonly Matrix2x2<double> A = new(1, 2, 3, 4);
+
+    [Fact]
+    public void Entries_rows_and_columns()
+    {
+        Assert.Equal(2, A.M12);
+        Assert.Equal(3, A[1, 0]);
+        Assert.Equal(new Vector2<double>(3, 4), A.Row(1));
+        Assert.Equal(new Vector2<double>(2, 4), A.Column(1));
+        Assert.Equal(A, Matrix2x2<double>.FromRows((1, 2), (3, 4)));
+        Assert.Equal(A, Matrix2x2<double>.FromColumns((1, 3), (2, 4)));
+        Assert.Equal(new Matrix2x2<double>(1, 3, 2, 4), A.Transpose());
+        Assert.Equal(new Matrix2x2<double>(1, 0, 0, 1), Matrix2x2<double>.Identity);
+        Assert.Equal(Matrix2x2<double>.Zero, default);
+        Assert.Equal(new Matrix2x2<double>(2, 0, 0, 3), Matrix2x2<double>.Scale((2, 3)));
+
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => A[0, 2]);
+        Assert.Equal("column", ex.ParamName);
+        Assert.StartsWith("The matrix has 2 columns.", ex.Message);
+        Assert.Throws<ArgumentOutOfRangeException>(() => A.Row(2));
+    }
+
+    [Fact]
+    public void Arithmetic_and_products()
+    {
+        Assert.Equal(new Matrix2x2<double>(2, 2, 3, 5), A + Matrix2x2<double>.Identity);
+        Assert.Equal(new Matrix2x2<double>(0, 2, 3, 3), A - Matrix2x2<double>.Identity);
+        Assert.Equal(new Matrix2x2<double>(-1, -2, -3, -4), -A);
+        Assert.Equal(A + A, 2 * A);
+        Assert.Equal(A, A * 2 / 2);
+        Assert.Equal(new Matrix2x2<double>(7, 10, 15, 22), A * A);
+        Assert.Equal(new Vector2<double>(5, 11), A * new Vector2<double>(1, 2));
+        Assert.Equal(5, A.Trace());
+        Assert.Equal(-2, A.Determinant());
+    }
+
+    [Fact]
+    public void Integer_entries_stay_exact()
+    {
+        // Powers of [[1, 1], [1, 0]] hold the Fibonacci numbers.
+        var step = new Matrix2x2<long>(1, 1, 1, 0);
+        var power = Matrix2x2<long>.Identity;
+        for (int k = 0; k < 90; k++)
+            power *= step;
+
+        Assert.Equal(new Matrix2x2<long>(4660046610375530309, 2880067194370816120, 2880067194370816120, 1779979416004714189), power);
+        Assert.Equal(1, power.Determinant());   // (-1)^90
+    }
+
+    [Fact]
+    public void Embedding_in_homogeneous_coordinates()
+    {
+        Assert.Equal(new Matrix3x3<double>(1, 2, 0, 3, 4, 0, 0, 0, 1), new Matrix3x3<double>(A));
+        Assert.Equal(Matrix3x3<double>.RotationZ(0.7), new Matrix3x3<double>(Matrix2x2<double>.Rotation(0.7)));
+        Assert.Equal(Matrix3x3<double>.Identity, new Matrix3x3<double>(Matrix2x2<double>.Identity));
+    }
+
+    [Fact]
+    public void Map_equality_and_text()
+    {
+        Assert.Equal(new Matrix2x2<int>(1, 2, 3, 4), A.Map(x => (int)x));
+        Assert.True(A == new Matrix2x2<double>(1, 2, 3, 4));
+        Assert.True(A != Matrix2x2<double>.Identity);
+        Assert.Equal(A.GetHashCode(), new Matrix2x2<double>(1, 2, 3, 4).GetHashCode());
+        Assert.Equal("[[1, 2], [3, 4]]", A.ToString());
+    }
+
+    [Fact]
+    public void Rotation()
+    {
+        var quarter = Matrix2x2<double>.Rotation(Math.PI / 2);
+        var r = Matrix2x2<double>.Rotation(2.5);
+
+        Assert.True((quarter * Vector2<double>.UnitX).IsApproximately(Vector2<double>.UnitY));
+        Assert.Equal(Matrix2x2<double>.Identity, Matrix2x2<double>.Rotation(0));
+        Assert.True((r * r.Transpose()).IsApproximately(Matrix2x2<double>.Identity));
+        Assert.Equal(1, r.Determinant(), 1e-15);
+        Assert.True((Matrix2x2<double>.Rotation(0.3) * Matrix2x2<double>.Rotation(0.4)).IsApproximately(Matrix2x2<double>.Rotation(0.7)));
+    }
+
+    [Fact]
+    public void Inverse()
+    {
+        Assert.Equal(new Matrix2x2<double>(-2, 1, 1.5, -0.5), A.Inverse());
+        Assert.Equal(Matrix2x2<double>.Scale((0.5, 0.25)), Matrix2x2<double>.Scale((2, 4)).Inverse());
+
+        var random = new Random(5);
+        for (int k = 0; k < 50; k++)
+        {
+            var m = new Matrix2x2<double>(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5);
+            Assert.True((m * m.Inverse()).IsApproximately(Matrix2x2<double>.Identity, absoluteTolerance: 1e-12));
+        }
+
+        // The naive determinants are about 1e600 and 1e-600: infinite and 0.
+        Assert.True((1e300 * A).Inverse().IsApproximately(A.Inverse() / 1e300));
+        Assert.True((1e-300 * A).Inverse().IsApproximately(A.Inverse() * 1e300));
+
+        var half = Matrix2x2<Half>.Scale(((Half)2, (Half)0.5));
+        Assert.Equal(Matrix2x2<Half>.Scale(((Half)0.5, (Half)2)), half.Inverse());
+        Assert.True((Matrix2x2<float>.Rotation(1) * Matrix2x2<float>.Rotation(1).Inverse()).IsApproximately(Matrix2x2<float>.Identity, absoluteTolerance: 1e-6f));
+    }
+
+    [Fact]
+    public void Singular_matrices_have_no_inverse()
+    {
+        // The rows are parallel; rounding leaves a determinant of 2.8e-17 for the second.
+        var exactlySingular = new Matrix2x2<double>(1, 2, 2, 4);
+        var roundedSingular = new Matrix2x2<double>(0.1, 0.3, 0.7, 2.1);
+
+        Assert.False(exactlySingular.TryInverse(out var inverse));
+        Assert.Equal(Matrix2x2<double>.Zero, inverse);
+        Assert.NotEqual(0, roundedSingular.Determinant());
+        Assert.False(roundedSingular.TryInverse(out _));
+        Assert.True(Matrix2x2<double>.Scale((1e-20, 1)).TryInverse(out _));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => exactlySingular.Inverse());
+        Assert.Equal("The matrix is singular to working precision.", ex.Message);
+        ex = Assert.Throws<InvalidOperationException>(() => (A with { M21 = double.NaN }).Inverse());
+        Assert.Equal("The matrix has an entry that is NaN or infinite.", ex.Message);
+    }
+
+    [Fact]
+    public void Approximate_equality()
+    {
+        var turn = Matrix2x2<double>.Rotation(Math.PI / 2);
+        var exact = new Matrix2x2<double>(0, -1, 1, 0);
+
+        Assert.NotEqual(exact, turn);
+        Assert.True(turn.IsApproximately(exact));
+        Assert.False(exact.IsApproximately(exact + 1e-6 * Matrix2x2<double>.Identity));
+        Assert.True(exact.IsApproximately(exact + 1e-6 * Matrix2x2<double>.Identity, relativeTolerance: 1e-3));
+    }
+}

@@ -23,6 +23,17 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
         M31 = m31; M32 = m32; M33 = m33;
     }
 
+    /// <summary>
+    /// The map of the plane in homogeneous coordinates that applies the linear map
+    /// <paramref name="linear"/>: it in the top left corner, 1 in the bottom right, zeros elsewhere.
+    /// </summary>
+    public Matrix3x3(Matrix2x2<T> linear) : this(
+        linear.M11, linear.M12, T.AdditiveIdentity,
+        linear.M21, linear.M22, T.AdditiveIdentity,
+        T.AdditiveIdentity, T.AdditiveIdentity, T.MultiplicativeIdentity)
+    {
+    }
+
     /// <summary>The entry in row 1, column 1.</summary>
     public T M11 { get; init; }
     /// <summary>The entry in row 1, column 2.</summary>

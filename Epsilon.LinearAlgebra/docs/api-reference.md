@@ -335,16 +335,18 @@ Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : INumbe
 
 ## Fixed-size matrices
 
-### `Matrix3x3<T>`, `Matrix4x4<T>` (readonly structs : `IEquatable`)
+### `Matrix2x2<T>`, `Matrix3x3<T>`, `Matrix4x4<T>` (readonly structs : `IEquatable`)
 
 Immutable value types for transformations, with the same `T` as the fixed-size vectors. Vectors
 are columns: `m * v` maps v, `a * b` applies b first, and a translation is in the last column.
-The table shows `Matrix4x4<T>`; `Matrix3x3<T>` has the same members for 3 x 3, except where noted.
+The table shows `Matrix4x4<T>`; the others have the same members for their size, except where
+noted. `Matrix2x2<T>` is for linear maps of the plane (`m * v`), so it has `Scale(Vector2<T>)` but
+no `Translation`, `TransformPoint` or `TransformDirection`.
 
 | Member | Description |
 |---|---|
 | `Matrix4x4(T m11, T m12, ..., T m44)` | The entries row by row. |
-| `Matrix4x4(Matrix3x3<T> linear)` | The linear map in homogeneous coordinates: `linear` in the top left, 1 in the corner. |
+| `Matrix4x4(Matrix3x3<T> linear)`, `Matrix3x3(Matrix2x2<T> linear)` | The linear map in homogeneous coordinates: `linear` in the top left, 1 in the corner. |
 | `M11`, `M12`, `M13`, `M14`, `M21`, `M22`, `M23`, `M24`, `M31`, `M32`, `M33`, `M34`, `M41`, `M42`, `M43`, `M44` | The entries of type `T`; Mij is in row i, column j. Settable in `with`. |
 | `static Identity`, `Zero` | The identity and the zero matrix. |
 | `static FromRows(...)`, `static FromColumns(...)` | The matrix from its rows or columns as vectors. |
@@ -362,14 +364,15 @@ The table shows `Matrix4x4<T>`; `Matrix3x3<T>` has the same members for 3 x 3, e
 | `bool Equals(Matrix4x4<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`. |
 | `string ToString()` | The rows in brackets, culture-invariant: `[[1, 0], ...]`. |
 
-### `FloatingPointMatrix3x3Extensions`, `FloatingPointMatrix4x4Extensions` (static classes)
+### `FloatingPointMatrix2x2Extensions`, `FloatingPointMatrix3x3Extensions`, `FloatingPointMatrix4x4Extensions` (static classes)
 
-Extension members of `Matrix3x3<T>` and `Matrix4x4<T>` for `T : IFloatingPointIeee754<T>`. Angles
-are in radians.
+Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
+`T : IFloatingPointIeee754<T>`. Angles are in radians.
 
 | Member | Description |
 |---|---|
 | `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
+| `static Matrix2x2<T> Rotation(T angle)` | Of `Matrix2x2<T>`: the rotation of the plane, turning `UnitX` toward `UnitY`. |
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
 | `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |

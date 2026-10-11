@@ -42,9 +42,11 @@ internal static class FloatingPoint<T> where T : struct, System.Numerics.IFloati
     internal static readonly T SafeSmallest = T.ScaleB(T.One, -SafeExponent);
 
     // First-order bounds on the rounding error of the closed-form determinants, as multiples of the
-    // machine epsilon times the sum of the magnitudes of their terms: 5 for the cofactor expansion
-    // of a 3 x 3 matrix (2 roundings in a minor, 1 in the product, 2 in the sum) and 10 for the
-    // Laplace expansion of a 4 x 4 one (2 in each of two minors, 1 in their product, 5 in the sum).
+    // machine epsilon times the sum of the magnitudes of their terms: 2 for a 2 x 2 matrix (1
+    // rounding in a product, 1 in the difference), 5 for the cofactor expansion of a 3 x 3 one (2 in
+    // a minor, 1 in the product, 2 in the sum) and 10 for the Laplace expansion of a 4 x 4 one (2 in
+    // each of two minors, 1 in their product, 5 in the sum).
+    internal static readonly T DeterminantError2 = T.CreateTruncating(2) * MachineEpsilon;
     internal static readonly T DeterminantError3 = T.CreateTruncating(5) * MachineEpsilon;
     internal static readonly T DeterminantError4 = T.CreateTruncating(10) * MachineEpsilon;
 
