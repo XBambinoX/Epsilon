@@ -1,8 +1,9 @@
 name: Publish
 
-# Pushing a tag publishes one package to nuget.org: core-v1.0.1 publishes Epsilon 1.0.1,
-# linalg-v1.0.0 publishes Epsilon.LinearAlgebra 1.0.0. Every package gets its own tag prefix
-# (later calculus-v* and so on); v1.0.0 is the only release tagged before this scheme.
+# Pushing a tag publishes one package to nuget.org: core-v<version> publishes Epsilon and
+# linalg-v<version> publishes Epsilon.LinearAlgebra, at the version after the prefix. Every
+# package gets its own tag prefix (later calculus-v* and so on); v1.0.0 is the only release
+# tagged before this scheme.
 # Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
 # GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
 # this repository and workflow file.

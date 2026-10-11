@@ -25,6 +25,10 @@ internal static class FloatingPoint<T> where T : struct, System.Numerics.IFloati
 
     internal static readonly T Two = T.One + T.One;
 
+    // The square root of the machine epsilon, 1.5e-8 for double: where the cosine of the middle
+    // Euler angle falls below it, the errors of the regular formulas outgrow that of gimbal lock.
+    internal static readonly T SqrtMachineEpsilon = T.Sqrt(MachineEpsilon);
+
     // The relative tolerance of IsApproximately when none is given: 1e-9 for double, as for
     // Vector<double>, 1e-5 for float and 1e-2 for Half.
     internal static readonly T DefaultTolerance = T.CreateTruncating(double.CreateTruncating(MachineEpsilon) switch

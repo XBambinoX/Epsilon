@@ -7,6 +7,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-11
+
+It depends on `Epsilon` 1.1.1 or later, as before.
+
+### Added
+
+- **Quaternions** `Quaternion<T>` for rotations: the Hamilton product, which applies the right
+  factor first as for matrices, `Conjugate`, `Inverse`, `Rotate`, `Rotation(axis, angle)`,
+  `RotationX/Y/Z`, `ToAxisAngle`, `Angle` between rotations (accurate for small angles),
+  `Slerp` and `Nlerp` the shorter way round, `FromRotationMatrix` by Shepperd's method and
+  `Matrix3x3<T>.Rotation(q)`/`Matrix4x4<T>.Rotation(q)` back. A quaternion need not have norm 1
+  to stand for a rotation. `ToSystemNumerics()`/`FromSystemNumerics()` for `Quaternion<float>`.
+- **Euler angles** in an explicit order, `EulerOrder.XYZ` to `ZYX`, for quaternions and rotation
+  matrices: `FromEulerAngles(angles, order)` and `ToEulerAngles(order)`, with gimbal lock handled.
+  `CreateFromYawPitchRoll(yaw, pitch, roll)` of System.Numerics is
+  `FromEulerAngles((pitch, yaw, roll), EulerOrder.ZXY)`.
+- **`FromToRotation(from, to)`**, the shortest rotation between two directions, accurate for
+  nearly opposite ones too.
+- **Translation, rotation and scale.** `Matrix4x4<T>.Compose(translation, rotation, scale)` and
+  `TryDecompose`, which returns `false` for a shear, a zero scale or a projective matrix and gives
+  a mirror image a negative `scale.X`; the same for the plane in `Matrix3x3<T>` with an angle.
+- **Normals.** `NormalMatrix()`, `TransformNormal` and `TransformNormals`, by the inverse
+  transpose, so normals stay perpendicular under uneven scale.
+- **Camera matrices.** `LookAt`, `Perspective`, `Orthographic` and `OrthographicOffCenter`,
+  right-handed, each with a `LeftHanded` twin, and a `DepthRange`: `ZeroToOne` (Direct3D, Vulkan,
+  Metal), `MinusOneToOne` (OpenGL) or `OneToZero` (reverse-Z). The far plane of a perspective may
+  be infinite. They agree with System.Numerics where it has them.
+
 ## [1.2.0] - 2026-10-11
 
 It depends on `Epsilon` 1.1.1 or later, as before.
@@ -114,7 +142,8 @@ The first release. It depends on `Epsilon` 1.1.1 or later.
 
 See [Limitations](docs/guide.md#limitations) in the guide.
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.2.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.3.0...HEAD
+[1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.2.0
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.1.0
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.0.0

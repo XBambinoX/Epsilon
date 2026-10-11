@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.2.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.3.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guide](guide.md) explains the details, and your IDE shows the full XML documentation for
 every member.
@@ -19,6 +19,8 @@ listed here.
 [Vectors of expressions](#vectors-of-expressions) -
 [Fixed-size vectors](#fixed-size-vectors) -
 [Fixed-size matrices](#fixed-size-matrices) -
+[Quaternions](#quaternions) -
+[Camera](#camera) -
 [System.Numerics](#systemnumerics)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
@@ -386,10 +388,112 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 |---|---|
 | `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
 | `static Matrix2x2<T> Rotation(T angle)` | Of `Matrix2x2<T>`: the rotation of the plane, turning `UnitX` toward `UnitY`. |
+| `static FromEulerAngles(Vector3<T> angles, EulerOrder order)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the rotation by `angles.X` about x, `angles.Y` about y and `angles.Z` about z, in the given order about the fixed axes; `XYZ` gives Rz Ry Rx. |
+| `Vector3<T> ToEulerAngles(EulerOrder order)` | The Euler angles of a rotation matrix (the top left corner of a 4 x 4 one): the middle one in [-pi/2, pi/2], the others in [-pi, pi]; at gimbal lock the last one is 0. |
+| `static Rotation(Quaternion<T> rotation)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the matrix of a quaternion's rotation, which need not have norm 1; `Rotation(p * q)` is `Rotation(p) * Rotation(q)`. Throws `ArgumentException` for the zero quaternion. |
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
+| `static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)` | T R S: scale, then turn, then move. Throws `ArgumentException` for the zero quaternion. |
+| `bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)` | Splits an affine map into T R S; a mirror image has a negative `scale.X`. `false` for a shear, a zero scale, a projective map or a NaN or infinite entry. |
+| `static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)`, `bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)` | Of `Matrix3x3<T>`: the same for affine maps of the plane. |
+| `Matrix3x3<T> NormalMatrix()` | Of `Matrix4x4<T>`: the inverse transpose of the top left corner, which maps normals. Throws `InvalidOperationException` if that corner has no inverse. |
+| `Vector3<T> TransformNormal(Vector3<T> normal)` | The normal mapped by `NormalMatrix()`, not normalized; it stays perpendicular to the mapped surface. |
+| `void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)` | The same for a span, with the normal matrix computed once. |
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
 | `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
 | `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
+
+---
+
+## Quaternions
+
+### `Quaternion<T>` (readonly struct : `IEquatable`)
+
+The quaternion x i + y j + z k + w, for rotations: (sin(a/2) u, cos(a/2)) turns by the angle a
+about the unit axis u. `T` as for the fixed-size vectors.
+
+| Member | Description |
+|---|---|
+| `Quaternion(T x, T y, T z, T w)`, `Quaternion(Vector3<T> xyz, T w)` | The entries in the order of System.Numerics. |
+| `T X`, `T Y`, `T Z`, `T W` | The entries, settable in `with`. |
+| `static Quaternion<T> Identity` | 1, the rotation by 0. |
+| `Vector3<T> XYZ` | The vector part. |
+| `Quaternion<T> Conjugate()` | -x i - y j - z k + w. |
+| `T Dot(Quaternion<T> other)`, `T NormSquared()` | As vectors of four numbers. |
+| `*` (quaternion by quaternion) | The Hamilton product: `p * q` applies q first, like matrices. |
+| `+`, `-` (binary and unary), `*` and `/` with a `T` | Entry by entry; `-q` is the same rotation as q. |
+| `Quaternion<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry. |
+| `void Deconstruct(out T x, out T y, out T z, out T w)` | `var (x, y, z, w) = q;` |
+| `bool Equals(Quaternion<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`; q and -q are not equal. |
+| `string ToString()` | The entries x, y, z, w: `[0, 0, 0, 1]`. |
+
+### `FloatingPointQuaternionExtensions` (static class)
+
+Extension members of `Quaternion<T>` for `T : IFloatingPointIeee754<T>`. Angles are in radians.
+Wherever a quaternion stands for a rotation it need not have norm 1.
+
+| Member | Description |
+|---|---|
+| `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis by the right-hand rule, as `Matrix3x3<T>.Rotation`. Throws `ArgumentException` for the zero axis. |
+| `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotations about the axes. |
+| `static FromEulerAngles(Vector3<T> angles, EulerOrder order)`, `Vector3<T> ToEulerAngles(EulerOrder order)` | Euler angles, as for the matrices. `ToEulerAngles` throws `InvalidOperationException` for the zero quaternion. |
+| `static FromToRotation(Vector3<T> from, Vector3<T> to)` | The shortest rotation from one direction to the other, a half turn for opposite ones; accurate for nearly opposite ones. Throws `ArgumentException` for a zero vector. |
+| `static FromRotationMatrix(Matrix3x3<T> matrix)`, `FromRotationMatrix(Matrix4x4<T> matrix)` | The unit quaternion of a rotation matrix (the top left corner of a 4 x 4 one), by Shepperd's method. |
+| `T Norm()`, `Quaternion<T> Normalize()` | The norm without overflow or underflow, and the unit quaternion. `Normalize` throws `InvalidOperationException` for 0. |
+| `Quaternion<T> Inverse()` | The conjugate over the squared norm. Throws `InvalidOperationException` for 0. |
+| `Vector3<T> Rotate(Vector3<T> vector)` | q v q^-1. Throws `InvalidOperationException` for the zero quaternion. |
+| `(Vector3<T> Axis, T Angle) ToAxisAngle()` | The unit axis and the angle from 0 to pi; `UnitX` and 0 for the identity. |
+| `T Angle(Quaternion<T> other)` | The angle of the rotation between them, from 0 to pi; accurate for small angles. |
+| `static Slerp(Quaternion<T> start, Quaternion<T> end, T t)` | Spherical linear interpolation, the shorter way, at constant speed. |
+| `static Nlerp(Quaternion<T> start, Quaternion<T> end, T t)` | Normalized linear interpolation: the same path, faster, at a varying speed. |
+| `bool IsApproximately(Quaternion<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding as vectors of four numbers; q and -q are not close. |
+
+### `EulerOrder` (enum)
+
+The order of Euler angles: the rotations turn about the fixed axes of space, first about the
+first axis of the name, so `XYZ` turns about x, then y, then z, and its matrix is Rz Ry Rx; the
+same rotation is the reverse order about the axes that turn with the object. The angles
+(pitch, yaw, roll) in the order `ZXY` give `CreateFromYawPitchRoll` of System.Numerics.
+
+| Value | Turns about | Matrix |
+|---|---|---|
+| `XYZ` | x, then y, then z | Rz Ry Rx |
+| `XZY` | x, then z, then y | Ry Rz Rx |
+| `YXZ` | y, then x, then z | Rz Rx Ry |
+| `YZX` | y, then z, then x | Rx Rz Ry |
+| `ZXY` | z, then x, then y | Ry Rx Rz |
+| `ZYX` | z, then y, then x | Rx Ry Rz |
+
+---
+
+## Camera
+
+### `CameraMatrixExtensions` (static class)
+
+View and projection matrices, static extension members of `Matrix4x4<T>` for
+`T : IFloatingPointIeee754<T>`. The plain ones are right-handed: the camera looks along -z, with
+x to the right and y up. The `LeftHanded` ones look along +z. After `TransformPoint` divides by w,
+a projection maps what the camera sees to x and y in [-1, 1] and to the depths of a `DepthRange`.
+
+| Member | Description |
+|---|---|
+| `static LookAt(Vector3<T> eye, Vector3<T> target, Vector3<T> up)` | The view matrix: the camera at the origin, looking along -z, y up. Throws `ArgumentException` if `target` is `eye` or `up` is parallel to the direction of view. |
+| `static LookAtLeftHanded(Vector3<T> eye, Vector3<T> target, Vector3<T> up)` | The same, looking along +z. |
+| `static Perspective(T fieldOfViewY, T aspectRatio, T near, T far, DepthRange depthRange = ZeroToOne)` | The perspective projection: the vertical angle of view in radians, width over height, the near and far distances; `far` may be infinite. Throws `ArgumentOutOfRangeException` unless 0 < angle < pi, aspect > 0 and 0 < near < far. |
+| `static PerspectiveLeftHanded(...)` | The same, looking along +z. |
+| `static Orthographic(T width, T height, T near, T far, DepthRange depthRange = ZeroToOne)` | The orthographic projection of a box around the axis of view: no perspective. |
+| `static OrthographicOffCenter(T left, T right, T bottom, T top, T near, T far, DepthRange depthRange = ZeroToOne)` | The same for any box: `OrthographicOffCenter(0, 1920, 1080, 0, -1, 1)` maps pixels to the screen. |
+| `static OrthographicLeftHanded(...)`, `static OrthographicOffCenterLeftHanded(...)` | The same, looking along +z. |
+
+The orthographic ones throw `ArgumentOutOfRangeException` for a box of size 0 or a value that is
+not finite.
+
+### `DepthRange` (enum)
+
+| Value | Near, far | For |
+|---|---|---|
+| `ZeroToOne` | 0, 1 | Direct3D, Vulkan, Metal, WebGPU; the default |
+| `MinusOneToOne` | -1, 1 | OpenGL, WebGL |
+| `OneToZero` | 1, 0 | Reverse-Z, for float depth buffers |
 
 ---
 
@@ -405,5 +509,6 @@ conversions transpose, a map stays the same map, and `a * b` here is `b * a` the
 |---|---|
 | `System.Numerics.Vector3 ToSystemNumerics()` | Of `Vector2<float>`, `Vector3<float>`, `Vector4<float>`: the same vector. |
 | `static Vector3<float> FromSystemNumerics(System.Numerics.Vector3 value)` | And back, for all three sizes. |
+| `System.Numerics.Quaternion ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Quaternion value)` | Of `Quaternion<float>`: the same entries in the same order; the products agree too. |
 | `System.Numerics.Matrix4x4 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix4x4 value)` | Of `Matrix4x4<float>`: the transpose, so the translation moves from the last column to the last row. |
 | `System.Numerics.Matrix3x2 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix3x2 value)` | Of `Matrix3x3<float>`: an affine map of the plane. `ToSystemNumerics` throws `InvalidOperationException` unless the last row is (0, 0, 1). |

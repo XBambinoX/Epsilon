@@ -1073,3 +1073,172 @@ public class FixedSizeInteropTests
         Assert.Equal(4 * sizeof(float), System.Runtime.CompilerServices.Unsafe.SizeOf<Vector4<float>>());
     }
 }
+
+public class TransformCompositionTests
+{
+    private static Vector3<double> RandomVector(Random random, double size) =>
+        (size * (random.NextDouble() * 2 - 1), size * (random.NextDouble() * 2 - 1), size * (random.NextDouble() * 2 - 1));
+
+    [Fact]
+    public void Compose_is_translation_times_rotation_times_scale()
+    {
+        Vector3<double> t = (4, -1, 2), s = (2, 3, 0.5);
+        var q = Quaternion<double>.Rotation((0, 1, 1), 1.2);
+        var model = Matrix4x4<double>.Compose(t, q, s);
+
+        Assert.True(model.IsApproximately(Matrix4x4<double>.Translation(t) * Matrix4x4<double>.Rotation(q) * Matrix4x4<double>.Scale(s)));
+        Assert.True(model.TransformPoint((1, 1, 1)).IsApproximately(t + q.Rotate(s.Hadamard((1, 1, 1)))));
+        Assert.Equal(Matrix4x4<double>.Identity, Matrix4x4<double>.Compose(Vector3<double>.Zero, Quaternion<double>.Identity, Vector3<double>.One));
+        Assert.Throws<ArgumentException>(() => Matrix4x4<double>.Compose(t, default, s));
+    }
+
+    [Fact]
+    public void Decompose_takes_compose_apart()
+    {
+        var random = new Random(10);
+        for (int k = 0; k < 50; k++)
+        {
+            Vector3<double> t = RandomVector(random, 100);
+            var q = Quaternion<double>.Rotation(RandomVector(random, 1), random.NextDouble() * 6);
+            Vector3<double> s = (0.1 + random.NextDouble() * 5, 0.1 + random.NextDouble() * 5, 0.1 + random.NextDouble() * 5);
+
+            Assert.True(Matrix4x4<double>.Compose(t, q, s).TryDecompose(out var translation, out var rotation, out var scale));
+            Assert.Equal(t, translation);
+            Assert.True(rotation.Angle(q) < 1e-7);
+            Assert.True(scale.IsApproximately(s));
+            Assert.Equal(1, rotation.Norm(), 1e-15);
+        }
+    }
+
+    [Fact]
+    public void A_mirror_image_has_a_negative_x_scale()
+    {
+        var q = Quaternion<double>.Rotation((1, 2, 3), 0.8);
+        var mirrored = Matrix4x4<double>.Compose((1, 2, 3), q, (2, -3, 4));   // mirrored in y
+
+        Assert.True(mirrored.TryDecompose(out var translation, out var rotation, out var scale));
+        Assert.True(scale.X < 0);
+        Assert.True(scale.Abs().IsApproximately((2, 3, 4)));
+        Assert.True(Matrix4x4<double>.Compose(translation, rotation, scale).IsApproximately(mirrored));
+    }
+
+    [Fact]
+    public void Some_matrices_have_no_split()
+    {
+        var shear = Matrix4x4<double>.Identity with { M12 = 0.5 };
+        var projective = Matrix4x4<double>.Identity with { M43 = 1 };
+        var flat = Matrix4x4<double>.Scale((1, 0, 1));
+        var nan = Matrix4x4<double>.Identity with { M14 = double.NaN };
+
+        foreach (var m in new[] { shear, projective, flat, nan })
+        {
+            Assert.False(m.TryDecompose(out var translation, out var rotation, out var scale));
+            Assert.Equal(default, translation);
+            Assert.Equal(default, rotation);
+            Assert.Equal(default, scale);
+        }
+
+        // Rounding in R S is no shear.
+        var model = Matrix4x4<double>.Translation((1, 2, 3)) * Matrix4x4<double>.RotationX(0.3) * Matrix4x4<double>.RotationY(1.1) * Matrix4x4<double>.Scale(7);
+        Assert.True(model.TryDecompose(out _, out _, out _));
+    }
+
+    [Fact]
+    public void Decompose_agrees_with_System_Numerics()
+    {
+        var numerics = System.Numerics.Matrix4x4.CreateScale(2, 3, 4)
+            * System.Numerics.Matrix4x4.CreateFromYawPitchRoll(0.3f, -0.7f, 1.2f)
+            * System.Numerics.Matrix4x4.CreateTranslation(5, -6, 7);
+        Assert.True(System.Numerics.Matrix4x4.Decompose(numerics, out var numericsScale, out var numericsRotation, out var numericsTranslation));
+
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(numerics).TryDecompose(out var translation, out var rotation, out var scale));
+        Assert.True(translation.IsApproximately(Vector3<float>.FromSystemNumerics(numericsTranslation)));
+        Assert.True(scale.IsApproximately(Vector3<float>.FromSystemNumerics(numericsScale)));
+        Assert.True(rotation.Angle(Quaternion<float>.FromSystemNumerics(numericsRotation)) < 1e-3f);
+        Assert.True(Matrix4x4<float>.Compose(translation, rotation, scale).ToSystemNumerics() is var back
+            && Matrix4x4<float>.FromSystemNumerics(back).IsApproximately(Matrix4x4<float>.FromSystemNumerics(numerics)));
+    }
+
+    [Fact]
+    public void Transforms_of_the_plane()
+    {
+        var sprite = Matrix3x3<double>.Compose((5, 2), 0.7, (2, 3));
+        Vector2<double> p = (1, -1);
+
+        Assert.True(sprite.IsApproximately(Matrix3x3<double>.Translation((5, 2)) * Matrix3x3<double>.RotationZ(0.7) * Matrix3x3<double>.Scale((2, 3))));
+        Assert.True(sprite.TransformPoint(p).IsApproximately(Matrix2x2<double>.Rotation(0.7) * p.Hadamard((2, 3)) + (5, 2)));
+
+        Assert.True(sprite.TryDecompose(out var translation, out var angle, out var scale));
+        Assert.Equal(new Vector2<double>(5, 2), translation);
+        Assert.Equal(0.7, angle, 1e-15);
+        Assert.True(scale.IsApproximately((2, 3)));
+
+        var mirrored = Matrix3x3<double>.Compose((0, 0), -2.5, (1, -4));
+        Assert.True(mirrored.TryDecompose(out translation, out angle, out scale));
+        Assert.True(scale.X < 0);
+        Assert.True(Matrix3x3<double>.Compose(translation, angle, scale).IsApproximately(mirrored));
+
+        Assert.False((Matrix3x3<double>.Identity with { M12 = 0.3 }).TryDecompose(out _, out _, out _));   // shear
+        Assert.False((Matrix3x3<double>.Identity with { M31 = 1 }).TryDecompose(out _, out _, out _));     // projective
+        Assert.False(Matrix3x3<double>.Scale((0, 1)).TryDecompose(out _, out _, out _));
+    }
+}
+
+public class NormalTransformTests
+{
+    [Fact]
+    public void Normals_stay_perpendicular()
+    {
+        var random = new Random(11);
+        for (int k = 0; k < 30; k++)
+        {
+            var model = Matrix4x4<double>.Compose(
+                (random.NextDouble() * 10, 0, 3),
+                Quaternion<double>.Rotation((random.NextDouble(), 1, random.NextDouble()), random.NextDouble() * 6),
+                (0.5 + random.NextDouble() * 3, 0.5 + random.NextDouble() * 3, 0.5 + random.NextDouble() * 3)) with { M12 = 0.4 };
+            Vector3<double> normal = (random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5);
+            Vector3<double> along = normal.Cross((random.NextDouble(), random.NextDouble(), random.NextDouble()));   // in the plane
+
+            Assert.Equal(0, model.TransformDirection(along).Dot(model.TransformNormal(normal)), 1e-12);
+        }
+    }
+
+    [Fact]
+    public void Directions_are_not_normals_under_uneven_scale()
+    {
+        // The plane x = y has the normal (1, -1, 0); stretched along x it tilts.
+        var stretch = Matrix4x4<double>.Scale((2, 1, 1));
+        Vector3<double> normal = (1, -1, 0), along = (1, 1, 0);
+
+        Assert.Equal(0, stretch.TransformDirection(along).Dot(stretch.TransformNormal(normal)), 1e-15);
+        Assert.NotEqual(0, stretch.TransformDirection(along).Dot(stretch.TransformDirection(normal)));
+        Assert.Equal(new Vector3<double>(0.5, -1, 0), stretch.TransformNormal(normal));
+    }
+
+    [Fact]
+    public void Rotations_and_translations_map_normals_like_directions()
+    {
+        var model = Matrix4x4<double>.Translation((7, 8, 9)) * Matrix4x4<double>.Rotation((1, 2, 3), 1.3);
+        Vector3<double> normal = (0.3, -0.4, 0.5);
+
+        Assert.True(model.TransformNormal(normal).IsApproximately(model.TransformDirection(normal)));
+        Assert.True(model.NormalMatrix().IsApproximately(Matrix3x3<double>.Rotation((1, 2, 3), 1.3)));
+    }
+
+    [Fact]
+    public void Batch_normals_and_singular_maps()
+    {
+        var model = Matrix4x4<double>.Scale((2, 3, 4)) * Matrix4x4<double>.RotationZ(0.5);
+        Vector3<double>[] normals = [(1, 0, 0), (0, 1, 1), (1, 2, 3)];
+        var results = new Vector3<double>[3];
+
+        model.TransformNormals(normals, results);
+        Assert.Equal(normals.Select(n => model.TransformNormal(n)), results);
+        model.TransformNormals(normals, normals);
+        Assert.Equal(results, normals);
+
+        var ex = Assert.Throws<InvalidOperationException>(() => Matrix4x4<double>.Scale((1, 0, 1)).TransformNormal(Vector3<double>.UnitX));
+        Assert.StartsWith("The top left 3 x 3 corner is singular to working precision", ex.Message);
+        Assert.Throws<ArgumentException>(() => model.TransformNormals(normals, new Vector3<double>[2]));
+    }
+}

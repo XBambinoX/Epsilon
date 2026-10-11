@@ -35,6 +35,15 @@ public static class SystemNumericsExtensions
         public static Vector4<float> FromSystemNumerics(System.Numerics.Vector4 value) => new(value.X, value.Y, value.Z, value.W);
     }
 
+    extension(Quaternion<float> quaternion)
+    {
+        /// <summary>The same quaternion as a <see cref="System.Numerics.Quaternion"/>, with the entries in the same order.</summary>
+        public System.Numerics.Quaternion ToSystemNumerics() => new(quaternion.X, quaternion.Y, quaternion.Z, quaternion.W);
+
+        /// <summary>The quaternion with the entries of a <see cref="System.Numerics.Quaternion"/>.</summary>
+        public static Quaternion<float> FromSystemNumerics(System.Numerics.Quaternion value) => new(value.X, value.Y, value.Z, value.W);
+    }
+
     extension(Matrix3x3<float> matrix)
     {
         /// <summary>

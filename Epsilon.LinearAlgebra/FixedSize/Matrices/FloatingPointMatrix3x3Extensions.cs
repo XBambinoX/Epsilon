@@ -53,6 +53,62 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// The affine map of the plane, in homogeneous coordinates, that scales by
+        /// <paramref name="scale"/> along the axes, then turns by <paramref name="angle"/> about the
+        /// origin, then moves by <paramref name="translation"/>: T R S, the transform of a sprite.
+        /// </summary>
+        public static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)
+        {
+            var (sin, cos) = T.SinCos(angle);
+            return new(
+                cos * scale.X, -sin * scale.Y, translation.X,
+                sin * scale.X, cos * scale.Y, translation.Y,
+                T.Zero, T.Zero, T.One);
+        }
+
+        /// <summary>
+        /// The rotation by Euler angles: <c>angles.X</c> about x, <c>angles.Y</c> about y and
+        /// <c>angles.Z</c> about z, applied in the given order about the fixed axes; see
+        /// <see cref="EulerOrder"/>. For <see cref="EulerOrder.XYZ"/> it is Rz Ry Rx.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public static Matrix3x3<T> FromEulerAngles(Vector3<T> angles, EulerOrder order)
+        {
+            var (a, b, c, _) = EulerAngles.Axes(order);
+            return AxisRotation(c, angles[c]) * AxisRotation(b, angles[b]) * AxisRotation(a, angles[a]);
+        }
+
+        /// <summary>
+        /// The Euler angles of a rotation matrix in the given order, so that
+        /// <see cref="FromEulerAngles"/> gives the matrix back. The middle angle of the order is in
+        /// [-pi/2, pi/2], the others in [-pi, pi]; at gimbal lock the last one is 0. The matrix
+        /// must be a rotation: orthonormal, with determinant 1.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public Vector3<T> ToEulerAngles(EulerOrder order) => EulerAngles.Of(matrix, order);
+
+        /// <summary>
+        /// The rotation of a quaternion, which need not have norm 1: the matrix of
+        /// <c>rotation.Rotate</c>, so that <c>Rotation(p * q)</c> is <c>Rotation(p) * Rotation(q)</c>.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="rotation"/> is zero.</exception>
+        public static Matrix3x3<T> Rotation(Quaternion<T> rotation)
+        {
+            if (rotation == default)
+                throw new ArgumentException("The quaternion is zero.", nameof(rotation));
+
+            var (x, y, z, w) = FloatingPointQuaternionExtensions.Rotation(rotation, out T normSquared);
+            T s = FloatingPoint<T>.Two / normSquared;
+            T xs = x * s, ys = y * s, zs = z * s;
+            T wx = w * xs, wy = w * ys, wz = w * zs;
+            T xx = x * xs, xy = x * ys, xz = x * zs, yy = y * ys, yz = y * zs, zz = z * zs;
+            return new(
+                T.One - (yy + zz), xy - wz, xz + wy,
+                xy + wz, T.One - (xx + zz), yz - wx,
+                xz - wy, yz + wx, T.One - (xx + yy));
+        }
+
+        /// <summary>
         /// The inverse, the map that undoes this one; see <see cref="TryInverse"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">
@@ -111,6 +167,49 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// Splits an affine map of the plane into T R S, as <see cref="Compose"/> builds it: the
+        /// translation from the last column, the scale from the lengths of the first two columns and
+        /// the angle, in [-pi, pi], from the first of them. A mirror image shows as a negative
+        /// <c>scale.X</c>. There is no such split, and the result is <c>false</c>, if the last row is
+        /// not (0, 0, 1), if a scale is 0, if an entry is NaN or infinite, or for a shear: when the
+        /// columns are not perpendicular to within the square root of the machine epsilon.
+        /// </summary>
+        /// <param name="translation">The translation, or zero if there is no split.</param>
+        /// <param name="angle">The angle of the rotation in radians, or 0 if there is no split.</param>
+        /// <param name="scale">The scale along the axes, or zero if there is no split.</param>
+        /// <returns>Whether the matrix is T R S.</returns>
+        public bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)
+        {
+            translation = default;
+            angle = T.Zero;
+            scale = default;
+            if (matrix.M31 != T.Zero || matrix.M32 != T.Zero || matrix.M33 != T.One
+                || !T.IsFinite(matrix.M13) || !T.IsFinite(matrix.M23))
+                return false;
+
+            Vector2<T> x = (matrix.M11, matrix.M21), y = (matrix.M12, matrix.M22);
+            T sx = x.Norm(), sy = y.Norm();
+            if (!(sx > T.Zero) || !T.IsFinite(sx) || !(sy > T.Zero) || !T.IsFinite(sy))
+                return false;
+
+            x /= sx;
+            y /= sy;
+            if (x.Cross(y) < T.Zero)
+            {
+                sx = -sx;   // a mirror image
+                x = -x;
+            }
+
+            if (T.Abs(x.Dot(y)) > FloatingPoint<T>.SqrtMachineEpsilon)
+                return false;   // a shear
+
+            translation = (matrix.M13, matrix.M23);
+            angle = T.Atan2(x.Y, x.X);
+            scale = (sx, sy);
+            return true;
+        }
+
+        /// <summary>
         /// Whether the matrices are equal up to rounding:
         /// ||A - B|| &lt;= max(relativeTolerance * max(||A||, ||B||), absoluteTolerance) in the
         /// Frobenius norm, as for <see cref="Matrix{T}"/> of double. Without a relative tolerance it
@@ -125,6 +224,14 @@ public static class FloatingPointMatrix3x3Extensions
                 [other.M11, other.M12, other.M13, other.M21, other.M22, other.M23, other.M31, other.M32, other.M33],
                 relativeTolerance, absoluteTolerance);
     }
+
+    private static Matrix3x3<T> AxisRotation<T>(int axis, T angle) where T : struct, System.Numerics.IFloatingPointIeee754<T> =>
+        axis switch
+        {
+            0 => Matrix3x3<T>.RotationX(angle),
+            1 => Matrix3x3<T>.RotationY(angle),
+            _ => Matrix3x3<T>.RotationZ(angle),
+        };
 
     // The adjugate over the determinant, unless the determinant is 0 to working precision. The
     // permanent of |A|, the sum of the magnitudes of the terms of the determinant, is the scale of

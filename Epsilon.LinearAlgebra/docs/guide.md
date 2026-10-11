@@ -1,6 +1,6 @@
 # Linear algebra guide
 
-The `Epsilon.LinearAlgebra` package, version 1.2.0, in detail. For a one-page overview see
+The `Epsilon.LinearAlgebra` package, version 1.3.0, in detail. For a one-page overview see
 the [package README](../README.md); every public member is listed in the
 [API reference](api-reference.md). The types are in the namespace `Epsilon.LinearAlgebra`;
 the expressions in them come from the core, namespace `Epsilon.Core`.
@@ -469,8 +469,9 @@ Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex();   // \begin{bmatrix} x^{2
 
 `Matrix<T>` and `Vector<T>` hold any number of entries on the heap. For geometry, games and
 real-time code, where vectors have 2, 3 or 4 entries, the package has value types:
-`Vector2<T>`, `Vector3<T>`, `Vector4<T>`, `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>`.
-They never allocate and, like everything in the package, are immutable.
+`Vector2<T>`, `Vector3<T>`, `Vector4<T>`, `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>`,
+and `Quaternion<T>` for rotations. They never allocate and, like everything in the package, are
+immutable.
 
 ### Entry types
 
@@ -570,6 +571,7 @@ with `IsApproximately`, see below.
 | `Translation(offset)` | Of space for `Matrix4x4<T>`; of the plane, in homogeneous coordinates, for `Matrix3x3<T>`. |
 | `Scale(factors)`, `Scale(factor)` | Along the axes; the second, uniform one for `Matrix4x4<T>`. |
 | `RotationX(angle)`, `RotationY`, `RotationZ`, `Rotation(axis, angle)` | In radians, by the right-hand rule: counterclockwise seen from the tip of the axis, so `RotationZ` turns `UnitX` toward `UnitY`. `Matrix2x2<T>` has `Rotation(angle)`. |
+| `Rotation(quaternion)`, `FromEulerAngles(angles, order)` | From a quaternion or Euler angles; see below. |
 | `FromRows`, `FromColumns` | From vectors; the columns are the images of the unit vectors. |
 | `TransformPoint(p)` | (x, y, z, 1) mapped and divided by w unless w is 1, so projective maps work too. |
 | `TransformDirection(d)` | (x, y, z, 0) mapped: translations leave it alone. |
@@ -620,6 +622,147 @@ is exact, so neither overflow nor underflow spoils the result. Where `TryInverse
 `false`, also for an entry that is NaN or infinite, `Inverse` throws
 `InvalidOperationException`: `The matrix is singular to working precision.`
 
+### Quaternions
+
+`Quaternion<T>` holds a rotation in four numbers, x i + y j + z k + w: the unit quaternion
+(sin(a/2) u, cos(a/2)) turns by the angle a about the unit axis u. Quaternions compose
+cheaply, renormalize without the drift of a product of many matrices, and interpolate smoothly:
+
+```csharp
+var quarter = Quaternion<double>.RotationY(Math.PI / 2);   // a quarter turn about y
+quarter.Rotate((1, 0, 0)).IsApproximately((0, 0, -1));      // true
+var half = quarter * quarter;                               // p * q turns by q first, then by p
+half.ToAxisAngle();                                         // ([0, 1, 0], 3.1415926535897927)
+quarter.Angle(-quarter);                                    // 0: -q is the same rotation
+Mat4.Rotation(quarter);                                     // the same rotation as a matrix
+Quaternion<double>.FromRotationMatrix(Mat4.Rotation(quarter)).Angle(quarter);   // 0
+Quaternion<double>.FromToRotation(Vec3.UnitX, (0, 0, -1)).IsApproximately(quarter);   // true
+```
+
+| Member | Result |
+|---|---|
+| `Rotation(axis, angle)`, `RotationX`, `RotationY`, `RotationZ` | The rotations, by the right-hand rule like those of the matrices. |
+| `FromToRotation(from, to)` | The shortest rotation from one direction to another; a half turn for opposite ones. |
+| `FromRotationMatrix(m)`, `Mat4.Rotation(q)` | From a rotation matrix and back. |
+| `p * q`, `Conjugate()`, `Inverse()` | The product applies q first, as for matrices; the inverse undoes a rotation. |
+| `Rotate(v)` | The vector turned: q v q^-1. |
+| `ToAxisAngle()`, `Angle(other)` | The axis and the angle, from 0 to pi; the angle between two rotations. |
+| `Slerp(start, end, t)`, `Nlerp(start, end, t)` | Interpolation the shorter way round: at constant angular speed, or faster along the same path. |
+
+Wherever a quaternion stands for a rotation it need not have norm 1: q, 3q and -q are the same
+rotation. `IsApproximately` compares the four numbers, so q and -q are not close; compare
+rotations by `Angle`, which is accurate for small angles too.
+
+### Euler angles
+
+Euler angles turn about the three axes one after the other, and the order matters. It is always
+given: `EulerOrder.XYZ` turns about x, then y, then z, all about the fixed axes, so its matrix is
+Rz Ry Rx; the same rotation is about z, then the new y, then the newest x of the turning object.
+`angles.X` is always the angle about x, whatever the order:
+
+```csharp
+Vec3 angles = (0.1, 0.5, 0);                                     // pitch about x, yaw about y
+var q = Quaternion<double>.FromEulerAngles(angles, EulerOrder.ZXY);
+q.ToEulerAngles(EulerOrder.ZXY).IsApproximately(angles);          // true
+Mat4.FromEulerAngles(angles, EulerOrder.ZXY);                     // the same rotation as a matrix
+```
+
+The middle angle of the order comes back in [-pi/2, pi/2], the others in [-pi, pi]. At gimbal
+lock, where the middle angle is pi/2 or -pi/2, only the sum or the difference of the other two
+counts, and the last one comes back as 0. `CreateFromYawPitchRoll(yaw, pitch, roll)` of
+System.Numerics is `FromEulerAngles((pitch, yaw, roll), EulerOrder.ZXY)`.
+
+### Translation, rotation and scale
+
+`Compose` builds the usual model matrix of an object, T R S: scale, then turn, then move.
+`TryDecompose` takes an affine matrix apart again, as for a child in a hierarchy, whose world
+matrix is the product of its parent's and its own, or to interpolate between two transforms
+part by part:
+
+```csharp
+var model = Mat4.Compose((10, 0, 5), quarter, (2, 2, 2));
+model.TryDecompose(out var position, out var rotation, out var scale);   // true
+position;                  // [10, 0, 5]
+scale;                     // [2, 2, 2]
+rotation.Angle(quarter);   // 0
+```
+
+A mirror image comes back as a negative `scale.X`. A matrix that isn't T R S gives `false`: one
+with a shear (columns that aren't perpendicular), a zero scale, a projective last row, or an
+entry that is NaN or infinite. `Matrix3x3<T>` has the same pair for the plane, with an angle
+instead of a quaternion.
+
+A normal must stay perpendicular to its surface, which `TransformDirection` doesn't keep once
+the scale differs between the axes. `TransformNormal` maps by the inverse transpose, which
+`NormalMatrix()` gives once for many normals:
+
+```csharp
+var stretch = Mat4.Scale((2, 1, 1));
+stretch.TransformNormal((1, -1, 0));      // [0.5, -1, 0]: the plane x = y, stretched, tilts
+stretch.TransformDirection((1, -1, 0));   // [2, -1, 0]: no longer perpendicular to it
+```
+
+### Camera
+
+To draw a point of a model, the model matrix takes it into the world, the view matrix into the
+space of the camera, and the projection onto the screen: `projection * view * model`. The view
+and the projections are right-handed, with the camera looking along -z, x to the right and y up,
+as in OpenGL and glTF; each has a `LeftHanded` twin that looks along +z, as in Direct3D:
+
+```csharp
+var view = Mat4.LookAt((0, 2, 5), (0, 0, 0), Vec3.UnitY);    // eye, target, up
+view.TransformPoint((0, 2, 5));                              // [0, 0, 0]: the eye
+var projection = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, 100);
+projection.TransformPoint((0, 0, -0.1));                     // [0, 0, 0]: the near plane
+(projection * view).TransformPoint((0, 0, 0)).Z;             // 0.9824128790613561: the depth of the target
+```
+
+`Perspective` takes the vertical angle of view in radians, the width over the height, and the
+distances of the near and the far plane; the far one may be `PositiveInfinity`. What the camera
+sees lands in x and y from -1 to 1, after `TransformPoint` divides by w, and at the depths of a
+`DepthRange`:
+
+| `DepthRange` | Near, far | For |
+|---|---|---|
+| `ZeroToOne` | 0, 1 | Direct3D, Vulkan, Metal, WebGPU; the default |
+| `MinusOneToOne` | -1, 1 | OpenGL, WebGL |
+| `OneToZero` | 1, 0 | Reverse-Z: a float depth buffer then resolves the distance best |
+
+```csharp
+var reversed = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, double.PositiveInfinity, DepthRange.OneToZero);
+reversed.TransformPoint((0, 0, -1000)).Z;   // 0.0001: near / distance, with no far plane
+```
+
+`Orthographic(width, height, near, far)` projects without perspective, for drawings, isometric
+games and the shadows of the sun; `OrthographicOffCenter` takes any box, such as the pixels of
+the screen:
+
+```csharp
+var ui = Mat4.OrthographicOffCenter(0, 1920, 1080, 0, -1, 1);
+ui.TransformPoint((0, 0, 0));         // [-1, 1, 0.5]: the top left pixel at the top left corner
+ui.TransformPoint((1920, 1080, 0));   // [1, -1, 0.5]
+```
+
+With these a first-person camera that the mouse turns takes a few lines; the window, the input
+and the drawing come from a graphics library:
+
+```csharp
+yaw -= mouseDeltaX * sensitivity;                  // the mouse to the right turns right
+pitch = Math.Clamp(pitch - mouseDeltaY * sensitivity, -1.55, 1.55);   // never straight up
+var orientation = Quaternion<double>.RotationY(yaw) * Quaternion<double>.RotationX(pitch);
+Vec3 forward = orientation.Rotate(-Vec3.UnitZ), right = orientation.Rotate(Vec3.UnitX);
+position += (forward * moveForward + right * moveRight) * (speed * deltaTime);
+
+var viewProjection = Mat4.Perspective(Math.PI / 3, aspect, 0.1, 1000)
+                   * Mat4.LookAt(position, position + forward, Vec3.UnitY);
+System.Numerics.Matrix4x4 forTheGpu = viewProjection.Map(float.CreateTruncating).ToSystemNumerics();
+```
+
+The simulation stays in `double`, where positions far from the origin keep their precision,
+and only the final matrix becomes `float`. The memory of a `System.Numerics.Matrix4x4` is this
+matrix column by column, which is what a GLSL shader computing `viewProjection * position`
+expects.
+
 ### Conversions and System.Numerics
 
 `Map` converts the entries to another number type, as C# allows no conversion operators for
@@ -635,7 +778,8 @@ model.ToMatrix().Rank();                                                  // 4
 
 System.Numerics multiplies row vectors from the left, `v * M`, so its matrices are the
 transposes of these. `ToSystemNumerics()` and `FromSystemNumerics()` of the `float` types
-transpose, so a map stays the same map; `a * b` here is `b * a` there:
+transpose, so a map stays the same map; `a * b` here is `b * a` there. A `Quaternion<float>`
+converts as it is, with the same order of entries and the same product:
 
 ```csharp
 var numerics = Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics();
@@ -672,7 +816,7 @@ entries. The fixed-size types show their entries as `ToString` writes them: `[1,
 
 ## Limitations
 
-What version 1.2.0 doesn't do yet:
+What version 1.3.0 doesn't do yet:
 
 - **Only square systems.** `Solve` needs a square matrix; least squares for other shapes (by
   QR decomposition) is planned.
@@ -692,8 +836,11 @@ What version 1.2.0 doesn't do yet:
   for numbers the order is the usual `t^2 - 4t + 3`.
 - **No SIMD in the fixed-size types.** The 4 x 4 product and inverse take about 5 times as long
   as in System.Numerics; see [Speed](#speed).
-- **No quaternions, Euler angles, `LookAt` or projections yet.** They are planned next, with
-  transforms built from translation, rotation and scale.
+- **Euler angles turn about three different axes** (the six orders of `EulerOrder`); the
+  classic orders that repeat an axis, such as z-x-z, are missing.
+- **No off-center perspective** for virtual reality and stereo, and no `LookRotation` that turns
+  an object to face a direction with an up vector; `FromToRotation` and
+  `FromRotationMatrix(Matrix3x3<T>.FromColumns(right, up, forward))` cover most uses.
 - **No fixed-size types of `Rational`.** `Rational` doesn't implement the generic math
   interfaces in the core up to version 1.1.1; it is planned with the next core version.
 - **Variable names for `Parse` are an array**, `["theta", "t"]`, not a list of arguments as
