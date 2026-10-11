@@ -3,6 +3,9 @@ using Epsilon.Core;
 using Epsilon.LinearAlgebra;
 // The alias that the README suggests against the clash with System.Numerics.Vector<T>.
 using RealVector = Epsilon.LinearAlgebra.Vector<double>;
+// The aliases of the fixed-size types in the README and the guide.
+using Vec3 = Epsilon.LinearAlgebra.Vector3<double>;
+using Mat4 = Epsilon.LinearAlgebra.Matrix4x4<double>;
 
 namespace Epsilon.Tests.LinearAlgebra;
 
@@ -114,6 +117,22 @@ public class LinearAlgebraReadmeExamplesTests
         var turn = Matrix<double>.FromRows([Math.Cos(Math.PI / 2), -1], [1, Math.Cos(Math.PI / 2)]);
         Assert.Equal(6.123233995736766E-17, turn[0, 0]);
         Assert.True(turn.IsApproximately(Matrix<double>.FromRows([0, -1], [1, 0])));
+    }
+
+    [Fact]
+    public void Fixed_size_vectors_and_matrices()
+    {
+        var model = Mat4.Translation((10, 0, 5)) * Mat4.RotationY(Math.PI / 2) * Mat4.Scale(2);
+        Vec3 tip = model.TransformPoint((1, 0, 0));
+        Assert.Equal("[10, 0, 3]", tip.ToString());
+        Assert.NotEqual(new Vec3(1, 0, 0), model.Inverse().TransformPoint(tip));   // "up to rounding"
+        Assert.True(model.Inverse().TransformPoint(tip).IsApproximately((1, 0, 0)));
+        Assert.Equal("[1, 1, 0]", new Vec3(1, -1, 0).Reflect(Vec3.UnitY).ToString());
+        Assert.Equal(System.Numerics.Matrix4x4.CreateTranslation(1, 2, 3), Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics());
+
+        var noisy = new Matrix3x3<double>(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9);
+        Assert.Equal(1.734723475976807E-17, noisy.Determinant());
+        Assert.False(noisy.TryInverse(out _));
     }
 
     [Fact]
@@ -362,9 +381,119 @@ public class LinearAlgebraGuideTests
     }
 
     [Fact]
+    public void Fixed_size_entry_types()
+    {
+        Vector3<int> cell = (7, 8, 9);
+        Assert.Equal("[8, 8, 9]", (cell + Vector3<int>.UnitX).ToString());
+        Assert.Equal("[3, 4, 4]", (cell / 2).ToString());
+    }
+
+    [Fact]
+    public void Fixed_size_vectors()
+    {
+        Vec3 p = (1, 2, 3);
+        var q = new Vec3(4, 5, 6);
+        var (x, y, z) = p;
+        Assert.Equal((1.0, 2.0, 3.0), (x, y, z));
+        Assert.Equal("[1, 0, 3]", (p with { Y = 0 }).ToString());
+        Assert.Equal(3, p[2]);
+        Assert.Equal("[1, 2]", p.XY.ToString());
+        Assert.Equal(32, p.Dot(q));
+        Assert.Equal("[-3, 6, -3]", p.Cross(q).ToString());
+        Assert.Equal("[2.5, 3.5, 4.5]", Vec3.Lerp(p, q, 0.5).ToString());
+        Assert.Equal(1, new Vector2<double>(1, 0).Cross((0, 1)));
+
+        Vec3 u = (3, 4, 0);
+        Assert.Equal(5, u.Norm());
+        Assert.Equal("[0.6, 0.8, 0]", u.Normalize().ToString());
+        Assert.Equal("[1, 1, 0]", new Vec3(1, -1, 0).Reflect(Vec3.UnitY).ToString());
+        Assert.Equal(1.5707963267948966, Vec3.UnitX.Angle(Vec3.UnitY));
+        Assert.Equal(Math.PI / 2, Vec3.UnitX.Angle(Vec3.UnitY));
+        Assert.Equal("5E+300", new Vec3(3e300, 4e300, 0).Norm().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal((Half)500, new Vector2<Half>((Half)300, (Half)400).Norm());
+        Assert.True(Half.IsPositiveInfinity((Half)300 * (Half)300));
+        Assert.Equal("[0, 3, 10]", new Vec3(-5, 3, 12).Clamp(Vec3.Zero, (10, 10, 10)).ToString());
+
+        Vec3 turned = (Math.Cos(Math.PI / 2), 1, 0);
+        Assert.False(turned == Vec3.UnitY);
+        Assert.Equal(6.123233995736766E-17, turned.X);
+        Assert.True(turned.IsApproximately(Vec3.UnitY));
+
+        Assert.Throws<InvalidOperationException>(() => Vec3.Zero.Normalize());
+        Assert.Throws<ArgumentException>(() => Vec3.UnitX.ProjectOnto(Vec3.Zero));
+    }
+
+    [Fact]
+    public void Fixed_size_matrices_and_transforms()
+    {
+        var model = Mat4.Translation((10, 0, 5)) * Mat4.RotationY(Math.PI / 2) * Mat4.Scale(2);
+        Assert.Equal("[10, 0, 3]", model.TransformPoint((1, 0, 0)).ToString());
+        Assert.Equal("[2, 0, 1.2246467991473532E-16]", model.TransformDirection((0, 0, 1)).ToString());
+        Assert.Equal(2 * Math.Cos(Math.PI / 2), model.TransformDirection((0, 0, 1)).Z);
+        Assert.True((Mat4.RotationZ(1) * new Vector4<double>(1, 0, 0, 0)).Y > 0);   // UnitX turns toward UnitY
+
+        var m = new Matrix3x3<double>(1, 2, 3, 4, 5, 6, 7, 8, 9);
+        Assert.Equal(2, m.M12);
+        Assert.Equal(6, m[1, 2]);
+        Assert.Equal(m.M23, m[1, 2]);
+        Assert.Equal("[3, 6, 9]", m.Column(2).ToString());
+        Assert.Equal(0, m.Determinant());
+
+        var project = Mat4.Identity with { M43 = 1, M44 = 0 };
+        Assert.Equal("[1, 2, 1]", project.TransformPoint((2, 4, 2)).ToString());
+
+        var sprite = Matrix3x3<double>.Translation((100, 50)) * Matrix3x3<double>.RotationZ(Math.PI / 2);
+        Assert.True(sprite.TransformPoint((1, 0)).IsApproximately((100, 51)));
+        Assert.Equal(Matrix3x3<double>.RotationZ(0.5), new Matrix3x3<double>(Matrix2x2<double>.Rotation(0.5)));
+    }
+
+    [Fact]
+    public void Fixed_size_inverse()
+    {
+        var model = Mat4.Translation((10, 0, 5)) * Mat4.RotationY(Math.PI / 2) * Mat4.Scale(2);
+        Assert.True(model.Inverse().TransformPoint((10, 0, 3)).IsApproximately((1, 0, 0)));
+        Assert.False(Mat4.Scale((1, 1, 0)).TryInverse(out _));
+
+        var noisy = new Matrix3x3<double>(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9);
+        Assert.Equal(1.734723475976807E-17, noisy.Determinant());
+        Assert.False(noisy.TryInverse(out _));
+        Assert.Equal("[[1E+20, 0, 0], [0, 1, 0], [0, 0, 1]]", Matrix3x3<double>.Scale((1e-20, 1, 1)).Inverse().ToString());
+
+        Assert.Equal("The matrix is singular to working precision.",
+            Assert.Throws<InvalidOperationException>(() => noisy.Inverse()).Message);
+        Assert.False((Mat4.Identity with { M11 = double.NaN }).TryInverse(out _));
+    }
+
+    [Fact]
+    public void Fixed_size_conversions_and_System_Numerics()
+    {
+        Vec3 p = (1, 2, 3);
+        var model = Mat4.Translation((10, 0, 5)) * Mat4.RotationY(Math.PI / 2) * Mat4.Scale(2);
+
+        Vector3<float> f = p.Map(float.CreateTruncating);
+        Assert.Equal(new Vector3<float>(1, 2, 3), f);
+        Vector3<int> c = new Vec3(1.5, -2.7, 3).Map(x => (int)Math.Floor(x));
+        Assert.Equal("[1, -3, 3]", c.ToString());
+        Assert.Equal(4, model.ToMatrix().Rank());
+        Assert.True((Mat4)Matrix<double>.Identity(4) == Mat4.Identity);
+
+        var numerics = Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics();
+        Assert.Equal(3, numerics.M43);
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(numerics) == Matrix4x4<float>.Translation((1, 2, 3)));
+
+        float[] buffer = [1, 2, 3, 4, 5, 6];
+        var vertices = System.Runtime.InteropServices.MemoryMarshal.Cast<float, Vector3<float>>(buffer.AsSpan());
+        Matrix4x4<float>.Translation((1, 0, 0)).TransformPoints(vertices, vertices);
+        Assert.Equal(new float[] { 2, 2, 3, 5, 5, 6 }, buffer);
+    }
+
+    [Fact]
     public void In_the_debugger()
     {
         Assert.Equal("2 x 3, [[1, 2, 3], [4, 5, 6]]", A.DebuggerDisplay);
+        Assert.Equal("[1, 2, 3]", new Vec3(1, 2, 3).ToString());
+        Assert.Equal("{ToString(),nq}", typeof(Vec3).GetCustomAttributes(typeof(System.Diagnostics.DebuggerDisplayAttribute), false)
+            .Cast<System.Diagnostics.DebuggerDisplayAttribute>().Single().Value);
         Assert.Equal("Length = 3, [1, 2.5, 3]", Vector.Create(1, 2.5, 3).DebuggerDisplay);
         Assert.Equal("1 x 1, [[3x^2 - 4x + 1]]", Matrix<Expr>.Parse("[[3x^2 - 4x + 1]]").Simplify().DebuggerDisplay);
     }

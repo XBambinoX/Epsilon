@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.1.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.2.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guide](guide.md) explains the details, and your IDE shows the full XML documentation for
 every member.
@@ -16,11 +16,16 @@ listed here.
 [Matrices of rationals](#matrices-of-rationals) -
 [Vectors of rationals](#vectors-of-rationals) -
 [Matrices of expressions](#matrices-of-expressions) -
-[Vectors of expressions](#vectors-of-expressions)
+[Vectors of expressions](#vectors-of-expressions) -
+[Fixed-size vectors](#fixed-size-vectors) -
+[Fixed-size matrices](#fixed-size-matrices) -
+[System.Numerics](#systemnumerics)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
 are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
-`Matrix<double>.Identity(3)`, `a + b`), but only compile for those entry types.
+`Matrix<double>.Identity(3)`, `a + b`), but only compile for those entry types. The same holds
+for the operations of the fixed-size types that need floating point, such as `Norm`,
+`Inverse` and the rotations.
 
 ---
 
@@ -269,3 +274,136 @@ Extension members of `Vector<Expr>`.
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
 | `string ToLatex()` | A LaTeX `bmatrix` with one column. |
+
+---
+
+## Fixed-size vectors
+
+### `Vector2<T>`, `Vector3<T>`, `Vector4<T>` (readonly structs : `IEquatable`)
+
+Immutable value types for geometry and games. `T` is any number type with the arithmetic
+operators (`IAdditionOperators`, `ISubtractionOperators`, `IMultiplyOperators`,
+`IDivisionOperators`, `IUnaryNegationOperators`, `IAdditiveIdentity`,
+`IMultiplicativeIdentity`): `float`, `double`, `Half`, `decimal`, `int` and the like. The table
+shows `Vector3<T>`; the others have the same members for their number of entries, except where
+noted.
+
+| Member | Description |
+|---|---|
+| `Vector3(T x, T y, T z)`, `Vector3(Vector2<T> xy, T z)`, `Vector4(Vector3<T> xyz, T w)` | The vector with these entries. |
+| implicit from a tuple | `Vector3<double> v = (1, 2, 3);` |
+| `T X`, `T Y`, `T Z`, `T W` | The entries, settable in `with`: `v with { Y = 0 }`. |
+| `T this[int index]` | The entry at a zero-based index; throws `ArgumentOutOfRangeException` outside the vector. |
+| `Vector2<T> XY`, `Vector3<T> XYZ` | The first two or three entries (`XYZ` of `Vector4<T>` only). |
+| `static Zero`, `One`, `UnitX`, `UnitY`, `UnitZ`, `UnitW` | The zero vector, the vector of ones, the unit vectors along the axes. |
+| `+`, `-` (binary and unary) | Entry by entry. |
+| `*`, `/` with a `T` | Every entry times or divided by the number; integer quotients are truncated. |
+| `T Dot(Vector3<T> other)`, `T NormSquared()` | The dot product, and that of the vector with itself. |
+| `Vector3<T> Cross(Vector3<T> other)` | The cross product: `UnitX.Cross(UnitY)` is `UnitZ`. |
+| `T Cross(Vector2<T> other)` | Of `Vector2<T>`: x1 y2 - y1 x2, positive if `other` points counterclockwise. |
+| `Vector3<T> Hadamard(Vector3<T> other)` | The entry-wise product. |
+| `static Vector3<T> Lerp(Vector3<T> start, Vector3<T> end, T t)` | (1 - t) start + t end. |
+| `Vector3<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry; converts too: `v.Map(float.CreateTruncating)`. |
+| `Vector<T> ToVector()` | The same entries as a `Vector<T>`, for the general algorithms. |
+| explicit from `Vector<T>` | `(Vector3<double>)v`; throws `ArgumentException` unless `v` has 3 entries. |
+| `void Deconstruct(out T x, out T y, out T z)` | `var (x, y, z) = v;` |
+| `bool Equals(Vector3<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`, so NaN equals NaN. |
+| `string ToString()` | The entries in brackets, culture-invariant: `[1, 2, 3]`. |
+
+The entries are stored in order without padding, so a span of numbers can be read as a span of
+vectors without copying: `MemoryMarshal.Cast<float, Vector3<float>>(buffer)`.
+
+### `FloatingPointVectorExtensions` (static class)
+
+Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : IFloatingPointIeee754<T>`:
+`float`, `double` and `Half`. Shown for `Vector3<T>`.
+
+| Member | Description |
+|---|---|
+| `T Norm()` | The Euclidean norm (length); neither overflows nor underflows. |
+| `Vector3<T> Normalize()` | The unit vector in the same direction. Throws `InvalidOperationException` for the zero vector. |
+| `T Distance(Vector3<T> other)` | The norm of the difference. |
+| `T Angle(Vector3<T> other)` | In radians, from 0 to pi; accurate at small angles too. Throws for a zero vector. |
+| `Vector3<T> ProjectOnto(Vector3<T> onto)` | The projection (v . w / w . w) w. Throws `ArgumentException` if `onto` is zero. |
+| `Vector3<T> Reflect(Vector3<T> normal)` | The mirror image in the plane perpendicular to `normal`, which need not have length 1. |
+| `bool IsApproximately(Vector3<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding, as for `Vector<double>`; the relative tolerance defaults to 1e-9 for `double`, 1e-5 for `float`, 1e-2 for `Half`. |
+
+### `ComponentWiseVectorExtensions` (static class)
+
+Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : INumber<T>`. Shown for
+`Vector3<T>`.
+
+| Member | Description |
+|---|---|
+| `Vector3<T> Min(Vector3<T> other)`, `Vector3<T> Max(Vector3<T> other)` | The smaller or larger entry at each index. |
+| `Vector3<T> Abs()` | The absolute value of every entry. |
+| `Vector3<T> Clamp(Vector3<T> min, Vector3<T> max)` | Every entry limited to its range. Throws `ArgumentException` if a minimum is above its maximum. |
+
+---
+
+## Fixed-size matrices
+
+### `Matrix2x2<T>`, `Matrix3x3<T>`, `Matrix4x4<T>` (readonly structs : `IEquatable`)
+
+Immutable value types for transformations, with the same `T` as the fixed-size vectors. Vectors
+are columns: `m * v` maps v, `a * b` applies b first, and a translation is in the last column.
+The table shows `Matrix4x4<T>`; the others have the same members for their size, except where
+noted. `Matrix2x2<T>` is for linear maps of the plane (`m * v`), so it has `Scale(Vector2<T>)` but
+no `Translation`, `TransformPoint` or `TransformDirection`.
+
+| Member | Description |
+|---|---|
+| `Matrix4x4(T m11, T m12, ..., T m44)` | The entries row by row. |
+| `Matrix4x4(Matrix3x3<T> linear)`, `Matrix3x3(Matrix2x2<T> linear)` | The linear map in homogeneous coordinates: `linear` in the top left, 1 in the corner. |
+| `M11`, `M12`, `M13`, `M14`, `M21`, `M22`, `M23`, `M24`, `M31`, `M32`, `M33`, `M34`, `M41`, `M42`, `M43`, `M44` | The entries of type `T`; Mij is in row i, column j. Settable in `with`. |
+| `static Identity`, `Zero` | The identity and the zero matrix. |
+| `static FromRows(...)`, `static FromColumns(...)` | The matrix from its rows or columns as vectors. |
+| `static Matrix4x4<T> Translation(Vector3<T> offset)` | The translation; for `Matrix3x3<T>`, `Translation(Vector2<T>)` translates the plane in homogeneous coordinates. |
+| `static Matrix4x4<T> Scale(Vector3<T> factors)`, `Scale(T factor)` | diag(x, y, z, 1). `Matrix3x3<T>` has `Scale(Vector3<T>)` for space and `Scale(Vector2<T>)`, diag(x, y, 1), for the plane. |
+| `T this[int row, int column]` | The entry at zero-based indices: `m[0, 3]` is `M14`. |
+| `Vector4<T> Row(int index)`, `Vector4<T> Column(int index)` | A row or a column, zero-based. |
+| `Matrix4x4<T> Transpose()`, `T Trace()` | The transpose and the sum of the diagonal. |
+| `T Determinant()` | By the closed formula; exact for integers. |
+| `+`, `-` (binary and unary), `*` and `/` with a `T` | Entry by entry. |
+| `*` (matrix by matrix, matrix by `Vector4<T>`) | The matrix product. |
+| `Vector3<T> TransformPoint(Vector3<T> point)` | (x, y, z, 1) mapped and divided by w unless w is 1; for `Matrix3x3<T>` a `Vector2<T>`. |
+| `Vector3<T> TransformDirection(Vector3<T> direction)` | (x, y, z, 0) mapped: translations leave it alone. |
+| `void TransformPoints(ReadOnlySpan<Vector3<T>> points, Span<Vector3<T>> destination)` | `TransformPoint` of every point, into `destination`, which may be `points` itself; for `Matrix3x3<T>` spans of `Vector2<T>`. Throws `ArgumentException` if `destination` is shorter or overlaps `points` at another position. |
+| `void TransformDirections(ReadOnlySpan<Vector3<T>> directions, Span<Vector3<T>> destination)` | The same with `TransformDirection`. |
+| `void Transform(ReadOnlySpan<Vector4<T>> vectors, Span<Vector4<T>> destination)` | The same with `m * v`; the only one of the three for `Matrix2x2<T>`. |
+| `Matrix4x4<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry: `m.Map(float.CreateTruncating)`. |
+| `Matrix<T> ToMatrix()` | The same entries as a `Matrix<T>`, for the general algorithms: `m.ToMatrix().Rank()`. |
+| explicit from `Matrix<T>` | `(Matrix4x4<double>)m`; throws `ArgumentException` unless `m` is 4 x 4. |
+| `bool Equals(Matrix4x4<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`. |
+| `string ToString()` | The rows in brackets, culture-invariant: `[[1, 0], ...]`. |
+
+### `FloatingPointMatrix2x2Extensions`, `FloatingPointMatrix3x3Extensions`, `FloatingPointMatrix4x4Extensions` (static classes)
+
+Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
+`T : IFloatingPointIeee754<T>`. Angles are in radians.
+
+| Member | Description |
+|---|---|
+| `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
+| `static Matrix2x2<T> Rotation(T angle)` | Of `Matrix2x2<T>`: the rotation of the plane, turning `UnitX` toward `UnitY`. |
+| `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
+| `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
+| `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
+| `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
+
+---
+
+## System.Numerics
+
+### `SystemNumericsExtensions` (static class)
+
+Conversions between the fixed-size types of `float` and those of System.Numerics. System.Numerics
+multiplies row vectors from the left (`v * M`), so its matrices are the transposes of these: the
+conversions transpose, a map stays the same map, and `a * b` here is `b * a` there.
+
+| Member | Description |
+|---|---|
+| `System.Numerics.Vector3 ToSystemNumerics()` | Of `Vector2<float>`, `Vector3<float>`, `Vector4<float>`: the same vector. |
+| `static Vector3<float> FromSystemNumerics(System.Numerics.Vector3 value)` | And back, for all three sizes. |
+| `System.Numerics.Matrix4x4 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix4x4 value)` | Of `Matrix4x4<float>`: the transpose, so the translation moves from the last column to the last row. |
+| `System.Numerics.Matrix3x2 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix3x2 value)` | Of `Matrix3x3<float>`: an affine map of the plane. `ToSystemNumerics` throws `InvalidOperationException` unless the last row is (0, 0, 1). |

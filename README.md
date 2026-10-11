@@ -15,7 +15,7 @@ dependencies beyond the .NET base library.
 | Package | What it does | NuGet |
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
-| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU decomposition for doubles, vector geometry | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
+| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU decomposition for doubles, vector geometry; fixed-size vectors and matrices with transforms for games and graphics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 
 Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
 targets .NET 10, and the packages built on the core bring it with them:
@@ -51,6 +51,7 @@ var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
 m.Determinant().Print();                                           // a * d - b * c
 Matrix<Expr>.Parse("[[1, 2], [3, 4]]").Inverse().Print();          // [[-2, 1], [3/2, -1/2]]
 Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]).Rank();   // 2
+Matrix4x4<double>.Translation((1, 2, 3)).TransformPoint((1, 1, 1));   // [2, 3, 4]
 ```
 
 The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
@@ -71,9 +72,9 @@ The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
 
 The areas built on the core as separate packages, in this order:
 
-1. **Linear algebra** - available as `Epsilon.LinearAlgebra`. Next, with games and real-time
-   code in mind: fixed-size vectors and matrices for `float` and `double`, transforms and
-   quaternions, compiling symbolic matrices to fast code, then least squares (QR),
+1. **Linear algebra** - available as `Epsilon.LinearAlgebra`, with fixed-size vectors and
+   matrices for games and real-time code since 1.2. Next: quaternions and transforms
+   (`LookAt`, projections), compiling symbolic matrices to fast code, then least squares (QR),
    eigenvalues and SVD.
 2. **Calculus** - symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.

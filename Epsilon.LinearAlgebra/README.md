@@ -10,7 +10,8 @@
 **Linear algebra for [Epsilon](https://www.nuget.org/packages/Epsilon).** Matrices and vectors of
 symbolic expressions, exact rationals or doubles: exact determinants, inverses and solutions of
 symbolic systems, exact elimination for rationals, LU decomposition for doubles, and vector
-geometry.
+geometry. For games and graphics, fixed-size vectors and matrices of `float`, `double` or any
+number type, with transforms, rotations and conversions to System.Numerics.
 
 ```csharp
 var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
@@ -159,6 +160,29 @@ hilbert * hilbert.Inverse() == Matrix<Rational>.Identity(8);   // true
 Matrix<Rational>.FromRows([1, 2], [3, 4]).Inverse();           // [[-2, 1], [3/2, -1/2]]
 ```
 
+### Fixed-size vectors and matrices for games and geometry
+
+`Vector2<T>` to `Vector4<T>` and `Matrix2x2<T>` to `Matrix4x4<T>` are immutable value types that
+never allocate. Vectors are columns, so a transform reads from right to left: scale, then turn,
+then move:
+
+```csharp
+using Vec3 = Epsilon.LinearAlgebra.Vector3<double>;
+using Mat4 = Epsilon.LinearAlgebra.Matrix4x4<double>;
+
+var model = Mat4.Translation((10, 0, 5)) * Mat4.RotationY(Math.PI / 2) * Mat4.Scale(2);
+Vec3 tip = model.TransformPoint((1, 0, 0));          // [10, 0, 3]
+model.Inverse().TransformPoint(tip);                 // [1, 0, 0], up to rounding
+new Vec3(1, -1, 0).Reflect(Vec3.UnitY);              // [1, 1, 0]
+Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics();   // the same map in System.Numerics
+```
+
+The entries can be `float`, `double`, `Half`, `int` or any other number type with the
+arithmetic operators; norms, rotations and the inverse are there for the floating-point types.
+The inverse knows when a matrix is singular, as the LU decomposition does: the determinant
+`1.7E-17` that rounding leaves for `[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]` counts
+as 0. Transforming many points is about as fast as with System.Numerics.
+
 ### Entry-wise operations, text and LaTeX
 
 `Simplify`, `Expand`, `Substitute`, `Differentiate`, `Evaluate` and `EvaluateComplex` work on
@@ -178,6 +202,10 @@ Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex();
   that uses both namespaces. Name the type you need with an alias,
   `using RealVector = Epsilon.LinearAlgebra.Vector<double>;`, or write `System.Numerics.BigInteger`
   in full instead of importing the namespace.
+- `Vector3<T>` and `Matrix4x4<T>` don't clash with `Vector3` and `Matrix4x4` of
+  System.Numerics, which have no type parameter. System.Numerics multiplies row vectors, so its
+  matrices are the transposes of these; `ToSystemNumerics()` and `FromSystemNumerics()`
+  transpose for you.
 - Like `ExprParser.Parse`, `Parse` doesn't simplify: `[[1/2, x + x]]` keeps `1 / 2` and
   `x + x` until `Simplify()`.
 - The operators on `Expr` matrices simplify in the default `Generic` mode, so an entry `x/x`
