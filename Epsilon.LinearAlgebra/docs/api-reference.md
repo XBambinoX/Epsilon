@@ -16,7 +16,8 @@ listed here.
 [Matrices of rationals](#matrices-of-rationals) -
 [Vectors of rationals](#vectors-of-rationals) -
 [Matrices of expressions](#matrices-of-expressions) -
-[Vectors of expressions](#vectors-of-expressions)
+[Vectors of expressions](#vectors-of-expressions) -
+[Fixed-size vectors](#fixed-size-vectors)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
 are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
@@ -269,3 +270,62 @@ Extension members of `Vector<Expr>`.
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
 | `string ToLatex()` | A LaTeX `bmatrix` with one column. |
+
+---
+
+## Fixed-size vectors
+
+### `Vector2<T>`, `Vector3<T>`, `Vector4<T>` (readonly structs : `IEquatable`)
+
+Immutable value types for geometry and games. `T` is any number type with the arithmetic
+operators (`IAdditionOperators`, `ISubtractionOperators`, `IMultiplyOperators`,
+`IDivisionOperators`, `IUnaryNegationOperators`, `IAdditiveIdentity`,
+`IMultiplicativeIdentity`): `float`, `double`, `Half`, `decimal`, `int` and the like. The table
+shows `Vector3<T>`; the others have the same members for their number of entries, except where
+noted.
+
+| Member | Description |
+|---|---|
+| `Vector3(T x, T y, T z)`, `Vector3(Vector2<T> xy, T z)`, `Vector4(Vector3<T> xyz, T w)` | The vector with these entries. |
+| implicit from a tuple | `Vector3<double> v = (1, 2, 3);` |
+| `T X`, `T Y`, `T Z`, `T W` | The entries, settable in `with`: `v with { Y = 0 }`. |
+| `T this[int index]` | The entry at a zero-based index; throws `ArgumentOutOfRangeException` outside the vector. |
+| `Vector2<T> XY`, `Vector3<T> XYZ` | The first two or three entries (`XYZ` of `Vector4<T>` only). |
+| `static Zero`, `One`, `UnitX`, `UnitY`, `UnitZ`, `UnitW` | The zero vector, the vector of ones, the unit vectors along the axes. |
+| `+`, `-` (binary and unary) | Entry by entry. |
+| `*`, `/` with a `T` | Every entry times or divided by the number; integer quotients are truncated. |
+| `T Dot(Vector3<T> other)`, `T NormSquared()` | The dot product, and that of the vector with itself. |
+| `Vector3<T> Cross(Vector3<T> other)` | The cross product: `UnitX.Cross(UnitY)` is `UnitZ`. |
+| `T Cross(Vector2<T> other)` | Of `Vector2<T>`: x1 y2 - y1 x2, positive if `other` points counterclockwise. |
+| `Vector3<T> Hadamard(Vector3<T> other)` | The entry-wise product. |
+| `static Vector3<T> Lerp(Vector3<T> start, Vector3<T> end, T t)` | (1 - t) start + t end. |
+| `Vector3<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry; converts too: `v.Map(float.CreateTruncating)`. |
+| `void Deconstruct(out T x, out T y, out T z)` | `var (x, y, z) = v;` |
+| `bool Equals(Vector3<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`, so NaN equals NaN. |
+| `string ToString()` | The entries in brackets, culture-invariant: `[1, 2, 3]`. |
+
+### `FloatingPointVectorExtensions` (static class)
+
+Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : IFloatingPointIeee754<T>`:
+`float`, `double` and `Half`. Shown for `Vector3<T>`.
+
+| Member | Description |
+|---|---|
+| `T Norm()` | The Euclidean norm (length); neither overflows nor underflows. |
+| `Vector3<T> Normalize()` | The unit vector in the same direction. Throws `InvalidOperationException` for the zero vector. |
+| `T Distance(Vector3<T> other)` | The norm of the difference. |
+| `T Angle(Vector3<T> other)` | In radians, from 0 to pi; accurate at small angles too. Throws for a zero vector. |
+| `Vector3<T> ProjectOnto(Vector3<T> onto)` | The projection (v . w / w . w) w. Throws `ArgumentException` if `onto` is zero. |
+| `Vector3<T> Reflect(Vector3<T> normal)` | The mirror image in the plane perpendicular to `normal`, which need not have length 1. |
+| `bool IsApproximately(Vector3<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding, as for `Vector<double>`; the relative tolerance defaults to 1e-9 for `double`, 1e-5 for `float`, 1e-2 for `Half`. |
+
+### `ComponentWiseVectorExtensions` (static class)
+
+Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : INumber<T>`. Shown for
+`Vector3<T>`.
+
+| Member | Description |
+|---|---|
+| `Vector3<T> Min(Vector3<T> other)`, `Vector3<T> Max(Vector3<T> other)` | The smaller or larger entry at each index. |
+| `Vector3<T> Abs()` | The absolute value of every entry. |
+| `Vector3<T> Clamp(Vector3<T> min, Vector3<T> max)` | Every entry limited to its range. Throws `ArgumentException` if a minimum is above its maximum. |
