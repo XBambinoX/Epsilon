@@ -51,6 +51,22 @@ public static class FloatingPointMatrix4x4Extensions
         public static Matrix4x4<T> Rotation(Quaternion<T> rotation) => new(Matrix3x3<T>.Rotation(rotation));
 
         /// <summary>
+        /// The transform that scales by <paramref name="scale"/> along the axes, then turns by
+        /// <paramref name="rotation"/>, then moves by <paramref name="translation"/>: T R S, the
+        /// usual model matrix of an object. The quaternion need not have norm 1.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="rotation"/> is zero.</exception>
+        public static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)
+        {
+            Matrix3x3<T> r = Matrix3x3<T>.Rotation(rotation);
+            return new(
+                r.M11 * scale.X, r.M12 * scale.Y, r.M13 * scale.Z, translation.X,
+                r.M21 * scale.X, r.M22 * scale.Y, r.M23 * scale.Z, translation.Y,
+                r.M31 * scale.X, r.M32 * scale.Y, r.M33 * scale.Z, translation.Z,
+                T.Zero, T.Zero, T.Zero, T.One);
+        }
+
+        /// <summary>
         /// The inverse, the map that undoes this one; see <see cref="TryInverse"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">
@@ -100,6 +116,97 @@ public static class FloatingPointMatrix4x4Extensions
             inverse = Matrix4x4<T>.FromRows(
                 b.Row(0).Hadamard(factors), b.Row(1).Hadamard(factors), b.Row(2).Hadamard(factors), b.Row(3).Hadamard(factors));
             return true;
+        }
+
+        /// <summary>
+        /// Splits an affine transform into T R S, as <see cref="Compose"/> builds it: the
+        /// translation from the last column, the scale from the lengths of the other columns and
+        /// the rotation from those columns divided by them. A mirror image shows as a negative
+        /// <c>scale.X</c>. There is no such split, and the result is <c>false</c>, if the last row is
+        /// not (0, 0, 0, 1), if a scale is 0, if an entry is NaN or infinite, or for a shear: when the
+        /// columns are not perpendicular to within the square root of the machine epsilon.
+        /// </summary>
+        /// <param name="translation">The translation, or zero if there is no split.</param>
+        /// <param name="rotation">The rotation as a unit quaternion, or zero if there is no split.</param>
+        /// <param name="scale">The scale along the axes, or zero if there is no split.</param>
+        /// <returns>Whether the matrix is T R S.</returns>
+        public bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)
+        {
+            translation = default;
+            rotation = default;
+            scale = default;
+            if (matrix.M41 != T.Zero || matrix.M42 != T.Zero || matrix.M43 != T.Zero || matrix.M44 != T.One
+                || !T.IsFinite(matrix.M14) || !T.IsFinite(matrix.M24) || !T.IsFinite(matrix.M34))
+                return false;
+
+            // The columns are the images of the unit vectors: the axes of R, times the scales.
+            Vector3<T> x = (matrix.M11, matrix.M21, matrix.M31), y = (matrix.M12, matrix.M22, matrix.M32), z = (matrix.M13, matrix.M23, matrix.M33);
+            T sx = x.Norm(), sy = y.Norm(), sz = z.Norm();
+            if (!IsPositiveFinite(sx) || !IsPositiveFinite(sy) || !IsPositiveFinite(sz))
+                return false;
+
+            x /= sx;
+            y /= sy;
+            z /= sz;
+            if (x.Cross(y).Dot(z) < T.Zero)
+            {
+                sx = -sx;   // a mirror image
+                x = -x;
+            }
+
+            T tolerance = FloatingPoint<T>.SqrtMachineEpsilon;
+            if (T.Abs(x.Dot(y)) > tolerance || T.Abs(x.Dot(z)) > tolerance || T.Abs(y.Dot(z)) > tolerance)
+                return false;   // a shear
+
+            translation = (matrix.M14, matrix.M24, matrix.M34);
+            rotation = Quaternion<T>.FromRotationMatrix(Matrix3x3<T>.FromColumns(x, y, z));
+            scale = (sx, sy, sz);
+            return true;
+        }
+
+        /// <summary>
+        /// The matrix that maps normals: the inverse transpose of the top left 3 x 3 corner. A
+        /// normal must stay perpendicular to the surface, which <see cref="Matrix4x4{T}.TransformDirection"/>
+        /// doesn't keep once the scale differs between the axes. Compute it once for many normals.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The top left corner is singular to working precision or has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix3x3<T> NormalMatrix()
+        {
+            var linear = new Matrix3x3<T>(
+                matrix.M11, matrix.M12, matrix.M13,
+                matrix.M21, matrix.M22, matrix.M23,
+                matrix.M31, matrix.M32, matrix.M33);
+            if (!linear.TryInverse(out Matrix3x3<T> inverse))
+                throw new InvalidOperationException(
+                    "The top left 3 x 3 corner is singular to working precision or has an entry that is NaN or infinite, so normals have no image.");
+
+            return inverse.Transpose();
+        }
+
+        /// <summary>
+        /// The normal of a surface mapped with it: the product with <see cref="NormalMatrix"/>, not
+        /// normalized. Translations leave it alone.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The top left 3 x 3 corner has no inverse.</exception>
+        public Vector3<T> TransformNormal(Vector3<T> normal) => matrix.NormalMatrix() * normal;
+
+        /// <summary>
+        /// <see cref="TransformNormal"/> of every vector in <paramref name="normals"/>, written to
+        /// <paramref name="destination"/> at the same index, with the normal matrix computed once.
+        /// The destination may be the source itself.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="destination"/> is shorter than <paramref name="normals"/>, or overlaps it at another position.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">The top left 3 x 3 corner has no inverse.</exception>
+        public void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)
+        {
+            Destination.Check(normals, destination);
+            Matrix3x3<T> normalMatrix = matrix.NormalMatrix();
+            for (int i = 0; i < normals.Length; i++)
+                destination[i] = normalMatrix * normals[i];
         }
 
         /// <summary>
@@ -172,6 +279,9 @@ public static class FloatingPointMatrix4x4Extensions
             (m.M31 * s3 - m.M32 * s1 + m.M33 * s0) * r);
         return true;
     }
+
+    private static bool IsPositiveFinite<T>(T value) where T : struct, System.Numerics.IFloatingPointIeee754<T> =>
+        value > T.Zero && T.IsFinite(value);
 
     // |a b| + |c d|, the sum of the magnitudes of the terms of the minor a b - c d.
     private static T Magnitude<T>(T a, T b, T c, T d) where T : struct, System.Numerics.IFloatingPointIeee754<T> =>

@@ -53,6 +53,20 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// The affine map of the plane, in homogeneous coordinates, that scales by
+        /// <paramref name="scale"/> along the axes, then turns by <paramref name="angle"/> about the
+        /// origin, then moves by <paramref name="translation"/>: T R S, the transform of a sprite.
+        /// </summary>
+        public static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)
+        {
+            var (sin, cos) = T.SinCos(angle);
+            return new(
+                cos * scale.X, -sin * scale.Y, translation.X,
+                sin * scale.X, cos * scale.Y, translation.Y,
+                T.Zero, T.Zero, T.One);
+        }
+
+        /// <summary>
         /// The rotation by Euler angles: <c>angles.X</c> about x, <c>angles.Y</c> about y and
         /// <c>angles.Z</c> about z, applied in the given order about the fixed axes; see
         /// <see cref="EulerOrder"/>. For <see cref="EulerOrder.XYZ"/> it is Rz Ry Rx.
@@ -149,6 +163,49 @@ public static class FloatingPointMatrix3x3Extensions
                 b.M11 * d1, b.M12 * d2, b.M13 * d3,
                 b.M21 * d1, b.M22 * d2, b.M23 * d3,
                 b.M31 * d1, b.M32 * d2, b.M33 * d3);
+            return true;
+        }
+
+        /// <summary>
+        /// Splits an affine map of the plane into T R S, as <see cref="Compose"/> builds it: the
+        /// translation from the last column, the scale from the lengths of the first two columns and
+        /// the angle, in [-pi, pi], from the first of them. A mirror image shows as a negative
+        /// <c>scale.X</c>. There is no such split, and the result is <c>false</c>, if the last row is
+        /// not (0, 0, 1), if a scale is 0, if an entry is NaN or infinite, or for a shear: when the
+        /// columns are not perpendicular to within the square root of the machine epsilon.
+        /// </summary>
+        /// <param name="translation">The translation, or zero if there is no split.</param>
+        /// <param name="angle">The angle of the rotation in radians, or 0 if there is no split.</param>
+        /// <param name="scale">The scale along the axes, or zero if there is no split.</param>
+        /// <returns>Whether the matrix is T R S.</returns>
+        public bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)
+        {
+            translation = default;
+            angle = T.Zero;
+            scale = default;
+            if (matrix.M31 != T.Zero || matrix.M32 != T.Zero || matrix.M33 != T.One
+                || !T.IsFinite(matrix.M13) || !T.IsFinite(matrix.M23))
+                return false;
+
+            Vector2<T> x = (matrix.M11, matrix.M21), y = (matrix.M12, matrix.M22);
+            T sx = x.Norm(), sy = y.Norm();
+            if (!(sx > T.Zero) || !T.IsFinite(sx) || !(sy > T.Zero) || !T.IsFinite(sy))
+                return false;
+
+            x /= sx;
+            y /= sy;
+            if (x.Cross(y) < T.Zero)
+            {
+                sx = -sx;   // a mirror image
+                x = -x;
+            }
+
+            if (T.Abs(x.Dot(y)) > FloatingPoint<T>.SqrtMachineEpsilon)
+                return false;   // a shear
+
+            translation = (matrix.M13, matrix.M23);
+            angle = T.Atan2(x.Y, x.X);
+            scale = (sx, sy);
             return true;
         }
 

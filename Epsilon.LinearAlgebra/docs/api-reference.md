@@ -391,6 +391,12 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 | `Vector3<T> ToEulerAngles(EulerOrder order)` | The Euler angles of a rotation matrix (the top left corner of a 4 x 4 one): the middle one in [-pi/2, pi/2], the others in [-pi, pi]; at gimbal lock the last one is 0. |
 | `static Rotation(Quaternion<T> rotation)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the matrix of a quaternion's rotation, which need not have norm 1; `Rotation(p * q)` is `Rotation(p) * Rotation(q)`. Throws `ArgumentException` for the zero quaternion. |
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
+| `static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)` | T R S: scale, then turn, then move. Throws `ArgumentException` for the zero quaternion. |
+| `bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)` | Splits an affine map into T R S; a mirror image has a negative `scale.X`. `false` for a shear, a zero scale, a projective map or a NaN or infinite entry. |
+| `static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)`, `bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)` | Of `Matrix3x3<T>`: the same for affine maps of the plane. |
+| `Matrix3x3<T> NormalMatrix()` | Of `Matrix4x4<T>`: the inverse transpose of the top left corner, which maps normals. Throws `InvalidOperationException` if that corner has no inverse. |
+| `Vector3<T> TransformNormal(Vector3<T> normal)` | The normal mapped by `NormalMatrix()`, not normalized; it stays perpendicular to the mapped surface. |
+| `void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)` | The same for a span, with the normal matrix computed once. |
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
 | `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
 | `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
