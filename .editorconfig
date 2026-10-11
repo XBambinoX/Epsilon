@@ -1,0 +1,6 @@
+root = true
+
+[*.cs]
+# Every project keeps a single namespace (Epsilon.Core, Epsilon.LinearAlgebra); its folders only
+# group the files, so a namespace need not match its folder (IDE0130).
+dotnet_style_namespace_match_folder = false

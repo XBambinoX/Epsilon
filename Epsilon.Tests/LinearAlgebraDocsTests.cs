@@ -133,6 +133,12 @@ public class LinearAlgebraReadmeExamplesTests
         var noisy = new Matrix3x3<double>(0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9);
         Assert.Equal(1.734723475976807E-17, noisy.Determinant());
         Assert.False(noisy.TryInverse(out _));
+
+        var turn = Quaternion<double>.RotationY(Math.PI / 2);
+        Assert.True(Quaternion<double>.Slerp(Quaternion<double>.Identity, turn, 0.5).Angle(Quaternion<double>.RotationY(Math.PI / 4)) < 1e-15);
+        var view = Mat4.LookAt((0, 2, 5), (0, 0, 0), Vec3.UnitY);
+        var projection = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, 100);
+        Assert.Equal(0.9824128790613561, (projection * view).TransformPoint((0, 0, 0)).Z);
     }
 
     [Fact]
@@ -462,6 +468,102 @@ public class LinearAlgebraGuideTests
         Assert.Equal("The matrix is singular to working precision.",
             Assert.Throws<InvalidOperationException>(() => noisy.Inverse()).Message);
         Assert.False((Mat4.Identity with { M11 = double.NaN }).TryInverse(out _));
+    }
+
+    [Fact]
+    public void Quaternions()
+    {
+        var quarter = Quaternion<double>.RotationY(Math.PI / 2);
+        Assert.True(quarter.Rotate((1, 0, 0)).IsApproximately((0, 0, -1)));
+        var half = quarter * quarter;
+        var (axis, angle) = half.ToAxisAngle();
+        Assert.Equal("[0, 1, 0]", axis.ToString());
+        Assert.Equal(3.1415926535897927, angle);
+        Assert.Equal(0, quarter.Angle(-quarter));
+        Assert.Equal(new Mat4(Matrix3x3<double>.Rotation(quarter)), Mat4.Rotation(quarter));
+        Assert.Equal(0, Quaternion<double>.FromRotationMatrix(Mat4.Rotation(quarter)).Angle(quarter));
+        Assert.True(Quaternion<double>.FromToRotation(Vec3.UnitX, (0, 0, -1)).IsApproximately(quarter));
+        Assert.True((3 * quarter).Rotate((1, 0, 0)).IsApproximately(quarter.Rotate((1, 0, 0))));
+        Assert.False(quarter.IsApproximately(-quarter));
+    }
+
+    [Fact]
+    public void Euler_angles()
+    {
+        Vec3 angles = (0.1, 0.5, 0);
+        var q = Quaternion<double>.FromEulerAngles(angles, EulerOrder.ZXY);
+        Assert.True(q.ToEulerAngles(EulerOrder.ZXY).IsApproximately(angles));
+        Assert.True(Mat4.FromEulerAngles(angles, EulerOrder.ZXY).IsApproximately(Mat4.Rotation(q)));
+        Assert.Equal(Matrix3x3<double>.RotationZ(0.3) * Matrix3x3<double>.RotationY(0.2) * Matrix3x3<double>.RotationX(0.1),
+            Matrix3x3<double>.FromEulerAngles((0.1, 0.2, 0.3), EulerOrder.XYZ));
+        Assert.Equal(0, Mat4.FromEulerAngles((0.4, Math.PI / 2, 1.3), EulerOrder.XYZ).ToEulerAngles(EulerOrder.XYZ).Z);
+        Assert.True(Quaternion<float>.FromSystemNumerics(System.Numerics.Quaternion.CreateFromYawPitchRoll(0.5f, 0.1f, 0.2f))
+            .IsApproximately(Quaternion<float>.FromEulerAngles((0.1f, 0.5f, 0.2f), EulerOrder.ZXY)));
+    }
+
+    [Fact]
+    public void Translation_rotation_and_scale()
+    {
+        var quarter = Quaternion<double>.RotationY(Math.PI / 2);
+        var model = Mat4.Compose((10, 0, 5), quarter, (2, 2, 2));
+        Assert.True(model.TryDecompose(out var position, out var rotation, out var scale));
+        Assert.Equal("[10, 0, 5]", position.ToString());
+        Assert.Equal("[2, 2, 2]", scale.ToString());
+        Assert.Equal(0, rotation.Angle(quarter));
+        Assert.False((Mat4.Identity with { M12 = 0.5 }).TryDecompose(out _, out _, out _));
+
+        var stretch = Mat4.Scale((2, 1, 1));
+        Assert.Equal("[0.5, -1, 0]", stretch.TransformNormal((1, -1, 0)).ToString());
+        Assert.Equal("[2, -1, 0]", stretch.TransformDirection((1, -1, 0)).ToString());
+        Assert.Equal(0, stretch.TransformDirection((1, 1, 0)).Dot(stretch.TransformNormal((1, -1, 0))));
+        Assert.NotEqual(0, stretch.TransformDirection((1, 1, 0)).Dot(stretch.TransformDirection((1, -1, 0))));
+    }
+
+    [Fact]
+    public void Camera()
+    {
+        var view = Mat4.LookAt((0, 2, 5), (0, 0, 0), Vec3.UnitY);
+        Assert.Equal("[0, 0, 0]", view.TransformPoint((0, 2, 5)).ToString());
+        var projection = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, 100);
+        Assert.Equal("[0, 0, 0]", projection.TransformPoint((0, 0, -0.1)).ToString());
+        Assert.Equal(0.9824128790613561, (projection * view).TransformPoint((0, 0, 0)).Z);
+
+        var reversed = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, double.PositiveInfinity, DepthRange.OneToZero);
+        Assert.Equal(0.0001, reversed.TransformPoint((0, 0, -1000)).Z);
+
+        var ui = Mat4.OrthographicOffCenter(0, 1920, 1080, 0, -1, 1);
+        Assert.Equal("[-1, 1, 0.5]", ui.TransformPoint((0, 0, 0)).ToString());
+        Assert.Equal("[1, -1, 0.5]", ui.TransformPoint((1920, 1080, 0)).ToString());
+    }
+
+    [Fact]
+    public void Camera_turned_by_the_mouse()
+    {
+        // The example with a frame's input: the mouse a little to the left and up, W held.
+        double yaw = 0, pitch = 0, sensitivity = 0.002, speed = 5, deltaTime = 0.1, aspect = 16.0 / 9;
+        double mouseDeltaX = -785.398, mouseDeltaY = -100, moveForward = 1, moveRight = 0;
+        Vec3 position = (0, 1.7, 5);
+
+        yaw -= mouseDeltaX * sensitivity;
+        pitch = Math.Clamp(pitch - mouseDeltaY * sensitivity, -1.55, 1.55);
+        var orientation = Quaternion<double>.RotationY(yaw) * Quaternion<double>.RotationX(pitch);
+        Vec3 forward = orientation.Rotate(-Vec3.UnitZ), right = orientation.Rotate(Vec3.UnitX);
+        position += (forward * moveForward + right * moveRight) * (speed * deltaTime);
+
+        var viewProjection = Mat4.Perspective(Math.PI / 3, aspect, 0.1, 1000)
+                           * Mat4.LookAt(position, position + forward, Vec3.UnitY);
+        System.Numerics.Matrix4x4 forTheGpu = viewProjection.Map(float.CreateTruncating).ToSystemNumerics();
+
+        Assert.Equal(1.570796, yaw, 1e-6);         // a quarter turn to the left
+        Assert.Equal(0.2, pitch, 1e-12);           // looking up a little
+        Assert.True(forward.X < -0.9 && forward.Y > 0.1);
+        Assert.True(position.Distance((0, 1.7, 5)) - 0.5 is < 1e-12 and > -1e-12);
+
+        // A point straight ahead lands in the middle of the screen.
+        Vec3 ahead = position + 10 * forward;
+        Vector3<float> screen = Matrix4x4<float>.FromSystemNumerics(forTheGpu).TransformPoint(ahead.Map(float.CreateTruncating));
+        Assert.Equal(0, screen.X, 1e-5f);
+        Assert.Equal(0, screen.Y, 1e-5f);
     }
 
     [Fact]

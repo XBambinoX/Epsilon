@@ -11,7 +11,7 @@
 symbolic expressions, exact rationals or doubles: exact determinants, inverses and solutions of
 symbolic systems, exact elimination for rationals, LU decomposition for doubles, and vector
 geometry. For games and graphics, fixed-size vectors and matrices of `float`, `double` or any
-number type, with transforms, rotations and conversions to System.Numerics.
+number type, quaternions, camera matrices and conversions to System.Numerics.
 
 ```csharp
 var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
@@ -177,9 +177,22 @@ new Vec3(1, -1, 0).Reflect(Vec3.UnitY);              // [1, 1, 0]
 Matrix4x4<float>.Translation((1, 2, 3)).ToSystemNumerics();   // the same map in System.Numerics
 ```
 
+Quaternions turn and interpolate, and the camera matrices take the scene to the screen:
+
+```csharp
+var turn = Quaternion<double>.RotationY(Math.PI / 2);
+Quaternion<double>.Slerp(Quaternion<double>.Identity, turn, 0.5);   // an eighth of a turn
+var view = Mat4.LookAt((0, 2, 5), (0, 0, 0), Vec3.UnitY);
+var projection = Mat4.Perspective(Math.PI / 3, 16.0 / 9, 0.1, 100);
+(projection * view).TransformPoint((0, 0, 0)).Z;    // 0.9824128790613561: the depth of the origin
+```
+
 The entries can be `float`, `double`, `Half`, `int` or any other number type with the
 arithmetic operators; norms, rotations and the inverse are there for the floating-point types.
-The inverse knows when a matrix is singular, as the LU decomposition does: the determinant
+Euler angles take an explicit axis order, `Compose` and `TryDecompose` build and split
+translation, rotation and scale, and the projections come right- and left-handed, with the
+depth range of Direct3D, OpenGL or reverse-Z. The inverse knows when a matrix is singular, as the
+LU decomposition does: the determinant
 `1.7E-17` that rounding leaves for `[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]` counts
 as 0. Transforming many points is about as fast as with System.Numerics.
 
