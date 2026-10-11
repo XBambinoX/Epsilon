@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.1.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.2.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guide](guide.md) explains the details, and your IDE shows the full XML documentation for
 every member.
@@ -23,7 +23,9 @@ listed here.
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
 are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
-`Matrix<double>.Identity(3)`, `a + b`), but only compile for those entry types.
+`Matrix<double>.Identity(3)`, `a + b`), but only compile for those entry types. The same holds
+for the operations of the fixed-size types that need floating point, such as `Norm`,
+`Inverse` and the rotations.
 
 ---
 

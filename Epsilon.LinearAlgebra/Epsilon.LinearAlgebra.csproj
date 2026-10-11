@@ -15,10 +15,10 @@
     <!-- Not passed as -p:Version when packing: a global Version would reach the core project
          too and make the dependency "Epsilon >= this version". publish.yml checks the tag
          against it instead. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Max Zakharov</Authors>
-    <Description>Linear algebra for the Epsilon symbolic math library: immutable matrices and vectors of expressions, exact rationals or doubles. Exact symbolic determinant, characteristic polynomial, inverse and solve without division; exact rational elimination; LU decomposition for doubles with singularity detection to working precision. Vector geometry (norm, cross product, angle, projection, reflection, lerp), blocks, ranges, powers and approximate equality.</Description>
-    <PackageTags>math;symbolic;cas;computer-algebra;linear-algebra;matrix;vector;determinant;inverse;eigenvalues;rational;exact;cross-product;latex</PackageTags>
+    <Description>Linear algebra for the Epsilon symbolic math library: immutable matrices and vectors of expressions, exact rationals or doubles, and fixed-size vector and matrix value types (Vector2 to Vector4, Matrix2x2 to Matrix4x4) of float, double or any number type for games and graphics. Exact symbolic determinant, characteristic polynomial, inverse and solve without division; exact rational elimination; LU decomposition for doubles with singularity detection to working precision. Vector geometry, transforms and rotations, a closed-form inverse that detects singular matrices, conversions to System.Numerics, blocks, ranges, powers and approximate equality.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;linear-algebra;matrix;vector;determinant;inverse;eigenvalues;rational;exact;cross-product;latex;gamedev;graphics;vector3;matrix4x4;transform;rotation</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
     <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>

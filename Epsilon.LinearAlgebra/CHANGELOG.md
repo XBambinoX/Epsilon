@@ -7,6 +7,46 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-11
+
+It depends on `Epsilon` 1.1.1 or later, as before.
+
+### Added
+
+- **Fixed-size vectors** `Vector2<T>`, `Vector3<T>` and `Vector4<T>`: immutable value types for
+  geometry and games, of `float`, `double` or any other number type with the arithmetic
+  operators (`Half`, `decimal`, `int`, ...). A tuple converts to them,
+  `Vector3<double> v = (1, 2, 3);`, `with` changes one entry, and they deconstruct. `Dot`,
+  `NormSquared`, `Cross` (in the plane the number x1 y2 - y1 x2), `Hadamard`, `Lerp` and `Map`
+  work for every entry type; `Min`, `Max`, `Abs` and `Clamp` for ordered ones.
+- **Geometry of floating-point vectors.** `Norm`, `Normalize`, `Distance`, `Angle`,
+  `ProjectOnto`, `Reflect` and `IsApproximately` for `float`, `double` and `Half`, as accurate
+  as for `Vector<double>`: `(3e300, 4e300, 0)` has norm `5E+300`, and a `Vector2<Half>` of
+  `(300, 400)` has norm 500 although 300^2 overflows `Half`. The default relative tolerance of
+  `IsApproximately` follows the precision: 1e-9 for `double`, 1e-5 for `float`, 1e-2 for `Half`.
+- **Fixed-size matrices** `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` with column
+  vectors, as for `Matrix<T>`: `m * v` maps v, `a * b` applies b first, a translation is in the
+  last column. `Translation`, `Scale`, `TransformPoint` (divided by w unless w is 1, so it is
+  ready for projective maps), `TransformDirection`, `Transpose`, `Trace` and `Determinant`,
+  exact for integers. `Matrix3x3<T>` also maps the plane in homogeneous coordinates.
+- **Rotations and a closed-form inverse** for `float`, `double` and `Half`: `RotationX`,
+  `RotationY`, `RotationZ` and `Rotation(axis, angle)` by the right-hand rule, and `Inverse` and
+  `TryInverse`, which call a matrix singular when its determinant is within the rounding error
+  of the formula. So `[[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]`, whose determinant
+  comes out as `1.7E-17`, has no inverse, while `diag(1e-20, 1, 1)` inverts exactly; rows of
+  huge or tiny entries are scaled by powers of two first, so neither overflow nor underflow
+  spoils the result.
+- **Conversions.** `ToVector()` and `ToMatrix()` to the general types, and explicit conversions
+  back; `ToSystemNumerics()` and `FromSystemNumerics()` for the `float` types, which transpose
+  the matrices because System.Numerics multiplies row vectors; `Map(float.CreateTruncating)`
+  between number types.
+- **Batch transforms of spans.** `TransformPoints`, `TransformDirections` and `Transform` from a
+  `ReadOnlySpan` into a `Span`, in place too. The entries are stored in order without padding,
+  so a `float[]` vertex buffer can be read as `Vector3<float>` without copying.
+- **Benchmarks** against System.Numerics in `Epsilon.Benchmarks/FixedSizeBenchmarks.cs`. Batch
+  transforms of points take about as long; the 4 x 4 product and inverse, scalar here and SIMD
+  there, about 5 times as long.
+
 ## [1.1.0] - 2026-10-09
 
 It depends on `Epsilon` 1.1.1 or later, as 1.0.0 does.
@@ -74,6 +114,7 @@ The first release. It depends on `Epsilon` 1.1.1 or later.
 
 See [Limitations](docs/guide.md#limitations) in the guide.
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.1.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.2.0...HEAD
+[1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.2.0
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.1.0
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.0.0
