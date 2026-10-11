@@ -19,6 +19,7 @@ listed here.
 [Vectors of expressions](#vectors-of-expressions) -
 [Fixed-size vectors](#fixed-size-vectors) -
 [Fixed-size matrices](#fixed-size-matrices) -
+[Quaternions](#quaternions) -
 [System.Numerics](#systemnumerics)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
@@ -386,10 +387,54 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 |---|---|
 | `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
 | `static Matrix2x2<T> Rotation(T angle)` | Of `Matrix2x2<T>`: the rotation of the plane, turning `UnitX` toward `UnitY`. |
+| `static Rotation(Quaternion<T> rotation)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the matrix of a quaternion's rotation, which need not have norm 1; `Rotation(p * q)` is `Rotation(p) * Rotation(q)`. Throws `ArgumentException` for the zero quaternion. |
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
 | `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
 | `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
+
+---
+
+## Quaternions
+
+### `Quaternion<T>` (readonly struct : `IEquatable`)
+
+The quaternion x i + y j + z k + w, for rotations: (sin(a/2) u, cos(a/2)) turns by the angle a
+about the unit axis u. `T` as for the fixed-size vectors.
+
+| Member | Description |
+|---|---|
+| `Quaternion(T x, T y, T z, T w)`, `Quaternion(Vector3<T> xyz, T w)` | The entries in the order of System.Numerics. |
+| `T X`, `T Y`, `T Z`, `T W` | The entries, settable in `with`. |
+| `static Quaternion<T> Identity` | 1, the rotation by 0. |
+| `Vector3<T> XYZ` | The vector part. |
+| `Quaternion<T> Conjugate()` | -x i - y j - z k + w. |
+| `T Dot(Quaternion<T> other)`, `T NormSquared()` | As vectors of four numbers. |
+| `*` (quaternion by quaternion) | The Hamilton product: `p * q` applies q first, like matrices. |
+| `+`, `-` (binary and unary), `*` and `/` with a `T` | Entry by entry; `-q` is the same rotation as q. |
+| `Quaternion<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry. |
+| `void Deconstruct(out T x, out T y, out T z, out T w)` | `var (x, y, z, w) = q;` |
+| `bool Equals(Quaternion<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`; q and -q are not equal. |
+| `string ToString()` | The entries x, y, z, w: `[0, 0, 0, 1]`. |
+
+### `FloatingPointQuaternionExtensions` (static class)
+
+Extension members of `Quaternion<T>` for `T : IFloatingPointIeee754<T>`. Angles are in radians.
+Wherever a quaternion stands for a rotation it need not have norm 1.
+
+| Member | Description |
+|---|---|
+| `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis by the right-hand rule, as `Matrix3x3<T>.Rotation`. Throws `ArgumentException` for the zero axis. |
+| `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotations about the axes. |
+| `static FromRotationMatrix(Matrix3x3<T> matrix)`, `FromRotationMatrix(Matrix4x4<T> matrix)` | The unit quaternion of a rotation matrix (the top left corner of a 4 x 4 one), by Shepperd's method. |
+| `T Norm()`, `Quaternion<T> Normalize()` | The norm without overflow or underflow, and the unit quaternion. `Normalize` throws `InvalidOperationException` for 0. |
+| `Quaternion<T> Inverse()` | The conjugate over the squared norm. Throws `InvalidOperationException` for 0. |
+| `Vector3<T> Rotate(Vector3<T> vector)` | q v q^-1. Throws `InvalidOperationException` for the zero quaternion. |
+| `(Vector3<T> Axis, T Angle) ToAxisAngle()` | The unit axis and the angle from 0 to pi; `UnitX` and 0 for the identity. |
+| `T Angle(Quaternion<T> other)` | The angle of the rotation between them, from 0 to pi; accurate for small angles. |
+| `static Slerp(Quaternion<T> start, Quaternion<T> end, T t)` | Spherical linear interpolation, the shorter way, at constant speed. |
+| `static Nlerp(Quaternion<T> start, Quaternion<T> end, T t)` | Normalized linear interpolation: the same path, faster, at a varying speed. |
+| `bool IsApproximately(Quaternion<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding as vectors of four numbers; q and -q are not close. |
 
 ---
 
@@ -405,5 +450,6 @@ conversions transpose, a map stays the same map, and `a * b` here is `b * a` the
 |---|---|
 | `System.Numerics.Vector3 ToSystemNumerics()` | Of `Vector2<float>`, `Vector3<float>`, `Vector4<float>`: the same vector. |
 | `static Vector3<float> FromSystemNumerics(System.Numerics.Vector3 value)` | And back, for all three sizes. |
+| `System.Numerics.Quaternion ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Quaternion value)` | Of `Quaternion<float>`: the same entries in the same order; the products agree too. |
 | `System.Numerics.Matrix4x4 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix4x4 value)` | Of `Matrix4x4<float>`: the transpose, so the translation moves from the last column to the last row. |
 | `System.Numerics.Matrix3x2 ToSystemNumerics()`, `static FromSystemNumerics(System.Numerics.Matrix3x2 value)` | Of `Matrix3x3<float>`: an affine map of the plane. `ToSystemNumerics` throws `InvalidOperationException` unless the last row is (0, 0, 1). |

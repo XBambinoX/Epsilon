@@ -26,6 +26,13 @@ public static class FloatingPointMatrix4x4Extensions
         public static Matrix4x4<T> Rotation(Vector3<T> axis, T angle) => new(Matrix3x3<T>.Rotation(axis, angle));
 
         /// <summary>
+        /// The rotation of a quaternion, which need not have norm 1: the matrix of
+        /// <c>rotation.Rotate</c>, so that <c>Rotation(p * q)</c> is <c>Rotation(p) * Rotation(q)</c>.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="rotation"/> is zero.</exception>
+        public static Matrix4x4<T> Rotation(Quaternion<T> rotation) => new(Matrix3x3<T>.Rotation(rotation));
+
+        /// <summary>
         /// The inverse, the map that undoes this one; see <see cref="TryInverse"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">

@@ -53,6 +53,27 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// The rotation of a quaternion, which need not have norm 1: the matrix of
+        /// <c>rotation.Rotate</c>, so that <c>Rotation(p * q)</c> is <c>Rotation(p) * Rotation(q)</c>.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="rotation"/> is zero.</exception>
+        public static Matrix3x3<T> Rotation(Quaternion<T> rotation)
+        {
+            if (rotation == default)
+                throw new ArgumentException("The quaternion is zero.", nameof(rotation));
+
+            var (x, y, z, w) = FloatingPointQuaternionExtensions.Rotation(rotation, out T normSquared);
+            T s = FloatingPoint<T>.Two / normSquared;
+            T xs = x * s, ys = y * s, zs = z * s;
+            T wx = w * xs, wy = w * ys, wz = w * zs;
+            T xx = x * xs, xy = x * ys, xz = x * zs, yy = y * ys, yz = y * zs, zz = z * zs;
+            return new(
+                T.One - (yy + zz), xy - wz, xz + wy,
+                xy + wz, T.One - (xx + zz), yz - wx,
+                xz - wy, yz + wx, T.One - (xx + yy));
+        }
+
+        /// <summary>
         /// The inverse, the map that undoes this one; see <see cref="TryInverse"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">
