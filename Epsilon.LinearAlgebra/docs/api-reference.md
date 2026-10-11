@@ -20,6 +20,7 @@ listed here.
 [Fixed-size vectors](#fixed-size-vectors) -
 [Fixed-size matrices](#fixed-size-matrices) -
 [Quaternions](#quaternions) -
+[Camera](#camera) -
 [System.Numerics](#systemnumerics)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
@@ -461,6 +462,38 @@ same rotation is the reverse order about the axes that turn with the object. The
 | `YZX` | y, then z, then x | Rx Rz Ry |
 | `ZXY` | z, then x, then y | Ry Rx Rz |
 | `ZYX` | z, then y, then x | Rx Ry Rz |
+
+---
+
+## Camera
+
+### `CameraMatrixExtensions` (static class)
+
+View and projection matrices, static extension members of `Matrix4x4<T>` for
+`T : IFloatingPointIeee754<T>`. The plain ones are right-handed: the camera looks along -z, with
+x to the right and y up. The `LeftHanded` ones look along +z. After `TransformPoint` divides by w,
+a projection maps what the camera sees to x and y in [-1, 1] and to the depths of a `DepthRange`.
+
+| Member | Description |
+|---|---|
+| `static LookAt(Vector3<T> eye, Vector3<T> target, Vector3<T> up)` | The view matrix: the camera at the origin, looking along -z, y up. Throws `ArgumentException` if `target` is `eye` or `up` is parallel to the direction of view. |
+| `static LookAtLeftHanded(Vector3<T> eye, Vector3<T> target, Vector3<T> up)` | The same, looking along +z. |
+| `static Perspective(T fieldOfViewY, T aspectRatio, T near, T far, DepthRange depthRange = ZeroToOne)` | The perspective projection: the vertical angle of view in radians, width over height, the near and far distances; `far` may be infinite. Throws `ArgumentOutOfRangeException` unless 0 < angle < pi, aspect > 0 and 0 < near < far. |
+| `static PerspectiveLeftHanded(...)` | The same, looking along +z. |
+| `static Orthographic(T width, T height, T near, T far, DepthRange depthRange = ZeroToOne)` | The orthographic projection of a box around the axis of view: no perspective. |
+| `static OrthographicOffCenter(T left, T right, T bottom, T top, T near, T far, DepthRange depthRange = ZeroToOne)` | The same for any box: `OrthographicOffCenter(0, 1920, 1080, 0, -1, 1)` maps pixels to the screen. |
+| `static OrthographicLeftHanded(...)`, `static OrthographicOffCenterLeftHanded(...)` | The same, looking along +z. |
+
+The orthographic ones throw `ArgumentOutOfRangeException` for a box of size 0 or a value that is
+not finite.
+
+### `DepthRange` (enum)
+
+| Value | Near, far | For |
+|---|---|---|
+| `ZeroToOne` | 0, 1 | Direct3D, Vulkan, Metal, WebGPU; the default |
+| `MinusOneToOne` | -1, 1 | OpenGL, WebGL |
+| `OneToZero` | 1, 0 | Reverse-Z, for float depth buffers |
 
 ---
 
