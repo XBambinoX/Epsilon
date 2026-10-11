@@ -106,16 +106,8 @@ public static class FloatingPointVectorExtensions
         /// equal, and NaN is never close to anything.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
-        public bool IsApproximately(Vector2<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)
-        {
-            var (relative, absolute) = FloatingPoint<T>.Tolerances(relativeTolerance, absoluteTolerance);
-            if (!FloatingPoint<T>.FiniteParts(vector.X, other.X, out T dx, out T lx, out T rx)
-                || !FloatingPoint<T>.FiniteParts(vector.Y, other.Y, out T dy, out T ly, out T ry))
-                return false;
-
-            return FloatingPoint<T>.IsClose(
-                new Vector2<T>(dx, dy).Norm(), new Vector2<T>(lx, ly).Norm(), new Vector2<T>(rx, ry).Norm(), relative, absolute);
-        }
+        public bool IsApproximately(Vector2<T> other, T? relativeTolerance = null, T? absoluteTolerance = null) =>
+            FloatingPoint<T>.AreClose([vector.X, vector.Y], [other.X, other.Y], relativeTolerance, absoluteTolerance);
     }
 
     extension<T>(Vector3<T> vector) where T : struct, System.Numerics.IFloatingPointIeee754<T>
@@ -216,18 +208,8 @@ public static class FloatingPointVectorExtensions
         /// equal, and NaN is never close to anything.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
-        public bool IsApproximately(Vector3<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)
-        {
-            var (relative, absolute) = FloatingPoint<T>.Tolerances(relativeTolerance, absoluteTolerance);
-            if (!FloatingPoint<T>.FiniteParts(vector.X, other.X, out T dx, out T lx, out T rx)
-                || !FloatingPoint<T>.FiniteParts(vector.Y, other.Y, out T dy, out T ly, out T ry)
-                || !FloatingPoint<T>.FiniteParts(vector.Z, other.Z, out T dz, out T lz, out T rz))
-                return false;
-
-            return FloatingPoint<T>.IsClose(
-                new Vector3<T>(dx, dy, dz).Norm(), new Vector3<T>(lx, ly, lz).Norm(), new Vector3<T>(rx, ry, rz).Norm(),
-                relative, absolute);
-        }
+        public bool IsApproximately(Vector3<T> other, T? relativeTolerance = null, T? absoluteTolerance = null) =>
+            FloatingPoint<T>.AreClose([vector.X, vector.Y, vector.Z], [other.X, other.Y, other.Z], relativeTolerance, absoluteTolerance);
     }
 
     extension<T>(Vector4<T> vector) where T : struct, System.Numerics.IFloatingPointIeee754<T>
@@ -328,19 +310,8 @@ public static class FloatingPointVectorExtensions
         /// equal, and NaN is never close to anything.
         /// </summary>
         /// <exception cref="ArgumentOutOfRangeException">A tolerance is negative or NaN.</exception>
-        public bool IsApproximately(Vector4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)
-        {
-            var (relative, absolute) = FloatingPoint<T>.Tolerances(relativeTolerance, absoluteTolerance);
-            if (!FloatingPoint<T>.FiniteParts(vector.X, other.X, out T dx, out T lx, out T rx)
-                || !FloatingPoint<T>.FiniteParts(vector.Y, other.Y, out T dy, out T ly, out T ry)
-                || !FloatingPoint<T>.FiniteParts(vector.Z, other.Z, out T dz, out T lz, out T rz)
-                || !FloatingPoint<T>.FiniteParts(vector.W, other.W, out T dw, out T lw, out T rw))
-                return false;
-
-            return FloatingPoint<T>.IsClose(
-                new Vector4<T>(dx, dy, dz, dw).Norm(), new Vector4<T>(lx, ly, lz, lw).Norm(),
-                new Vector4<T>(rx, ry, rz, rw).Norm(), relative, absolute);
-        }
+        public bool IsApproximately(Vector4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null) =>
+            FloatingPoint<T>.AreClose([vector.X, vector.Y, vector.Z, vector.W], [other.X, other.Y, other.Z, other.W], relativeTolerance, absoluteTolerance);
     }
 
     // The vector divided by a power of two that brings its largest magnitude into [1, 2): exact,

@@ -17,7 +17,8 @@ listed here.
 [Vectors of rationals](#vectors-of-rationals) -
 [Matrices of expressions](#matrices-of-expressions) -
 [Vectors of expressions](#vectors-of-expressions) -
-[Fixed-size vectors](#fixed-size-vectors)
+[Fixed-size vectors](#fixed-size-vectors) -
+[Fixed-size matrices](#fixed-size-matrices)
 
 The operations for `double`, `Rational` and `Expr` entries are C# 14 extension members: they
 are called like members of `Matrix<T>` and `Vector<T>` (`m.Determinant()`,
@@ -329,3 +330,47 @@ Extension members of `Vector2<T>`, `Vector3<T>` and `Vector4<T>` for `T : INumbe
 | `Vector3<T> Min(Vector3<T> other)`, `Vector3<T> Max(Vector3<T> other)` | The smaller or larger entry at each index. |
 | `Vector3<T> Abs()` | The absolute value of every entry. |
 | `Vector3<T> Clamp(Vector3<T> min, Vector3<T> max)` | Every entry limited to its range. Throws `ArgumentException` if a minimum is above its maximum. |
+
+---
+
+## Fixed-size matrices
+
+### `Matrix3x3<T>`, `Matrix4x4<T>` (readonly structs : `IEquatable`)
+
+Immutable value types for transformations, with the same `T` as the fixed-size vectors. Vectors
+are columns: `m * v` maps v, `a * b` applies b first, and a translation is in the last column.
+The table shows `Matrix4x4<T>`; `Matrix3x3<T>` has the same members for 3 x 3, except where noted.
+
+| Member | Description |
+|---|---|
+| `Matrix4x4(T m11, T m12, ..., T m44)` | The entries row by row. |
+| `Matrix4x4(Matrix3x3<T> linear)` | The linear map in homogeneous coordinates: `linear` in the top left, 1 in the corner. |
+| `M11`, `M12`, `M13`, `M14`, `M21`, `M22`, `M23`, `M24`, `M31`, `M32`, `M33`, `M34`, `M41`, `M42`, `M43`, `M44` | The entries of type `T`; Mij is in row i, column j. Settable in `with`. |
+| `static Identity`, `Zero` | The identity and the zero matrix. |
+| `static FromRows(...)`, `static FromColumns(...)` | The matrix from its rows or columns as vectors. |
+| `static Matrix4x4<T> Translation(Vector3<T> offset)` | The translation; for `Matrix3x3<T>`, `Translation(Vector2<T>)` translates the plane in homogeneous coordinates. |
+| `static Matrix4x4<T> Scale(Vector3<T> factors)`, `Scale(T factor)` | diag(x, y, z, 1). `Matrix3x3<T>` has `Scale(Vector3<T>)` for space and `Scale(Vector2<T>)`, diag(x, y, 1), for the plane. |
+| `T this[int row, int column]` | The entry at zero-based indices: `m[0, 3]` is `M14`. |
+| `Vector4<T> Row(int index)`, `Vector4<T> Column(int index)` | A row or a column, zero-based. |
+| `Matrix4x4<T> Transpose()`, `T Trace()` | The transpose and the sum of the diagonal. |
+| `T Determinant()` | By the closed formula; exact for integers. |
+| `+`, `-` (binary and unary), `*` and `/` with a `T` | Entry by entry. |
+| `*` (matrix by matrix, matrix by `Vector4<T>`) | The matrix product. |
+| `Vector3<T> TransformPoint(Vector3<T> point)` | (x, y, z, 1) mapped and divided by w unless w is 1; for `Matrix3x3<T>` a `Vector2<T>`. |
+| `Vector3<T> TransformDirection(Vector3<T> direction)` | (x, y, z, 0) mapped: translations leave it alone. |
+| `Matrix4x4<TResult> Map<TResult>(Func<T, TResult> map)` | `map` applied to every entry: `m.Map(float.CreateTruncating)`. |
+| `bool Equals(Matrix4x4<T> other)`, `Equals(object?)`, `==`, `!=`, `GetHashCode()` | Equal entries by their `Equals`. |
+| `string ToString()` | The rows in brackets, culture-invariant: `[[1, 0], ...]`. |
+
+### `FloatingPointMatrix3x3Extensions`, `FloatingPointMatrix4x4Extensions` (static classes)
+
+Extension members of `Matrix3x3<T>` and `Matrix4x4<T>` for `T : IFloatingPointIeee754<T>`. Angles
+are in radians.
+
+| Member | Description |
+|---|---|
+| `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
+| `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
+| `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
+| `Matrix4x4<T> Inverse()` | The same; throws `InvalidOperationException` where `TryInverse` returns `false`. |
+| `bool IsApproximately(Matrix4x4<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding in the Frobenius norm, with the same defaults as for vectors. |
