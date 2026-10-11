@@ -53,6 +53,27 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// The rotation by Euler angles: <c>angles.X</c> about x, <c>angles.Y</c> about y and
+        /// <c>angles.Z</c> about z, applied in the given order about the fixed axes; see
+        /// <see cref="EulerOrder"/>. For <see cref="EulerOrder.XYZ"/> it is Rz Ry Rx.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public static Matrix3x3<T> FromEulerAngles(Vector3<T> angles, EulerOrder order)
+        {
+            var (a, b, c, _) = EulerAngles.Axes(order);
+            return AxisRotation(c, angles[c]) * AxisRotation(b, angles[b]) * AxisRotation(a, angles[a]);
+        }
+
+        /// <summary>
+        /// The Euler angles of a rotation matrix in the given order, so that
+        /// <see cref="FromEulerAngles"/> gives the matrix back. The middle angle of the order is in
+        /// [-pi/2, pi/2], the others in [-pi, pi]; at gimbal lock the last one is 0. The matrix
+        /// must be a rotation: orthonormal, with determinant 1.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public Vector3<T> ToEulerAngles(EulerOrder order) => EulerAngles.Of(matrix, order);
+
+        /// <summary>
         /// The rotation of a quaternion, which need not have norm 1: the matrix of
         /// <c>rotation.Rotate</c>, so that <c>Rotation(p * q)</c> is <c>Rotation(p) * Rotation(q)</c>.
         /// </summary>
@@ -146,6 +167,14 @@ public static class FloatingPointMatrix3x3Extensions
                 [other.M11, other.M12, other.M13, other.M21, other.M22, other.M23, other.M31, other.M32, other.M33],
                 relativeTolerance, absoluteTolerance);
     }
+
+    private static Matrix3x3<T> AxisRotation<T>(int axis, T angle) where T : struct, System.Numerics.IFloatingPointIeee754<T> =>
+        axis switch
+        {
+            0 => Matrix3x3<T>.RotationX(angle),
+            1 => Matrix3x3<T>.RotationY(angle),
+            _ => Matrix3x3<T>.RotationZ(angle),
+        };
 
     // The adjugate over the determinant, unless the determinant is 0 to working precision. The
     // permanent of |A|, the sum of the magnitudes of the terms of the determinant, is the scale of

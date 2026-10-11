@@ -387,6 +387,8 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 |---|---|
 | `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotation about an axis: `RotationZ` turns `UnitX` toward `UnitY`. |
 | `static Matrix2x2<T> Rotation(T angle)` | Of `Matrix2x2<T>`: the rotation of the plane, turning `UnitX` toward `UnitY`. |
+| `static FromEulerAngles(Vector3<T> angles, EulerOrder order)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the rotation by `angles.X` about x, `angles.Y` about y and `angles.Z` about z, in the given order about the fixed axes; `XYZ` gives Rz Ry Rx. |
+| `Vector3<T> ToEulerAngles(EulerOrder order)` | The Euler angles of a rotation matrix (the top left corner of a 4 x 4 one): the middle one in [-pi/2, pi/2], the others in [-pi, pi]; at gimbal lock the last one is 0. |
 | `static Rotation(Quaternion<T> rotation)` | Of `Matrix3x3<T>` and `Matrix4x4<T>`: the matrix of a quaternion's rotation, which need not have norm 1; `Rotation(p * q)` is `Rotation(p) * Rotation(q)`. Throws `ArgumentException` for the zero quaternion. |
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis, counterclockwise seen from its tip. Throws `ArgumentException` for the zero axis. |
 | `bool TryInverse(out Matrix4x4<T> inverse)` | The inverse, unless the matrix is singular to working precision (its determinant within the rounding error of the formula) or has a NaN or infinite entry. Neither overflows nor underflows. |
@@ -426,6 +428,8 @@ Wherever a quaternion stands for a rotation it need not have norm 1.
 |---|---|
 | `static Rotation(Vector3<T> axis, T angle)` | The rotation about any axis by the right-hand rule, as `Matrix3x3<T>.Rotation`. Throws `ArgumentException` for the zero axis. |
 | `static RotationX(T angle)`, `RotationY(T angle)`, `RotationZ(T angle)` | The rotations about the axes. |
+| `static FromEulerAngles(Vector3<T> angles, EulerOrder order)`, `Vector3<T> ToEulerAngles(EulerOrder order)` | Euler angles, as for the matrices. `ToEulerAngles` throws `InvalidOperationException` for the zero quaternion. |
+| `static FromToRotation(Vector3<T> from, Vector3<T> to)` | The shortest rotation from one direction to the other, a half turn for opposite ones; accurate for nearly opposite ones. Throws `ArgumentException` for a zero vector. |
 | `static FromRotationMatrix(Matrix3x3<T> matrix)`, `FromRotationMatrix(Matrix4x4<T> matrix)` | The unit quaternion of a rotation matrix (the top left corner of a 4 x 4 one), by Shepperd's method. |
 | `T Norm()`, `Quaternion<T> Normalize()` | The norm without overflow or underflow, and the unit quaternion. `Normalize` throws `InvalidOperationException` for 0. |
 | `Quaternion<T> Inverse()` | The conjugate over the squared norm. Throws `InvalidOperationException` for 0. |
@@ -435,6 +439,22 @@ Wherever a quaternion stands for a rotation it need not have norm 1.
 | `static Slerp(Quaternion<T> start, Quaternion<T> end, T t)` | Spherical linear interpolation, the shorter way, at constant speed. |
 | `static Nlerp(Quaternion<T> start, Quaternion<T> end, T t)` | Normalized linear interpolation: the same path, faster, at a varying speed. |
 | `bool IsApproximately(Quaternion<T> other, T? relativeTolerance = null, T? absoluteTolerance = null)` | Equal up to rounding as vectors of four numbers; q and -q are not close. |
+
+### `EulerOrder` (enum)
+
+The order of Euler angles: the rotations turn about the fixed axes of space, first about the
+first axis of the name, so `XYZ` turns about x, then y, then z, and its matrix is Rz Ry Rx; the
+same rotation is the reverse order about the axes that turn with the object. The angles
+(pitch, yaw, roll) in the order `ZXY` give `CreateFromYawPitchRoll` of System.Numerics.
+
+| Value | Turns about | Matrix |
+|---|---|---|
+| `XYZ` | x, then y, then z | Rz Ry Rx |
+| `XZY` | x, then z, then y | Ry Rz Rx |
+| `YXZ` | y, then x, then z | Rz Rx Ry |
+| `YZX` | y, then z, then x | Rx Rz Ry |
+| `ZXY` | z, then x, then y | Ry Rx Rz |
+| `ZYX` | z, then y, then x | Rx Ry Rz |
 
 ---
 

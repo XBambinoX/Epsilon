@@ -26,6 +26,24 @@ public static class FloatingPointMatrix4x4Extensions
         public static Matrix4x4<T> Rotation(Vector3<T> axis, T angle) => new(Matrix3x3<T>.Rotation(axis, angle));
 
         /// <summary>
+        /// The rotation by Euler angles about the fixed axes in the given order; see
+        /// <c>Matrix3x3&lt;T&gt;.FromEulerAngles</c> and <see cref="EulerOrder"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public static Matrix4x4<T> FromEulerAngles(Vector3<T> angles, EulerOrder order) =>
+            new(Matrix3x3<T>.FromEulerAngles(angles, order));
+
+        /// <summary>
+        /// The Euler angles of the rotation in the top left 3 x 3 corner, which must be a rotation;
+        /// see <c>Matrix3x3&lt;T&gt;.ToEulerAngles</c>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public Vector3<T> ToEulerAngles(EulerOrder order) => new Matrix3x3<T>(
+            matrix.M11, matrix.M12, matrix.M13,
+            matrix.M21, matrix.M22, matrix.M23,
+            matrix.M31, matrix.M32, matrix.M33).ToEulerAngles(order);
+
+        /// <summary>
         /// The rotation of a quaternion, which need not have norm 1: the matrix of
         /// <c>rotation.Rotate</c>, so that <c>Rotation(p * q)</c> is <c>Rotation(p) * Rotation(q)</c>.
         /// </summary>

@@ -89,6 +89,45 @@ public static class FloatingPointQuaternionExtensions
             matrix.M21, matrix.M22, matrix.M23,
             matrix.M31, matrix.M32, matrix.M33));
 
+        /// <summary>
+        /// The rotation by Euler angles: <c>angles.X</c> about x, <c>angles.Y</c> about y and
+        /// <c>angles.Z</c> about z, applied in the given order about the fixed axes; see
+        /// <see cref="EulerOrder"/>.
+        /// </summary>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public static Quaternion<T> FromEulerAngles(Vector3<T> angles, EulerOrder order)
+        {
+            var (a, b, c, _) = EulerAngles.Axes(order);
+            return AxisRotation(c, angles[c]) * AxisRotation(b, angles[b]) * AxisRotation(a, angles[a]);
+        }
+
+        /// <summary>
+        /// The shortest rotation that turns the direction of <paramref name="from"/> into that of
+        /// <paramref name="to"/>; neither need have length 1. For opposite directions it is a half
+        /// turn about an axis perpendicular to them. It is (a x b, |a + b|^2 / 2) for the unit
+        /// vectors a and b, normalized: the second part is 1 + a . b without the cancellation that
+        /// would spoil nearly opposite directions.
+        /// </summary>
+        /// <exception cref="ArgumentException">A vector is zero.</exception>
+        public static Quaternion<T> FromToRotation(Vector3<T> from, Vector3<T> to)
+        {
+            if (from == Vector3<T>.Zero)
+                throw new ArgumentException("Cannot turn the zero vector.", nameof(from));
+            if (to == Vector3<T>.Zero)
+                throw new ArgumentException("Cannot turn to the zero vector.", nameof(to));
+
+            Vector3<T> a = from.Normalize(), b = to.Normalize();
+            var q = new Quaternion<T>(a.Cross(b), (a + b).NormSquared() / FloatingPoint<T>.Two);
+            if (q != default)
+                return q.Normalize();
+
+            // Opposite directions: half a turn about the axis perpendicular to a and to the unit
+            // vector least parallel to it.
+            T x = T.Abs(a.X), y = T.Abs(a.Y), z = T.Abs(a.Z);
+            Vector3<T> other = x <= y && x <= z ? Vector3<T>.UnitX : y <= z ? Vector3<T>.UnitY : Vector3<T>.UnitZ;
+            return new(a.Cross(other).Normalize(), T.Zero);
+        }
+
         /// <summary>The norm sqrt(x^2 + y^2 + z^2 + w^2); it neither overflows nor underflows.</summary>
         public T Norm() => new Vector4<T>(quaternion.X, quaternion.Y, quaternion.Z, quaternion.W).Norm();
 
@@ -140,6 +179,21 @@ public static class FloatingPointQuaternionExtensions
             T sine = q.XYZ.Norm();
             T angle = FloatingPoint<T>.Two * T.Atan2(sine, q.W);
             return (sine == T.Zero ? Vector3<T>.UnitX : q.XYZ / sine, angle);
+        }
+
+        /// <summary>
+        /// The Euler angles of the rotation in the given order, as <c>angles.X</c> about x and so on,
+        /// so that <see cref="FromEulerAngles"/> gives the rotation back. The middle angle of the
+        /// order is in [-pi/2, pi/2], the others in [-pi, pi]. At gimbal lock, where the middle
+        /// angle is pi/2 or -pi/2, only the sum or difference of the other two counts, and the last
+        /// one is 0.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The quaternion is zero.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="order"/> is not an Euler order.</exception>
+        public Vector3<T> ToEulerAngles(EulerOrder order)
+        {
+            Quaternion<T> q = Rotation(quaternion, out _);
+            return EulerAngles.Of(Matrix3x3<T>.Rotation(q), order);
         }
 
         /// <summary>
@@ -205,6 +259,14 @@ public static class FloatingPointQuaternionExtensions
                 [quaternion.X, quaternion.Y, quaternion.Z, quaternion.W], [other.X, other.Y, other.Z, other.W],
                 relativeTolerance, absoluteTolerance);
     }
+
+    private static Quaternion<T> AxisRotation<T>(int axis, T angle) where T : struct, System.Numerics.IFloatingPointIeee754<T> =>
+        axis switch
+        {
+            0 => Quaternion<T>.RotationX(angle),
+            1 => Quaternion<T>.RotationY(angle),
+            _ => Quaternion<T>.RotationZ(angle),
+        };
 
     // The quaternion of a rotation and its squared norm, which is safe to divide by: normalized
     // first where the squared norm would overflow or underflow.

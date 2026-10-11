@@ -329,3 +329,169 @@ public class QuaternionSystemNumericsTests
         Assert.True(Quaternion<float>.FromSystemNumerics(System.Numerics.Quaternion.Inverse(p)).IsApproximately(ourP.Inverse()));
     }
 }
+
+public class EulerAngleTests
+{
+    private static readonly EulerOrder[] Orders = Enum.GetValues<EulerOrder>();
+
+    // The definition, written out for every order: about the first axis of the name first.
+    private static Matrix3x3<double> Composed(Vector3<double> angles, EulerOrder order)
+    {
+        var x = Matrix3x3<double>.RotationX(angles.X);
+        var y = Matrix3x3<double>.RotationY(angles.Y);
+        var z = Matrix3x3<double>.RotationZ(angles.Z);
+        return order switch
+        {
+            EulerOrder.XYZ => z * y * x,
+            EulerOrder.XZY => y * z * x,
+            EulerOrder.YXZ => z * x * y,
+            EulerOrder.YZX => x * z * y,
+            EulerOrder.ZXY => y * x * z,
+            EulerOrder.ZYX => x * y * z,
+            _ => throw new ArgumentOutOfRangeException(nameof(order)),
+        };
+    }
+
+    // The index of the middle axis of the order: the angle in [-pi/2, pi/2].
+    private static int Middle(EulerOrder order) => "XYZ".IndexOf(order.ToString()[1]);
+
+    private static Vector3<double> RandomAngles(Random random, EulerOrder order)
+    {
+        double[] angles = [random.NextDouble() * 6 - 3, random.NextDouble() * 6 - 3, random.NextDouble() * 6 - 3];
+        angles[Middle(order)] = random.NextDouble() * 3 - 1.5;
+        return (angles[0], angles[1], angles[2]);
+    }
+
+    [Fact]
+    public void Euler_angles_turn_about_the_fixed_axes_in_the_order_of_the_name()
+    {
+        Vector3<double> angles = (0.3, -1.1, 2.2);
+        foreach (var order in Orders)
+        {
+            Assert.Equal(Composed(angles, order), Matrix3x3<double>.FromEulerAngles(angles, order));
+            Assert.Equal(new Matrix4x4<double>(Composed(angles, order)), Matrix4x4<double>.FromEulerAngles(angles, order));
+            Assert.True(Matrix3x3<double>.Rotation(Quaternion<double>.FromEulerAngles(angles, order)).IsApproximately(Composed(angles, order)));
+        }
+
+        Assert.Equal(Quaternion<double>.RotationZ(2.2) * Quaternion<double>.RotationY(-1.1) * Quaternion<double>.RotationX(0.3),
+            Quaternion<double>.FromEulerAngles(angles, EulerOrder.XYZ));
+    }
+
+    [Fact]
+    public void Euler_angles_come_back()
+    {
+        var random = new Random(8);
+        foreach (var order in Orders)
+        {
+            for (int k = 0; k < 30; k++)
+            {
+                Vector3<double> angles = RandomAngles(random, order);
+
+                Assert.True(Matrix3x3<double>.FromEulerAngles(angles, order).ToEulerAngles(order).IsApproximately(angles, absoluteTolerance: 1e-12), $"{order} {angles}");
+                Assert.True(Quaternion<double>.FromEulerAngles(angles, order).ToEulerAngles(order).IsApproximately(angles, absoluteTolerance: 1e-12), $"{order} {angles}");
+                Assert.True(Matrix4x4<double>.FromEulerAngles(angles, order).ToEulerAngles(order).IsApproximately(angles, absoluteTolerance: 1e-12));
+            }
+        }
+    }
+
+    [Fact]
+    public void Gimbal_lock_keeps_the_rotation()
+    {
+        foreach (var order in Orders)
+        {
+            foreach (double middle in new[] { Math.PI / 2, -Math.PI / 2, Math.PI / 2 - 1e-10, -Math.PI / 2 + 1e-9 })
+            {
+                double[] values = [0.4, -0.9, 1.3];
+                values[Middle(order)] = middle;
+                Vector3<double> angles = (values[0], values[1], values[2]);
+                var rotation = Matrix3x3<double>.FromEulerAngles(angles, order);
+
+                Vector3<double> back = rotation.ToEulerAngles(order);
+                Assert.True(Matrix3x3<double>.FromEulerAngles(back, order).IsApproximately(rotation, absoluteTolerance: 1e-7), $"{order} {middle}: {back}");
+                Assert.Equal(middle, back[Middle(order)], 1e-7);
+            }
+        }
+
+        // Exactly at the lock the last angle of the order is 0.
+        Vector3<double> locked = Matrix3x3<double>.FromEulerAngles((0.4, Math.PI / 2, 1.3), EulerOrder.XYZ).ToEulerAngles(EulerOrder.XYZ);
+        Assert.Equal(0, locked.Z);
+        Assert.Equal(0.4 - 1.3, locked.X, 1e-12);
+    }
+
+    [Fact]
+    public void Yaw_pitch_and_roll_of_System_Numerics()
+    {
+        float yaw = 0.7f, pitch = -0.3f, roll = 1.9f;
+
+        Assert.True(Quaternion<float>.FromSystemNumerics(System.Numerics.Quaternion.CreateFromYawPitchRoll(yaw, pitch, roll))
+            .IsApproximately(Quaternion<float>.FromEulerAngles((pitch, yaw, roll), EulerOrder.ZXY)));
+        Assert.True(Matrix4x4<float>.FromSystemNumerics(System.Numerics.Matrix4x4.CreateFromYawPitchRoll(yaw, pitch, roll))
+            .IsApproximately(Matrix4x4<float>.FromEulerAngles((pitch, yaw, roll), EulerOrder.ZXY)));
+    }
+
+    [Fact]
+    public void Invalid_input()
+    {
+        var ex = Assert.Throws<ArgumentOutOfRangeException>(() => Matrix3x3<double>.FromEulerAngles(Vector3<double>.Zero, (EulerOrder)42));
+        Assert.Equal("order", ex.ParamName);
+        Assert.Throws<ArgumentOutOfRangeException>(() => Quaternion<double>.Identity.ToEulerAngles((EulerOrder)(-1)));
+        Assert.Throws<InvalidOperationException>(() => default(Quaternion<double>).ToEulerAngles(EulerOrder.XYZ));
+
+        // The translation of a 4 x 4 matrix doesn't matter.
+        var moved = Matrix4x4<double>.Translation((5, 6, 7)) * Matrix4x4<double>.FromEulerAngles((0.1, 0.2, 0.3), EulerOrder.YXZ);
+        Assert.True(moved.ToEulerAngles(EulerOrder.YXZ).IsApproximately((0.1, 0.2, 0.3)));
+    }
+}
+
+public class FromToRotationTests
+{
+    [Fact]
+    public void Turns_one_direction_into_the_other_the_shortest_way()
+    {
+        var random = new Random(9);
+        for (int k = 0; k < 50; k++)
+        {
+            Vector3<double> from = (random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5);
+            Vector3<double> to = 3 * new Vector3<double>(random.NextDouble() - 0.5, random.NextDouble() - 0.5, random.NextDouble() - 0.5);
+            var q = Quaternion<double>.FromToRotation(from, to);
+
+            Assert.Equal(1, q.Norm(), 1e-15);
+            Assert.True(q.Rotate(from.Normalize()).IsApproximately(to.Normalize()));
+            Assert.Equal(from.Angle(to), q.ToAxisAngle().Angle, 1e-12);
+        }
+
+        Assert.True(Quaternion<double>.FromToRotation(Vector3<double>.UnitX, Vector3<double>.UnitY).IsApproximately(Quaternion<double>.RotationZ(Math.PI / 2)));
+        Assert.True(Quaternion<double>.FromToRotation((1, 2, 3), (2, 4, 6)).IsApproximately(Quaternion<double>.Identity));
+    }
+
+    [Fact]
+    public void Opposite_directions_take_half_a_turn()
+    {
+        foreach (Vector3<double> v in new Vector3<double>[] { Vector3<double>.UnitX, (0, -2, 0), (1, 2, 3) })
+        {
+            var q = Quaternion<double>.FromToRotation(v, -v);
+            Assert.True(q.Rotate(v).IsApproximately(-v));
+            Assert.Equal(Math.PI, q.ToAxisAngle().Angle, 1e-15);
+            Assert.Equal(0, q.ToAxisAngle().Axis.Dot(v), 1e-15);
+        }
+    }
+
+    [Fact]
+    public void Nearly_opposite_directions_stay_accurate()
+    {
+        // 1 + a . b rounds to 0 here, which would turn UnitX to exactly -UnitX.
+        Vector3<double> to = (-1, 1e-9, 0);
+        Assert.Equal(0, 1 + Vector3<double>.UnitX.Dot(to.Normalize()));
+
+        Vector3<double> turned = Quaternion<double>.FromToRotation(Vector3<double>.UnitX, to).Rotate(Vector3<double>.UnitX);
+        Assert.Equal(-1, turned.X, 1e-15);
+        Assert.Equal(1e-9, turned.Y, 1e-22);
+    }
+
+    [Fact]
+    public void Zero_vectors_have_no_direction()
+    {
+        Assert.Equal("from", Assert.Throws<ArgumentException>(() => Quaternion<double>.FromToRotation(Vector3<double>.Zero, Vector3<double>.UnitX)).ParamName);
+        Assert.Equal("to", Assert.Throws<ArgumentException>(() => Quaternion<double>.FromToRotation(Vector3<double>.UnitX, Vector3<double>.Zero)).ParamName);
+    }
+}
