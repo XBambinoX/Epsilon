@@ -1010,6 +1010,23 @@ public class FixedSizeInteropTests
     }
 
     [Fact]
+    public void Batch_transforms_divide_by_w_after_a_projective_map()
+    {
+        var project = Matrix4x4<double>.Identity with { M43 = 1, M44 = 0 };   // w = z
+        var project2 = Matrix3x3<double>.Identity with { M31 = 1, M33 = 0 };   // w = x
+        Vector3<double>[] points = [(2, 4, 2), (3, 6, -3)];
+        Vector2<double>[] points2 = [(2, 4), (-1, 5)];
+        var results = new Vector3<double>[2];
+        var results2 = new Vector2<double>[2];
+
+        project.TransformPoints(points, results);
+        project2.TransformPoints(points2, results2);
+
+        Assert.Equal([new Vector3<double>(1, 2, 1), new Vector3<double>(-1, -2, 1)], results);
+        Assert.Equal([new Vector2<double>(1, 2), new Vector2<double>(1, -5)], results2);
+    }
+
+    [Fact]
     public void Batch_transforms_work_in_place()
     {
         Vector3<double>[] points = [(0, 0, 0), (1, 1, 1)];

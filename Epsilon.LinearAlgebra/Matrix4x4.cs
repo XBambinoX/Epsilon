@@ -175,8 +175,22 @@ public readonly struct Matrix4x4<T> : IEquatable<Matrix4x4<T>>
         T x = M11 * point.X + M12 * point.Y + M13 * point.Z + M14;
         T y = M21 * point.X + M22 * point.Y + M23 * point.Z + M24;
         T z = M31 * point.X + M32 * point.Y + M33 * point.Z + M34;
+        if (IsAffine)
+            return new(x, y, z);
+
         T w = M41 * point.X + M42 * point.Y + M43 * point.Z + M44;
         return EqualityComparer<T>.Default.Equals(w, T.MultiplicativeIdentity) ? new(x, y, z) : new(x / w, y / w, z / w);
+    }
+
+    // Whether the last row is (0, 0, 0, 1), so that w is 1 for every point.
+    private bool IsAffine
+    {
+        get
+        {
+            var comparer = EqualityComparer<T>.Default;
+            return comparer.Equals(M41, T.AdditiveIdentity) && comparer.Equals(M42, T.AdditiveIdentity)
+                && comparer.Equals(M43, T.AdditiveIdentity) && comparer.Equals(M44, T.MultiplicativeIdentity);
+        }
     }
 
     /// <summary>
@@ -208,8 +222,25 @@ public readonly struct Matrix4x4<T> : IEquatable<Matrix4x4<T>>
     public void TransformPoints(ReadOnlySpan<Vector3<T>> points, Span<Vector3<T>> destination)
     {
         Destination.Check(points, destination);
+        if (!IsAffine)
+        {
+            for (int i = 0; i < points.Length; i++)
+                destination[i] = TransformPoint(points[i]);
+            return;
+        }
+
+        // The entries in locals, which the loop keeps in registers.
+        T m11 = M11, m12 = M12, m13 = M13, m14 = M14;
+        T m21 = M21, m22 = M22, m23 = M23, m24 = M24;
+        T m31 = M31, m32 = M32, m33 = M33, m34 = M34;
         for (int i = 0; i < points.Length; i++)
-            destination[i] = TransformPoint(points[i]);
+        {
+            var (x, y, z) = points[i];
+            destination[i] = new(
+                m11 * x + m12 * y + m13 * z + m14,
+                m21 * x + m22 * y + m23 * z + m24,
+                m31 * x + m32 * y + m33 * z + m34);
+        }
     }
 
     /// <summary>
@@ -222,8 +253,16 @@ public readonly struct Matrix4x4<T> : IEquatable<Matrix4x4<T>>
     public void TransformDirections(ReadOnlySpan<Vector3<T>> directions, Span<Vector3<T>> destination)
     {
         Destination.Check(directions, destination);
+
+        // The entries in locals, which the loop keeps in registers.
+        T m11 = M11, m12 = M12, m13 = M13;
+        T m21 = M21, m22 = M22, m23 = M23;
+        T m31 = M31, m32 = M32, m33 = M33;
         for (int i = 0; i < directions.Length; i++)
-            destination[i] = TransformDirection(directions[i]);
+        {
+            var (x, y, z) = directions[i];
+            destination[i] = new(m11 * x + m12 * y + m13 * z, m21 * x + m22 * y + m23 * z, m31 * x + m32 * y + m33 * z);
+        }
     }
 
     /// <summary>

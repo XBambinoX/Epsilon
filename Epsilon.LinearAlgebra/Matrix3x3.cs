@@ -151,8 +151,22 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
     {
         T x = M11 * point.X + M12 * point.Y + M13;
         T y = M21 * point.X + M22 * point.Y + M23;
+        if (IsAffine)
+            return new(x, y);
+
         T w = M31 * point.X + M32 * point.Y + M33;
         return EqualityComparer<T>.Default.Equals(w, T.MultiplicativeIdentity) ? new(x, y) : new(x / w, y / w);
+    }
+
+    // Whether the last row is (0, 0, 1), so that w is 1 for every point of the plane.
+    private bool IsAffine
+    {
+        get
+        {
+            var comparer = EqualityComparer<T>.Default;
+            return comparer.Equals(M31, T.AdditiveIdentity) && comparer.Equals(M32, T.AdditiveIdentity)
+                && comparer.Equals(M33, T.MultiplicativeIdentity);
+        }
     }
 
     /// <summary>
@@ -180,8 +194,21 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
     public void TransformPoints(ReadOnlySpan<Vector2<T>> points, Span<Vector2<T>> destination)
     {
         Destination.Check(points, destination);
+        if (!IsAffine)
+        {
+            for (int i = 0; i < points.Length; i++)
+                destination[i] = TransformPoint(points[i]);
+            return;
+        }
+
+        // The entries in locals, which the loop keeps in registers.
+        T m11 = M11, m12 = M12, m13 = M13;
+        T m21 = M21, m22 = M22, m23 = M23;
         for (int i = 0; i < points.Length; i++)
-            destination[i] = TransformPoint(points[i]);
+        {
+            var (x, y) = points[i];
+            destination[i] = new(m11 * x + m12 * y + m13, m21 * x + m22 * y + m23);
+        }
     }
 
     /// <summary>
@@ -194,8 +221,14 @@ public readonly struct Matrix3x3<T> : IEquatable<Matrix3x3<T>>
     public void TransformDirections(ReadOnlySpan<Vector2<T>> directions, Span<Vector2<T>> destination)
     {
         Destination.Check(directions, destination);
+
+        // The entries in locals, which the loop keeps in registers.
+        T m11 = M11, m12 = M12, m21 = M21, m22 = M22;
         for (int i = 0; i < directions.Length; i++)
-            destination[i] = TransformDirection(directions[i]);
+        {
+            var (x, y) = directions[i];
+            destination[i] = new(m11 * x + m12 * y, m21 * x + m22 * y);
+        }
     }
 
     /// <summary>
