@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.1.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.2.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 
@@ -48,6 +48,10 @@ The immutable expression tree that everything else works on. Guide: [Expressions
 | `ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings)` | Complex value, principal branches. Throws `NotSupportedException` for `floor`, `ceiling`, `round`, `sign`, `min`, `max`. |
 | `ComplexNumber EvaluateComplex(params (string Name, ComplexNumber Value)[] bindings)` | The same, with values as pairs. |
 | `ComplexNumber EvaluateComplex(ComplexNumber x)` | Complex value of an expression with at most one variable. |
+| `Func<double, double> Compile()` | A compiled delegate of an expression with at most one variable: exactly the values of `Evaluate(double x)`, many times faster. Doesn't simplify; shared subexpressions are computed once. Throws `InvalidOperationException` for two or more variables or for `i`. |
+| `Func<double, double> Compile(string x)`, `Compile(string x, string y)`, `Compile(string x, string y, string z)` | The same for the named variables, whose values the delegate takes in this order: `Compile("x", "y")(3, 4)`. Unused names are allowed; throws `ArgumentException` for a variable that isn't named or a name given twice. |
+| `Func<double[], double> Compile(IReadOnlyList<string> variables)` | The same for any number of variables, with the values in an array in this order. |
+| `static Action<double[], double[]> Compile(IReadOnlyList<Expr> expressions, IReadOnlyList<string> variables)` | One delegate for several expressions, such as a gradient: writes the value of `expressions[k]` to `results[k]`, computing the shared subexpressions once; `results` may be the values array. |
 
 **Differentiation** — guide: [Differentiation](differentiation.md)
 
@@ -335,7 +339,10 @@ All derive from `UnaryExpr`, take `(Expr argument)` and expose `Argument`.
 
 ### `Rational` (struct)
 
-An exact fraction of `BigInteger`s, always in lowest terms with a positive denominator.
+An exact fraction of `BigInteger`s, always in lowest terms with a positive denominator; the
+default value is 0. Implements `IAdditionOperators`, `ISubtractionOperators`,
+`IMultiplyOperators`, `IDivisionOperators`, `IUnaryNegationOperators`, `IComparisonOperators`,
+`IAdditiveIdentity` and `IMultiplicativeIdentity`, so it works in generic math code.
 Guide: [Numbers](numbers.md).
 
 | Member | Description |

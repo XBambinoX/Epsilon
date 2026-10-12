@@ -62,7 +62,7 @@ public sealed class NthRoot(Expr argument, Expr degree) : Expr
     private static bool IsOddInteger(double value) =>
         double.IsInteger(value) && Math.Abs(value % 2) == 1;
 
-    private static double RealRoot(double argument, double degree)
+    internal static double RealRoot(double argument, double degree)
     {
         if (argument < 0 && IsOddInteger(degree))
             return -RealRoot(-argument, degree);

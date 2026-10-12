@@ -223,8 +223,6 @@ Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex();
   `x + x` until `Simplify()`.
 - The operators on `Expr` matrices simplify in the default `Generic` mode, so an entry `x/x`
   becomes `1`.
-- `default(Rational)` is not a valid 0 in the core up to 1.1.1, so `new Rational[2, 2]` doesn't
-  make a zero matrix; use `Matrix<Rational>.Zero(2, 2)` or `FromRows`.
 
 ## Documentation
 

@@ -65,6 +65,73 @@ ExprParser.Parse("round(x)").Evaluate(-2.5);      // -3
 
 `Simplify` follows the same conventions, so simplifying never changes a value.
 
+## Compiled evaluation
+
+To evaluate the same expression many times, as for a plot, a scan or a simulation step,
+compile it once into a delegate:
+
+```csharp
+Func<double, double> Compile()   // for an expression with at most one variable
+Func<double, double> Compile(string x)
+Func<double, double, double> Compile(string x, string y)
+Func<double, double, double, double> Compile(string x, string y, string z)
+Func<double[], double> Compile(IReadOnlyList<string> variables)
+```
+
+```csharp
+Func<double, double> f = ExprParser.Parse("x^2 * sin(x)").Compile();
+f(2);                                                   // 3.637189707302727
+
+var g = ExprParser.Parse("x^2 + y^2").Compile("x", "y");
+g(3, 4);                                                // 25
+
+var h = ExprParser.Parse("a*b - c/d").Compile(["a", "b", "c", "d"]);
+h([1, 2, 3, 4]);                                        // 1.25
+```
+
+The delegate returns exactly what `Evaluate` returns, bit for bit, NaN and infinities
+included. Like `Evaluate` it doesn't simplify: simplify first, then compile. The values come
+in the order of the names you give; a name the expression doesn't use is allowed.
+
+Compiling takes about 0.1 ms, so it pays off after a few hundred calls. A call is then about
+5 times as fast as `Evaluate` for an expression full of functions such as `sin` and `exp`,
+whose own cost stays, and up to 30 times as fast for plain arithmetic. A subexpression that
+occurs more than once is computed once. The delegate can be called from many threads at once.
+
+### Several expressions at once
+
+`Expr.Compile` turns several expressions of the same variables into one delegate that writes
+their values into an array, such as the entries of a gradient:
+
+```csharp
+static Action<double[], double[]> Compile(IReadOnlyList<Expr> expressions, IReadOnlyList<string> variables)
+```
+
+```csharp
+Expr f = ExprParser.Parse("x^2 * y + sin(x*y)");
+var gradient = Expr.Compile([f.Differentiate("x"), f.Differentiate("y")], ["x", "y"]);
+
+var results = new double[2];
+gradient([1, 2], results);   // results: about [3.1677, 0.5839]
+```
+
+`cos(x*y)`, which both derivatives contain, is computed once. All values are read before the
+first result is written, so `results` may be the array of values itself.
+
+### Errors
+
+Mistakes show up when compiling, not at every call:
+
+```csharp
+ExprParser.Parse("x*y").Compile("x");
+// ArgumentException: The expression has the variable 'y', which is not in the list of variables [x].
+```
+
+`Compile()` throws `InvalidOperationException` for an expression with two or more
+variables, like `Evaluate(double x)`; every overload throws it for `i`. The delegates that
+take arrays throw `ArgumentException` when an array doesn't have one entry per variable or
+per expression.
+
 ## Complex values
 
 ```csharp

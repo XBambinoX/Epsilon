@@ -14,7 +14,7 @@ dependencies beyond the .NET base library.
 
 | Package | What it does | NuGet |
 |---|---|---|
-| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
+| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU decomposition for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 
 Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
@@ -84,8 +84,8 @@ The areas built on the core as separate packages, in this order:
 4. **Probability theory** - under consideration.
 5. Further areas as the library grows.
 
-Alongside them the core keeps improving: a symbolic equation solver, piecewise expressions
-and faster evaluation (see the [core roadmap](Epsilon.Core/README.md#roadmap)).
+Alongside them the core keeps improving: a symbolic equation solver and piecewise
+expressions (see the [core roadmap](Epsilon.Core/README.md#roadmap)).
 
 ## Building from source
 

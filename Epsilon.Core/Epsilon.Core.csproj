@@ -15,10 +15,10 @@
     <PackageId>Epsilon</PackageId>
     <!-- The latest released version. publish.yml packs the core with the version from the tag;
          the packages built on the core depend on Epsilon >= this version. -->
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Authors>Max Zakharov</Authors>
-    <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly and find real and complex roots. No dependencies.</Description>
-    <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;roots;parser;latex</PackageTags>
+    <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly, find real and complex roots and compile formulas to fast delegates. No dependencies.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;roots;parser;latex;compile</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
     <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
@@ -42,6 +42,8 @@
 
   <ItemGroup>
     <Using Include="System.Collections.Immutable" />
+    <!-- For ExprCompiler; an alias, because "Expression" next to Expr would read ambiguously. -->
+    <Using Include="System.Linq.Expressions.Expression" Alias="LinqExpression" />
   </ItemGroup>
 
   <ItemGroup>

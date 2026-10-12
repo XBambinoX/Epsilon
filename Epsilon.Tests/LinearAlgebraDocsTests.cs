@@ -159,8 +159,6 @@ public class LinearAlgebraReadmeExamplesTests
 
         Assert.Equal("[[1 / 2, x + x]]", Matrix<Expr>.Parse("[[1/2, x + x]]").Print());
         Assert.Equal("[[1]]", (Matrix<Expr>.FromRows([new Variable("x") / new Variable("x")]) + Matrix<Expr>.Zero(1, 1)).Print());
-
-        Assert.NotEqual(Matrix<Rational>.Zero(2, 2), new Matrix<Rational>(new Rational[2, 2]));
     }
 }
 
@@ -392,6 +390,12 @@ public class LinearAlgebraGuideTests
         Vector3<int> cell = (7, 8, 9);
         Assert.Equal("[8, 8, 9]", (cell + Vector3<int>.UnitX).ToString());
         Assert.Equal("[3, 4, 4]", (cell / 2).ToString());
+
+        Vector3<Rational> a = (new Rational(1, 2), new Rational(1, 3), 1);
+        Assert.Equal("25/6", a.Dot((1, 2, 3)).ToString());
+
+        var m = new Matrix3x3<Rational>(2, 1, 0, 1, 2, 1, 0, 1, 2);
+        Assert.Equal("[[3/4, -1/2, 1/4], [-1/2, 1, -1/2], [1/4, -1/2, 3/4]]", ((Matrix3x3<Rational>)m.ToMatrix().Inverse()).ToString());
     }
 
     [Fact]
@@ -638,11 +642,5 @@ public class LinearAlgebraGuideTests
     {
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2]));
         Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", M.CharacteristicPolynomial("t").Print());
-
-        // Fails once the core makes default(Rational) a valid 0: then drop the limitation.
-        var defaults = new Matrix<Rational>(new Rational[2, 2]);
-        Assert.Equal("[[0/0, 0/0], [0/0, 0/0]]", defaults.ToString());
-        Assert.NotEqual(Matrix<Rational>.Zero(2, 2), defaults);
-        Assert.Throws<DivideByZeroException>(() => defaults + defaults);
     }
 }

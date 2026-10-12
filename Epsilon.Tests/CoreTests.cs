@@ -1720,6 +1720,75 @@ public class RationalTests
     {
         Assert.Equal(new Rational(numerator, denominator), Rational.FromDecimalString(text));
     }
+
+    [Fact]
+    public void Default_value_is_zero()
+    {
+        Rational d = default;
+
+        Assert.Equal(Rational.Zero, d);
+        Assert.Equal(Rational.Zero.GetHashCode(), d.GetHashCode());
+        Assert.Equal(System.Numerics.BigInteger.One, d.Denominator);
+        Assert.True(d.IsZero);
+        Assert.True(d.IsInteger);
+        Assert.False(d.IsOne);
+        Assert.Equal("0", d.ToString());
+        Assert.Equal(0.0, d.ToDouble());
+
+        Assert.Equal(new Rational(1, 2), d + new Rational(1, 2));
+        Assert.Equal(new Rational(-1, 2), d - new Rational(1, 2));
+        Assert.Equal(Rational.Zero, d * new Rational(7, 3));
+        Assert.Equal(Rational.Zero, d / new Rational(7, 3));
+        Assert.Throws<DivideByZeroException>(() => Rational.One / d);
+        Assert.Equal(Rational.One, d.Pow(0));
+        Assert.True(d < Rational.One && d > Rational.MinusOne);
+        Assert.Equal(0, d.CompareTo(Rational.Zero));
+
+        var array = new Rational[3];
+        Assert.All(array, r => Assert.Equal(Rational.Zero, r));
+        Assert.Equal("0", new Constant(array[0]).Print());
+    }
+
+    // Generic code that knows only the operator interfaces, as the fixed-size linalg types do.
+    private static T Sum<T>(params T[] values)
+        where T : System.Numerics.IAdditionOperators<T, T, T>, System.Numerics.IAdditiveIdentity<T, T>
+    {
+        T sum = T.AdditiveIdentity;
+        foreach (T value in values) sum += value;
+        return sum;
+    }
+
+    private static T Horner<T>(T x, params T[] coefficients)
+        where T : System.Numerics.IAdditionOperators<T, T, T>, System.Numerics.IMultiplyOperators<T, T, T>,
+                  System.Numerics.IAdditiveIdentity<T, T>
+    {
+        T result = T.AdditiveIdentity;
+        foreach (T c in coefficients) result = result * x + c;
+        return result;
+    }
+
+    private static T Max<T>(T a, T b) where T : System.Numerics.IComparisonOperators<T, T, bool> => a > b ? a : b;
+
+    private static T Reciprocal<T>(T value)
+        where T : System.Numerics.IDivisionOperators<T, T, T>, System.Numerics.IMultiplicativeIdentity<T, T> =>
+        T.MultiplicativeIdentity / value;
+
+    private static T Negate<T>(T value) where T : System.Numerics.IUnaryNegationOperators<T, T> => -value;
+
+    private static T Difference<T>(T a, T b) where T : System.Numerics.ISubtractionOperators<T, T, T> => a - b;
+
+    [Fact]
+    public void Works_as_T_in_generic_math()
+    {
+        Assert.Equal(Rational.One, Sum(new Rational(1, 2), new Rational(1, 3), new Rational(1, 6)));
+        Assert.Equal(Rational.Zero, Sum<Rational>());
+        Assert.Equal(new Rational(25, 8), Horner(new Rational(1, 2), 1, 2, 3, 1));   // x^3 + 2x^2 + 3x + 1
+        Assert.Equal(new Rational(1, 2), Max(new Rational(1, 3), new Rational(1, 2)));
+        Assert.Equal(new Rational(-3, 2), Reciprocal(new Rational(-2, 3)));
+        Assert.Throws<DivideByZeroException>(() => Reciprocal(Rational.Zero));
+        Assert.Equal(new Rational(-1, 7), Negate(new Rational(1, 7)));
+        Assert.Equal(new Rational(1, 6), Difference(new Rational(1, 2), new Rational(1, 3)));
+    }
 }
 
 public class EvaluationConventionTests
@@ -3055,7 +3124,7 @@ public class NestingLimitTests
         {
             Expr expr = ExprParser.Parse(input);
 
-            expr.Evaluate(0.5);
+            Assert.Equal(expr.Evaluate(0.5), expr.Compile()(0.5));
             expr.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = new ComplexNumber(0.5) });
             Assert.Equal(expr, ExprParser.Parse(expr.Print()));
             expr.ToLatex();
@@ -3846,6 +3915,9 @@ public class ReadmeExamplesTests
         ComplexNumber z = ExprParser.Parse("sqrt(x)").EvaluateComplex(-4);
         Assert.Equal(0, z.Real, precision: 12);
         Assert.Equal(2, z.Imaginary, precision: 12);
+
+        var f = ExprParser.Parse("x*y + 1").Compile("x", "y");
+        Assert.Equal(7, f(2, 3));
     }
 
     [Fact]

@@ -44,9 +44,12 @@ public sealed class EulerNumber : Expr
 /// </summary>
 public sealed class ImaginaryUnit : Expr
 {
+    // Shared with Compile, which throws the same error.
+    internal const string NoRealValue = "The imaginary unit has no real value; use EvaluateComplex instead.";
+
     /// <inheritdoc/>
     public override double Evaluate(IReadOnlyDictionary<string, double> bindings) =>
-        throw new InvalidOperationException("The imaginary unit has no real value; use EvaluateComplex instead.");
+        throw new InvalidOperationException(NoRealValue);
 
     /// <inheritdoc/>
     public override ComplexNumber EvaluateComplex(IReadOnlyDictionary<string, ComplexNumber> bindings) => ComplexNumber.ImaginaryUnit;

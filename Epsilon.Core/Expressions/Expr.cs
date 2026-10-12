@@ -38,6 +38,82 @@ public abstract class Expr : IEquatable<Expr>
         return Evaluate(dict);
     }
 
+    /// <summary>
+    /// Compiles an expression of at most one variable to a delegate that returns exactly what
+    /// <see cref="Evaluate(double)"/> returns, bit for bit, many times faster: compile once, then
+    /// call it as often as needed. For an expression without variables the argument is ignored.
+    /// </summary>
+    /// <remarks>
+    /// Like Evaluate, compiling doesn't simplify: simplify first, then compile. A subexpression
+    /// that occurs more than once is computed once. The delegate is safe to call from many threads.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// The expression has two or more variables, or contains the imaginary unit.
+    /// </exception>
+    public Func<double, double> Compile() =>
+        // Without variables any name will do: names the expression doesn't use are ignored.
+        Compile(GetVariables().Count == 0 ? "x" : GetSingleVariable());
+
+    /// <summary>
+    /// Compiles to a delegate of the value of <paramref name="x"/>: <c>Compile("t")(2)</c> equals
+    /// <c>Evaluate(("t", 2))</c>. See <see cref="Compile()"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">The expression has a variable other than <paramref name="x"/>.</exception>
+    /// <exception cref="InvalidOperationException">The expression contains the imaginary unit.</exception>
+    public Func<double, double> Compile(string x) => ExprCompiler.Compile<Func<double, double>>(this, [x]);
+
+    /// <summary>
+    /// Compiles to a delegate of the values of <paramref name="x"/> and <paramref name="y"/>, in
+    /// this order: <c>Compile("x", "y")(3, 4)</c> equals <c>Evaluate(("x", 3), ("y", 4))</c>.
+    /// A variable the expression doesn't use is allowed and ignored. See <see cref="Compile()"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// The expression has another variable, or the same name is given twice.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The expression contains the imaginary unit.</exception>
+    public Func<double, double, double> Compile(string x, string y) =>
+        ExprCompiler.Compile<Func<double, double, double>>(this, [x, y]);
+
+    /// <summary>
+    /// Compiles to a delegate of the values of <paramref name="x"/>, <paramref name="y"/> and
+    /// <paramref name="z"/>, in this order. See <see cref="Compile(string, string)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// The expression has another variable, or the same name is given twice.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The expression contains the imaginary unit.</exception>
+    public Func<double, double, double, double> Compile(string x, string y, string z) =>
+        ExprCompiler.Compile<Func<double, double, double, double>>(this, [x, y, z]);
+
+    /// <summary>
+    /// Compiles to a delegate of any number of variables, whose values come in an array in the
+    /// order of <paramref name="variables"/>: <c>Compile(["a", "b"])([1, 2])</c>. See
+    /// <see cref="Compile(string, string)"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// The expression has a variable that is not listed, or a name is listed twice. The delegate
+    /// throws it when the array doesn't have one value per variable.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The expression contains the imaginary unit.</exception>
+    public Func<double[], double> Compile(IReadOnlyList<string> variables) =>
+        ExprCompiler.CompileForArray(this, variables);
+
+    /// <summary>
+    /// Compiles several expressions of the same variables into one delegate that writes the value
+    /// of <c>expressions[k]</c> to <c>results[k]</c>, such as all entries of a gradient or a
+    /// matrix at once. A subexpression shared by several of them is computed once. The values of
+    /// the variables come in an array in the order of <paramref name="variables"/>; all of them
+    /// are read before the first result is written, so <c>results</c> may be the same array.
+    /// See <see cref="Compile()"/>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// An expression has a variable that is not listed, or a name is listed twice. The delegate
+    /// throws it when an array doesn't have one entry per variable or per expression.
+    /// </exception>
+    /// <exception cref="InvalidOperationException">An expression contains the imaginary unit.</exception>
+    public static Action<double[], double[]> Compile(IReadOnlyList<Expr> expressions, IReadOnlyList<string> variables) =>
+        ExprCompiler.CompileMany(expressions, variables);
+
     // Simplified once here, at the top, in the default Generic mode - the same result as
     // simplifying inside every node, as this used to do for some nodes but not others.
     // (Strict would keep leftovers such as x/x in d/dx x^x.) The nodes build their

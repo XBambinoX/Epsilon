@@ -5,14 +5,22 @@ namespace Epsilon.Core;
 /// <summary>
 /// An exact fraction of arbitrary-size integers, always kept in lowest terms with a positive
 /// denominator (so 2/4 and 1/2 are the same value and compare equal). The number type behind
-/// <see cref="Constant"/>.
+/// <see cref="Constant"/>. The default value is 0, so <c>new Rational[n]</c> is n zeros.
+/// Implements the generic math operator interfaces, so it works as T in generic code such as
+/// the fixed-size vectors and matrices of Epsilon.LinearAlgebra.
 /// </summary>
-public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
+public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
+    IAdditionOperators<Rational, Rational, Rational>, ISubtractionOperators<Rational, Rational, Rational>,
+    IMultiplyOperators<Rational, Rational, Rational>, IDivisionOperators<Rational, Rational, Rational>,
+    IUnaryNegationOperators<Rational, Rational>, IComparisonOperators<Rational, Rational, bool>,
+    IAdditiveIdentity<Rational, Rational>, IMultiplicativeIdentity<Rational, Rational>
 {
+    private readonly BigInteger _denominator;
+
     /// <summary>The numerator in lowest terms; carries the sign.</summary>
     public BigInteger Numerator { get; }
     /// <summary>The denominator in lowest terms; always positive.</summary>
-    public BigInteger Denominator { get; }
+    public BigInteger Denominator => _denominator.IsZero ? BigInteger.One : _denominator;
 
     /// <summary>0.</summary>
     public static readonly Rational Zero = new(0, 1);
@@ -20,6 +28,10 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
     public static readonly Rational One = new(1, 1);
     /// <summary>-1.</summary>
     public static readonly Rational MinusOne = new(-1, 1);
+
+    // Explicit, like BigInteger: the public names stay Zero and One.
+    static Rational IAdditiveIdentity<Rational, Rational>.AdditiveIdentity => Zero;
+    static Rational IMultiplicativeIdentity<Rational, Rational>.MultiplicativeIdentity => One;
 
     /// <summary>The fraction <paramref name="numerator"/> / <paramref name="denominator"/>, reduced to lowest terms.</summary>
     /// <exception cref="DivideByZeroException"><paramref name="denominator"/> is 0.</exception>
@@ -39,7 +51,7 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>
         if (gcd.IsZero) gcd = 1;
 
         Numerator = numerator / gcd;
-        Denominator = denominator / gcd;
+        _denominator = denominator / gcd;
     }
 
     /// <summary>The integer <paramref name="integer"/>.</summary>
