@@ -1748,6 +1748,47 @@ public class RationalTests
         Assert.All(array, r => Assert.Equal(Rational.Zero, r));
         Assert.Equal("0", new Constant(array[0]).Print());
     }
+
+    // Generic code that knows only the operator interfaces, as the fixed-size linalg types do.
+    private static T Sum<T>(params T[] values)
+        where T : System.Numerics.IAdditionOperators<T, T, T>, System.Numerics.IAdditiveIdentity<T, T>
+    {
+        T sum = T.AdditiveIdentity;
+        foreach (T value in values) sum += value;
+        return sum;
+    }
+
+    private static T Horner<T>(T x, params T[] coefficients)
+        where T : System.Numerics.IAdditionOperators<T, T, T>, System.Numerics.IMultiplyOperators<T, T, T>,
+                  System.Numerics.IAdditiveIdentity<T, T>
+    {
+        T result = T.AdditiveIdentity;
+        foreach (T c in coefficients) result = result * x + c;
+        return result;
+    }
+
+    private static T Max<T>(T a, T b) where T : System.Numerics.IComparisonOperators<T, T, bool> => a > b ? a : b;
+
+    private static T Reciprocal<T>(T value)
+        where T : System.Numerics.IDivisionOperators<T, T, T>, System.Numerics.IMultiplicativeIdentity<T, T> =>
+        T.MultiplicativeIdentity / value;
+
+    private static T Negate<T>(T value) where T : System.Numerics.IUnaryNegationOperators<T, T> => -value;
+
+    private static T Difference<T>(T a, T b) where T : System.Numerics.ISubtractionOperators<T, T, T> => a - b;
+
+    [Fact]
+    public void Works_as_T_in_generic_math()
+    {
+        Assert.Equal(Rational.One, Sum(new Rational(1, 2), new Rational(1, 3), new Rational(1, 6)));
+        Assert.Equal(Rational.Zero, Sum<Rational>());
+        Assert.Equal(new Rational(25, 8), Horner(new Rational(1, 2), 1, 2, 3, 1));   // x^3 + 2x^2 + 3x + 1
+        Assert.Equal(new Rational(1, 2), Max(new Rational(1, 3), new Rational(1, 2)));
+        Assert.Equal(new Rational(-3, 2), Reciprocal(new Rational(-2, 3)));
+        Assert.Throws<DivideByZeroException>(() => Reciprocal(Rational.Zero));
+        Assert.Equal(new Rational(-1, 7), Negate(new Rational(1, 7)));
+        Assert.Equal(new Rational(1, 6), Difference(new Rational(1, 2), new Rational(1, 3)));
+    }
 }
 
 public class EvaluationConventionTests

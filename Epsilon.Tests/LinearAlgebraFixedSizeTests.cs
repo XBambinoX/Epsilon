@@ -1,5 +1,6 @@
 using System.Globalization;
 using Xunit;
+using Epsilon.Core;
 using Epsilon.LinearAlgebra;
 
 namespace Epsilon.Tests.LinearAlgebra;
@@ -1240,5 +1241,70 @@ public class NormalTransformTests
         var ex = Assert.Throws<InvalidOperationException>(() => Matrix4x4<double>.Scale((1, 0, 1)).TransformNormal(Vector3<double>.UnitX));
         Assert.StartsWith("The top left 3 x 3 corner is singular to working precision", ex.Message);
         Assert.Throws<ArgumentException>(() => model.TransformNormals(normals, new Vector3<double>[2]));
+    }
+}
+
+// Since core 1.2.0 Rational implements the generic math operator interfaces, so the
+// fixed-size types take exact fractions.
+public class FixedSizeRationalTests
+{
+    private static Rational R(long numerator, long denominator = 1) => new(numerator, denominator);
+
+    [Fact]
+    public void Vectors_are_exact()
+    {
+        Vector3<Rational> a = (R(1, 2), R(1, 3), R(1, 6));
+        Vector3<Rational> b = (1, 2, 3);
+
+        Assert.Equal(R(5, 3), a.Dot(b));
+        Assert.Equal(R(7, 18), a.NormSquared());
+        Assert.Equal(new Vector3<Rational>(R(2, 3), R(-4, 3), R(2, 3)), a.Cross(b));
+        Assert.Equal(Rational.Zero, a.Cross(b).Dot(a));
+        Assert.Equal(new Vector3<Rational>(R(2, 3), R(8, 9), R(10, 9)), Vector3<Rational>.Lerp(a, b, R(1, 3)));
+        Assert.Equal(new Vector3<Rational>(R(1, 6), R(1, 9), R(1, 18)), a / 3);
+        Assert.Equal(Vector3<Rational>.Zero, default);
+        Assert.Equal("[1/2, 1/3, 1/6]", a.ToString());
+    }
+
+    [Fact]
+    public void Matrices_are_exact()
+    {
+        var m = new Matrix3x3<Rational>(2, 1, 0, 1, 2, 1, 0, 1, 2);
+        var inverse = (Matrix3x3<Rational>)m.ToMatrix().Inverse();
+
+        Assert.Equal(R(4), m.Determinant());
+        Assert.Equal(new Matrix3x3<Rational>(R(3, 4), R(-1, 2), R(1, 4), R(-1, 2), 1, R(-1, 2), R(1, 4), R(-1, 2), R(3, 4)), inverse);
+        Assert.Equal(Matrix3x3<Rational>.Identity, m * inverse);
+        Assert.Equal(R(1, 24), Matrix4x4<Rational>.Scale((R(1, 2), R(1, 3), R(1, 4))).Determinant());
+
+        var model = Matrix4x4<Rational>.Translation((R(1, 2), 0, 0)) * Matrix4x4<Rational>.Scale(R(1, 3));
+        Assert.Equal(new Vector3<Rational>(R(3, 2), 1, 1), model.TransformPoint((3, 3, 3)));
+
+        // w = z: the division by w is exact too.
+        var project = new Matrix4x4<Rational>(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0);
+        Assert.Equal(new Vector3<Rational>(R(1, 3), R(2, 3), 1), project.TransformPoint((1, 2, 3)));
+    }
+
+    [Fact]
+    public void Quaternions_rotate_exactly()
+    {
+        var i = new Quaternion<Rational>(1, 0, 0, 0);
+        var j = new Quaternion<Rational>(0, 1, 0, 0);
+        Assert.Equal(new Quaternion<Rational>(0, 0, 1, 0), i * j);
+
+        // A third of a turn about (1, 1, 1) cycles the axes: x -> y.
+        var q = new Quaternion<Rational>(R(1, 2), R(1, 2), R(1, 2), R(1, 2));
+        Assert.Equal(Rational.One, q.NormSquared());
+        Assert.Equal(Quaternion<Rational>.Identity, q * q.Conjugate());
+        Assert.Equal(new Vector3<Rational>(0, 1, 0), (q * new Quaternion<Rational>((1, 0, 0), 0) * q.Conjugate()).XYZ);
+    }
+
+    [Fact]
+    public void Map_converts_to_floating_point()
+    {
+        Vector3<Rational> v = (R(3, 5), R(-4, 5), 0);
+
+        Assert.Equal(new Vector3<double>(0.6, -0.8, 0), v.Map(r => r.ToDouble()));
+        Assert.Equal(1.0, v.Map(r => r.ToDouble()).Norm(), 15);
     }
 }
