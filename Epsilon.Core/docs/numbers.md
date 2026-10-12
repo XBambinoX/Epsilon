@@ -19,6 +19,18 @@ It supports `+ - * /`, comparison, `Pow(int)`, `Abs`, `Floor`, `Ceiling`, `Round
 away from zero), `ToDouble`, and the properties `Numerator`, `Denominator`, `Sign`,
 `IsZero`, `IsOne` and `IsInteger`. A zero denominator throws `DivideByZeroException`.
 
+The default value is 0, so a new array holds zeros:
+
+```csharp
+new Rational[3];                                      // [0, 0, 0]
+```
+
+`Rational` implements the generic math interfaces of its operators (`IAdditionOperators`,
+`IMultiplyOperators`, `IComparisonOperators`, `IAdditiveIdentity` and the like), so generic
+code written for them accepts it, such as the fixed-size vectors and matrices of
+[Epsilon.LinearAlgebra](../../Epsilon.LinearAlgebra/docs/guide.md#entry-types):
+`Vector3<Rational>`.
+
 ### From double and text
 
 `Rational.FromDouble` (also the explicit cast, and the implicit `double → Expr` conversion)

@@ -1,6 +1,6 @@
 # Epsilon documentation
 
-Guides for the `Epsilon` package (namespace `Epsilon.Core`), version 1.1.0. For a
+Guides for the `Epsilon` package (namespace `Epsilon.Core`), version 1.2.0. For a
 one-page overview see the [package README](../README.md). Every public member also has XML
 documentation, which your IDE shows as you type.
 
@@ -20,7 +20,7 @@ documentation, which your IDE shows as you type.
 | [Differentiation](differentiation.md) | Derivatives, partial and higher derivatives, supported functions |
 | [Factoring](factoring.md) | Exact polynomial factoring over the reals and the complex numbers |
 | [Root finding](root-finding.md) | Real and complex roots, equations, Newton's method, accuracy |
-| [Evaluation](evaluation.md) | Real and complex evaluation, undefined points, branch conventions |
+| [Evaluation](evaluation.md) | Real and complex evaluation, undefined points, branch conventions, compiling to fast delegates |
 | [Output](output.md) | `Print`, `ToString` and `ToLatex` |
 | [Numbers](numbers.md) | `Rational`, `ComplexNumber` and the constants |
 

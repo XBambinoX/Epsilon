@@ -3915,6 +3915,9 @@ public class ReadmeExamplesTests
         ComplexNumber z = ExprParser.Parse("sqrt(x)").EvaluateComplex(-4);
         Assert.Equal(0, z.Real, precision: 12);
         Assert.Equal(2, z.Imaginary, precision: 12);
+
+        var f = ExprParser.Parse("x*y + 1").Compile("x", "y");
+        Assert.Equal(7, f(2, 3));
     }
 
     [Fact]

@@ -961,6 +961,7 @@ public class RationalMatrixTests
         Assert.Equal(Matrix<Rational>.FromRows([0, 0, 0]), Matrix<Rational>.Zero(1, 3));
         Assert.Equal(Matrix<Rational>.FromRows([1, 0], [0, Q(1, 2)]), Matrix<Rational>.FromDiagonal([1, Q(1, 2)]));
         Assert.Equal([Rational.Zero, Rational.Zero], Vector<Rational>.Zero(2));
+        Assert.Equal(Matrix<Rational>.Zero(2, 2), new Matrix<Rational>(new Rational[2, 2]));
     }
 
     [Fact]

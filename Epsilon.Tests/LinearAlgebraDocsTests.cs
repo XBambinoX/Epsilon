@@ -390,6 +390,12 @@ public class LinearAlgebraGuideTests
         Vector3<int> cell = (7, 8, 9);
         Assert.Equal("[8, 8, 9]", (cell + Vector3<int>.UnitX).ToString());
         Assert.Equal("[3, 4, 4]", (cell / 2).ToString());
+
+        Vector3<Rational> a = (new Rational(1, 2), new Rational(1, 3), 1);
+        Assert.Equal("25/6", a.Dot((1, 2, 3)).ToString());
+
+        var m = new Matrix3x3<Rational>(2, 1, 0, 1, 2, 1, 0, 1, 2);
+        Assert.Equal("[[3/4, -1/2, 1/4], [-1/2, 1, -1/2], [1/4, -1/2, 3/4]]", ((Matrix3x3<Rational>)m.ToMatrix().Inverse()).ToString());
     }
 
     [Fact]
@@ -636,12 +642,5 @@ public class LinearAlgebraGuideTests
     {
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2]));
         Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", M.CharacteristicPolynomial("t").Print());
-
-        // Since core 1.2.0 default(Rational) is a valid 0: an array of defaults is the zero matrix.
-        var defaults = new Matrix<Rational>(new Rational[2, 2]);
-        Assert.Equal("[[0, 0], [0, 0]]", defaults.ToString());
-        Assert.Equal(Matrix<Rational>.Zero(2, 2), defaults);
-        Assert.Equal(Matrix<Rational>.Zero(2, 2), defaults + defaults);
-        Assert.Equal(Rational.Zero, defaults.Trace());
     }
 }

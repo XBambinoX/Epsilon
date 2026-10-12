@@ -7,6 +7,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-12
+
+### Added
+
+- `Compile` turns an expression into a delegate that returns exactly the values of
+  `Evaluate`, bit for bit, without walking the tree: `ExprParser.Parse("x*y + 1").Compile("x", "y")`
+  gives a `Func<double, double, double>`. Overloads take no variable, one to three named
+  variables or a list of names, with the values in an array. `Expr.Compile(expressions, variables)`
+  compiles several expressions, such as the entries of a gradient, into one delegate that
+  writes their values into an array. A subexpression that occurs more than once is computed
+  once. Over 1000 points a formula with `sin`, `exp` and `sqrt` takes 25 us instead of
+  115 us, plain arithmetic 2 us instead of 61 us; compiling takes about 0.1 ms.
+- `Rational` implements the generic math interfaces of its operators (`IAdditionOperators`,
+  `ISubtractionOperators`, `IMultiplyOperators`, `IDivisionOperators`,
+  `IUnaryNegationOperators`, `IComparisonOperators`, `IAdditiveIdentity`,
+  `IMultiplicativeIdentity`), so generic code accepts it, such as `Vector3<Rational>` and
+  `Matrix4x4<Rational>` of Epsilon.LinearAlgebra.
+
+### Fixed
+
+- `default(Rational)` had denominator 0: it printed as `0/0`, wasn't equal to `Rational.Zero`
+  and any arithmetic with it threw `DivideByZeroException`, so `new Rational[n]` held n
+  broken values. The default value is now 0.
+
 ## [1.1.1] - 2026-10-04
 
 The library is unchanged; this release updates the package README.
@@ -177,7 +201,8 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.1.1...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.2.0...HEAD
+[1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.2.0
 [1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.1
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.0
 [1.0.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.0.1

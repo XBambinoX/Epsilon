@@ -486,6 +486,18 @@ cell + Vector3<int>.UnitX;   // [8, 8, 9]
 cell / 2;                    // [3, 4, 4]: truncated, as in C#
 ```
 
+With the core (the `Epsilon` package) version 1.2.0 or later the entries can also be exact
+fractions, `Rational`; the inverse goes through `Matrix<Rational>`:
+
+```csharp
+Vector3<Rational> a = (new Rational(1, 2), new Rational(1, 3), 1);
+a.Dot((1, 2, 3));                            // 25/6
+
+var m = new Matrix3x3<Rational>(2, 1, 0, 1, 2, 1, 0, 1, 2);
+(Matrix3x3<Rational>)m.ToMatrix().Inverse();
+// [[3/4, -1/2, 1/4], [-1/2, 1, -1/2], [1/4, -1/2, 3/4]]
+```
+
 An alias keeps the names short. The examples below use these two:
 
 ```csharp
@@ -826,11 +838,6 @@ What version 1.3.0 doesn't do yet:
   doubles and rationals have one.
 - **No arithmetic for `ComplexNumber`.** A matrix of complex numbers, such as the result of
   `EvaluateComplex`, is a container without arithmetic.
-- **`default(Rational)` is not a valid 0.** In the core up to version 1.1.1 the default value
-  of `Rational` has denominator 0: it prints as `0/0`, isn't equal to `Rational.Zero`, and
-  adding it throws `DivideByZeroException`. So `new Matrix<Rational>(new Rational[2, 2])` is
-  not the zero matrix: build rational matrices with `FromRows`, `Create`, `Zero` or
-  `Identity`, or fill arrays with `Rational.Zero`.
 - **Characteristic polynomials of symbolic matrices print in the core's canonical order**,
   not by powers of the variable: `a * d + t^2 - b * c + (-a - d) * t`. The value is right;
   for numbers the order is the usual `t^2 - 4t + 3`.
@@ -841,7 +848,5 @@ What version 1.3.0 doesn't do yet:
 - **No off-center perspective** for virtual reality and stereo, and no `LookRotation` that turns
   an object to face a direction with an up vector; `FromToRotation` and
   `FromRotationMatrix(Matrix3x3<T>.FromColumns(right, up, forward))` cover most uses.
-- **No fixed-size types of `Rational`.** `Rational` doesn't implement the generic math
-  interfaces in the core up to version 1.1.1; it is planned with the next core version.
 - **Variable names for `Parse` are an array**, `["theta", "t"]`, not a list of arguments as
   for `ExprParser.Parse`: with `params` here, the current C# compiler warns at every call.

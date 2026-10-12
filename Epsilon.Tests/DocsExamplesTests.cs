@@ -700,6 +700,41 @@ public class EvaluationDocTests
         Assert.Equal(-2, ExprParser.Parse("ceiling(x)").Evaluate(-2.5));
     }
 
+    [Fact]
+    public void Compiled_evaluation()
+    {
+        Func<double, double> f = ExprParser.Parse("x^2 * sin(x)").Compile();
+        Assert.Equal(3.637189707302727, f(2));
+
+        var g = ExprParser.Parse("x^2 + y^2").Compile("x", "y");
+        Assert.Equal(25, g(3, 4));
+
+        var h = ExprParser.Parse("a*b - c/d").Compile(["a", "b", "c", "d"]);
+        Assert.Equal(1.25, h([1, 2, 3, 4]));
+    }
+
+    [Fact]
+    public void Several_expressions_at_once()
+    {
+        Expr f = ExprParser.Parse("x^2 * y + sin(x*y)");
+        var gradient = Expr.Compile([f.Differentiate("x"), f.Differentiate("y")], ["x", "y"]);
+
+        var results = new double[2];
+        gradient([1, 2], results);
+        Assert.Equal(3.1677, results[0], precision: 4);
+        Assert.Equal(0.5839, results[1], precision: 4);
+    }
+
+    [Fact]
+    public void Compile_errors()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => ExprParser.Parse("x*y").Compile("x"));
+        Assert.Equal("The expression has the variable 'y', which is not in the list of variables [x].", ex.Message);
+        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("x*y").Compile());
+        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("x + i").Compile("x"));
+        Assert.Throws<ArgumentException>(() => ExprParser.Parse("x").Compile(["x"])([1, 2]));
+    }
+
     private static void Near(double re, double im, ComplexNumber z)
     {
         Assert.Equal(re, z.Real, precision: 12);
@@ -777,6 +812,7 @@ public class NumbersDocTests
         Assert.Equal("1000000000000000000000000000000/3", new Rational(System.Numerics.BigInteger.Pow(10, 30), 3).ToString());
         Assert.Equal("1267650600228229401496703205376", ExprParser.Parse("2^100").Simplify().Print());
         Assert.Throws<DivideByZeroException>(() => new Rational(1, 0));
+        Assert.Equal([Rational.Zero, Rational.Zero, Rational.Zero], new Rational[3]);
     }
 
     [Fact]

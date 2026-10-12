@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.1.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.2.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 
@@ -339,7 +339,10 @@ All derive from `UnaryExpr`, take `(Expr argument)` and expose `Argument`.
 
 ### `Rational` (struct)
 
-An exact fraction of `BigInteger`s, always in lowest terms with a positive denominator.
+An exact fraction of `BigInteger`s, always in lowest terms with a positive denominator; the
+default value is 0. Implements `IAdditionOperators`, `ISubtractionOperators`,
+`IMultiplyOperators`, `IDivisionOperators`, `IUnaryNegationOperators`, `IComparisonOperators`,
+`IAdditiveIdentity` and `IMultiplicativeIdentity`, so it works in generic math code.
 Guide: [Numbers](numbers.md).
 
 | Member | Description |
