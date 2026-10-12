@@ -1720,6 +1720,34 @@ public class RationalTests
     {
         Assert.Equal(new Rational(numerator, denominator), Rational.FromDecimalString(text));
     }
+
+    [Fact]
+    public void Default_value_is_zero()
+    {
+        Rational d = default;
+
+        Assert.Equal(Rational.Zero, d);
+        Assert.Equal(Rational.Zero.GetHashCode(), d.GetHashCode());
+        Assert.Equal(System.Numerics.BigInteger.One, d.Denominator);
+        Assert.True(d.IsZero);
+        Assert.True(d.IsInteger);
+        Assert.False(d.IsOne);
+        Assert.Equal("0", d.ToString());
+        Assert.Equal(0.0, d.ToDouble());
+
+        Assert.Equal(new Rational(1, 2), d + new Rational(1, 2));
+        Assert.Equal(new Rational(-1, 2), d - new Rational(1, 2));
+        Assert.Equal(Rational.Zero, d * new Rational(7, 3));
+        Assert.Equal(Rational.Zero, d / new Rational(7, 3));
+        Assert.Throws<DivideByZeroException>(() => Rational.One / d);
+        Assert.Equal(Rational.One, d.Pow(0));
+        Assert.True(d < Rational.One && d > Rational.MinusOne);
+        Assert.Equal(0, d.CompareTo(Rational.Zero));
+
+        var array = new Rational[3];
+        Assert.All(array, r => Assert.Equal(Rational.Zero, r));
+        Assert.Equal("0", new Constant(array[0]).Print());
+    }
 }
 
 public class EvaluationConventionTests
