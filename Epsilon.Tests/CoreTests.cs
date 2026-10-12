@@ -3124,7 +3124,7 @@ public class NestingLimitTests
         {
             Expr expr = ExprParser.Parse(input);
 
-            expr.Evaluate(0.5);
+            Assert.Equal(expr.Evaluate(0.5), expr.Compile()(0.5));
             expr.EvaluateComplex(new Dictionary<string, ComplexNumber> { ["x"] = new ComplexNumber(0.5) });
             Assert.Equal(expr, ExprParser.Parse(expr.Print()));
             expr.ToLatex();

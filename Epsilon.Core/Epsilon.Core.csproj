@@ -42,6 +42,8 @@
 
   <ItemGroup>
     <Using Include="System.Collections.Immutable" />
+    <!-- For ExprCompiler; an alias, because "Expression" next to Expr would read ambiguously. -->
+    <Using Include="System.Linq.Expressions.Expression" Alias="LinqExpression" />
   </ItemGroup>
 
   <ItemGroup>
