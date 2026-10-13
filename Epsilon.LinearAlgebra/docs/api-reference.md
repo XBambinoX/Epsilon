@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.3.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.4.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guide](guide.md) explains the details, and your IDE shows the full XML documentation for
 every member.
@@ -232,6 +232,19 @@ Extension members of `Matrix<Expr>`. Arithmetic results are simplified in the `G
 
 All of them need a square matrix and throw `InvalidOperationException` otherwise.
 
+**Transforms**
+
+The conventions of the fixed-size matrices: column vectors, right-handed, radians. Built from these, a kinematic chain gives the position of its end with `TransformPoint`, ready for `Jacobian` and `Compile`.
+
+| Member | Description |
+|---|---|
+| `static Matrix<Expr> Rotation(Expr angle)` | The 2 x 2 rotation of the plane, counterclockwise; simplified, so `Rotation(pi / 2)` is `[[0, -1], [1, 0]]`. |
+| `static Matrix<Expr> RotationX(Expr angle)`, `RotationY`, `RotationZ` | The 3 x 3 rotations about the axes, as `Matrix3x3.RotationX` and so on. |
+| `static Matrix<Expr> Translation(Vector<Expr> offset)` | The translation in homogeneous coordinates, one size larger than the offset: `[a, b, c]` gives a 4 x 4 matrix. |
+| `Matrix<Expr> ToHomogeneous()` | `[[A, 0], [0, 1]]`, to combine a linear map with translations; a scaling is `FromDiagonal(factors).ToHomogeneous()`. |
+| `Vector<Expr> TransformPoint(Vector<Expr> point)` | The point extended by 1, multiplied, and divided by the last entry unless it is exactly 1; simplified. Throws `ArgumentException` unless the matrix is one size larger than the point. |
+| `Vector<Expr> TransformDirection(Vector<Expr> direction)` | Only the linear part acts, so translations don't move it. |
+
 **Entry-wise**
 
 | Member | Description |
@@ -246,6 +259,16 @@ All of them need a square matrix and throw `InvalidOperationException` otherwise
 | `Matrix<double> Evaluate(params (string Name, double Value)[] bindings)` | The same with pairs: `Evaluate(("x", 1), ("y", 2))`. |
 | `Matrix<double> Evaluate(double x)` | When all entries together have at most one variable. |
 | `Matrix<ComplexNumber> EvaluateComplex(...)` | The same three forms over the complex numbers, principal branches. |
+
+**Compiled evaluation**
+
+| Member | Description |
+|---|---|
+| `Func<double, Matrix<double>> Compile()` | A compiled delegate of a matrix whose entries have at most one variable: exactly the values of `Evaluate(double x)`, many times faster. Doesn't simplify; a subexpression shared by several entries is computed once. Throws `InvalidOperationException` for two or more variables or for `i`. |
+| `Compile(string x)`, `Compile(string x, string y)`, `Compile(string x, string y, string z)` | The same for the named variables, whose values the delegate takes in this order: `Compile("x", "y")(3, 4)`. Unused names are allowed; throws `ArgumentException` for a variable that isn't named or a name given twice. |
+| `Func<double[], Matrix<double>> Compile(IReadOnlyList<string> variables)` | The same for any number of variables, with the values in an array in this order. |
+| `Action<double[], double[]> CompileEntries(IReadOnlyList<string> variables)` | The same without allocating: writes entry (i, j) to index `i * Columns + j` of an array the caller provides and may reuse. |
+| `string ToCSharp(string name, IReadOnlyList<string> variables)` | The source of `public static void name(double x, ..., Span<double> result)`, which writes entry (i, j) to `result[i * Columns + j]`, with shared subexpressions in locals; exactly the values of `Evaluate`, for code without Epsilon. Needs `using System;` and C# 8. Throws `ArgumentException` for a name that isn't a valid C# name, a variable listed twice or not listed, `InvalidOperationException` for `i`, `NotSupportedException` for a node from outside the core. |
 
 **Output**
 
@@ -273,7 +296,9 @@ Extension members of `Vector<Expr>`.
 | `Normalize`, `Distance`, `Cross`, `ProjectOnto`, `Reflect`, `Outer`, `Hadamard` | As for `double`, exact and simplified: `[1, 1]` normalizes to `[sqrt(2) / 2, sqrt(2) / 2]`. |
 | `Expr Angle(Vector<Expr> other)` | The arccosine of v . w over the product of the norms, simplified: `[1, 0]` and `[1, 1]` give pi / 4. |
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
+| `Matrix<Expr> Jacobian(IReadOnlyList<string> variables)` | The matrix of the simplified partial derivatives, one row per entry and one column per variable: `[r * cos(t), r * sin(t)]` by `["r", "t"]` gives `[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]`. Throws `ArgumentException` for a name listed twice. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
+| `Compile`, `CompileEntries`, `ToCSharp` | The same forms as for matrices, giving `Vector<double>`: a curve `[cos(t), sin(t), t]` compiles with `Compile("t")`, a vector field with `Compile("x", "y", "z")`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
 | `string ToLatex()` | A LaTeX `bmatrix` with one column. |
 
