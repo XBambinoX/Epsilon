@@ -638,6 +638,103 @@ public class LinearAlgebraGuideTests
     }
 
     [Fact]
+    public void Compiled_evaluation()
+    {
+        var helix = Vector<Expr>.Parse("[cos(t), sin(t), t / 10]", ["t"]);
+        Func<double, Vector<double>> point = helix.Compile();
+        Assert.Equal("[-1, 1.2246467991473532E-16, 0.3141592653589793]", point(Math.PI).ToString());
+
+        var table = Matrix<Expr>.Parse("[[x + y, x * y], [x - y, x / y]]");
+        Assert.Equal("[[9, 18], [3, 2]]", table.Compile("x", "y")(6, 3).ToString());
+
+        var entries = new double[4];
+        table.CompileEntries(["x", "y"])([6, 3], entries);
+        Assert.Equal([9, 18, 3, 2], entries);
+
+        Assert.Throws<ArgumentException>(() => Matrix<Expr>.Parse("[[x, y]]").Compile("x"));
+    }
+
+    [Fact]
+    public void Jacobian_matrix()
+    {
+        var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
+        Assert.Equal("[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]", polar.Jacobian(["r", "t"]).Print());
+
+        Assert.Equal("[[cos(t), -sin(t) * r, 0]]", Vector.Create(polar[0]).Jacobian(["r", "t", "z"]).Print());
+    }
+
+    [Fact]
+    public void Symbolic_transforms()
+    {
+        var quarterTurn = Matrix<Expr>.Rotation(ExprParser.Parse("pi / 2"));
+        Assert.Equal("[[0, -1], [1, 0]]", quarterTurn.Print());
+        var move = Matrix<Expr>.Translation(Vector<Expr>.Parse("[a, b]"));
+        Assert.Equal("[[1, 0, a], [0, 1, b], [0, 0, 1]]", move.Print());
+
+        var turnThenMove = move * quarterTurn.ToHomogeneous();
+        Assert.Equal("[-y + a, b + x]", turnThenMove.TransformPoint(Vector<Expr>.Parse("[x, y]")).Print());
+        Assert.Equal("[-y, x]", turnThenMove.TransformDirection(Vector<Expr>.Parse("[x, y]")).Print());
+
+        Assert.Equal("[[s, 0, 0], [0, s, 0], [0, 0, 1]]", Matrix<Expr>.FromDiagonal(Vector<Expr>.Parse("[s, s]")).ToHomogeneous().Print());
+    }
+
+    [Fact]
+    public void CSharp_source()
+    {
+        Assert.Equal(
+            """
+            public static void Rotation(double t, Span<double> result)
+            {
+                double t0 = Math.Cos(t);
+                result[0] = t0;
+                double t1 = Math.Sin(t);
+                result[1] = -t1;
+                result[2] = t1;
+                result[3] = t0;
+            }
+            """.ReplaceLineEndings("\n"),
+            Matrix<Expr>.Rotation(new Variable("t")).ToCSharp("Rotation", ["t"]));
+
+        Assert.StartsWith("public static void F(double @in,", Vector.Create<Expr>(new Variable("in")).ToCSharp("F", ["in"]));
+        Assert.Throws<ArgumentException>(() => Vector<Expr>.Parse("[x]").ToCSharp("2x", ["x"]));
+        Assert.Throws<ArgumentException>(() => Vector<Expr>.Parse("[x, y]").ToCSharp("F", ["x"]));
+    }
+
+    [Fact]
+    public void Inverse_kinematics()
+    {
+        static Matrix<Expr> Link(string angle, int length) =>
+            Matrix<Expr>.Rotation(new Variable(angle)).ToHomogeneous() * Matrix<Expr>.Translation([length, 0]);
+
+        Vector<Expr> tip = (Link("a", 3) * Link("b", 2) * Link("c", 1)).TransformPoint([0, 0]);
+        string[] joints = ["a", "b", "c"];
+        Func<double[], Vector<double>> position = tip.Compile(joints);
+        Func<double[], Matrix<double>> jacobian = tip.Jacobian(joints).Compile(joints);
+
+        Vector<double> angles = [0.3, 0.3, 0.3], target = [4, 2];
+        int steps = 0;
+        for (int step = 0; step < 100; step++)
+        {
+            double[] values = angles.ToArray();
+            Vector<double> error = target - position(values);
+            if (error.Norm() < 1e-9)
+                break;
+
+            Matrix<double> j = jacobian(values);
+            Vector<double> change = j.Transpose() * (j * j.Transpose() + 0.01 * Matrix<double>.Identity(2)).Solve(error);
+            angles += change.Norm() <= 0.5 ? change : change * (0.5 / change.Norm());
+            steps++;
+        }
+
+        Assert.Equal(6, steps);
+        Assert.True(angles.IsApproximately([-0.1828, 1.0812, 0.8694], 1e-4), angles.ToString());
+        Assert.True((target - position(angles.ToArray())).Norm() < 1e-10);
+
+        Assert.Equal(15, tip.ToCSharp("Position", joints).Split('\n').Length);
+        Assert.Equal(29, tip.Jacobian(joints).ToCSharp("Jacobian", joints).Split('\n').Length);
+    }
+
+    [Fact]
     public void Limitations()
     {
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2]));
