@@ -2,7 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.LinearAlgebra;
 
-// Compiled evaluation of whole vectors: the compiled one-column matrix, wrapped.
+// Compiled evaluation and C# source of whole vectors: those of the one-column matrix.
 public static partial class SymbolicVectorExtensions
 {
     extension(Vector<Expr> vector)
@@ -94,5 +94,19 @@ public static partial class SymbolicVectorExtensions
         /// <exception cref="InvalidOperationException">An entry contains the imaginary unit.</exception>
         public Action<double[], double[]> CompileEntries(IReadOnlyList<string> variables) =>
             vector.ToMatrix().CompileEntries(variables);
+
+        /// <summary>
+        /// The source of a C# method that writes the entries in order to its last parameter,
+        /// <c>Span&lt;double&gt; result</c>, from the values of <paramref name="variables"/>, its
+        /// parameters in this order. See <see cref="SymbolicMatrixExtensions.ToCSharp(Matrix{Expr}, string, IReadOnlyList{string})"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// A name is not a valid C# name, a variable is listed twice or is also the name of the
+        /// method, or an entry has a variable that is not listed.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">An entry contains the imaginary unit.</exception>
+        /// <exception cref="NotSupportedException">An entry contains a node from outside the core.</exception>
+        public string ToCSharp(string name, IReadOnlyList<string> variables) =>
+            vector.ToMatrix().ToCSharp(name, variables);
     }
 }

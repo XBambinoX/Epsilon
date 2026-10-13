@@ -268,6 +268,7 @@ The conventions of the fixed-size matrices: column vectors, right-handed, radian
 | `Compile(string x)`, `Compile(string x, string y)`, `Compile(string x, string y, string z)` | The same for the named variables, whose values the delegate takes in this order: `Compile("x", "y")(3, 4)`. Unused names are allowed; throws `ArgumentException` for a variable that isn't named or a name given twice. |
 | `Func<double[], Matrix<double>> Compile(IReadOnlyList<string> variables)` | The same for any number of variables, with the values in an array in this order. |
 | `Action<double[], double[]> CompileEntries(IReadOnlyList<string> variables)` | The same without allocating: writes entry (i, j) to index `i * Columns + j` of an array the caller provides and may reuse. |
+| `string ToCSharp(string name, IReadOnlyList<string> variables)` | The source of `public static void name(double x, ..., Span<double> result)`, which writes entry (i, j) to `result[i * Columns + j]`, with shared subexpressions in locals; exactly the values of `Evaluate`, for code without Epsilon. Needs `using System;` and C# 8. Throws `ArgumentException` for a name that isn't a valid C# name, a variable listed twice or not listed, `InvalidOperationException` for `i`, `NotSupportedException` for a node from outside the core. |
 
 **Output**
 
@@ -297,7 +298,7 @@ Extension members of `Vector<Expr>`.
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
 | `Matrix<Expr> Jacobian(IReadOnlyList<string> variables)` | The matrix of the simplified partial derivatives, one row per entry and one column per variable: `[r * cos(t), r * sin(t)]` by `["r", "t"]` gives `[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]`. Throws `ArgumentException` for a name listed twice. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
-| `Compile`, `CompileEntries` | The same five forms as for matrices, giving `Vector<double>`: a curve `[cos(t), sin(t), t]` compiles with `Compile("t")`, a vector field with `Compile("x", "y", "z")`. |
+| `Compile`, `CompileEntries`, `ToCSharp` | The same forms as for matrices, giving `Vector<double>`: a curve `[cos(t), sin(t), t]` compiles with `Compile("t")`, a vector field with `Compile("x", "y", "z")`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
 | `string ToLatex()` | A LaTeX `bmatrix` with one column. |
 

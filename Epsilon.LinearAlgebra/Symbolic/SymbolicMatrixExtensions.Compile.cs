@@ -3,7 +3,7 @@ using Epsilon.Core;
 namespace Epsilon.LinearAlgebra;
 
 // Compiled evaluation of whole matrices, built on Expr.Compile of all entries at once, so a
-// subexpression shared by several entries is computed once per call.
+// subexpression shared by several entries is computed once per call; and the same as C# source.
 public static partial class SymbolicMatrixExtensions
 {
     extension(Matrix<Expr> matrix)
@@ -98,6 +98,39 @@ public static partial class SymbolicMatrixExtensions
         /// <exception cref="InvalidOperationException">An entry contains the imaginary unit.</exception>
         public Action<double[], double[]> CompileEntries(IReadOnlyList<string> variables) =>
             Expr.Compile(matrix.Entries.ToArray(), variables);
+
+        /// <summary>
+        /// The source of a C# method that computes the entries from the values of
+        /// <paramref name="variables"/>, its parameters in this order, for code that should not
+        /// depend on Epsilon or runs where delegates can't be compiled at run time. Entry (i, j)
+        /// goes to <c>result[i * Columns + j]</c>; a subexpression that occurs more than once is
+        /// computed once, into a local declared before its first use. <c>Matrix&lt;Expr&gt;.Rotation(t).ToCSharp("Rotation", ["t"])</c>
+        /// gives
+        /// <code>
+        /// public static void Rotation(double t, Span&lt;double&gt; result)
+        /// {
+        ///     double t0 = Math.Cos(t);
+        ///     result[0] = t0;
+        ///     double t1 = Math.Sin(t);
+        ///     result[1] = -t1;
+        ///     result[2] = t1;
+        ///     result[3] = t0;
+        /// }
+        /// </code>
+        /// </summary>
+        /// <remarks>
+        /// The method returns exactly the values of Evaluate, bit for bit, as <c>Compile</c> does.
+        /// It needs <c>using System;</c> and C# 8 or later. Names that are C# keywords are written
+        /// with an <c>@</c>.
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// A name is not a valid C# name, a variable is listed twice or is also the name of the
+        /// method, or an entry has a variable that is not listed.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">An entry contains the imaginary unit.</exception>
+        /// <exception cref="NotSupportedException">An entry contains a node from outside the core.</exception>
+        public string ToCSharp(string name, IReadOnlyList<string> variables) =>
+            CSharpWriter.Write(matrix, name, variables);
     }
 
     // The variable of the parameterless Compile overloads; any name when every entry is constant.
