@@ -97,8 +97,8 @@ dotnet build
 dotnet test
 ```
 
-The projects in the solution and how to contribute are described in
-[CONTRIBUTING](CONTRIBUTING.md); changes are listed in the [changelog](CHANGELOG.md).
+How to report a bug or send a change is described in [CONTRIBUTING](CONTRIBUTING.md);
+changes are listed in the [changelog](CHANGELOG.md).
 
 ## License
 
