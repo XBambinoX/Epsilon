@@ -152,6 +152,22 @@ public class LinearAlgebraReadmeExamplesTests
     }
 
     [Fact]
+    public void From_formulas_to_fast_code()
+    {
+        static Matrix<Expr> Link(string angle, int length) =>
+            Matrix<Expr>.Rotation(new Variable(angle)).ToHomogeneous() * Matrix<Expr>.Translation([length, 0]);
+
+        Vector<Expr> tip = (Link("a", 3) * Link("b", 2) * Link("c", 1)).TransformPoint([0, 0]);
+        string[] joints = ["a", "b", "c"];
+        var position = tip.Compile(joints);
+        var jacobian = tip.Jacobian(joints).Compile(joints);
+
+        Assert.Equal("[6, 0]", position([0, 0, 0]).ToString());
+        Assert.Equal("[6, 3, 1]", jacobian([0, 0, 0]).Row(1).ToString());
+        Assert.StartsWith("public static void ArmTip(double a, ", tip.ToCSharp("ArmTip", joints));
+    }
+
+    [Fact]
     public void Good_to_know()
     {
         RealVector v = [1, 2];
@@ -739,5 +755,8 @@ public class LinearAlgebraGuideTests
     {
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2]));
         Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", M.CharacteristicPolynomial("t").Print());
+
+        var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
+        Assert.Equal("cos(t)^2 * r + sin(t)^2 * r", polar.Jacobian(["r", "t"]).Determinant().Print());
     }
 }

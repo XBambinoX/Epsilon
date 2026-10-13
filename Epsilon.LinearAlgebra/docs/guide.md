@@ -1,6 +1,6 @@
 # Linear algebra guide
 
-The `Epsilon.LinearAlgebra` package, version 1.3.0, in detail. For a one-page overview see
+The `Epsilon.LinearAlgebra` package, version 1.4.0, in detail. For a one-page overview see
 the [package README](../README.md); every public member is listed in the
 [API reference](api-reference.md). The types are in the namespace `Epsilon.LinearAlgebra`;
 the expressions in them come from the core, namespace `Epsilon.Core`.
@@ -648,8 +648,8 @@ cell + Vector3<int>.UnitX;   // [8, 8, 9]
 cell / 2;                    // [3, 4, 4]: truncated, as in C#
 ```
 
-With the core (the `Epsilon` package) version 1.2.0 or later the entries can also be exact
-fractions, `Rational`; the inverse goes through `Matrix<Rational>`:
+The entries can also be exact fractions, `Rational`; the inverse goes through
+`Matrix<Rational>`:
 
 ```csharp
 Vector3<Rational> a = (new Rational(1, 2), new Rational(1, 3), 1);
@@ -990,7 +990,7 @@ entries. The fixed-size types show their entries as `ToString` writes them: `[1,
 
 ## Limitations
 
-What version 1.3.0 doesn't do yet:
+What version 1.4.0 doesn't do yet:
 
 - **Only square systems.** `Solve` needs a square matrix; least squares for other shapes (by
   QR decomposition) is planned.
@@ -1010,5 +1010,13 @@ What version 1.3.0 doesn't do yet:
 - **No off-center perspective** for virtual reality and stereo, and no `LookRotation` that turns
   an object to face a direction with an up vector; `FromToRotation` and
   `FromRotationMatrix(Matrix3x3<T>.FromColumns(right, up, forward))` cover most uses.
+- **The simplifier doesn't know trigonometric identities** such as sin^2 + cos^2 = 1 or
+  cos(a) cos(b) - sin(a) sin(b) = cos(a + b), so products of rotations stay expanded, and the
+  determinant of the Jacobian of polar coordinates prints as `cos(t)^2 * r + sin(t)^2 * r`
+  rather than `r`. The values are right, and compiled code computes each sine and cosine once.
+- **`ToCSharp` writes `double` code** that calls `Math`; there is no `float` variant and no
+  shader language. A node type from outside the core has no C# form.
+- **Symbolic rotations turn about the coordinate axes only.** A rotation about another axis
+  exists for numbers, as the fixed-size `Rotation(axis, angle)`.
 - **Variable names for `Parse` are an array**, `["theta", "t"]`, not a list of arguments as
   for `ExprParser.Parse`: with `params` here, the current C# compiler warns at every call.

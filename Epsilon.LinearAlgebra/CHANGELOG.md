@@ -7,6 +7,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-13
+
+It depends on `Epsilon` 1.2.0 or later, for its compiled evaluation; so the fixed-size types
+of `Rational`, such as `Vector3<Rational>`, now always work.
+
+### Added
+
+- **Compiled evaluation** of matrices and vectors of expressions. `Compile()`, `Compile(x)`,
+  `Compile(x, y)`, `Compile(x, y, z)` and `Compile(variables)` give a delegate that returns
+  exactly the values of `Evaluate`, bit for bit, and computes a subexpression shared by several
+  entries once: a 3 x 3 rotation by three angles takes about 60 nanoseconds instead of 2
+  microseconds. `CompileEntries(variables)` writes the entries row by row into an array that
+  can be reused, without allocating.
+- **`ToCSharp(name, variables)`** writes a matrix or vector of expressions as the source of a
+  standalone C# method, `public static void name(double x, ..., Span<double> result)`, for code
+  that doesn't depend on Epsilon: shared subexpressions in locals, parentheses that keep the
+  order of the floating-point operations, so exactly the values of `Evaluate`; C# 8 or later.
+- **`Jacobian(variables)`** of a vector of expressions: the matrix of its partial derivatives,
+  one row per entry and one column per variable, in the given order.
+- **Symbolic transforms** for chains of joints: `Matrix<Expr>.Rotation(angle)` in the plane,
+  `RotationX`, `RotationY` and `RotationZ`, `Translation(offset)` in homogeneous coordinates,
+  `ToHomogeneous()`, `TransformPoint` and `TransformDirection`, with the conventions of the
+  fixed-size matrices. Known angles give exact entries: `Rotation(pi / 2)` is `[[0, -1], [1, 0]]`.
+- **Guide section** [From formulas to fast code](docs/guide.md#from-formulas-to-fast-code),
+  with an example of inverse kinematics: an arm of three links, derived and compiled once,
+  reaches its target in 6 steps of damped least squares.
+
 ## [1.3.0] - 2026-10-11
 
 It depends on `Epsilon` 1.1.1 or later, as before.
@@ -142,7 +169,8 @@ The first release. It depends on `Epsilon` 1.1.1 or later.
 
 See [Limitations](docs/guide.md#limitations) in the guide.
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.3.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.4.0...HEAD
+[1.4.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.4.0
 [1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.2.0
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.1.0

@@ -11,7 +11,8 @@
 symbolic expressions, exact rationals or doubles: exact determinants, inverses and solutions of
 symbolic systems, exact elimination for rationals, LU decomposition for doubles, and vector
 geometry. For games and graphics, fixed-size vectors and matrices of `float`, `double` or any
-number type, quaternions, camera matrices and conversions to System.Numerics.
+number type, quaternions, camera matrices and conversions to System.Numerics. Symbolic formulas
+become fast code: compiled delegates or standalone C#, with Jacobians for kinematics.
 
 ```csharp
 var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
@@ -208,6 +209,33 @@ m.Evaluate(("a", 1), ("b", 2), ("c", 3), ("d", 4));    // [[1, 2], [3, 4]]
 Vector<Expr>.Parse("[x^2, 1/2]").Simplify().ToLatex();
                                        // \begin{bmatrix} x^{2} \\ \frac{1}{2} \end{bmatrix}
 ```
+
+### From formulas to fast code
+
+Derive a formula once with symbols, then evaluate it as fast as handwritten code. `Compile`
+turns a matrix or vector of expressions into a delegate with exactly the values of `Evaluate`,
+`Jacobian` gives the matrix of partial derivatives, and `ToCSharp` writes the formula as a C#
+method for code without Epsilon. Symbolic rotations and translations build chains of joints,
+such as an arm for inverse kinematics:
+
+```csharp
+// Each link turns by the angle of its joint, then reaches along its length
+Matrix<Expr> Link(string angle, int length) =>
+    Matrix<Expr>.Rotation(new Variable(angle)).ToHomogeneous() * Matrix<Expr>.Translation([length, 0]);
+
+Vector<Expr> tip = (Link("a", 3) * Link("b", 2) * Link("c", 1)).TransformPoint([0, 0]);
+string[] joints = ["a", "b", "c"];
+var position = tip.Compile(joints);
+var jacobian = tip.Jacobian(joints).Compile(joints);
+position([0, 0, 0]);           // [6, 0]: stretched out along x
+jacobian([0, 0, 0]).Row(1);    // [6, 3, 1]: how far up each joint moves the tip per radian
+File.WriteAllText("ArmTip.cs", tip.ToCSharp("ArmTip", joints));   // public static void ArmTip(double a, ...
+```
+
+A subexpression shared by several entries is computed once: a compiled 3 x 3 rotation by three
+angles takes about 60 nanoseconds instead of 2 microseconds. The
+[guide](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/guide.md#example-inverse-kinematics)
+solves the inverse kinematics of this arm in a few more lines.
 
 ## Good to know
 
