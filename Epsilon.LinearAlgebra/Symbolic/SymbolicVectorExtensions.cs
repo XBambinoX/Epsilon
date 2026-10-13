@@ -193,6 +193,34 @@ public static partial class SymbolicVectorExtensions
         public Vector<Expr> Differentiate(string variable) =>
             vector.Map(entry => entry.Differentiate(variable));
 
+        /// <summary>
+        /// The Jacobian matrix: entry (i, j) is the simplified partial derivative of entry i by
+        /// <c>variables[j]</c>, one row per entry and one column per variable. A variable the
+        /// entries don't have gives a column of zeros. For <c>[r * cos(t), r * sin(t)]</c> and
+        /// <c>["r", "t"]</c> it is <c>[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]</c>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A name is listed twice.</exception>
+        /// <exception cref="NotSupportedException">
+        /// An entry contains a function whose derivative is not supported, as for
+        /// <see cref="Expr.Differentiate(string)"/>.
+        /// </exception>
+        public Matrix<Expr> Jacobian(IReadOnlyList<string> variables)
+        {
+            ArgumentNullException.ThrowIfNull(variables);
+            string[] names = [.. variables];
+
+            var seen = new HashSet<string>();
+            foreach (string name in names)
+            {
+                if (name is null)
+                    throw new ArgumentNullException(nameof(variables), "A variable name is null.");
+                if (!seen.Add(name))
+                    throw new ArgumentException($"Variable '{name}' is listed twice.", nameof(variables));
+            }
+
+            return Matrix<Expr>.Create(vector.Length, names.Length, (i, j) => vector[i].Differentiate(names[j]));
+        }
+
         /// <summary>The names of the variables in all entries.</summary>
         public IReadOnlySet<string> GetVariables() => SymbolicMatrixExtensions.VariablesOf(vector.ToMatrix().Entries);
 

@@ -245,3 +245,77 @@ public class SymbolicVectorCompileTests
         Assert.Throws<InvalidOperationException>(() => Vector<Expr>.Parse("[i]").Compile());
     }
 }
+
+public class SymbolicJacobianTests
+{
+    [Fact]
+    public void Polar_coordinates()
+    {
+        var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
+
+        Assert.Equal("[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]", polar.Jacobian(["r", "t"]).Print());
+    }
+
+    [Fact]
+    public void One_row_per_entry_and_one_column_per_variable_in_the_given_order()
+    {
+        var f = Vector<Expr>.Parse("[x^2 * y, sin(x) + y]");
+
+        var j = f.Jacobian(["x", "y", "z"]);
+        Assert.Equal((2, 3), (j.Rows, j.Columns));
+        // z doesn't occur: a column of zeros.
+        Assert.Equal("[[2x * y, x^2, 0], [cos(x), 1, 0]]", j.Print());
+
+        Assert.Equal("[[x^2, 2x * y], [1, cos(x)]]", f.Jacobian(["y", "x"]).Print());
+        Assert.Equal(f.Differentiate("y"), f.Jacobian(["x", "y"]).Column(1));
+    }
+
+    [Fact]
+    public void A_single_entry_gives_the_gradient_as_a_row()
+    {
+        Vector<Expr> f = [ExprParser.Parse("x * y^2")];
+
+        Assert.Equal("[[y^2, 2x * y]]", f.Jacobian(["x", "y"]).Print());
+    }
+
+    [Fact]
+    public void The_compiled_Jacobian_matches_finite_differences()
+    {
+        // A two-link planar arm with unit links: the position of its tip.
+        var tip = Vector<Expr>.Parse("[cos(a) + cos(a + b), sin(a) + sin(a + b)]", ["a", "b"]);
+        Func<double, double, Matrix<double>> jacobian = tip.Jacobian(["a", "b"]).Compile("a", "b");
+        Func<double, double, Vector<double>> position = tip.Compile("a", "b");
+
+        const double a = 0.4, b = 1.1, h = 1e-6;
+        var j = jacobian(a, b);
+        var byA = (position(a + h, b) - position(a - h, b)) / (2 * h);
+        var byB = (position(a, b + h) - position(a, b - h)) / (2 * h);
+
+        Assert.True(j.Column(0).IsApproximately(byA, 1e-8), $"{j.Column(0)} vs {byA}");
+        Assert.True(j.Column(1).IsApproximately(byB, 1e-8), $"{j.Column(1)} vs {byB}");
+    }
+
+    [Fact]
+    public void Empty_lists()
+    {
+        var f = Vector<Expr>.Parse("[x, y]");
+
+        var noVariables = f.Jacobian([]);
+        Assert.Equal((2, 0), (noVariables.Rows, noVariables.Columns));
+
+        var noEntries = Vector<Expr>.Parse("[]").Jacobian(["x"]);
+        Assert.Equal((0, 1), (noEntries.Rows, noEntries.Columns));
+    }
+
+    [Fact]
+    public void Errors()
+    {
+        var f = Vector<Expr>.Parse("[x, y]");
+
+        var twice = Assert.Throws<ArgumentException>(() => f.Jacobian(["x", "y", "x"]));
+        Assert.Equal("Variable 'x' is listed twice. (Parameter 'variables')", twice.Message);
+        Assert.Throws<ArgumentNullException>(() => f.Jacobian(null!));
+        Assert.Throws<ArgumentNullException>(() => f.Jacobian(["x", null!]));
+        Assert.Throws<NotSupportedException>(() => Vector<Expr>.Parse("[floor(x)]").Jacobian(["x"]));
+    }
+}

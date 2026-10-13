@@ -282,6 +282,7 @@ Extension members of `Vector<Expr>`.
 | `Normalize`, `Distance`, `Cross`, `ProjectOnto`, `Reflect`, `Outer`, `Hadamard` | As for `double`, exact and simplified: `[1, 1]` normalizes to `[sqrt(2) / 2, sqrt(2) / 2]`. |
 | `Expr Angle(Vector<Expr> other)` | The arccosine of v . w over the product of the norms, simplified: `[1, 0]` and `[1, 1]` give pi / 4. |
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
+| `Matrix<Expr> Jacobian(IReadOnlyList<string> variables)` | The matrix of the simplified partial derivatives, one row per entry and one column per variable: `[r * cos(t), r * sin(t)]` by `["r", "t"]` gives `[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]`. Throws `ArgumentException` for a name listed twice. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
 | `Compile`, `CompileEntries` | The same five forms as for matrices, giving `Vector<double>`: a curve `[cos(t), sin(t), t]` compiles with `Compile("t")`, a vector field with `Compile("x", "y", "z")`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
