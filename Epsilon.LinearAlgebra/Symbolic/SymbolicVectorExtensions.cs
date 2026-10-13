@@ -7,7 +7,7 @@ namespace Epsilon.LinearAlgebra;
 /// Unlike the operators of <see cref="Expr"/>, which only build a tree, the arithmetic computes:
 /// every entry of the result is simplified.
 /// </summary>
-public static class SymbolicVectorExtensions
+public static partial class SymbolicVectorExtensions
 {
     extension(Vector<Expr> vector)
     {

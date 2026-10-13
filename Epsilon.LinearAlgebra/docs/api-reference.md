@@ -247,6 +247,15 @@ All of them need a square matrix and throw `InvalidOperationException` otherwise
 | `Matrix<double> Evaluate(double x)` | When all entries together have at most one variable. |
 | `Matrix<ComplexNumber> EvaluateComplex(...)` | The same three forms over the complex numbers, principal branches. |
 
+**Compiled evaluation**
+
+| Member | Description |
+|---|---|
+| `Func<double, Matrix<double>> Compile()` | A compiled delegate of a matrix whose entries have at most one variable: exactly the values of `Evaluate(double x)`, many times faster. Doesn't simplify; a subexpression shared by several entries is computed once. Throws `InvalidOperationException` for two or more variables or for `i`. |
+| `Compile(string x)`, `Compile(string x, string y)`, `Compile(string x, string y, string z)` | The same for the named variables, whose values the delegate takes in this order: `Compile("x", "y")(3, 4)`. Unused names are allowed; throws `ArgumentException` for a variable that isn't named or a name given twice. |
+| `Func<double[], Matrix<double>> Compile(IReadOnlyList<string> variables)` | The same for any number of variables, with the values in an array in this order. |
+| `Action<double[], double[]> CompileEntries(IReadOnlyList<string> variables)` | The same without allocating: writes entry (i, j) to index `i * Columns + j` of an array the caller provides and may reuse. |
+
 **Output**
 
 | Member | Description |
@@ -274,6 +283,7 @@ Extension members of `Vector<Expr>`.
 | `Expr Angle(Vector<Expr> other)` | The arccosine of v . w over the product of the norms, simplified: `[1, 0]` and `[1, 1]` give pi / 4. |
 | `Simplify`, `Expand`, `Substitute`, `Differentiate`, `GetVariables` | Entry-wise, as for matrices. |
 | `Evaluate`, `EvaluateComplex` | The same three forms as for matrices, giving `Vector<double>` and `Vector<ComplexNumber>`. |
+| `Compile`, `CompileEntries` | The same five forms as for matrices, giving `Vector<double>`: a curve `[cos(t), sin(t), t]` compiles with `Compile("t")`, a vector field with `Compile("x", "y", "z")`. |
 | `string Print()` | The entries printed, readable by `Parse`: `[x^2, 1/2]`. |
 | `string ToLatex()` | A LaTeX `bmatrix` with one column. |
 
