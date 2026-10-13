@@ -232,6 +232,19 @@ Extension members of `Matrix<Expr>`. Arithmetic results are simplified in the `G
 
 All of them need a square matrix and throw `InvalidOperationException` otherwise.
 
+**Transforms**
+
+The conventions of the fixed-size matrices: column vectors, right-handed, radians. Built from these, a kinematic chain gives the position of its end with `TransformPoint`, ready for `Jacobian` and `Compile`.
+
+| Member | Description |
+|---|---|
+| `static Matrix<Expr> Rotation(Expr angle)` | The 2 x 2 rotation of the plane, counterclockwise; simplified, so `Rotation(pi / 2)` is `[[0, -1], [1, 0]]`. |
+| `static Matrix<Expr> RotationX(Expr angle)`, `RotationY`, `RotationZ` | The 3 x 3 rotations about the axes, as `Matrix3x3.RotationX` and so on. |
+| `static Matrix<Expr> Translation(Vector<Expr> offset)` | The translation in homogeneous coordinates, one size larger than the offset: `[a, b, c]` gives a 4 x 4 matrix. |
+| `Matrix<Expr> ToHomogeneous()` | `[[A, 0], [0, 1]]`, to combine a linear map with translations; a scaling is `FromDiagonal(factors).ToHomogeneous()`. |
+| `Vector<Expr> TransformPoint(Vector<Expr> point)` | The point extended by 1, multiplied, and divided by the last entry unless it is exactly 1; simplified. Throws `ArgumentException` unless the matrix is one size larger than the point. |
+| `Vector<Expr> TransformDirection(Vector<Expr> direction)` | Only the linear part acts, so translations don't move it. |
+
 **Entry-wise**
 
 | Member | Description |
