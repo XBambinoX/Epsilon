@@ -83,6 +83,19 @@ public class LinearAlgebraReadmeExamplesTests
     }
 
     [Fact]
+    public void Least_squares_and_decompositions()
+    {
+        Assert.Equal("[1.5, 1]", Matrix<double>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]).LeastSquares([1, 3, 4, 4]).ToString());
+
+        var (values, vectors) = Matrix<double>.FromRows([2, 1], [1, 2]).SymmetricEigen();
+        Assert.Equal("[1, 3]", values.ToString());
+        Assert.Equal("[6.708203932499369, 2.2360679774997894]", Matrix<double>.FromRows([3, 0], [4, 5]).Svd().S.ToString());
+        Assert.Equal("[[0.04, 0.08], [0.08, 0.16]]", Matrix<double>.FromRows([1, 2], [2, 4]).PseudoInverse().ToString());
+        Assert.Equal(14.933034373659256, Matrix<double>.FromRows([1, 2], [3, 4]).ConditionNumber());
+        Assert.Equal("[1, 1, 1]", Matrix3x3<double>.Identity.SymmetricEigen().Values.ToString());
+    }
+
+    [Fact]
     public void Exact_rational_matrices()
     {
         var hilbert = Matrix<Rational>.Create(8, 8, (i, j) => new Rational(1, i + j + 1));
@@ -739,6 +752,7 @@ public class LinearAlgebraNumericMatricesDocTests
 
         var hilbert = Matrix<double>.Create(12, 12, (i, j) => 1.0 / (i + j + 1));
         Assert.Equal(11, hilbert.Rank());
+        Assert.Equal(1.8e16, hilbert.ConditionNumber(), 0.05e16);
         Assert.Equal("The matrix is singular: its rank is 11, not 12, to working precision.",
             Assert.Throws<InvalidOperationException>(() => hilbert.Inverse()).Message);
     }
@@ -753,6 +767,8 @@ public class LinearAlgebraNumericMatricesDocTests
         Assert.Equal("The matrix has a non-finite entry at (0, 1): NaN.",
             Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, double.NaN], [3, 4]).Determinant()).Message);
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, double.PositiveInfinity]).Rank());
+        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix. LeastSquares takes any shape.",
+            Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).Solve([1, 2])).Message);
     }
 }
 
@@ -1295,5 +1311,169 @@ public class LinearAlgebraLimitationsDocTests
 
         Assert.Equal("cos(a) * cos(b) - sin(a) * sin(b)",
             (Matrix<Expr>.Rotation(new Variable("a")) * Matrix<Expr>.Rotation(new Variable("b")))[0, 0].Print());
+    }
+}
+
+// Every example in Epsilon.LinearAlgebra/docs/least-squares.md, one test per section.
+public class LinearAlgebraLeastSquaresDocTests
+{
+    private static readonly double[] Xs = [0, 1, 2, 3, 4], Ys = [1.1, 1.9, 5.2, 9.8, 17.1];
+
+    [Fact]
+    public void Fitting_a_line()
+    {
+        var a = Matrix<double>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]);
+        Vector<double> y = [1, 3, 4, 4];
+
+        var c = a.LeastSquares(y);
+        Assert.Equal("[1.5, 1]", c.ToString());
+        Assert.Equal("[-0.5, 0.5, 0.5, -0.5]", (y - a * c).ToString());
+        Assert.Equal("[0, 0]", (a.Transpose() * (y - a * c)).ToString());
+    }
+
+    [Fact]
+    public void Any_function_with_linear_coefficients()
+    {
+        var powers = Matrix<double>.Create(5, 3, (i, j) => Math.Pow(Xs[i], j));
+        Assert.StartsWith("[[1, 0, 0], [1, 1, 1], [1, 2, 4], ", powers.ToString());
+        Assert.Equal("[1.082857142857144, -0.0957142857142874, 1.021428571428572]", powers.LeastSquares(Vector.Create(Ys)).ToString());
+    }
+
+    [Fact]
+    public void Exact_and_symbolic_fits()
+    {
+        Assert.Equal("[3/2, 1]", Matrix<Rational>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]).LeastSquares([1, 3, 4, 4]).ToString());
+
+        var exactPowers = Matrix<Rational>.Create(5, 3, (i, j) => new Rational((int)Math.Pow(Xs[i], j)));
+        Assert.Equal("[379/350, -67/700, 143/140]", exactPowers.LeastSquares(Vector.Create(Ys).Map(Rational.FromDouble)).ToString());
+
+        var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));
+        Assert.Equal("[[1, -2, 4], [1, -1, 1], [1, 0, 0], [1, 1, 1], [1, 2, 4]]", parabola.Print());
+        Assert.Equal("(12/35) * b + (12/35) * d + (17/35) * c - (3/35) * a - (3/35) * f",
+            parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print());
+
+        Assert.Equal("[(p * u + q * v + r * w) / (p^2 + q^2 + r^2)]",
+            Matrix<Expr>.Parse("[[p], [q], [r]]").LeastSquares(Vector<Expr>.Parse("[u, v, w]")).Print());
+    }
+
+    [Fact]
+    public void More_unknowns_than_equations()
+    {
+        Assert.Equal("[1, 2, 2]", Matrix<Rational>.FromRows([1, 2, 2]).LeastSquares([9]).ToString());
+        Assert.Equal("[0.9999999999999991, 1.9999999999999993, 1.9999999999999993]", Matrix<double>.FromRows([1, 2, 2]).LeastSquares([9]).ToString());
+        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix. LeastSquares takes any shape.",
+            Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2])).Message);
+    }
+
+    [Fact]
+    public void Dependent_columns()
+    {
+        var dependent = Matrix<double>.FromRows([1, 2], [2, 4], [3, 6]);
+        Assert.Equal("The columns of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.",
+            Assert.Throws<InvalidOperationException>(() => dependent.LeastSquares([1, 2, 3])).Message);
+        Assert.Equal("[0.2, 0.4]", (dependent.PseudoInverse() * Vector.Create<double>(1, 2, 3)).ToString());
+    }
+
+    [Fact]
+    public void Why_QR_for_doubles()
+    {
+        double eps = 1e-8;
+        var lauchli = Matrix<double>.FromRows([1, 1], [eps, 0], [0, eps]);
+        Vector<double> b = [2, eps, eps];
+        Assert.Equal("[0.9999999999999998, 1.0000000000000002]", lauchli.LeastSquares(b).ToString());
+        Assert.Equal("The matrix is singular: its rank is 1, not 2, to working precision.",
+            Assert.Throws<InvalidOperationException>(() => (lauchli.Transpose() * lauchli).Solve(lauchli.Transpose() * b)).Message);
+    }
+}
+
+// Every example in Epsilon.LinearAlgebra/docs/decompositions.md, one test per section.
+public class LinearAlgebraDecompositionsDocTests
+{
+    [Fact]
+    public void QR()
+    {
+        var a = Matrix<double>.FromRows([3, 0], [4, 5]);
+        var (q, r) = a.QR();
+        Assert.Equal("[[5, 4], [0, 3]]", r.ToString());
+        Assert.True(q.IsApproximately(Matrix<double>.FromRows([0.6, -0.8], [0.8, 0.6])));
+        Assert.True((q * r).IsApproximately(a));
+    }
+
+    [Fact]
+    public void Cholesky()
+    {
+        var covariance = Matrix<double>.FromRows([4, 2], [2, 3]);
+        var l = covariance.Cholesky();
+        Assert.Equal("[[2, 0], [1, 1.4142135623730951]]", l.ToString());
+        Assert.True(Matrix<double>.FromRows([2, -1], [-1, 2]).TryCholesky(out _));
+        Assert.False(Matrix<double>.FromRows([1, 2], [2, 1]).TryCholesky(out _));
+
+        // mean + l z has the covariance l l^T.
+        Assert.True((l * l.Transpose()).IsApproximately(covariance));
+        Assert.Equal("The matrix is not positive definite to working precision.",
+            Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 1], [1, 1]).Cholesky()).Message);
+    }
+
+    [Fact]
+    public void Symmetric_eigenvalues()
+    {
+        var ellipse = Matrix<double>.FromRows([1, 0.5], [0.5, 1]);
+        var (values, vectors) = ellipse.SymmetricEigen();
+        Assert.Equal("[0.5, 1.5]", values.ToString());
+        Assert.Equal("[[0.7071067811865476, 0.7071067811865475], [-0.7071067811865475, 0.7071067811865476]]", vectors.ToString());
+        Assert.Equal("[1.414213562373095, 0.8164965809277261]", values.Map(v => 1 / Math.Sqrt(v)).ToString());
+        Assert.Equal("[1, 2, 11]", Matrix<double>.FromRows([2, 0, 0], [0, 3, 4], [0, 4, 9]).SymmetricEigen().Values.ToString());
+
+        Vec3[] points = [(0, 0, 0), (2, 2, 0), (4, 4, 1), (6, 6, 0)];
+        Vec3 mean = points.Aggregate(Vec3.Zero, (sum, p) => sum + p) / points.Length;
+        Assert.Equal("[3, 3, 0.25]", mean.ToString());
+        var spread = Matrix3x3<double>.Zero;
+        foreach (Vec3 p in points)
+        {
+            Vec3 d = p - mean;
+            spread += Matrix3x3<double>.FromColumns(d * d.X, d * d.Y, d * d.Z);
+        }
+
+        var (variances, axes) = (spread / points.Length).SymmetricEigen();
+        Assert.Equal("[0, 0.17477764162066062, 10.012722358379339]", variances.ToString());
+        Assert.Equal("[0.7066494206079106, 0.7066494206079107, 0.035960988710105474]", axes.Column(2).ToString());
+        Assert.Equal(1, axes.Determinant(), 1e-15);
+
+        // In the frame of the box the points are flat.
+        foreach (Vec3 p in points)
+            Assert.Equal(0, (axes.Transpose() * (p - mean)).X, 1e-14);
+        Assert.True(Mat4.Rotation(Quaternion<double>.FromRotationMatrix(axes)).IsApproximately(new Mat4(axes)));
+    }
+
+    [Fact]
+    public void Singular_values()
+    {
+        var a = Matrix<double>.FromRows([3, 0], [4, 5]);
+        var (u, s, v) = a.Svd();
+        Assert.Equal("[6.708203932499369, 2.2360679774997894]", s.ToString());
+        Assert.True(s.IsApproximately([3 * Math.Sqrt(5), Math.Sqrt(5)]));
+        Assert.True((u * Matrix<double>.FromDiagonal(s) * v.Transpose()).IsApproximately(a));
+
+        var table = Matrix<double>.FromRows([1, 2, 3], [2, 4, 6.1], [3, 6, 9]);
+        var (u3, s3, v3) = table.Svd();
+        Assert.Equal("[14.043057523168343, 0.05035276541593254, 0]", s3.ToString());
+        var nearest = s3[0] * u3.Column(0).Outer(v3.Column(0));
+        Assert.Equal(0.0503527654159321, (table - nearest).SpectralNorm());
+
+        Assert.Equal("[1E+300, 1E-300]", Matrix<double>.FromRows([1e300, 0], [0, 1e-300]).Svd().S.ToString());
+        Assert.Equal(0.99, Matrix<double>.FromRows([1e20, 1e9], [1e9, 1]).Svd().S[1], 1e-15);
+    }
+
+    [Fact]
+    public void Pseudo_inverse_norm_and_condition_number()
+    {
+        Assert.Equal("[[0.04, 0.08], [0.08, 0.16]]", Matrix<double>.FromRows([1, 2], [2, 4]).PseudoInverse().ToString());
+
+        var m = Matrix<double>.FromRows([1, 2], [3, 4]);
+        Assert.Equal(5.4649857042190435, m.SpectralNorm());
+        Assert.Equal(14.933034373659256, m.ConditionNumber());
+        Assert.Equal(15257577275.315193, Matrix<double>.Create(8, 8, (i, j) => 1.0 / (i + j + 1)).ConditionNumber());
+        Assert.Equal(double.PositiveInfinity, Matrix<double>.FromRows([1, 2], [2, 4]).ConditionNumber());
+        Assert.Equal(1e20, Matrix<double>.FromRows([1e-20, 0], [0, 1]).ConditionNumber());
     }
 }

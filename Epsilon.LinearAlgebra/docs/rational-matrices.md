@@ -22,7 +22,8 @@ singular.Rank();      // 2
 singular.Inverse();   // InvalidOperationException: The matrix is singular: its rank is 2, not 3.
 ```
 
-`Trace`, `Determinant`, `Inverse`, `Solve`, `Rank`, `Pow` and `Hadamard` work as for doubles;
+`Trace`, `Determinant`, `Inverse`, `Solve`, `Rank`, `Pow`, `Hadamard` and `LeastSquares` work as
+for doubles, see [Least squares](least-squares.md#exact-and-symbolic-fits);
 dividing by 0 throws `DivideByZeroException`: `Cannot divide a matrix by 0.` The norms,
 `Normalize` and `Angle` are missing, as the norm of `[1, 1]` is sqrt(2) and not a rational;
 for the vector methods see [Vector geometry](vector-geometry.md#with-rationals).

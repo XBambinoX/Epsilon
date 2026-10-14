@@ -52,11 +52,12 @@ internal static class SymmetricEigen3x3<T> where T : struct, System.Numerics.IFl
         if (d1 < d0)
             (d0, d1, v0, v1) = (d1, d0, v1, v0);
 
-        // As in the general case the largest entry of a vector is positive; the third one then
-        // follows from the first two, so that the vectors form a rotation.
-        v0 = WithPositiveLargest(v0);
+        // As in the general case the largest entry of a vector is positive, for the two of the
+        // largest values, such as the main axis of a cloud of points; the first one then follows
+        // from them, so that the vectors form a rotation.
         v1 = WithPositiveLargest(v1);
-        v2 = v0.Cross(v1);
+        v2 = WithPositiveLargest(v2);
+        v0 = v1.Cross(v2);
 
         if (exponent != 0)
             (d0, d1, d2) = (T.ScaleB(d0, exponent), T.ScaleB(d1, exponent), T.ScaleB(d2, exponent));

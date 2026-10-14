@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.4.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.5.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
 [guides](README.md) explain the details, and your IDE shows the full XML documentation for
 every member.
@@ -434,7 +434,7 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 | `static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)` | T R S: scale, then turn, then move. Throws `ArgumentException` for the zero quaternion. |
 | `bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)` | Splits an affine map into T R S; a mirror image has a negative `scale.X`. `false` for a shear, a zero scale, a projective map or a NaN or infinite entry. |
 | `static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)`, `bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)` | Of `Matrix3x3<T>`: the same for affine maps of the plane. |
-| `(Vector3<T> Values, Matrix3x3<T> Vectors) SymmetricEigen()` | Of `Matrix3x3<T>`: the eigenvalues of a symmetric matrix, such as an inertia tensor or a covariance, in ascending order, and the eigenvectors as the columns of a rotation (determinant 1); without allocating. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or has a NaN or infinite entry. |
+| `(Vector3<T> Values, Matrix3x3<T> Vectors) SymmetricEigen()` | Of `Matrix3x3<T>`: the eigenvalues of a symmetric matrix, such as an inertia tensor or a covariance, in ascending order, and the eigenvectors as the columns of a rotation (determinant 1), the largest entry of the last two positive; without allocating. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or has a NaN or infinite entry. |
 | `Matrix3x3<T> NormalMatrix()` | Of `Matrix4x4<T>`: the inverse transpose of the top left corner, which maps normals. Throws `InvalidOperationException` if that corner has no inverse. |
 | `Vector3<T> TransformNormal(Vector3<T> normal)` | The normal mapped by `NormalMatrix()`, not normalized; it stays perpendicular to the mapped surface. |
 | `void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)` | The same for a span, with the normal matrix computed once. |

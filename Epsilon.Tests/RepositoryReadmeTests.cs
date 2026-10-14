@@ -26,6 +26,7 @@ public class RepositoryReadmeExamplesTests
         Assert.Equal("a * d - b * c", m.Determinant().Print());
         Assert.Equal("[[-2, 1], [3/2, -1/2]]", Matrix<Expr>.Parse("[[1, 2], [3, 4]]").Inverse().Print());
         Assert.Equal(2, Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]).Rank());
+        Assert.Equal("[1.5, 1]", Matrix<double>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]).LeastSquares([1, 3, 4, 4]).ToString());
         Assert.Equal("[2, 3, 4]", Matrix4x4<double>.Translation((1, 2, 3)).TransformPoint((1, 1, 1)).ToString());
     }
 }

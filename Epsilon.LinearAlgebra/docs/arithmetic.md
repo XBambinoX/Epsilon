@@ -120,7 +120,9 @@ Matrix<double>.FromRows([1, 1], [1, 1]).FrobeniusNorm();   // 2
 m.FrobeniusNorm().Print();                                 // sqrt(a^2 + b^2 + c^2 + d^2)
 ```
 
-The norm of a vector is `Norm()`, see [Vector geometry](vector-geometry.md).
+The norm of a vector is `Norm()`, see [Vector geometry](vector-geometry.md). The spectral norm of
+a matrix of doubles, the most it stretches a vector of length 1, is `SpectralNorm()`, see
+[Decompositions](decompositions.md#pseudo-inverse-norm-and-condition-number).
 
 ## Approximate equality
 

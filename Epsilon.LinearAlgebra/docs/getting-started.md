@@ -83,6 +83,8 @@ for three of them:
 | Entries | Symbols, functions, exact rationals | Exact fractions | Floating point |
 | Determinant, inverse, solve | Exact, without division (Berkowitz) | Exact, Gaussian elimination | LU decomposition with partial pivoting |
 | Rank | - | Exact | To working precision |
+| Least squares | Exact, normal equations | Exact, normal equations | QR decomposition |
+| QR, Cholesky, eigenvalues, SVD | - | - | Yes |
 | Cost | Grows with the size of the result | Grows with the digits of the fractions | O(n^3) |
 
 A matrix of numbers as `Expr` computes exactly: an 8 x 8 matrix of integers has its exact
@@ -116,6 +118,8 @@ small.ToMatrix() == numbers;                                 // true
 - [Symbolic matrices](symbolic-matrices.md), [Numeric matrices](numeric-matrices.md) and
   [Rational matrices](rational-matrices.md) - determinants, inverses and systems for each entry
   type.
+- [Least squares](least-squares.md) and [Decompositions](decompositions.md) - fitting data,
+  eigenvalues, singular values and the condition number.
 - [From formulas to fast code](fast-code.md) - derive with symbols, run at the speed of
   handwritten code.
 - [Fixed-size vectors and matrices](fixed-size.md), [Rotations](rotations.md) and

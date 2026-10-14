@@ -15,7 +15,7 @@ dependencies beyond the .NET base library.
 | Package | What it does | NuGet |
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
-| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU decomposition for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
+| [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular value decompositions and least squares for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 
 Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
 targets .NET 10, and the packages built on the core bring it with them:
@@ -51,6 +51,7 @@ var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
 m.Determinant().Print();                                           // a * d - b * c
 Matrix<Expr>.Parse("[[1, 2], [3, 4]]").Inverse().Print();          // [[-2, 1], [3/2, -1/2]]
 Matrix<double>.FromRows([1, 2, 3], [4, 5, 6], [7, 8, 9]).Rank();   // 2
+Matrix<double>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]).LeastSquares([1, 3, 4, 4]);   // [1.5, 1]
 Matrix4x4<double>.Translation((1, 2, 3)).TransformPoint((1, 1, 1));   // [2, 3, 4]
 ```
 
@@ -74,8 +75,8 @@ The areas built on the core as separate packages, in this order:
 
 1. **Linear algebra** - available as `Epsilon.LinearAlgebra`, with fixed-size vectors,
    matrices, quaternions and camera matrices for games and real-time code since 1.2 and 1.3,
-   and symbolic matrices compiled to fast delegates or C# source since 1.4.
-   Next: least squares (QR), eigenvalues and SVD.
+   symbolic matrices compiled to fast delegates or C# source since 1.4, and least squares
+   with QR, Cholesky, eigenvalue and singular value decompositions since 1.5.
 2. **Calculus** - symbolic and numeric integration (improper integrals included), gradients,
    Hessians, Laplacians. Already in this repository as an experimental project.
    Planned next, as far as time and energy allow: limits (including multivariable limits in

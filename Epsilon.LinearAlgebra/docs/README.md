@@ -1,6 +1,6 @@
 # Epsilon.LinearAlgebra documentation
 
-Guides for the `Epsilon.LinearAlgebra` package, version 1.4.0. For a one-page overview see the
+Guides for the `Epsilon.LinearAlgebra` package, version 1.5.0. For a one-page overview see the
 [package README](../README.md). The types are in the namespace `Epsilon.LinearAlgebra`; the
 expressions in them come from the core, namespace `Epsilon.Core`, which has
 [its own documentation](../../Epsilon.Core/docs/README.md). Every public member also has XML
@@ -20,6 +20,8 @@ documentation, which your IDE shows as you type.
 | [Vector geometry](vector-geometry.md) | Length, normalization, distance, cross product, angles, projection, reflection, interpolation |
 | [Symbolic matrices](symbolic-matrices.md) | Matrices of expressions: parsing, LaTeX, exact determinants, characteristic polynomials, inverses and systems, entry-wise operations |
 | [Numeric matrices](numeric-matrices.md) | Matrices of doubles: LU decomposition, determinant, inverse, systems, rank, and when a matrix counts as singular |
+| [Least squares](least-squares.md) | Fitting lines and curves, systems of any shape, exact and symbolic fits, the solution of least norm |
+| [Decompositions](decompositions.md) | QR, Cholesky, eigenvalues of symmetric matrices, singular values, the pseudo-inverse and the condition number |
 | [Rational matrices](rational-matrices.md) | Exact fractions: elimination without rounding, conversions to and from doubles and expressions |
 | [From formulas to fast code](fast-code.md) | Compiled delegates, Jacobians, symbolic transforms, C# source, Newton's method, inverse kinematics |
 | [Fixed-size vectors and matrices](fixed-size.md) | `Vector2/3/4<T>`, `Matrix2x2/3x3/4x4<T>` for games and geometry: transforms, the inverse, System.Numerics, speed |

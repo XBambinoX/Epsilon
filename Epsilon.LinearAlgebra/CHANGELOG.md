@@ -7,6 +7,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-14
+
+It depends on `Epsilon` 1.2.0 or later, as before.
+
+### Added
+
+- **Least squares.** `LeastSquares(b)` for matrices of doubles, rationals and expressions, with
+  a vector or a matrix of right-hand sides: the x that minimizes ||A x - b||; for a matrix with
+  more columns than rows the exact solution of the smallest norm, for a square one that of
+  `Solve`. By QR decomposition for doubles; exact, from the normal equations, for rationals and
+  expressions, where symbols on the right-hand side give the weights of a fit, such as the
+  smoothing filter of Savitzky and Golay.
+- **QR decomposition** `QR()` of matrices of doubles by Householder reflections, in its thin form.
+- **Cholesky decomposition** `Cholesky()` of symmetric positive definite matrices of doubles, and
+  `TryCholesky(out lower)`, which doubles as the test for positive definiteness.
+- **Eigenvalues and eigenvectors of symmetric matrices**, `SymmetricEigen()`, by the Jacobi
+  method: for `Matrix<double>`, and for `Matrix3x3<T>` of `float`, `double` and `Half` without
+  allocating and with the eigenvectors as a rotation, for the principal axes of an inertia tensor
+  or of a cloud of points.
+- **Singular value decomposition** `Svd()` of matrices of doubles by one-sided Jacobi, accurate
+  for small singular values too; with it `PseudoInverse()`, `SpectralNorm()` and
+  `ConditionNumber()`.
+- Dependent columns, positive definiteness and symmetry are decided to working precision, by
+  tests that don't change when a column is scaled, as by a change of units.
+- **Documentation in pages**, like that of the core: [getting started](docs/getting-started.md),
+  matrices and vectors, arithmetic, vector geometry, symbolic, numeric and rational matrices,
+  [least squares](docs/least-squares.md), [decompositions](docs/decompositions.md), fast code,
+  fixed-size types, rotations, camera and [limitations](docs/limitations.md), with many more
+  examples, all checked by tests. The single guide page is gone.
+
+### Changed
+
+- `Solve` of a matrix that is not square says where to go: `Solve needs a square matrix, not a
+  2 x 3 matrix. LeastSquares takes any shape.`
+
 ## [1.4.0] - 2026-10-13
 
 It depends on `Epsilon` 1.2.0 or later, for its compiled evaluation; so the fixed-size types
@@ -169,7 +204,8 @@ The first release. It depends on `Epsilon` 1.1.1 or later.
 
 See [Known limitations](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.4.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.5.0...HEAD
+[1.5.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.5.0
 [1.4.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.4.0
 [1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.2.0

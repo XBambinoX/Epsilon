@@ -135,6 +135,7 @@ with `IsApproximately`.
 | `TransformDirection(d)` | (x, y, z, 0) mapped: translations leave it alone. |
 | `M11` ... `M44`, `m[i, j]`, `Row(i)`, `Column(j)` | The entries; Mij is in row i, column j, and the indices of `m[i, j]` start at 0. |
 | `Transpose()`, `Trace()`, `Determinant()` | The determinant by the closed formula, exact for integers. |
+| `SymmetricEigen()` | Of `Matrix3x3<T>`: the eigenvalues and the axes of a symmetric matrix, such as an inertia tensor; see [Decompositions](decompositions.md#symmetric-eigenvalues). |
 
 ```csharp
 var m = new Matrix3x3<double>(1, 2, 3, 4, 5, 6, 7, 8, 9);

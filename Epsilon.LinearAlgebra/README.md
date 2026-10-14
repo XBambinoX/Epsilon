@@ -9,8 +9,8 @@
 
 **Linear algebra for [Epsilon](https://www.nuget.org/packages/Epsilon).** Matrices and vectors of
 symbolic expressions, exact rationals or doubles: exact determinants, inverses and solutions of
-symbolic systems, exact elimination for rationals, LU decomposition for doubles, and vector
-geometry. For games and graphics, fixed-size vectors and matrices of `float`, `double` or any
+symbolic systems, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular
+value decompositions for doubles, least squares for every entry type, and vector geometry. For games and graphics, fixed-size vectors and matrices of `float`, `double` or any
 number type, quaternions, camera matrices and conversions to System.Numerics. Symbolic formulas
 become fast code: compiled delegates or standalone C#, with Jacobians for kinematics.
 
@@ -147,6 +147,27 @@ matrix, so the `6.1E-17` that `cos(pi/2)` leaves where a rotation has 0 doesn't 
 var turn = Matrix<double>.FromRows([Math.Cos(Math.PI / 2), -1], [1, Math.Cos(Math.PI / 2)]);
 turn.IsApproximately(Matrix<double>.FromRows([0, -1], [1, 0]));   // true
 ```
+
+### Least squares and decompositions
+
+`LeastSquares` fits data and solves systems of any shape: by QR for doubles, exactly for
+rationals, and as a formula for expressions. QR, Cholesky, the eigenvalues of symmetric matrices
+and the singular values come with the pseudo-inverse and the condition number:
+
+```csharp
+// The line y = c0 + c1 x through (0, 1), (1, 3), (2, 4) and (3, 4)
+Matrix<double>.FromRows([1, 0], [1, 1], [1, 2], [1, 3]).LeastSquares([1, 3, 4, 4]);   // [1.5, 1]
+
+var (values, vectors) = Matrix<double>.FromRows([2, 1], [1, 2]).SymmetricEigen();     // values: [1, 3]
+Matrix<double>.FromRows([3, 0], [4, 5]).Svd().S;          // [6.708203932499369, 2.2360679774997894]
+Matrix<double>.FromRows([1, 2], [2, 4]).PseudoInverse();  // [[0.04, 0.08], [0.08, 0.16]]
+Matrix<double>.FromRows([1, 2], [3, 4]).ConditionNumber();   // 14.933034373659256
+```
+
+`Matrix3x3<T>` has the eigenvalues too, without allocating, for the principal axes of an inertia
+tensor or a cloud of points. The Jacobi methods behind the eigenvalues and the singular values
+keep small values accurate, and every test of rank or definiteness is to working precision and
+doesn't depend on the scale of the columns.
 
 ### Exact rational matrices
 

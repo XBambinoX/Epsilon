@@ -112,7 +112,8 @@ Matrix<Expr>.Parse("[[x, 2x], [1, 2]]").Inverse();
 ```
 
 A determinant that is zero but not recognized as such gives entries that are undefined
-everywhere, never wrong values.
+everywhere, never wrong values. Systems that are not square have exact least-squares solutions,
+see [Least squares](least-squares.md#exact-and-symbolic-fits).
 
 ## Entry-wise operations
 

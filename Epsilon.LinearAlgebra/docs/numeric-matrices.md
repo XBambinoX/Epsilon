@@ -2,7 +2,9 @@
 
 For matrices of doubles, Gaussian elimination with partial pivoting, the LU decomposition
 P A = L U, gives the determinant, the inverse, the solutions of systems and the rank. Every
-result is rounded, so this page also says when a matrix counts as singular.
+result is rounded, so this page also says when a matrix counts as singular. Systems that are
+not square are on the page [Least squares](least-squares.md), and the other decompositions on
+[Decompositions](decompositions.md).
 
 ## Determinant, inverse and systems
 
@@ -18,7 +20,7 @@ n.Rank();                                            // 2
 `Solve` with a matrix solves for each of its columns at once, from one decomposition. To solve
 several systems with the same matrix, that is cheaper than an `Inverse()` followed by
 products, and more accurate. `Determinant`, `Inverse` and `Solve` need a square matrix; `Rank`
-works for any shape.
+works for any shape, and `LeastSquares` solves systems of any shape.
 
 A system of equations hides in many problems. The parabola y = c0 + c1 x + c2 x^2 through the
 points (1, 2), (2, 3) and (3, 6) has coefficients that solve one, with a row of powers of x
@@ -83,7 +85,9 @@ hilbert.Rank();      // 11
 hilbert.Inverse();   // InvalidOperationException: The matrix is singular: its rank is 11, not 12, to working precision.
 ```
 
-[Rational matrices](rational-matrices.md) compute such a matrix exactly.
+[Rational matrices](rational-matrices.md) compute such a matrix exactly. How close a matrix is
+to singular, its condition number, comes from its singular values:
+`hilbert.ConditionNumber()` is about 1.8E+16 (see [Decompositions](decompositions.md)).
 
 ## Errors
 
@@ -91,6 +95,7 @@ hilbert.Inverse();   // InvalidOperationException: The matrix is singular: its r
 |---|---|
 | `Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).Inverse()` | `InvalidOperationException: The inverse needs a square matrix, not a 2 x 3 matrix.` |
 | `n.Solve([1, 2, 3])` | `ArgumentException: The right-hand side has 3 entries, but the matrix has 2 rows.` |
+| `Matrix<double>.FromRows([1, 2, 3], [4, 5, 6]).Solve([1, 2])` | `InvalidOperationException: Solve needs a square matrix, not a 2 x 3 matrix. LeastSquares takes any shape.` |
 | `Matrix<double>.FromRows([1, double.NaN], [3, 4]).Determinant()` | `InvalidOperationException: The matrix has a non-finite entry at (0, 1): NaN.` |
 
 An entry that is NaN or infinite makes the result meaningless, so `Determinant`, `Inverse`,
