@@ -144,6 +144,6 @@ something that doesn't underflow (for `exp`, its logarithm).
 ## Not in the package
 
 Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`; its
-[guide](../../Epsilon.LinearAlgebra/docs/guide.md#limitations) lists its own limitations. The
+[known limitations](../../Epsilon.LinearAlgebra/docs/limitations.md) are on a page of its own. The
 repository also contains `Epsilon.Calculus` (integration, gradients, Hessians). It is
 experimental and not published yet; its API will change before it is.

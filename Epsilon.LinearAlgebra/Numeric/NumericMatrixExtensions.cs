@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, powers, norms, determinant, inverse, solve and rank of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR, Cholesky, symmetric eigenvalue and singular value decompositions, least squares and the pseudo-inverse of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -138,7 +138,7 @@ public static class NumericMatrixExtensions
         /// </exception>
         public Vector<double> Solve(Vector<double> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Length != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
 
@@ -152,7 +152,7 @@ public static class NumericMatrixExtensions
         /// </exception>
         public Matrix<double> Solve(Matrix<double> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Rows != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
 
@@ -165,6 +165,132 @@ public static class NumericMatrixExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
         public int Rank() => new LuDecomposition(matrix).Rank;
+
+        /// <summary>
+        /// The eigenvalues and eigenvectors of a symmetric matrix by the Jacobi method:
+        /// A = V * diag(values) * V^T. The values are in ascending order; column j of V is a unit
+        /// eigenvector for value j, the columns are orthogonal, and the entry of largest magnitude
+        /// of each is positive. Only the entries on and below the diagonal are used, once the
+        /// matrix is known to be symmetric up to rounding.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is not square, not symmetric, or has an entry that is NaN or infinite.</exception>
+        public (Vector<double> Values, Matrix<double> Vectors) SymmetricEigen() => SymmetricEigenDecomposition.Compute(matrix);
+
+        /// <summary>
+        /// The singular value decomposition A = U * diag(S) * V^T by one-sided Jacobi, in its thin
+        /// form: for an m x n matrix and k = min(m, n), U is m x k and V is n x k, both with
+        /// orthonormal columns, and the k singular values S are in descending order. The entry of
+        /// largest magnitude of each column of V is positive.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public (Matrix<double> U, Vector<double> S, Matrix<double> V) Svd() => SingularValueDecomposition.Compute(matrix);
+
+        /// <summary>
+        /// The Moore-Penrose pseudo-inverse V * diag(1 / S) * U^T, where singular values up to
+        /// max(m, n) * eps times the largest count as 0. For any shape and rank, A^+ b is the x of
+        /// least norm among those that minimize ||A x - b||.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public Matrix<double> PseudoInverse()
+        {
+            var (u, s, v) = matrix.Svd();
+            double cutoff = s.Length == 0 ? 0 : Math.Max(matrix.Rows, matrix.Columns) * MachineEpsilon * s[0];
+            var inverted = s.Map(value => value > cutoff ? 1 / value : 0);
+            return v * Matrix<double>.FromDiagonal(inverted) * u.Transpose();
+        }
+
+        /// <summary>
+        /// The spectral norm ||A||_2, the largest singular value: the most that the matrix
+        /// stretches a vector. 0 for an empty matrix.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public double SpectralNorm()
+        {
+            double[] values = SingularValueDecomposition.Values(matrix);
+            return values.Length == 0 ? 0 : values[0];
+        }
+
+        /// <summary>
+        /// The condition number in the spectral norm, the largest singular value over the
+        /// smallest: about how many times a relative error in b can grow in the solution of
+        /// A x = b. Infinity if the smallest is 0.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is empty or has an entry that is NaN or infinite.</exception>
+        public double ConditionNumber()
+        {
+            double[] values = SingularValueDecomposition.Values(matrix);
+            if (values.Length == 0)
+                throw new InvalidOperationException("An empty matrix has no condition number.");
+
+            return values[^1] == 0 ? double.PositiveInfinity : values[0] / values[^1];
+        }
+
+        /// <summary>
+        /// The QR decomposition A = Q * R by Householder reflections, in its thin form: for an
+        /// m x n matrix and k = min(m, n), Q is m x k with orthonormal columns and R is k x n and
+        /// upper triangular, with a diagonal that is not negative.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public (Matrix<double> Q, Matrix<double> R) QR() => new QrDecomposition(matrix).Factors();
+
+        /// <summary>
+        /// The Cholesky decomposition A = L * L^T of a symmetric positive definite matrix: L is
+        /// lower triangular with a positive diagonal. Only the entries on and below the diagonal
+        /// are used, once the matrix is known to be symmetric up to rounding.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, not symmetric, not positive definite to working precision, or
+        /// has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> Cholesky()
+        {
+            matrix.CheckSquare("Cholesky");
+            return new Matrix<double>(matrix.Rows, matrix.Rows,
+                CholeskyDecomposition.TryFactor(matrix, out string failure) ?? throw new InvalidOperationException(failure));
+        }
+
+        /// <summary>
+        /// The Cholesky decomposition, as <see cref="Cholesky"/>, or <c>false</c> where that
+        /// throws: whether the matrix is symmetric positive definite.
+        /// </summary>
+        public bool TryCholesky([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Matrix<double>? lower)
+        {
+            double[]? entries = matrix.IsSquare ? CholeskyDecomposition.TryFactor(matrix, out _) : null;
+            lower = entries is null ? null : new Matrix<double>(matrix.Rows, matrix.Rows, entries);
+            return lower is not null;
+        }
+
+        /// <summary>
+        /// The least-squares solution of A * x = b: the x that minimizes ||A x - b||, by QR
+        /// decomposition. For a square matrix it is the solution; for one with more columns than
+        /// rows, which has many exact solutions, it is the one with the smallest norm.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many entries as the matrix has rows.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The columns (rows, for more columns than rows) are linearly dependent to working
+        /// precision, or the matrix has an entry that is NaN or infinite.
+        /// </exception>
+        public Vector<double> LeastSquares(Vector<double> b)
+        {
+            if (b.Length != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
+
+            return new Vector<double>(LeastSquares(matrix, b.ToMatrix().Entries, 1));
+        }
+
+        /// <summary>The least-squares solution X of A * X = B: column j of X is that of column j of B.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many rows as the matrix.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The columns (rows, for more columns than rows) are linearly dependent to working
+        /// precision, or the matrix has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> LeastSquares(Matrix<double> b)
+        {
+            if (b.Rows != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
+
+            return new Matrix<double>(matrix.Columns, b.Columns, LeastSquares(matrix, b.Entries, b.Columns));
+        }
 
         /// <summary>The entry-wise sum.</summary>
         /// <exception cref="ArgumentException">The matrices have different sizes.</exception>
@@ -205,10 +331,34 @@ public static class NumericMatrixExtensions
         public static Matrix<double> operator /(Matrix<double> value, double scalar) => value.Map(a => a / scalar);
     }
 
+    private const double MachineEpsilon = 2.220446049250313E-16;
+
     private static void CheckTolerance(double tolerance, string paramName)
     {
         if (!(tolerance >= 0))
             throw new ArgumentOutOfRangeException(paramName, tolerance, "A tolerance must be a number >= 0.");
+    }
+
+    // A square matrix goes to LU, which is cheaper and gives Solve's results.
+    private static double[] LeastSquares(Matrix<double> matrix, ReadOnlySpan<double> b, int bColumns)
+    {
+        if (matrix.IsSquare)
+            return new LuDecomposition(matrix).Solve(b, bColumns);
+
+        if (matrix.Rows > matrix.Columns)
+        {
+            var qr = new QrDecomposition(matrix);
+            if (qr.HasDependentColumns)
+                throw new InvalidOperationException("The columns of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.");
+            return qr.LeastSquares(b, bColumns);
+        }
+
+        // Checked here, as the decomposition of the transpose would name the entry the wrong way round.
+        LuDecomposition.CheckFinite(matrix);
+        var transposed = new QrDecomposition(matrix.Transpose());
+        if (transposed.HasDependentColumns)
+            throw new InvalidOperationException("The rows of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.");
+        return transposed.MinimumNormSolution(b, bColumns);
     }
 
     // The row-major entries of left * right, where right has the given number of columns.

@@ -5,7 +5,7 @@ internal static class FloatingPoint<T> where T : struct, System.Numerics.IFloati
 {
     // The gap between 1 and the next number: 2^-52 for double, 2^-23 for float, 2^-10 for Half.
     // (T.Epsilon is something else: the smallest positive subnormal number.)
-    private static readonly T MachineEpsilon = T.BitIncrement(T.One) - T.One;
+    internal static readonly T MachineEpsilon = T.BitIncrement(T.One) - T.One;
 
     // The smallest sum of at most four squares that is accurate to rounding. A square below the
     // smallest normal number keeps only part of its bits and is off by up to T.Epsilon / 2; four

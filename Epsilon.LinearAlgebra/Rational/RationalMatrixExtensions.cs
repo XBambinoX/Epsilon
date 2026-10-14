@@ -3,7 +3,7 @@ using Epsilon.Core;
 namespace Epsilon.LinearAlgebra;
 
 /// <summary>
-/// Exact arithmetic, powers, determinant, inverse, solve and rank of matrices of
+/// Exact arithmetic, powers, determinant, inverse, solve, rank and least squares of matrices of
 /// <see cref="Rational"/>: no rounding, so a singular matrix is always recognized. Faster than a
 /// matrix of expressions with constant entries.
 /// </summary>
@@ -68,7 +68,7 @@ public static class RationalMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square or is singular.</exception>
         public Vector<Rational> Solve(Vector<Rational> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Length != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
 
@@ -80,7 +80,7 @@ public static class RationalMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square or is singular.</exception>
         public Matrix<Rational> Solve(Matrix<Rational> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Rows != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
 
@@ -89,6 +89,33 @@ public static class RationalMatrixExtensions
 
         /// <summary>The exact rank: the number of linearly independent rows, for any shape.</summary>
         public int Rank() => RationalElimination.Rank(matrix);
+
+        /// <summary>
+        /// The exact least-squares solution of A * x = b: the x that minimizes ||A x - b||, from the
+        /// normal equations A^T A x = A^T b. For a square matrix it is the solution; for one with
+        /// more columns than rows, which has many exact solutions, it is the one with the smallest
+        /// norm, A^T (A A^T)^-1 b.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many entries as the matrix has rows.</exception>
+        /// <exception cref="InvalidOperationException">The columns (rows, for more columns than rows) are linearly dependent.</exception>
+        public Vector<Rational> LeastSquares(Vector<Rational> b)
+        {
+            if (b.Length != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
+
+            return new Vector<Rational>(NormalEquations(matrix, b.ToMatrix()));
+        }
+
+        /// <summary>The exact least-squares solution X of A * X = B: column j of X is that of column j of B.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many rows as the matrix.</exception>
+        /// <exception cref="InvalidOperationException">The columns (rows, for more columns than rows) are linearly dependent.</exception>
+        public Matrix<Rational> LeastSquares(Matrix<Rational> b)
+        {
+            if (b.Rows != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
+
+            return NormalEquations(matrix, b);
+        }
 
         /// <summary>
         /// The integer power A^n by repeated squaring: the identity for n = 0, and a power of the
@@ -151,6 +178,20 @@ public static class RationalMatrixExtensions
 
             return value.Map(a => a / scalar);
         }
+    }
+
+    // Without rounding the normal equations are as good as QR, and they stay rational.
+    private static Matrix<Rational> NormalEquations(Matrix<Rational> matrix, Matrix<Rational> b)
+    {
+        if (matrix.IsSquare)
+            return matrix.Solve(b);
+
+        bool tall = matrix.Rows > matrix.Columns;
+        if (RationalElimination.Rank(matrix) < Math.Min(matrix.Rows, matrix.Columns))
+            throw new InvalidOperationException($"The {(tall ? "columns" : "rows")} of the matrix are linearly dependent.");
+
+        var transposed = matrix.Transpose();
+        return tall ? (transposed * matrix).Solve(transposed * b) : transposed * (matrix * transposed).Solve(b);
     }
 
     // The row-major entries of left * right, where right has the given number of columns.

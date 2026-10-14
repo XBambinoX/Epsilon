@@ -1,8 +1,8 @@
 # API reference
 
-Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.4.0. All types
+Every public type and member of the `Epsilon.LinearAlgebra` package, version 1.5.0. All types
 are in the namespace `Epsilon.LinearAlgebra`. Each entry has a one-line description; the
-[guide](guide.md) explains the details, and your IDE shows the full XML documentation for
+[guides](README.md) explain the details, and your IDE shows the full XML documentation for
 every member.
 
 A test (`LinearAlgebraApiReferenceDocTests`) checks that every public type and member is
@@ -111,9 +111,21 @@ Extension members of `Matrix<double>`.
 | `Vector<double> Solve(Vector<double> b)` | The solution of A x = b. |
 | `Matrix<double> Solve(Matrix<double> b)` | The solution of A X = B, column by column. |
 | `int Rank()` | The rank to working precision, for any shape. |
+| `Matrix<double> Cholesky()` | The Cholesky decomposition A = L L^T of a symmetric positive definite matrix: L lower triangular with a positive diagonal. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or not positive definite to working precision. |
+| `bool TryCholesky(out Matrix<double>? lower)` | The same, or `false` where `Cholesky` throws: whether the matrix is symmetric positive definite. |
+| `(Vector<double> Values, Matrix<double> Vectors) SymmetricEigen()` | The eigenvalues of a symmetric matrix in ascending order and orthonormal eigenvectors as the columns, A = V diag(values) V^T, by the Jacobi method; the entry of largest magnitude of each vector is positive. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding. |
+| `(Matrix<double> U, Vector<double> S, Matrix<double> V) Svd()` | The thin singular value decomposition A = U diag(S) V^T by one-sided Jacobi: U and V with min(m, n) orthonormal columns, the singular values S in descending order; the entry of largest magnitude of each column of V is positive. |
+| `Matrix<double> PseudoInverse()` | The Moore-Penrose pseudo-inverse, by SVD; singular values up to max(m, n) eps times the largest count as 0. A^+ b is the least-squares solution of least norm, for any rank. |
+| `double SpectralNorm()` | The largest singular value, \|\|A\|\|_2: the most the matrix stretches a vector. |
+| `double ConditionNumber()` | The largest singular value over the smallest; infinity for a singular matrix. Throws `InvalidOperationException` for an empty matrix. |
+| `(Matrix<double> Q, Matrix<double> R) QR()` | The thin QR decomposition by Householder reflections: Q with min(m, n) orthonormal columns, R upper triangular with a diagonal that is not negative, A = Q R. |
+| `Vector<double> LeastSquares(Vector<double> b)` | The x that minimizes \|\|A x - b\|\|, by QR; for more columns than rows the exact solution of the smallest norm, for a square matrix that of `Solve`. Throws `InvalidOperationException` if the columns (the rows) are dependent to working precision; `PseudoInverse` handles any rank. |
+| `Matrix<double> LeastSquares(Matrix<double> b)` | The same for every column of `b`. |
 
-`Pow`, `Determinant`, `Inverse` and `Solve` need a square matrix. `Determinant`, `Inverse`,
-`Solve` and `Rank` throw `InvalidOperationException` for an entry that is NaN or infinite.
+`Pow`, `Determinant`, `Inverse`, `Solve`, `Cholesky` and `SymmetricEigen` need a square matrix.
+`Determinant`, `Inverse`, `Solve`, `Rank` and the decompositions, `LeastSquares`, `PseudoInverse`,
+`SpectralNorm` and `ConditionNumber` throw `InvalidOperationException` for an entry that is NaN
+or infinite.
 
 ---
 
@@ -166,6 +178,7 @@ matrix is singular exactly when its determinant is 0. Integers convert to `Ratio
 | `Matrix<Rational> Inverse()` | Exact. Throws `InvalidOperationException` if singular. |
 | `Vector<Rational> Solve(Vector<Rational> b)`, `Matrix<Rational> Solve(Matrix<Rational> b)` | The exact solution of A x = b, or of A X = B column by column. |
 | `int Rank()` | The exact rank, for any shape. |
+| `Vector<Rational> LeastSquares(Vector<Rational> b)`, `Matrix<Rational> LeastSquares(Matrix<Rational> b)` | The exact x that minimizes \|\|A x - b\|\|, from the normal equations; for more columns than rows the solution of the smallest norm. Throws `InvalidOperationException` if the columns (the rows) are dependent. |
 | `Matrix<Rational> Pow(int exponent)` | A^n; a power of the inverse for negative n. |
 | `Matrix<Rational> Hadamard(Matrix<Rational> other)` | The entry-wise product. |
 
@@ -229,8 +242,9 @@ Extension members of `Matrix<Expr>`. Arithmetic results are simplified in the `G
 | `Matrix<Expr> Inverse()` | adj(A) / det(A), simplified. Throws `InvalidOperationException` if the determinant is 0. |
 | `Vector<Expr> Solve(Vector<Expr> b)` | Cramer's rule, adj(A) b / det(A). |
 | `Matrix<Expr> Solve(Matrix<Expr> b)` | The same for every column of `b`. |
+| `Vector<Expr> LeastSquares(Vector<Expr> b)`, `Matrix<Expr> LeastSquares(Matrix<Expr> b)` | The exact least-squares solution from the normal equations, for any shape; for more columns than rows the solution of the smallest norm. With numbers in the matrix and symbols in `b`, a combination of the entries of `b`. Throws `InvalidOperationException` if the columns (the rows) are dependent. |
 
-All of them need a square matrix and throw `InvalidOperationException` otherwise.
+All of them but `LeastSquares` need a square matrix and throw `InvalidOperationException` otherwise.
 
 **Transforms**
 
@@ -420,6 +434,7 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 | `static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)` | T R S: scale, then turn, then move. Throws `ArgumentException` for the zero quaternion. |
 | `bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)` | Splits an affine map into T R S; a mirror image has a negative `scale.X`. `false` for a shear, a zero scale, a projective map or a NaN or infinite entry. |
 | `static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)`, `bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)` | Of `Matrix3x3<T>`: the same for affine maps of the plane. |
+| `(Vector3<T> Values, Matrix3x3<T> Vectors) SymmetricEigen()` | Of `Matrix3x3<T>`: the eigenvalues of a symmetric matrix, such as an inertia tensor or a covariance, in ascending order, and the eigenvectors as the columns of a rotation (determinant 1), the largest entry of the last two positive; without allocating. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or has a NaN or infinite entry. |
 | `Matrix3x3<T> NormalMatrix()` | Of `Matrix4x4<T>`: the inverse transpose of the top left corner, which maps normals. Throws `InvalidOperationException` if that corner has no inverse. |
 | `Vector3<T> TransformNormal(Vector3<T> normal)` | The normal mapped by `NormalMatrix()`, not normalized; it stays perpendicular to the mapped surface. |
 | `void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)` | The same for a span, with the normal matrix computed once. |
