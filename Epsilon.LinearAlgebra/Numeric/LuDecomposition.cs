@@ -146,7 +146,7 @@ internal sealed class LuDecomposition
             (rowA[j], rowB[j]) = (rowB[j], rowA[j]);
     }
 
-    private static void CheckFinite(Matrix<double> matrix)
+    internal static void CheckFinite(Matrix<double> matrix)
     {
         ReadOnlySpan<double> entries = matrix.Entries;
         for (int k = 0; k < entries.Length; k++)

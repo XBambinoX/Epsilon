@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, powers, norms, determinant, inverse, solve and rank of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, QR decomposition and least squares of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -138,7 +138,7 @@ public static class NumericMatrixExtensions
         /// </exception>
         public Vector<double> Solve(Vector<double> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Length != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
 
@@ -152,7 +152,7 @@ public static class NumericMatrixExtensions
         /// </exception>
         public Matrix<double> Solve(Matrix<double> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Rows != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
 
@@ -165,6 +165,46 @@ public static class NumericMatrixExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
         public int Rank() => new LuDecomposition(matrix).Rank;
+
+        /// <summary>
+        /// The QR decomposition A = Q * R by Householder reflections, in its thin form: for an
+        /// m x n matrix and k = min(m, n), Q is m x k with orthonormal columns and R is k x n and
+        /// upper triangular, with a diagonal that is not negative.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public (Matrix<double> Q, Matrix<double> R) QR() => new QrDecomposition(matrix).Factors();
+
+        /// <summary>
+        /// The least-squares solution of A * x = b: the x that minimizes ||A x - b||, by QR
+        /// decomposition. For a square matrix it is the solution; for one with more columns than
+        /// rows, which has many exact solutions, it is the one with the smallest norm.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many entries as the matrix has rows.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The columns (rows, for more columns than rows) are linearly dependent to working
+        /// precision, or the matrix has an entry that is NaN or infinite.
+        /// </exception>
+        public Vector<double> LeastSquares(Vector<double> b)
+        {
+            if (b.Length != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
+
+            return new Vector<double>(LeastSquares(matrix, b.ToMatrix().Entries, 1));
+        }
+
+        /// <summary>The least-squares solution X of A * X = B: column j of X is that of column j of B.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many rows as the matrix.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The columns (rows, for more columns than rows) are linearly dependent to working
+        /// precision, or the matrix has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> LeastSquares(Matrix<double> b)
+        {
+            if (b.Rows != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
+
+            return new Matrix<double>(matrix.Columns, b.Columns, LeastSquares(matrix, b.Entries, b.Columns));
+        }
 
         /// <summary>The entry-wise sum.</summary>
         /// <exception cref="ArgumentException">The matrices have different sizes.</exception>
@@ -209,6 +249,28 @@ public static class NumericMatrixExtensions
     {
         if (!(tolerance >= 0))
             throw new ArgumentOutOfRangeException(paramName, tolerance, "A tolerance must be a number >= 0.");
+    }
+
+    // A square matrix goes to LU, which is cheaper and gives Solve's results.
+    private static double[] LeastSquares(Matrix<double> matrix, ReadOnlySpan<double> b, int bColumns)
+    {
+        if (matrix.IsSquare)
+            return new LuDecomposition(matrix).Solve(b, bColumns);
+
+        if (matrix.Rows > matrix.Columns)
+        {
+            var qr = new QrDecomposition(matrix);
+            if (qr.HasDependentColumns)
+                throw new InvalidOperationException("The columns of the matrix are linearly dependent to working precision.");
+            return qr.LeastSquares(b, bColumns);
+        }
+
+        // Checked here, as the decomposition of the transpose would name the entry the wrong way round.
+        LuDecomposition.CheckFinite(matrix);
+        var transposed = new QrDecomposition(matrix.Transpose());
+        if (transposed.HasDependentColumns)
+            throw new InvalidOperationException("The rows of the matrix are linearly dependent to working precision.");
+        return transposed.MinimumNormSolution(b, bColumns);
     }
 
     // The row-major entries of left * right, where right has the given number of columns.

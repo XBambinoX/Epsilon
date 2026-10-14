@@ -338,6 +338,12 @@ public sealed class Matrix<T> : IEquatable<Matrix<T>> where T : notnull
             throw new InvalidOperationException($"{operation} needs a square matrix, not a {Size} matrix.");
     }
 
+    internal void CheckSquareForSolve()
+    {
+        if (!IsSquare)
+            throw new InvalidOperationException($"Solve needs a square matrix, not a {Size} matrix. LeastSquares takes any shape.");
+    }
+
     // factor^|exponent| of a square matrix by repeated squaring; the caller passes A^-1 as the
     // factor for a negative exponent. Powers of one matrix commute, so the order of the products
     // does not matter.

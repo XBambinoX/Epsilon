@@ -1146,7 +1146,7 @@ public class NumericLuTests
             Assert.Throws<InvalidOperationException>(() => wide.Determinant()).Message);
         Assert.Equal("The inverse needs a square matrix, not a 2 x 3 matrix.",
             Assert.Throws<InvalidOperationException>(() => wide.Inverse()).Message);
-        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix.",
+        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix. LeastSquares takes any shape.",
             Assert.Throws<InvalidOperationException>(() => wide.Solve([1, 2])).Message);
     }
 

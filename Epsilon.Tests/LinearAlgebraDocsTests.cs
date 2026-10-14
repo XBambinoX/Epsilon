@@ -1285,11 +1285,6 @@ public class LinearAlgebraCameraDocTests
 public class LinearAlgebraLimitationsDocTests
 {
     [Fact]
-    public void Numeric_matrices() =>
-        Assert.Equal("Solve needs a square matrix, not a 2 x 3 matrix.",
-            Assert.Throws<InvalidOperationException>(() => Matrix<double>.Zero(2, 3).Solve([1, 2])).Message);
-
-    [Fact]
     public void Symbolic_matrices()
     {
         Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print());

@@ -8,14 +8,6 @@ when a limitation is lifted this page is updated with it. The expressions have
 
 ## Numeric matrices
 
-- **Only square systems.** `Solve` needs a square matrix; least squares for other shapes (by
-  QR decomposition) is planned:
-
-  ```csharp
-  Matrix<double>.Zero(2, 3).Solve([1, 2]);
-  // InvalidOperationException: Solve needs a square matrix, not a 2 x 3 matrix.
-  ```
-
 - **No numeric eigenvalues or SVD.** Eigenvalues are available as the roots of
   `CharacteristicPolynomial`, see [Symbolic matrices](symbolic-matrices.md#determinant-and-characteristic-polynomial).
 - **No arithmetic for `ComplexNumber`.** A matrix of complex numbers, such as the result of

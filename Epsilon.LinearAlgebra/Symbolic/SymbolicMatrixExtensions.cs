@@ -134,7 +134,7 @@ public static partial class SymbolicMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square, or its determinant is 0.</exception>
         public Vector<Expr> Solve(Vector<Expr> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Length != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
 
@@ -146,11 +146,39 @@ public static partial class SymbolicMatrixExtensions
         /// <exception cref="InvalidOperationException">The matrix is not square, or its determinant is 0.</exception>
         public Matrix<Expr> Solve(Matrix<Expr> b)
         {
-            matrix.CheckSquare("Solve");
+            matrix.CheckSquareForSolve();
             if (b.Rows != matrix.Rows)
                 throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
 
             return SolveCramer(matrix, b);
+        }
+
+        /// <summary>
+        /// The exact least-squares solution of A * x = b: the x that minimizes ||A x - b|| for
+        /// real values of the symbols, from the normal equations A^T A x = A^T b, every entry
+        /// simplified. For a square matrix it is the solution; for one with more columns than
+        /// rows it is the solution with the smallest norm, A^T (A A^T)^-1 b. Fitting a line to
+        /// points with symbolic values gives the formulas of linear regression.
+        /// </summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many entries as the matrix has rows.</exception>
+        /// <exception cref="InvalidOperationException">The columns (rows, for more columns than rows) are linearly dependent.</exception>
+        public Vector<Expr> LeastSquares(Vector<Expr> b)
+        {
+            if (b.Length != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Length} entries, but the matrix has {matrix.Rows} rows.", nameof(b));
+
+            return new Vector<Expr>(NormalEquations(matrix, b.ToMatrix()));
+        }
+
+        /// <summary>The exact least-squares solution X of A * X = B: column j of X is that of column j of B.</summary>
+        /// <exception cref="ArgumentException"><paramref name="b"/> has not as many rows as the matrix.</exception>
+        /// <exception cref="InvalidOperationException">The columns (rows, for more columns than rows) are linearly dependent.</exception>
+        public Matrix<Expr> LeastSquares(Matrix<Expr> b)
+        {
+            if (b.Rows != matrix.Rows)
+                throw new ArgumentException($"The right-hand side has {b.Rows} rows, but the matrix has {matrix.Rows}.", nameof(b));
+
+            return NormalEquations(matrix, b);
         }
 
         /// <summary>The entry-wise sum, simplified.</summary>
@@ -197,22 +225,47 @@ public static partial class SymbolicMatrixExtensions
     private static Expr Determinant(Matrix<Expr> matrix, Expr[] coefficients) =>
         matrix.Rows % 2 == 0 ? coefficients[^1] : (-coefficients[^1]).Expand();
 
+    private const string Singular = "The matrix is singular: its determinant is 0.";
+
     // Both from one characteristic polynomial; the determinant must not be 0.
-    private static (Matrix<Expr> Adjugate, Expr Determinant) AdjugateAndDeterminant(Matrix<Expr> matrix)
+    private static (Matrix<Expr> Adjugate, Expr Determinant) AdjugateAndDeterminant(Matrix<Expr> matrix, string singular = Singular)
     {
         Expr[] coefficients = Berkowitz.Coefficients(matrix);
         Expr determinant = Determinant(matrix, coefficients);
         if (determinant is Constant { Value.IsZero: true })
-            throw new InvalidOperationException("The matrix is singular: its determinant is 0.");
+            throw new InvalidOperationException(singular);
 
         return (Berkowitz.Adjugate(matrix, coefficients), determinant);
     }
 
-    private static Matrix<Expr> SolveCramer(Matrix<Expr> matrix, Matrix<Expr> b)
+    private static Matrix<Expr> SolveCramer(Matrix<Expr> matrix, Matrix<Expr> b, string singular = Singular)
     {
-        var (adjugate, determinant) = AdjugateAndDeterminant(matrix);
+        var (adjugate, determinant) = AdjugateAndDeterminant(matrix, singular);
         return Matrix<Expr>.Create(matrix.Rows, b.Columns,
             (i, j) => (Berkowitz.Sum(matrix.Rows, k => adjugate[i, k] * b[k, j]) / determinant).Simplify());
+    }
+
+    // A^T A (or A A^T) is singular exactly where the columns (rows) of A are dependent. Without
+    // symbols in A, the constant matrix (A^T A)^-1 A^T comes first, so that x is a combination of
+    // the entries of b with reduced fractions; with symbols, Cramer's rule keeps one fraction per entry.
+    private static Matrix<Expr> NormalEquations(Matrix<Expr> matrix, Matrix<Expr> b)
+    {
+        if (matrix.IsSquare)
+            return SolveCramer(matrix, b);
+
+        bool tall = matrix.Rows > matrix.Columns;
+        string dependent = $"The {(tall ? "columns" : "rows")} of the matrix are linearly dependent.";
+        var transposed = matrix.Transpose();
+        var normal = tall ? transposed * matrix : matrix * transposed;
+
+        if (matrix.GetVariables().Count == 0)
+        {
+            var (adjugate, determinant) = AdjugateAndDeterminant(normal, dependent);
+            var inverse = adjugate.Map(entry => (entry / determinant).Simplify());
+            return (tall ? inverse * transposed : transposed * inverse) * b;
+        }
+
+        return tall ? SolveCramer(normal, transposed * b, dependent) : transposed * SolveCramer(normal, b, dependent);
     }
 
     // The simplified sum of term(0), ..., term(count - 1); 0 when there are no terms.
