@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR and Cholesky decompositions and least squares of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR, Cholesky and symmetric eigenvalue decompositions and least squares of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -165,6 +165,16 @@ public static class NumericMatrixExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
         public int Rank() => new LuDecomposition(matrix).Rank;
+
+        /// <summary>
+        /// The eigenvalues and eigenvectors of a symmetric matrix by the Jacobi method:
+        /// A = V * diag(values) * V^T. The values are in ascending order; column j of V is a unit
+        /// eigenvector for value j, the columns are orthogonal, and the entry of largest magnitude
+        /// of each is positive. Only the entries on and below the diagonal are used, once the
+        /// matrix is known to be symmetric up to rounding.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is not square, not symmetric, or has an entry that is NaN or infinite.</exception>
+        public (Vector<double> Values, Matrix<double> Vectors) SymmetricEigen() => SymmetricEigenDecomposition.Compute(matrix);
 
         /// <summary>
         /// The QR decomposition A = Q * R by Householder reflections, in its thin form: for an

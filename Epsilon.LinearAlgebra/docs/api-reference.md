@@ -113,13 +113,14 @@ Extension members of `Matrix<double>`.
 | `int Rank()` | The rank to working precision, for any shape. |
 | `Matrix<double> Cholesky()` | The Cholesky decomposition A = L L^T of a symmetric positive definite matrix: L lower triangular with a positive diagonal. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or not positive definite to working precision. |
 | `bool TryCholesky(out Matrix<double>? lower)` | The same, or `false` where `Cholesky` throws: whether the matrix is symmetric positive definite. |
+| `(Vector<double> Values, Matrix<double> Vectors) SymmetricEigen()` | The eigenvalues of a symmetric matrix in ascending order and orthonormal eigenvectors as the columns, A = V diag(values) V^T, by the Jacobi method; the entry of largest magnitude of each vector is positive. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding. |
 | `(Matrix<double> Q, Matrix<double> R) QR()` | The thin QR decomposition by Householder reflections: Q with min(m, n) orthonormal columns, R upper triangular with a diagonal that is not negative, A = Q R. |
 | `Vector<double> LeastSquares(Vector<double> b)` | The x that minimizes \|\|A x - b\|\|, by QR; for more columns than rows the exact solution of the smallest norm, for a square matrix that of `Solve`. Throws `InvalidOperationException` if the columns (the rows) are dependent to working precision. |
 | `Matrix<double> LeastSquares(Matrix<double> b)` | The same for every column of `b`. |
 
-`Pow`, `Determinant`, `Inverse`, `Solve` and `Cholesky` need a square matrix. `Determinant`,
-`Inverse`, `Solve`, `Rank`, `Cholesky`, `QR` and `LeastSquares` throw `InvalidOperationException`
-for an entry that is NaN or infinite.
+`Pow`, `Determinant`, `Inverse`, `Solve`, `Cholesky` and `SymmetricEigen` need a square matrix.
+`Determinant`, `Inverse`, `Solve`, `Rank`, `Cholesky`, `SymmetricEigen`, `QR` and `LeastSquares`
+throw `InvalidOperationException` for an entry that is NaN or infinite.
 
 ---
 
@@ -428,6 +429,7 @@ Extension members of `Matrix2x2<T>`, `Matrix3x3<T>` and `Matrix4x4<T>` for
 | `static Matrix4x4<T> Compose(Vector3<T> translation, Quaternion<T> rotation, Vector3<T> scale)` | T R S: scale, then turn, then move. Throws `ArgumentException` for the zero quaternion. |
 | `bool TryDecompose(out Vector3<T> translation, out Quaternion<T> rotation, out Vector3<T> scale)` | Splits an affine map into T R S; a mirror image has a negative `scale.X`. `false` for a shear, a zero scale, a projective map or a NaN or infinite entry. |
 | `static Matrix3x3<T> Compose(Vector2<T> translation, T angle, Vector2<T> scale)`, `bool TryDecompose(out Vector2<T> translation, out T angle, out Vector2<T> scale)` | Of `Matrix3x3<T>`: the same for affine maps of the plane. |
+| `(Vector3<T> Values, Matrix3x3<T> Vectors) SymmetricEigen()` | Of `Matrix3x3<T>`: the eigenvalues of a symmetric matrix, such as an inertia tensor or a covariance, in ascending order, and the eigenvectors as the columns of a rotation (determinant 1); without allocating. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or has a NaN or infinite entry. |
 | `Matrix3x3<T> NormalMatrix()` | Of `Matrix4x4<T>`: the inverse transpose of the top left corner, which maps normals. Throws `InvalidOperationException` if that corner has no inverse. |
 | `Vector3<T> TransformNormal(Vector3<T> normal)` | The normal mapped by `NormalMatrix()`, not normalized; it stays perpendicular to the mapped surface. |
 | `void TransformNormals(ReadOnlySpan<Vector3<T>> normals, Span<Vector3<T>> destination)` | The same for a span, with the normal matrix computed once. |

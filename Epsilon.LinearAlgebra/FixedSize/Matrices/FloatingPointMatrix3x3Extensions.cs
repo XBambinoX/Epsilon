@@ -109,6 +109,16 @@ public static class FloatingPointMatrix3x3Extensions
         }
 
         /// <summary>
+        /// The eigenvalues and eigenvectors of a symmetric matrix, such as an inertia tensor or the
+        /// covariance of points, by the Jacobi method: A = V * diag(values) * V^T. The values are in
+        /// ascending order, and column j of V is a unit eigenvector for value j; the columns form a
+        /// rotation, with determinant 1. Only the entries on and below the diagonal are used, once
+        /// the matrix is known to be symmetric up to rounding.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is not symmetric or has an entry that is NaN or infinite.</exception>
+        public (Vector3<T> Values, Matrix3x3<T> Vectors) SymmetricEigen() => SymmetricEigen3x3<T>.Compute(matrix);
+
+        /// <summary>
         /// The inverse, the map that undoes this one; see <see cref="TryInverse"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">
