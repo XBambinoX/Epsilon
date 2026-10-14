@@ -111,13 +111,15 @@ Extension members of `Matrix<double>`.
 | `Vector<double> Solve(Vector<double> b)` | The solution of A x = b. |
 | `Matrix<double> Solve(Matrix<double> b)` | The solution of A X = B, column by column. |
 | `int Rank()` | The rank to working precision, for any shape. |
+| `Matrix<double> Cholesky()` | The Cholesky decomposition A = L L^T of a symmetric positive definite matrix: L lower triangular with a positive diagonal. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or not positive definite to working precision. |
+| `bool TryCholesky(out Matrix<double>? lower)` | The same, or `false` where `Cholesky` throws: whether the matrix is symmetric positive definite. |
 | `(Matrix<double> Q, Matrix<double> R) QR()` | The thin QR decomposition by Householder reflections: Q with min(m, n) orthonormal columns, R upper triangular with a diagonal that is not negative, A = Q R. |
 | `Vector<double> LeastSquares(Vector<double> b)` | The x that minimizes \|\|A x - b\|\|, by QR; for more columns than rows the exact solution of the smallest norm, for a square matrix that of `Solve`. Throws `InvalidOperationException` if the columns (the rows) are dependent to working precision. |
 | `Matrix<double> LeastSquares(Matrix<double> b)` | The same for every column of `b`. |
 
-`Pow`, `Determinant`, `Inverse` and `Solve` need a square matrix. `Determinant`, `Inverse`,
-`Solve`, `Rank`, `QR` and `LeastSquares` throw `InvalidOperationException` for an entry that is
-NaN or infinite.
+`Pow`, `Determinant`, `Inverse`, `Solve` and `Cholesky` need a square matrix. `Determinant`,
+`Inverse`, `Solve`, `Rank`, `Cholesky`, `QR` and `LeastSquares` throw `InvalidOperationException`
+for an entry that is NaN or infinite.
 
 ---
 

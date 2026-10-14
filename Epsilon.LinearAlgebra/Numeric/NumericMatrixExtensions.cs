@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, QR decomposition and least squares of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR and Cholesky decompositions and least squares of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -173,6 +173,33 @@ public static class NumericMatrixExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
         public (Matrix<double> Q, Matrix<double> R) QR() => new QrDecomposition(matrix).Factors();
+
+        /// <summary>
+        /// The Cholesky decomposition A = L * L^T of a symmetric positive definite matrix: L is
+        /// lower triangular with a positive diagonal. Only the entries on and below the diagonal
+        /// are used, once the matrix is known to be symmetric up to rounding.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The matrix is not square, not symmetric, not positive definite to working precision, or
+        /// has an entry that is NaN or infinite.
+        /// </exception>
+        public Matrix<double> Cholesky()
+        {
+            matrix.CheckSquare("Cholesky");
+            return new Matrix<double>(matrix.Rows, matrix.Rows,
+                CholeskyDecomposition.TryFactor(matrix, out string failure) ?? throw new InvalidOperationException(failure));
+        }
+
+        /// <summary>
+        /// The Cholesky decomposition, as <see cref="Cholesky"/>, or <c>false</c> where that
+        /// throws: whether the matrix is symmetric positive definite.
+        /// </summary>
+        public bool TryCholesky([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Matrix<double>? lower)
+        {
+            double[]? entries = matrix.IsSquare ? CholeskyDecomposition.TryFactor(matrix, out _) : null;
+            lower = entries is null ? null : new Matrix<double>(matrix.Rows, matrix.Rows, entries);
+            return lower is not null;
+        }
 
         /// <summary>
         /// The least-squares solution of A * x = b: the x that minimizes ||A x - b||, by QR
