@@ -1,6 +1,6 @@
 namespace Epsilon.LinearAlgebra;
 
-/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR, Cholesky and symmetric eigenvalue decompositions and least squares of matrices of <see cref="double"/>.</summary>
+/// <summary>Arithmetic, powers, norms, determinant, inverse, solve, rank, the QR, Cholesky, symmetric eigenvalue and singular value decompositions, least squares and the pseudo-inverse of matrices of <see cref="double"/>.</summary>
 public static class NumericMatrixExtensions
 {
     extension(Matrix<double> matrix)
@@ -177,6 +177,55 @@ public static class NumericMatrixExtensions
         public (Vector<double> Values, Matrix<double> Vectors) SymmetricEigen() => SymmetricEigenDecomposition.Compute(matrix);
 
         /// <summary>
+        /// The singular value decomposition A = U * diag(S) * V^T by one-sided Jacobi, in its thin
+        /// form: for an m x n matrix and k = min(m, n), U is m x k and V is n x k, both with
+        /// orthonormal columns, and the k singular values S are in descending order. The entry of
+        /// largest magnitude of each column of V is positive.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public (Matrix<double> U, Vector<double> S, Matrix<double> V) Svd() => SingularValueDecomposition.Compute(matrix);
+
+        /// <summary>
+        /// The Moore-Penrose pseudo-inverse V * diag(1 / S) * U^T, where singular values up to
+        /// max(m, n) * eps times the largest count as 0. For any shape and rank, A^+ b is the x of
+        /// least norm among those that minimize ||A x - b||.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public Matrix<double> PseudoInverse()
+        {
+            var (u, s, v) = matrix.Svd();
+            double cutoff = s.Length == 0 ? 0 : Math.Max(matrix.Rows, matrix.Columns) * MachineEpsilon * s[0];
+            var inverted = s.Map(value => value > cutoff ? 1 / value : 0);
+            return v * Matrix<double>.FromDiagonal(inverted) * u.Transpose();
+        }
+
+        /// <summary>
+        /// The spectral norm ||A||_2, the largest singular value: the most that the matrix
+        /// stretches a vector. 0 for an empty matrix.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix has an entry that is NaN or infinite.</exception>
+        public double SpectralNorm()
+        {
+            double[] values = SingularValueDecomposition.Values(matrix);
+            return values.Length == 0 ? 0 : values[0];
+        }
+
+        /// <summary>
+        /// The condition number in the spectral norm, the largest singular value over the
+        /// smallest: about how many times a relative error in b can grow in the solution of
+        /// A x = b. Infinity if the smallest is 0.
+        /// </summary>
+        /// <exception cref="InvalidOperationException">The matrix is empty or has an entry that is NaN or infinite.</exception>
+        public double ConditionNumber()
+        {
+            double[] values = SingularValueDecomposition.Values(matrix);
+            if (values.Length == 0)
+                throw new InvalidOperationException("An empty matrix has no condition number.");
+
+            return values[^1] == 0 ? double.PositiveInfinity : values[0] / values[^1];
+        }
+
+        /// <summary>
         /// The QR decomposition A = Q * R by Householder reflections, in its thin form: for an
         /// m x n matrix and k = min(m, n), Q is m x k with orthonormal columns and R is k x n and
         /// upper triangular, with a diagonal that is not negative.
@@ -282,6 +331,8 @@ public static class NumericMatrixExtensions
         public static Matrix<double> operator /(Matrix<double> value, double scalar) => value.Map(a => a / scalar);
     }
 
+    private const double MachineEpsilon = 2.220446049250313E-16;
+
     private static void CheckTolerance(double tolerance, string paramName)
     {
         if (!(tolerance >= 0))
@@ -298,7 +349,7 @@ public static class NumericMatrixExtensions
         {
             var qr = new QrDecomposition(matrix);
             if (qr.HasDependentColumns)
-                throw new InvalidOperationException("The columns of the matrix are linearly dependent to working precision.");
+                throw new InvalidOperationException("The columns of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.");
             return qr.LeastSquares(b, bColumns);
         }
 
@@ -306,7 +357,7 @@ public static class NumericMatrixExtensions
         LuDecomposition.CheckFinite(matrix);
         var transposed = new QrDecomposition(matrix.Transpose());
         if (transposed.HasDependentColumns)
-            throw new InvalidOperationException("The rows of the matrix are linearly dependent to working precision.");
+            throw new InvalidOperationException("The rows of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.");
         return transposed.MinimumNormSolution(b, bColumns);
     }
 

@@ -114,13 +114,18 @@ Extension members of `Matrix<double>`.
 | `Matrix<double> Cholesky()` | The Cholesky decomposition A = L L^T of a symmetric positive definite matrix: L lower triangular with a positive diagonal. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding or not positive definite to working precision. |
 | `bool TryCholesky(out Matrix<double>? lower)` | The same, or `false` where `Cholesky` throws: whether the matrix is symmetric positive definite. |
 | `(Vector<double> Values, Matrix<double> Vectors) SymmetricEigen()` | The eigenvalues of a symmetric matrix in ascending order and orthonormal eigenvectors as the columns, A = V diag(values) V^T, by the Jacobi method; the entry of largest magnitude of each vector is positive. Throws `InvalidOperationException` if the matrix is not symmetric up to rounding. |
+| `(Matrix<double> U, Vector<double> S, Matrix<double> V) Svd()` | The thin singular value decomposition A = U diag(S) V^T by one-sided Jacobi: U and V with min(m, n) orthonormal columns, the singular values S in descending order; the entry of largest magnitude of each column of V is positive. |
+| `Matrix<double> PseudoInverse()` | The Moore-Penrose pseudo-inverse, by SVD; singular values up to max(m, n) eps times the largest count as 0. A^+ b is the least-squares solution of least norm, for any rank. |
+| `double SpectralNorm()` | The largest singular value, \|\|A\|\|_2: the most the matrix stretches a vector. |
+| `double ConditionNumber()` | The largest singular value over the smallest; infinity for a singular matrix. Throws `InvalidOperationException` for an empty matrix. |
 | `(Matrix<double> Q, Matrix<double> R) QR()` | The thin QR decomposition by Householder reflections: Q with min(m, n) orthonormal columns, R upper triangular with a diagonal that is not negative, A = Q R. |
-| `Vector<double> LeastSquares(Vector<double> b)` | The x that minimizes \|\|A x - b\|\|, by QR; for more columns than rows the exact solution of the smallest norm, for a square matrix that of `Solve`. Throws `InvalidOperationException` if the columns (the rows) are dependent to working precision. |
+| `Vector<double> LeastSquares(Vector<double> b)` | The x that minimizes \|\|A x - b\|\|, by QR; for more columns than rows the exact solution of the smallest norm, for a square matrix that of `Solve`. Throws `InvalidOperationException` if the columns (the rows) are dependent to working precision; `PseudoInverse` handles any rank. |
 | `Matrix<double> LeastSquares(Matrix<double> b)` | The same for every column of `b`. |
 
 `Pow`, `Determinant`, `Inverse`, `Solve`, `Cholesky` and `SymmetricEigen` need a square matrix.
-`Determinant`, `Inverse`, `Solve`, `Rank`, `Cholesky`, `SymmetricEigen`, `QR` and `LeastSquares`
-throw `InvalidOperationException` for an entry that is NaN or infinite.
+`Determinant`, `Inverse`, `Solve`, `Rank` and the decompositions, `LeastSquares`, `PseudoInverse`,
+`SpectralNorm` and `ConditionNumber` throw `InvalidOperationException` for an entry that is NaN
+or infinite.
 
 ---
 

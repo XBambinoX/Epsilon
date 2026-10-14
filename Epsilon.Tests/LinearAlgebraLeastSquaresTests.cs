@@ -153,11 +153,11 @@ public class NumericLeastSquaresTests
     [Fact]
     public void Dependent_columns_or_rows_throw()
     {
-        Assert.Equal("The columns of the matrix are linearly dependent to working precision.",
+        Assert.Equal("The columns of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.",
             Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2], [2, 4], [3, 6]).LeastSquares([1, 2, 3])).Message);
-        Assert.Equal("The columns of the matrix are linearly dependent to working precision.",
+        Assert.Equal("The columns of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.",
             Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([0.1, 0.3], [0.2, 0.6], [0.3, 0.9]).LeastSquares([1, 2, 3])).Message);
-        Assert.Equal("The rows of the matrix are linearly dependent to working precision.",
+        Assert.Equal("The rows of the matrix are linearly dependent to working precision. PseudoInverse handles any rank.",
             Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 2, 3], [2, 4, 6]).LeastSquares([1, 2])).Message);
         Assert.Throws<InvalidOperationException>(() => Matrix<double>.FromRows([1, 0], [0, 0], [0, 0]).LeastSquares([1, 2, 3]));
     }
