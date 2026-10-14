@@ -55,7 +55,7 @@ Matrix4x4<double>.Translation((1, 2, 3)).TransformPoint((1, 1, 1));   // [2, 3, 
 ```
 
 The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
-[guide](Epsilon.LinearAlgebra/docs/guide.md) and the
+[guides](Epsilon.LinearAlgebra/docs/README.md) and the
 [API reference](Epsilon.LinearAlgebra/docs/api-reference.md) cover it in detail.
 
 ## Design principles

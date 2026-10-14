@@ -30,7 +30,7 @@ of `Rational`, such as `Vector3<Rational>`, now always work.
   `RotationX`, `RotationY` and `RotationZ`, `Translation(offset)` in homogeneous coordinates,
   `ToHomogeneous()`, `TransformPoint` and `TransformDirection`, with the conventions of the
   fixed-size matrices. Known angles give exact entries: `Rotation(pi / 2)` is `[[0, -1], [1, 0]]`.
-- **Guide section** [From formulas to fast code](docs/guide.md#from-formulas-to-fast-code),
+- **Guide section** [From formulas to fast code](docs/fast-code.md),
   with an example of inverse kinematics: an arm of three links, derived and compiled once,
   reaches its target in 6 steps of damped least squares.
 
@@ -167,7 +167,7 @@ The first release. It depends on `Epsilon` 1.1.1 or later.
 
 ### Known limitations
 
-See [Limitations](docs/guide.md#limitations) in the guide.
+See [Known limitations](docs/limitations.md).
 
 [Unreleased]: https://github.com/XBambinoX/Epsilon/compare/linalg-v1.4.0...HEAD
 [1.4.0]: https://github.com/XBambinoX/Epsilon/releases/tag/linalg-v1.4.0

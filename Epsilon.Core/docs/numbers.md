@@ -28,7 +28,7 @@ new Rational[3];                                      // [0, 0, 0]
 `Rational` implements the generic math interfaces of its operators (`IAdditionOperators`,
 `IMultiplyOperators`, `IComparisonOperators`, `IAdditiveIdentity` and the like), so generic
 code written for them accepts it, such as the fixed-size vectors and matrices of
-[Epsilon.LinearAlgebra](../../Epsilon.LinearAlgebra/docs/guide.md#entry-types):
+[Epsilon.LinearAlgebra](../../Epsilon.LinearAlgebra/docs/rational-matrices.md#fixed-size-types-of-rationals):
 `Vector3<Rational>`.
 
 ### From double and text

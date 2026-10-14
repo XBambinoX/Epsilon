@@ -234,7 +234,7 @@ File.WriteAllText("ArmTip.cs", tip.ToCSharp("ArmTip", joints));   // public stat
 
 A subexpression shared by several entries is computed once: a compiled 3 x 3 rotation by three
 angles takes about 60 nanoseconds instead of 2 microseconds. The
-[guide](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/guide.md#example-inverse-kinematics)
+[guide](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/fast-code.md#example-inverse-kinematics)
 solves the inverse kinematics of this arm in a few more lines.
 
 ## Good to know
@@ -254,8 +254,8 @@ solves the inverse kinematics of this arm in a few more lines.
 
 ## Documentation
 
-The [guide](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/guide.md)
-explains every feature in detail, the
+The [guides](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/README.md)
+explain every feature in detail, the
 [API reference](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/docs/api-reference.md)
 lists every public type and member, and the
 [changelog](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/CHANGELOG.md)
