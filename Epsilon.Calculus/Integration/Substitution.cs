@@ -159,16 +159,18 @@ internal sealed partial class IntegrationTable
             powers[b] = powers.GetValueOrDefault(b) + exponent;
     }
 
-    // For g = a x + b, x = (u - b)/a; for g = nthroot(a x + b, n), x = (u^n - b)/a.
+    // For g = nthroot(a x + b, n), x = (u^n - b)/a.
     private Expr? Inverse(Expr f, Expr g, Variable u)
     {
-        var (radicand, n) = g switch
+        (Expr Radicand, Expr N)? root = g switch
         {
-            Sqrt root => (root.Argument, 2),
-            NthRoot { Degree: Constant { Value: { IsInteger: true, Sign: > 0 } } degree } root => (root.Argument, degree),
-            _ => (g, (Expr)1),
+            Sqrt sqrt => (sqrt.Argument, 2),
+            NthRoot { Degree: Constant { Value: { IsInteger: true, Sign: > 0 } } degree } nthroot => (nthroot.Argument, degree),
+            Power { Exponent: Constant { Value: { Numerator.IsOne: true, Denominator: var degree } } } power when degree > 1 =>
+                (power.Base, new Rational(degree)),
+            _ => null,
         };
-        if (Slope(radicand) is not { } a)
+        if (root is not var (radicand, n) || Slope(radicand) is not { } a)
             return null;
 
         Expr b = radicand.Substitute(variable, 0).Simplify();
@@ -178,7 +180,7 @@ internal sealed partial class IntegrationTable
     }
 
     private Expr? Back(Expr h, Variable u, Expr g) =>
-        new IntegrationTable(u.Name, depth + 1).Integrate(h) is { } integral ? integral.Substitute(u.Name, g) : null;
+        new IntegrationTable(u.Name, depth + 1, parts).Integrate(h) is { } integral ? integral.Substitute(u.Name, g) : null;
 
     private Expr? PowersOfSinAndCos(Expr f)
     {

@@ -2,7 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-/// <summary>Antiderivatives of expressions, from the rules of a table of integrals and by substitution.</summary>
+/// <summary>Antiderivatives of expressions, from the rules of a table of integrals, by substitution and by parts.</summary>
 public static class SymbolicIntegrationExtensions
 {
     extension(Expr expr)
@@ -31,9 +31,12 @@ public static class SymbolicIntegrationExtensions
         /// linear over linear; and 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
         /// quadratic q with numeric coefficients. What no rule fits is integrated by substitution:
         /// by u = g for a part g whose derivative divides the rest (2x cos(x^2), ln(x)/x), with the
-        /// powers of x written in u for g = p x^k + q; by x in terms of u for a linear g or a root of
-        /// one (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by their squares. Last, it
-        /// is expanded once and tried again, so x (x + 1) is integrated as x^2 + x.
+        /// powers of x written in u for g = p x^k + q; by x in terms of u for a root of a linear
+        /// expression (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by their squares.
+        /// Then it is expanded once and tried again, so x (x + 1) is integrated as x^2 + x. Last, it
+        /// is integrated by parts, with u a logarithm, an inverse function or a polynomial
+        /// (x exp(x), x ln(x), ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)),
+        /// and sec^n and csc^n by their reduction formulas.
         /// </remarks>
         /// <exception cref="NotSupportedException">No antiderivative was found.</exception>
         public Expr Integrate(string variable)

@@ -202,11 +202,9 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // By parts, twice, non-elementary, a cubic denominator, a step, a quadratic whose sign isn't
-    // known, the double angle, and a trigonometric substitution.
+    // Non-elementary, a cubic denominator, a step, a quadratic whose sign isn't known, the double
+    // angle, and a trigonometric substitution.
     [Theory]
-    [InlineData("x*exp(x)")]
-    [InlineData("sec(x)^3")]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^3 + 1)")]
     [InlineData("floor(x)")]

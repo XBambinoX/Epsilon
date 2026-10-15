@@ -2,7 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-internal sealed partial class IntegrationTable(string variable, int depth = 0)
+internal sealed partial class IntegrationTable(string variable, int depth = 0, int parts = 0)
 {
     private readonly Variable _x = new(variable);
 
@@ -50,9 +50,9 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0)
 
         result ??= BySubstitution(f);
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
-            return Integrate(expanded, expand: false);
+            result = Integrate(expanded, expand: false);
 
-        return result;
+        return result ?? ByParts(f);
     }
 
     private static Expr? Elementary(UnaryExpr function)
@@ -158,6 +158,21 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0)
             return Integrate((new Power(function, n - 2) * square).Expand());
         }
 
+        // The reductions by parts: sec^n is sec^(n-2) tan / (n - 1) and (n - 2)/(n - 1) of sec^(n-2).
+        if (n.IsInteger && n > 2 && function is Sec or Csc or Sech or Csch)
+        {
+            Expr lower = n == 3 ? function : new Power(function, n - 2);
+            Expr boundary = function switch
+            {
+                Sec => lower * new Tan(u),
+                Csc => -lower * new Cot(u),
+                Sech => lower * new Tanh(u),
+                _ => -lower * new Coth(u),
+            };
+            Rational share = (n - 2) / (n - 1) * (function is Csch ? -1 : 1);
+            return Integrate(lower) is { } rest ? boundary / ((n - 1) * a) + share * rest : null;
+        }
+
         if (n != 2)
             return null;
         Expr? g = function switch
@@ -217,6 +232,14 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0)
         var (rightBase, rightExponent) = Split(right);
         if (leftBase.Equals(rightBase) && !leftExponent.DependsOn(variable) && !rightExponent.DependsOn(variable))
             return PowerOf(leftBase, (leftExponent + rightExponent).Simplify());
+
+        // An exponential times sinh or cosh, which come back to themselves by parts with the same rate.
+        if (left is Exp or Power { Base: EulerNumber } && right is Sinh or Cosh)
+        {
+            Expr w = ((UnaryExpr)right).Argument;
+            Expr other = right is Sinh ? -new Exp(-w) : new Exp(-w);
+            return Integrate((left * (new Exp(w) + other) / 2).Expand());
+        }
 
         if (left is not UnaryExpr f || right is not UnaryExpr g || Slope(f.Argument) is not { } a || Slope(g.Argument) is null)
             return null;
