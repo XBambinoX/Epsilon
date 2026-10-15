@@ -7,19 +7,24 @@ is updated with it. The expressions have
 
 ## Symbolic integration
 
-- **No substitution and no integration by parts yet.** `x*exp(x)`, `2*x*cos(x^2)` and
-  `ln(x)/x` throw `NotSupportedException`; see
-  [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
+- **No integration by parts yet.** `x*exp(x)` and `sec(x)^3` throw `NotSupportedException`;
+  see [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
+- **Substitution doesn't rewrite the integrand first.** It finds a part whose derivative
+  divides the rest as it stands, so `sin(2*x)/(1 + cos(x)^2)` waits for sin(2x) to be written as
+  2 sin(x) cos(x). Trigonometric substitutions such as x = sec(t), for
+  `1/(x^2*sqrt(x^2 - 1))`, aren't tried.
 - **Rational functions with denominators of degree 2 at most.** `1/(x^3 + 1)` needs partial
   fractions.
 - **Quadratics with numeric coefficients only.** In `1/(x^2 + a^2)` the sign of the quadratic
   depends on a symbol, and it isn't integrated.
-- **Results aren't always in their simplest form, and their derivatives even less.** Both are
-  right in value:
+- **Results aren't always in their simplest form, and their derivatives even less.** All are
+  right in value, and an antiderivative may carry a constant, such as the 2 in the second one:
 
   ```csharp
   ExprParser.Parse("min(x, 1)").Integrate("x").Print();
   // ((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2
+  ExprParser.Parse("1/(1 + sqrt(x))").Integrate("x").Print();
+  // -2ln(sqrt(x) + 1) + 2 * (sqrt(x) + 1)
   ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print();
   // x^2 + x + (x - 1) / abs(x - 1)^2 + 1
   ```

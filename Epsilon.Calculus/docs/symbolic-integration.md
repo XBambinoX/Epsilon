@@ -1,8 +1,9 @@
 # Symbolic integration
 
 `Integrate("x")` gives an antiderivative: an expression whose derivative is the integrand
-wherever the integrand is defined. It comes from the rules of a table of integrals, simplified,
-without a constant of integration. Where no rule fits, it throws `NotSupportedException`.
+wherever the integrand is defined. It comes from the rules of a table of integrals and from
+substitution, simplified, without a constant of integration. Where neither finds one, it throws
+`NotSupportedException`.
 
 ## Antiderivatives
 
@@ -60,8 +61,48 @@ The arguments may be any linear expression a x + b: the exponential, logarithm, 
 hyperbolic and inverse functions, abs and sign, and the squares, reciprocals and products of the
 trigonometric and hyperbolic functions. The quadratics may have any numeric coefficients. Their
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
-of q. What fits no rule is expanded once and tried again, which integrates products of
-polynomials.
+of q. What fits neither a rule nor a [substitution](#substitution) is expanded once and tried
+again, which integrates products of polynomials.
+
+## Substitution
+
+Where the derivative of a part g of the integrand is a factor of the rest, the integral is one
+in u = g, which the table may know:
+
+```csharp
+ExprParser.Parse("2*x*cos(x^2)").Integrate("x").Print();         // sin(x^2)
+ExprParser.Parse("ln(x)/x").Integrate("x").Print();              // ln(x)^2 / 2
+ExprParser.Parse("cos(x)*exp(sin(x))").Integrate("x").Print();   // exp(sin(x))
+ExprParser.Parse("x^2/(x^3 + 1)").Integrate("x").Print();        // (1/3) * ln(abs(x^3 + 1))
+```
+
+Powers of the part count as powers of u: x^4 is u^2 for u = x^2, and exp(2x) is u^2 for
+u = exp(x). For g = p x^k + q, what is left of x in the powers of x^k is written in u as well:
+
+```csharp
+ExprParser.Parse("x/(1 + x^4)").Integrate("x").Print();              // (1/2) * atan(x^2)
+ExprParser.Parse("exp(x)/(1 + exp(2*x))").Integrate("x").Print();    // atan(exp(x))
+ExprParser.Parse("x^3*sqrt(x^2 + 1)").Integrate("x").Print();
+// (1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)
+```
+
+For a root of a linear expression, x itself is written in u: for u = sqrt(x + 1), x = u^2 - 1,
+so the integral is one of a polynomial in u:
+
+```csharp
+ExprParser.Parse("x*sqrt(x + 1)").Integrate("x").Print();    // (2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3
+ExprParser.Parse("sqrt(x)/(1 + x)").Integrate("x").Print();  // -2atan(sqrt(x)) + 2sqrt(x)
+```
+
+Powers of sin and cos are integrated by sin^2 + cos^2 = 1: an odd power keeps one factor for
+du, and even powers are halved by the double angle. Powers of tan and cot are lowered by
+tan^2 = sec^2 - 1, and those of sinh and cosh the same way as those of sin and cos:
+
+```csharp
+ExprParser.Parse("sin(x)^3").Integrate("x").Print();            // (1/3) * cos(x)^3 - cos(x)
+ExprParser.Parse("sin(x)^2*cos(x)^2").Integrate("x").Print();   // (1/8) * x - (1/32) * sin(4x)
+ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x))) + (1/2) * sec(x)^2
+```
 
 ## Checking a result
 
@@ -88,21 +129,21 @@ ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.5707963267948
 
 ## What isn't integrated yet
 
-Integration by substitution and by parts is planned, and so are partial fractions of higher
-degree. Until then these throw:
+Integration by parts is planned, and so are partial fractions of higher degree. Until then
+these throw:
 
 ```csharp
 ExprParser.Parse("x*exp(x)").Integrate("x");
-// NotSupportedException: No rule of the table integrates exp(x) * x by x.
+// NotSupportedException: No antiderivative of exp(x) * x by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `x*exp(x)` | integration by parts |
-| `2*x*cos(x^2)`, `ln(x)/x` | substitution |
-| `sin(x)^3` | substitution or a reduction formula |
+| `x*exp(x)`, `sec(x)^3` | integration by parts |
 | `1/(x^3 + 1)` | partial fractions with a denominator of degree 3 |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
+| `sin(2*x)/(1 + cos(x)^2)` | sin(2x) written as 2 sin(x) cos(x) |
+| `1/(x^2*sqrt(x^2 - 1))` | a trigonometric substitution, x = sec(t) |
 | `exp(x^2)` | nothing: it has no elementary antiderivative |
 
 `exp(x^2)` has no antiderivative made of elementary functions, but its definite integrals are

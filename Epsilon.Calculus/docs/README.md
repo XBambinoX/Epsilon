@@ -20,7 +20,7 @@ Every public member also has XML documentation, which your IDE shows as you type
 | [Vector fields](vector-fields.md) | Divergence and curl, and the identities between them |
 | [Hessians and critical points](hessians.md) | Hessians, Laplacians, the second-derivative test, Newton's method |
 | [Numeric integration](numeric-integration.md) | Definite integrals over finite and infinite intervals, singularities, the tolerance, divergent integrals |
-| [Symbolic integration](symbolic-integration.md) | Antiderivatives from a table of integrals: the forms, exact results, checking them |
+| [Symbolic integration](symbolic-integration.md) | Antiderivatives from a table of integrals and by substitution: the forms, exact results, checking them |
 
 ## Reference
 
