@@ -360,13 +360,33 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal(1.570796326794897, ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1));
     }
 
+    [Fact]
+    public void Substitution()
+    {
+        Assert.Equal("sin(x^2)", Integral("2*x*cos(x^2)"));
+        Assert.Equal("ln(x)^2 / 2", Integral("ln(x)/x"));
+        Assert.Equal("exp(sin(x))", Integral("cos(x)*exp(sin(x))"));
+        Assert.Equal("(1/3) * ln(abs(x^3 + 1))", Integral("x^2/(x^3 + 1)"));
+
+        Assert.Equal("(1/2) * atan(x^2)", Integral("x/(1 + x^4)"));
+        Assert.Equal("atan(exp(x))", Integral("exp(x)/(1 + exp(2*x))"));
+        Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
+
+        Assert.Equal("(2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3", Integral("x*sqrt(x + 1)"));
+        Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
+
+        Assert.Equal("(1/3) * cos(x)^3 - cos(x)", Integral("sin(x)^3"));
+        Assert.Equal("(1/8) * x - (1/32) * sin(4x)", Integral("sin(x)^2*cos(x)^2"));
+        Assert.Equal("ln(abs(cos(x))) + (1/2) * sec(x)^2", Integral("tan(x)^3"));
+    }
+
     [Theory]
     [InlineData("x*exp(x)")]
-    [InlineData("2*x*cos(x^2)")]
-    [InlineData("ln(x)/x")]
-    [InlineData("sin(x)^3")]
+    [InlineData("sec(x)^3")]
     [InlineData("1/(x^3 + 1)")]
     [InlineData("1/(x^2 + a^2)")]
+    [InlineData("sin(2*x)/(1 + cos(x)^2)")]
+    [InlineData("1/(x^2*sqrt(x^2 - 1))")]
     [InlineData("exp(x^2)")]
     public void What_isnt_integrated_yet(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
@@ -374,7 +394,7 @@ public class CalculusSymbolicIntegrationDocTests
     [Fact]
     public void The_message_and_the_numeric_integral()
     {
-        Assert.Equal("No rule of the table integrates exp(x) * x by x.",
+        Assert.Equal("No antiderivative of exp(x) * x by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x*exp(x)").Integrate("x")).Message);
         Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
@@ -386,10 +406,11 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "x*exp(x)", "2*x*cos(x^2)", "ln(x)/x", "1/(x^3 + 1)", "1/(x^2 + a^2)" })
+        foreach (string integrand in new[] { "x*exp(x)", "sec(x)^3", "sin(2*x)/(1 + cos(x)^2)", "1/(x^2*sqrt(x^2 - 1))", "1/(x^3 + 1)", "1/(x^2 + a^2)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
+        Assert.Equal("-2ln(sqrt(x) + 1) + 2 * (sqrt(x) + 1)", ExprParser.Parse("1/(1 + sqrt(x))").Integrate("x").Print());
         Assert.Equal("x^2 + x + (x - 1) / abs(x - 1)^2 + 1", ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print());
     }
 

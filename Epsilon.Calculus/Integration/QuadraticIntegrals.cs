@@ -31,8 +31,12 @@ internal sealed class QuadraticIntegrals
             return null;
         }
 
-        Expr p = (second / 2).Simplify(), b = first.Substitute(variable, 0).Simplify(), c = q.Substitute(variable, 0).Simplify();
-        if (p.GetVariables().Count > 0 || b.GetVariables().Count > 0 || c.GetVariables().Count > 0)
+        Expr p = (second / 2).Simplify();
+        if (p.GetVariables().Count > 0)
+            return null;
+
+        Expr b = first.Substitute(variable, 0).Simplify(), c = q.Substitute(variable, 0).Simplify();
+        if (b.GetVariables().Count > 0 || c.GetVariables().Count > 0)
             return null;
 
         Expr h = (-b / (2 * p)).Simplify();

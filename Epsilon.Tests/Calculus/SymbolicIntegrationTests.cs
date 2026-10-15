@@ -202,18 +202,19 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // By parts, by substitution, non-elementary, an odd power, a cubic denominator, a step, and
-    // a quadratic whose sign isn't known.
+    // By parts, twice, non-elementary, a cubic denominator, a step, a quadratic whose sign isn't
+    // known, the double angle, and a trigonometric substitution.
     [Theory]
     [InlineData("x*exp(x)")]
-    [InlineData("2*x*cos(x^2)")]
+    [InlineData("sec(x)^3")]
     [InlineData("exp(x^2)")]
-    [InlineData("sin(x)^3")]
     [InlineData("1/(x^3 + 1)")]
     [InlineData("floor(x)")]
     [InlineData("1/(x^2 + a^2)")]
+    [InlineData("sin(2*x)/(1 + cos(x)^2)")]
+    [InlineData("1/(x^2*sqrt(x^2 - 1))")]
     public void What_no_rule_fits_throws(string integrand) =>
-        Assert.StartsWith("No rule of the table integrates",
+        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
     [Fact]

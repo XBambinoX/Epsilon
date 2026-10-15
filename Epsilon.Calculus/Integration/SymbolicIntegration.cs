@@ -2,7 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-/// <summary>Antiderivatives of expressions, from the rules of a table of integrals.</summary>
+/// <summary>Antiderivatives of expressions, from the rules of a table of integrals and by substitution.</summary>
 public static class SymbolicIntegrationExtensions
 {
     extension(Expr expr)
@@ -11,7 +11,7 @@ public static class SymbolicIntegrationExtensions
         /// An antiderivative by the expression's only variable. See <see cref="Integrate(Expr, string)"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">The expression doesn't have exactly one variable.</exception>
-        /// <exception cref="NotSupportedException">No rule of the table gives the antiderivative.</exception>
+        /// <exception cref="NotSupportedException">No antiderivative was found.</exception>
         public Expr Integrate()
         {
             ArgumentNullException.ThrowIfNull(expr);
@@ -29,17 +29,20 @@ public static class SymbolicIntegrationExtensions
         /// one; the elementary functions of a linear argument; squares and reciprocals of the
         /// trigonometric and hyperbolic functions, sec u tan u and its kin, products of sin and cos;
         /// linear over linear; and 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
-        /// quadratic q with numeric coefficients. What no rule fits is expanded once and tried
-        /// again, so x (x + 1) is integrated as x^2 + x.
+        /// quadratic q with numeric coefficients. What no rule fits is integrated by substitution:
+        /// by u = g for a part g whose derivative divides the rest (2x cos(x^2), ln(x)/x), with the
+        /// powers of x written in u for g = p x^k + q; by x in terms of u for a linear g or a root of
+        /// one (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by their squares. Last, it
+        /// is expanded once and tried again, so x (x + 1) is integrated as x^2 + x.
         /// </remarks>
-        /// <exception cref="NotSupportedException">No rule of the table gives the antiderivative.</exception>
+        /// <exception cref="NotSupportedException">No antiderivative was found.</exception>
         public Expr Integrate(string variable)
         {
             ArgumentNullException.ThrowIfNull(expr);
             ArgumentNullException.ThrowIfNull(variable);
 
             return IntegrationTable.Antiderivative(expr, variable)
-                ?? throw new NotSupportedException($"No rule of the table integrates {expr.Print()} by {variable}.");
+                ?? throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found.");
         }
     }
 }

@@ -2,12 +2,19 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-internal sealed class IntegrationTable(string variable)
+internal sealed partial class IntegrationTable(string variable, int depth = 0)
 {
     private readonly Variable _x = new(variable);
 
     public static Expr? Antiderivative(Expr expr, string variable) =>
-        new IntegrationTable(variable).Integrate(expr.Simplify())?.Simplify();
+        new IntegrationTable(variable).Integrate(expr.Simplify())?.Simplify() is { } integral ? FoldNegations(integral) : null;
+
+    private static Expr FoldNegations(Expr e) => e switch
+    {
+        Negate { Argument: Divide { Numerator: Constant c } quotient } => new Divide(new Constant(-c.Value), FoldNegations(quotient.Denominator)),
+        _ when e.Children.Length > 0 => e.WithChildren([.. e.Children.Select(FoldNegations)]),
+        _ => e,
+    };
 
     private Expr? Integrate(Expr f, bool expand = true)
     {
@@ -26,6 +33,8 @@ internal sealed class IntegrationTable(string variable)
             Multiply product => Product(product.Left, product.Right) ?? Product(product.Right, product.Left),
             Divide quotient when !quotient.Denominator.DependsOn(variable) =>
                 Integrate(quotient.Numerator, expand) is { } g ? g / quotient.Denominator : null,
+            Divide { Denominator: Multiply { Left: var factor } denominator } quotient when !factor.DependsOn(variable) =>
+                Integrate(quotient.Numerator / denominator.Right, expand) is { } g ? g / factor : null,
             Divide quotient when !quotient.Numerator.DependsOn(variable) =>
                 PowerOf(quotient.Denominator, -1) is { } g ? quotient.Numerator * g : null,
             Divide quotient => Quotient(quotient.Numerator, quotient.Denominator),
@@ -39,6 +48,7 @@ internal sealed class IntegrationTable(string variable)
             _ => null,
         };
 
+        result ??= BySubstitution(f);
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             return Integrate(expanded, expand: false);
 
@@ -134,10 +144,22 @@ internal sealed class IntegrationTable(string variable)
             return Integrate(reciprocal);
         if (n == -2 && Reciprocal(function) is { } squared)
             return Integrate(new Power(squared, 2));
-        if (n != 2)
-            return null;
 
         Expr u = function.Argument;
+        if (n.IsInteger && n > 2 && function is Tan or Cot or Tanh or Coth)
+        {
+            Expr square = function switch
+            {
+                Tan => new Power(new Sec(u), 2) - 1,
+                Cot => new Power(new Csc(u), 2) - 1,
+                Tanh => 1 - new Power(new Sech(u), 2),
+                _ => 1 + new Power(new Csch(u), 2),
+            };
+            return Integrate((new Power(function, n - 2) * square).Expand());
+        }
+
+        if (n != 2)
+            return null;
         Expr? g = function switch
         {
             Sin => u / 2 - new Sin(2 * u) / 4,
@@ -184,6 +206,18 @@ internal sealed class IntegrationTable(string variable)
     // the product-to-sum formulas.
     private Expr? Product(Expr left, Expr right)
     {
+        static (Expr Base, Expr Exponent) Split(Expr e) => e switch
+        {
+            Power power => (power.Base, power.Exponent),
+            Sqrt root => (root.Argument, new Rational(1, 2)),
+            _ => (e, 1),
+        };
+
+        var (leftBase, leftExponent) = Split(left);
+        var (rightBase, rightExponent) = Split(right);
+        if (leftBase.Equals(rightBase) && !leftExponent.DependsOn(variable) && !rightExponent.DependsOn(variable))
+            return PowerOf(leftBase, (leftExponent + rightExponent).Simplify());
+
         if (left is not UnaryExpr f || right is not UnaryExpr g || Slope(f.Argument) is not { } a || Slope(g.Argument) is null)
             return null;
 
@@ -292,23 +326,22 @@ internal sealed class IntegrationTable(string variable)
     // u' when u is linear in the variable: a derivative that is a constant other than 0.
     private Expr? Slope(Expr u)
     {
-        if (!u.DependsOn(variable))
+        if (!u.DependsOn(variable) || Derivative(u) is not { } slope || slope.DependsOn(variable) || slope is Constant { Value.IsZero: true })
             return null;
 
-        Expr slope;
+        return slope.GetVariables().Count > 0 || slope.Evaluate() != 0 ? slope : null;
+    }
+
+    private Expr? Derivative(Expr u)
+    {
         try
         {
-            slope = u.Differentiate(variable);
+            return u.Differentiate(variable);
         }
         catch (NotSupportedException)
         {
             return null;
         }
-
-        if (slope.DependsOn(variable) || slope is Constant { Value.IsZero: true })
-            return null;
-
-        return slope.GetVariables().Count > 0 || slope.Evaluate() != 0 ? slope : null;
     }
 
     private static bool Is(Expr e, Rational value) => e.Simplify() is Constant c && c.Value == value;
