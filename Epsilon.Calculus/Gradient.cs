@@ -1,60 +1,44 @@
 using Epsilon.Core;
+using Epsilon.LinearAlgebra;
 
 namespace Epsilon.Calculus;
 
-/// <summary>Gradients (vectors of first partial derivatives) of multivariable expressions.</summary>
+/// <summary>Gradients: the vectors of first partial derivatives of expressions.</summary>
 public static class GradientExtensions
 {
-    /// <summary>The symbolic partial derivatives with respect to each of <paramref name="variables"/>, keyed by variable. Simplified.</summary>
-    public static Dictionary<string, Expr> Gradient(this Expr expr, params string[] variables)
+    extension(Expr expr)
     {
-        var result = new Dictionary<string, Expr>(variables.Length);
-
-        foreach (var variable in variables)
-            result[variable] = expr.Differentiate(variable);
-
-        return result;
+        /// <summary>
+        /// The gradient by every variable of the expression, in ordinal order of the names
+        /// (uppercase before lowercase); empty for an expression without variables.
+        /// </summary>
+        /// <exception cref="NotSupportedException">
+        /// The expression contains a function whose derivative is not supported, as for
+        /// <see cref="Expr.Differentiate(string)"/>.
+        /// </exception>
+        public Vector<Expr> Gradient()
+        {
+            ArgumentNullException.ThrowIfNull(expr);
+            return expr.Gradient([.. expr.GetVariables().Order(StringComparer.Ordinal)]);
+        }
     }
 
-    /// <summary>The symbolic partial derivatives with respect to every variable of the expression. Simplified.</summary>
-    public static Dictionary<string, Expr> Gradient(this Expr expr) =>
-        expr.Gradient(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray());
-
-    /// <summary>The gradient with respect to <paramref name="variables"/>, evaluated at <paramref name="point"/>.</summary>
-    /// <param name="expr">The function.</param>
-    /// <param name="variables">The variables to differentiate by.</param>
-    /// <param name="point">A value for every variable of the expression.</param>
-    public static Dictionary<string, double> GradientAt(this Expr expr, string[] variables, params (string Name, double Value)[] point)
+    // A classic extension method rather than a member of the extension block: with params there,
+    // the C# 14 compiler of SDK 10.0.1xx reports a false nullability warning (CS8620) at every call.
+    /// <summary>
+    /// The gradient: the simplified partial derivatives by <paramref name="variables"/>, in
+    /// that order, given as <c>Gradient("x", "y")</c> or as a list. A variable the expression
+    /// doesn't have gives 0. For <c>x^2 * y</c> by <c>x</c> and <c>y</c> it is <c>[2x * y, x^2]</c>.
+    /// Evaluate or Compile the vector for numbers.
+    /// </summary>
+    /// <exception cref="ArgumentException">A name is listed twice.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The expression contains a function whose derivative is not supported, as for
+    /// <see cref="Expr.Differentiate(string)"/>.
+    /// </exception>
+    public static Vector<Expr> Gradient(this Expr expr, params IReadOnlyList<string> variables)
     {
-        var gradient = expr.Gradient(variables);
-        var result = new Dictionary<string, double>(variables.Length);
-
-        foreach (var variable in variables)
-            result[variable] = gradient[variable].Evaluate(point);
-
-        return result;
+        ArgumentNullException.ThrowIfNull(expr);
+        return Vector.Create(expr).Jacobian(variables).Row(0);
     }
-
-    /// <summary>The gradient with respect to every variable of the expression, evaluated at <paramref name="point"/>.</summary>
-    public static Dictionary<string, double> GradientAt(this Expr expr, params (string Name, double Value)[] point) =>
-        expr.GradientAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
-
-    /// <summary>The gradient with respect to <paramref name="variables"/>, evaluated over the complex numbers at <paramref name="point"/>.</summary>
-    /// <param name="expr">The function.</param>
-    /// <param name="variables">The variables to differentiate by.</param>
-    /// <param name="point">A value for every variable of the expression.</param>
-    public static Dictionary<string, ComplexNumber> GradientAt(this Expr expr, string[] variables, params (string Name, ComplexNumber Value)[] point)
-    {
-        var gradient = expr.Gradient(variables);
-        var result = new Dictionary<string, ComplexNumber>(variables.Length);
-
-        foreach (var variable in variables)
-            result[variable] = gradient[variable].EvaluateComplex(point);
-
-        return result;
-    }
-
-    /// <summary>The gradient with respect to every variable, evaluated over the complex numbers at <paramref name="point"/>.</summary>
-    public static Dictionary<string, ComplexNumber> GradientAt(this Expr expr, params (string Name, ComplexNumber Value)[] point) =>
-        expr.GradientAt(expr.GetVariables().OrderBy(v => v, StringComparer.Ordinal).ToArray(), point);
 }
