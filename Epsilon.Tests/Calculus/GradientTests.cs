@@ -78,6 +78,41 @@ public class GradientTests
     }
 
     [Fact]
+    public void Directional_derivative_along_an_axis_is_the_partial_derivative()
+    {
+        Assert.Equal(F.Differentiate("x"), F.DirectionalDerivative([1, 0], "x", "y"));
+        Assert.Equal(F.Differentiate("y"), F.DirectionalDerivative([0, 1], "x", "y"));
+    }
+
+    [Fact]
+    public void Directional_derivative_is_the_gradient_dotted_with_the_direction()
+    {
+        Assert.Equal("2x * y + x^2", ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print());
+
+        Vector<Expr> direction = [ExprParser.Parse("cos(t)"), ExprParser.Parse("sin(t)")];
+        Assert.Equal(F.Gradient("x", "y").Dot(direction), F.DirectionalDerivative(direction, "x", "y"));
+    }
+
+    [Fact]
+    public void Directional_derivative_is_not_normalized()
+    {
+        double unit = F.DirectionalDerivative([0.6, 0.8], "x", "y").Evaluate(("x", 1), ("y", 2));
+        double longer = F.DirectionalDerivative([3, 4], "x", "y").Evaluate(("x", 1), ("y", 2));
+
+        Assert.Equal(5 * unit, longer, 1e-12);
+    }
+
+    [Fact]
+    public void Directional_derivative_checks_its_arguments()
+    {
+        Assert.Throws<ArgumentException>(() => F.DirectionalDerivative([1, 0, 0], "x", "y"));
+        Assert.Throws<ArgumentException>(() => F.DirectionalDerivative([1, 0], "x", "x"));
+        Assert.Throws<ArgumentNullException>(() => ((Expr)null!).DirectionalDerivative([1], "x"));
+        Assert.Throws<ArgumentNullException>(() => F.DirectionalDerivative(null!, "x"));
+        Assert.Throws<ArgumentNullException>(() => F.DirectionalDerivative([1], null!));
+    }
+
+    [Fact]
     public void A_name_listed_twice_throws() =>
         Assert.Throws<ArgumentException>(() => F.Gradient("x", "y", "x"));
 

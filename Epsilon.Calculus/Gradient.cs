@@ -41,4 +41,31 @@ public static class GradientExtensions
         ArgumentNullException.ThrowIfNull(expr);
         return Vector.Create(expr).Jacobian(variables).Row(0);
     }
+
+    /// <summary>
+    /// The directional derivative: the gradient by <paramref name="variables"/> dotted with
+    /// <paramref name="direction"/>, whose entry i goes with <c>variables[i]</c>; simplified.
+    /// The direction is not normalized: along a unit vector it is the rate of change, along a
+    /// longer one that rate times its length. For <c>x^2 * y</c> along <c>[1, 1]</c> by <c>x</c>
+    /// and <c>y</c> it is <c>2x * y + x^2</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// The direction and the variables have different lengths, or a name is listed twice.
+    /// </exception>
+    /// <exception cref="NotSupportedException">
+    /// The expression contains a function whose derivative is not supported, as for
+    /// <see cref="Expr.Differentiate(string)"/>.
+    /// </exception>
+    public static Expr DirectionalDerivative(this Expr expr, Vector<Expr> direction, params IReadOnlyList<string> variables)
+    {
+        ArgumentNullException.ThrowIfNull(expr);
+        ArgumentNullException.ThrowIfNull(direction);
+        string[] names = VariableNames.Checked(variables);
+
+        if (direction.Length != names.Length)
+            throw new ArgumentException(
+                $"The direction has {direction.Length} entries but there are {names.Length} variables.", nameof(direction));
+
+        return expr.Gradient(names).Dot(direction);
+    }
 }
