@@ -37,4 +37,4 @@ documentation, which your IDE shows as you type.
 - [Contributing](../../CONTRIBUTING.md)
 
 Every code example in these pages is checked by a test in
-`Epsilon.Tests/LinearAlgebraDocsTests.cs`, so the results shown are the results you get.
+`Epsilon.Tests/LinearAlgebra/DocsTests.cs`, so the results shown are the results you get.

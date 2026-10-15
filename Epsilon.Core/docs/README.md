@@ -34,4 +34,4 @@ documentation, which your IDE shows as you type.
 - [Contributing](../../CONTRIBUTING.md)
 
 Every code example in these pages is checked by a test in
-`Epsilon.Tests/DocsExamplesTests.cs`, so the results shown are the results you get.
+`Epsilon.Tests/Core/DocsExamplesTests.cs`, so the results shown are the results you get.

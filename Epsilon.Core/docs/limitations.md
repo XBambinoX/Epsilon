@@ -11,7 +11,8 @@ a symbolic equation solver and protection against deep nesting. The only excepti
 [roadmap](../README.md#roadmap) for the order.
 
 Everything here reflects version 1.2.0. Each example is checked by a test
-(in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
+(in `Epsilon.Tests/Core/DocsExamplesTests.cs`), so when a limitation is lifted this page is
+updated with it.
 
 ## Algebra
 

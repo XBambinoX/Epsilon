@@ -2,7 +2,7 @@
 
 What version 1.5.0 of `Epsilon.LinearAlgebra` doesn't do yet. The results it gives are right;
 the items below are missing features and the places where an exact result is longer than it
-could be. Each example is checked by a test (in `Epsilon.Tests/LinearAlgebraDocsTests.cs`), so
+could be. Each example is checked by a test (in `Epsilon.Tests/LinearAlgebra/DocsTests.cs`), so
 when a limitation is lifted this page is updated with it. The expressions have
 [limitations of their own](../../Epsilon.Core/docs/limitations.md).
 
