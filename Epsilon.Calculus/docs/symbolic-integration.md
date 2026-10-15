@@ -1,9 +1,9 @@
 # Symbolic integration
 
 `Integrate("x")` gives an antiderivative: an expression whose derivative is the integrand
-wherever the integrand is defined. It comes from the rules of a table of integrals and from
-substitution, simplified, without a constant of integration. Where neither finds one, it throws
-`NotSupportedException`.
+wherever the integrand is defined. It comes from the rules of a table of integrals, from
+substitution and from integration by parts, simplified, without a constant of integration.
+Where none of them finds one, it throws `NotSupportedException`.
 
 ## Antiderivatives
 
@@ -62,7 +62,8 @@ hyperbolic and inverse functions, abs and sign, and the squares, reciprocals and
 trigonometric and hyperbolic functions. The quadratics may have any numeric coefficients. Their
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
 of q. What fits neither a rule nor a [substitution](#substitution) is expanded once and tried
-again, which integrates products of polynomials.
+again, which integrates products of polynomials, and is integrated
+[by parts](#integration-by-parts) last.
 
 ## Substitution
 
@@ -104,6 +105,45 @@ ExprParser.Parse("sin(x)^2*cos(x)^2").Integrate("x").Print();   // (1/8) * x - (
 ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x))) + (1/2) * sec(x)^2
 ```
 
+## Integration by parts
+
+The integral of u dv is u v less that of v du. For u the factor whose derivative is simpler is
+taken: a logarithm, an inverse function or a polynomial, in that order, and the rest is dv. A
+polynomial loses a degree with each step:
+
+```csharp
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();     // exp(x) * x - exp(x)
+ExprParser.Parse("x^2*cos(x)").Integrate("x").Print();   // x^2 * sin(x) + 2cos(x) * x - 2sin(x)
+ExprParser.Parse("x*ln(x)").Integrate("x").Print();      // (1/2) * ln(x) * x^2 - (1/4) * x^2
+```
+
+A logarithm or an inverse function alone, or a power of one, is u with dv = dx:
+
+```csharp
+ExprParser.Parse("ln(x)^2").Integrate("x").Print();       // 2x + ln(x)^2 * x - 2ln(x) * x
+ExprParser.Parse("ln(x^2 + 1)").Integrate("x").Print();   // ln(x^2 + 1) * x - 2x + 2atan(x)
+ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)
+```
+
+An exponential times sin or cos, and sin or cos of a logarithm, come back to the integral I
+after two steps, as I = A + c I, which is solved for I:
+
+```csharp
+ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();       // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
+ExprParser.Parse("exp(2*x)*cos(3*x)").Integrate("x").Print();   // (2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)
+ExprParser.Parse("sin(ln(x))").Integrate("x").Print();          // (sin(ln(x)) * x - cos(ln(x)) * x) / 2
+```
+
+For sinh and cosh at the rate of the exponential, c is 1 and there is nothing to solve, so they
+are written in exponentials instead. Powers of sec and csc follow from their reduction formulas,
+which come from integration by parts too, and a substitution and integration by parts combine:
+
+```csharp
+ExprParser.Parse("exp(x)*sinh(x)").Integrate("x").Print();   // -(1/2) * x + (1/4) * exp(2x)
+ExprParser.Parse("sec(x)^3").Integrate("x").Print();         // (1/2) * ln(abs(sec(x) + tan(x))) + (1/2) * sec(x) * tan(x)
+ExprParser.Parse("exp(sqrt(x))").Integrate("x").Print();     // 2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))
+```
+
 ## Checking a result
 
 The derivative of an antiderivative is the integrand:
@@ -129,22 +169,21 @@ ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.5707963267948
 
 ## What isn't integrated yet
 
-Integration by parts is planned, and so are partial fractions of higher degree. Until then
+Partial fractions of higher degree and trigonometric substitutions are planned. Until then
 these throw:
 
 ```csharp
-ExprParser.Parse("x*exp(x)").Integrate("x");
-// NotSupportedException: No antiderivative of exp(x) * x by x was found.
+ExprParser.Parse("1/(x^3 + 1)").Integrate("x");
+// NotSupportedException: No antiderivative of 1 / (x^3 + 1) by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `x*exp(x)`, `sec(x)^3` | integration by parts |
-| `1/(x^3 + 1)` | partial fractions with a denominator of degree 3 |
+| `1/(x^3 + 1)`, `atan(x)/x^2` | partial fractions with a denominator of degree 3, which integration by parts leads to for the second |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
-| `sin(2*x)/(1 + cos(x)^2)` | sin(2x) written as 2 sin(x) cos(x) |
-| `1/(x^2*sqrt(x^2 - 1))` | a trigonometric substitution, x = sec(t) |
-| `exp(x^2)` | nothing: it has no elementary antiderivative |
+| `sin(2*x)/(1 + cos(x)^2)`, `exp(x)*cos(x)^2` | rewriting first by the double angle |
+| `1/(x^2*sqrt(x^2 - 1))`, `x*asin(x)` | a trigonometric substitution, such as x = sec(t) |
+| `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
 
 `exp(x^2)` has no antiderivative made of elementary functions, but its definite integrals are
 [numbers](numeric-integration.md) all the same:

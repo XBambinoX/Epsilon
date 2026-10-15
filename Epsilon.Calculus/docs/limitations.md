@@ -7,14 +7,14 @@ is updated with it. The expressions have
 
 ## Symbolic integration
 
-- **No integration by parts yet.** `x*exp(x)` and `sec(x)^3` throw `NotSupportedException`;
-  see [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
-- **Substitution doesn't rewrite the integrand first.** It finds a part whose derivative
-  divides the rest as it stands, so `sin(2*x)/(1 + cos(x)^2)` waits for sin(2x) to be written as
-  2 sin(x) cos(x). Trigonometric substitutions such as x = sec(t), for
-  `1/(x^2*sqrt(x^2 - 1))`, aren't tried.
+- **The integrand isn't rewritten by identities first.** Substitution and integration by parts
+  take it as it stands, so `sin(2*x)/(1 + cos(x)^2)` waits for sin(2x) to be written as
+  2 sin(x) cos(x), and `exp(x)*cos(x)^2` for cos(x)^2 to be (1 + cos(2x))/2; see
+  [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
+- **No trigonometric substitutions.** x = sec(t) for `1/(x^2*sqrt(x^2 - 1))` isn't tried, nor
+  x = sin(t) for the x^2/sqrt(1 - x^2) that integrating `x*asin(x)` by parts leads to.
 - **Rational functions with denominators of degree 2 at most.** `1/(x^3 + 1)` needs partial
-  fractions.
+  fractions, and so does `atan(x)/x^2`, which integration by parts brings to 1/(x (1 + x^2)).
 - **Quadratics with numeric coefficients only.** In `1/(x^2 + a^2)` the sign of the quadratic
   depends on a symbol, and it isn't integrated.
 - **Results aren't always in their simplest form, and their derivatives even less.** All are
@@ -24,7 +24,7 @@ is updated with it. The expressions have
   ExprParser.Parse("min(x, 1)").Integrate("x").Print();
   // ((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2
   ExprParser.Parse("1/(1 + sqrt(x))").Integrate("x").Print();
-  // -2ln(sqrt(x) + 1) + 2 * (sqrt(x) + 1)
+  // -2ln(sqrt(x) + 1) + 2sqrt(x) + 2
   ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print();
   // x^2 + x + (x - 1) / abs(x - 1)^2 + 1
   ```

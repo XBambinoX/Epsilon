@@ -380,6 +380,26 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("ln(abs(cos(x))) + (1/2) * sec(x)^2", Integral("tan(x)^3"));
     }
 
+    [Fact]
+    public void Integration_by_parts()
+    {
+        Assert.Equal("exp(x) * x - exp(x)", Integral("x*exp(x)"));
+        Assert.Equal("x^2 * sin(x) + 2cos(x) * x - 2sin(x)", Integral("x^2*cos(x)"));
+        Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
+
+        Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
+        Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
+        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)", Integral("asin(x)^2"));
+
+        Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));
+        Assert.Equal("(2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)", Integral("exp(2*x)*cos(3*x)"));
+        Assert.Equal("(sin(ln(x)) * x - cos(ln(x)) * x) / 2", Integral("sin(ln(x))"));
+
+        Assert.Equal("-(1/2) * x + (1/4) * exp(2x)", Integral("exp(x)*sinh(x)"));
+        Assert.Equal("(1/2) * ln(abs(sec(x) + tan(x))) + (1/2) * sec(x) * tan(x)", Integral("sec(x)^3"));
+        Assert.Equal("2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))", Integral("exp(sqrt(x))"));
+    }
+
     [Theory]
     [InlineData("1/(x^3 + 1)")]
     [InlineData("atan(x)/x^2")]
@@ -408,7 +428,7 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "sin(2*x)/(1 + cos(x)^2)", "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)", "1/(x^3 + 1)", "1/(x^2 + a^2)" })
+        foreach (string integrand in new[] { "sin(2*x)/(1 + cos(x)^2)", "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)", "1/(x^3 + 1)", "atan(x)/x^2", "1/(x^2 + a^2)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());

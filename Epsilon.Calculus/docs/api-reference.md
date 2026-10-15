@@ -84,5 +84,5 @@ What the signs of the eigenvalues of the Hessian say about a critical point.
 
 | Member | Description |
 |---|---|
-| `Expr Integrate(string variable)` | An antiderivative by the variable from a table of integrals and by substitution, simplified, without a constant; other variables are constants. Throws `NotSupportedException` where none is found. |
+| `Expr Integrate(string variable)` | An antiderivative by the variable from a table of integrals, by substitution and by parts, simplified, without a constant; other variables are constants. Throws `NotSupportedException` where none is found. |
 | `Expr Integrate()` | The same by the expression's only variable. Throws `InvalidOperationException` if it doesn't have exactly one. |
