@@ -147,9 +147,20 @@ public class SymbolicIntegrationTests
         Assert.Equal("atan(x)", Integral("1/(1 + x^2)"));
         Assert.Equal("atan(x / 2) / 2", Integral("1/(x^2 + 4)"));
         Assert.Equal("atan((x + 1) / 2) / 2", Integral("1/(x^2 + 2*x + 5)"));
-        Assert.Equal("ln(abs((x - 1) / (x + 1))) / 2", Integral("1/(x^2 - 1)"));
+        Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", Integral("1/(x^2 - 1)"));
         Assert.Equal("-1 / (x + 1)", Integral("1/(x^2 + 2*x + 1)"));
         Assert.Equal("(1/2) * ln(x^2 + 1)", Integral("x/(x^2 + 1)"));
+        Assert.Equal("ln(abs((x - sqrt(2)) / (x + sqrt(2)))) / (2sqrt(2))", Integral("1/(x^2 - 2)"));
+    }
+
+    // Around the vertex, with the fraction of the shift cleared.
+    [Fact]
+    public void Quadratics_with_a_fractional_vertex()
+    {
+        Assert.Equal("2atan((2x + 1) / sqrt(3)) / sqrt(3)", Integral("1/(x^2 + x + 1)"));
+        Assert.Equal("ln(abs((2x - sqrt(5) + 1) / (2x + sqrt(5) + 1))) / sqrt(5)", Integral("1/(x^2 + x - 1)"));
+        Assert.Equal("asinh((2x + 1) / sqrt(3))", Integral("1/sqrt(x^2 + x + 1)"));
+        Assert.Equal("asin((2x + 1) / sqrt(5))", Integral("1/sqrt(1 - x - x^2)"));
     }
 
     [Fact]
@@ -202,11 +213,11 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // Non-elementary, a cubic denominator, a step, a quadratic whose sign isn't known, the double
-    // angle, and a trigonometric substitution.
+    // Non-elementary, a denominator that doesn't split over the rationals, a step, a quadratic
+    // whose sign isn't known, the double angle, and a trigonometric substitution.
     [Theory]
     [InlineData("exp(x^2)")]
-    [InlineData("1/(x^3 + 1)")]
+    [InlineData("1/(x^4 + 1)")]
     [InlineData("floor(x)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("sin(2*x)/(1 + cos(x)^2)")]

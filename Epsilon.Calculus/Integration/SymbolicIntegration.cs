@@ -28,8 +28,12 @@ public static class SymbolicIntegrationExtensions
         /// The rules: sums and constant factors; powers of a linear expression, and real roots of
         /// one; the elementary functions of a linear argument; squares and reciprocals of the
         /// trigonometric and hyperbolic functions, sec u tan u and its kin, products of sin and cos;
-        /// linear over linear; and 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
-        /// quadratic q with numeric coefficients. What no rule fits is integrated by substitution:
+        /// linear over linear; and 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q)
+        /// for a quadratic q with numeric coefficients. A rational function with rational
+        /// coefficients is split into partial fractions where its denominator is a product of linear
+        /// and quadratic factors with rational coefficients (1/(x^3 + 1), x/(x^4 - 1)), and the
+        /// logarithms with coefficients of the same size are merged into one. What is left is
+        /// integrated by substitution:
         /// by u = g for a part g whose derivative divides the rest (2x cos(x^2), ln(x)/x), with the
         /// powers of x written in u for g = p x^k + q; by x in terms of u for a root of a linear
         /// expression (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by their squares.

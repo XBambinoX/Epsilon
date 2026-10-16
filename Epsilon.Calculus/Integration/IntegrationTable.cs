@@ -48,6 +48,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             _ => null,
         };
 
+        result ??= PartialFractions(f);
         result ??= BySubstitution(f);
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             result = Integrate(expanded, expand: false);
@@ -114,9 +115,10 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             UnaryExpr function when e.Simplify() is Constant { Value: var n } && Slope(function.Argument) is { } a =>
                 TrigonometricPower(function, n, a),
             _ when QuadraticIntegrals.Of(b, variable) is { } q =>
-                Is(e, -1) ? q.Reciprocal()
-                : Is(e, new Rational(1, 2)) ? q.Sqrt()
+                Is(e, new Rational(1, 2)) ? q.Sqrt()
                 : Is(e, new Rational(-1, 2)) ? q.InverseSqrt()
+                : e.Simplify() is Constant { Value: { IsInteger: true, Sign: < 0 } n } && n >= -RationalPolynomial.MaxDegree && !HasRationalRoots(b)
+                    ? q.ReciprocalPower((int)-n.Numerator)
                 : null,
             _ => null,
         };
@@ -281,7 +283,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
 
         Expr beta = numerator.Substitute(variable, 0).Simplify();
         if (QuadraticIntegrals.Of(denominator, variable) is { } q)
-            return q.LinearOver(alpha, beta);
+            return HasRationalRoots(denominator) && RationalPolynomial.Of(numerator, variable) is not null ? null : q.LinearOver(alpha, beta);
 
         Expr? radicand = denominator switch
         {
@@ -292,6 +294,9 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
 
         return radicand is not null && QuadraticIntegrals.Of(radicand, variable) is { } r ? r.LinearOverSqrt(alpha, beta) : null;
     }
+
+    // Left to partial fractions: (x + 3)/(x^2 - 1) is 2ln|x - 1| - ln|x + 1|.
+    private bool HasRationalRoots(Expr quadratic) => RationalPolynomial.Of(quadratic, variable) is { } p && p.RationalRoots().Any();
 
     // The coefficients of a polynomial in the variable, lowest degree first, as its derivatives
     // at 0 over k!; null for anything that isn't built as a polynomial.

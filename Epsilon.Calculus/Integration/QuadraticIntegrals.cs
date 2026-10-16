@@ -4,13 +4,17 @@ namespace Epsilon.Calculus;
 
 internal sealed class QuadraticIntegrals
 {
-    private readonly Expr _q, _p, _h, _k, _shifted;
+    private readonly Expr _q, _p, _h, _k, _shifted, _cleared;
+    private readonly Rational _m;
     private readonly int _pSign, _kSign;
 
     private QuadraticIntegrals(Expr q, Expr shifted, Expr p, Expr h, Expr k, int pSign, int kSign)
     {
         _q = q;
         _shifted = shifted;
+        // m (x - h) for the denominator m of h: atan((2x - 1)/sqrt(3)) rather than atan((x - 1/2)/sqrt(3/4)).
+        _m = h is Constant { Value: var center } ? new Rational(center.Denominator) : Rational.One;
+        _cleared = _m.IsOne ? shifted : (_m * shifted).Expand();
         _p = p;
         _h = h;
         _k = k;
@@ -50,17 +54,22 @@ internal sealed class QuadraticIntegrals
 
     public Expr Reciprocal() => _kSign switch
     {
-        > 0 => new Atan(_shifted / new Sqrt(_k)) / (_p * new Sqrt(_k)),
-        < 0 => new Ln(new Abs((_shifted - new Sqrt(-_k)) / (_shifted + new Sqrt(-_k)))) / (2 * _p * new Sqrt(-_k)),
+        > 0 => new Atan(_cleared / new Sqrt(Cleared(_k))) / (_p * new Sqrt(_k)),
+        < 0 => new Ln(new Abs((_cleared - new Sqrt(Cleared(-_k))) / (_cleared + new Sqrt(Cleared(-_k))))) / (2 * _p * new Sqrt(-_k)),
         _ => -1 / (_p * _shifted),
     };
 
+    // The reduction: that of 1/q^n is (t/q^(n-1) + (2n - 3) times that of 1/q^(n-1)) / (2(n - 1) k p), t = x - h.
+    public Expr ReciprocalPower(int n) => n == 1 ? Reciprocal()
+        : _kSign == 0 ? -1 / ((2 * n - 1) * new Power(_p, n) * new Power(_shifted, 2 * n - 1))
+        : (_cleared / new Power(_q, n - 1) / _m + (2 * n - 3) * ReciprocalPower(n - 1)) / (2 * (n - 1) * _k * _p);
+
     public Expr? InverseSqrt() => (_pSign, _kSign) switch
     {
-        (> 0, > 0) => new Asinh(_shifted / new Sqrt(_k)) / new Sqrt(_p),
+        (> 0, > 0) => new Asinh(_cleared / new Sqrt(Cleared(_k))) / new Sqrt(_p),
         (> 0, < 0) => new Ln(new Abs(new Sqrt(_p) * _shifted + new Sqrt(_q))) / new Sqrt(_p),
         (> 0, _) => new Sign(_shifted) * new Ln(new Abs(_shifted)) / new Sqrt(_p),
-        (< 0, < 0) => new Asin(_shifted / new Sqrt(-_k)) / new Sqrt(-_p),
+        (< 0, < 0) => new Asin(_cleared / new Sqrt(Cleared(-_k))) / new Sqrt(-_p),
         _ => null,
     };
 
@@ -71,6 +80,8 @@ internal sealed class QuadraticIntegrals
 
     public Expr? LinearOverSqrt(Expr alpha, Expr beta) =>
         InverseSqrt() is { } inverse ? alpha / _p * new Sqrt(_q) + (beta + alpha * _h) * inverse : null;
+
+    private Expr Cleared(Expr k) => _m.IsOne ? k : _m * _m * k;
 
     private static int? SignOf(Expr constant)
     {

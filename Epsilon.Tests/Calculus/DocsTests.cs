@@ -340,7 +340,7 @@ public class CalculusSymbolicIntegrationDocTests
     [InlineData("x^2/(x^2 + 1)", "x - atan(x)")]
     [InlineData("1/(1 + x^2)", "atan(x)")]
     [InlineData("1/(x^2 + 2*x + 5)", "atan((x + 1) / 2) / 2")]
-    [InlineData("1/(x^2 - 1)", "ln(abs((x - 1) / (x + 1))) / 2")]
+    [InlineData("1/(x^2 - 1)", "(1/2) * ln(abs((x - 1) / (x + 1)))")]
     [InlineData("x/(x^2 + 1)", "(1/2) * ln(x^2 + 1)")]
     [InlineData("1/sqrt(1 - x^2)", "asin(x)")]
     [InlineData("1/sqrt(x^2 + 1)", "asinh(x)")]
@@ -401,8 +401,7 @@ public class CalculusSymbolicIntegrationDocTests
     }
 
     [Theory]
-    [InlineData("1/(x^3 + 1)")]
-    [InlineData("atan(x)/x^2")]
+    [InlineData("1/(x^4 + 1)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("sin(2*x)/(1 + cos(x)^2)")]
     [InlineData("exp(x)*cos(x)^2")]
@@ -416,8 +415,8 @@ public class CalculusSymbolicIntegrationDocTests
     [Fact]
     public void The_message_and_the_numeric_integral()
     {
-        Assert.Equal("No antiderivative of 1 / (x^3 + 1) by x was found.",
-            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^3 + 1)").Integrate("x")).Message);
+        Assert.Equal("No antiderivative of 1 / (x^2 * sqrt(x^2 - 1)) by x was found.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x")).Message);
         Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
 }
@@ -428,11 +427,11 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "sin(2*x)/(1 + cos(x)^2)", "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)", "1/(x^3 + 1)", "atan(x)/x^2", "1/(x^2 + a^2)" })
+        foreach (string integrand in new[] { "sin(2*x)/(1 + cos(x)^2)", "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)", "1/(x^2 + a^2)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
-        Assert.Equal("-2ln(sqrt(x) + 1) + 2sqrt(x) + 2", ExprParser.Parse("1/(1 + sqrt(x))").Integrate("x").Print());
+        Assert.Equal("-2ln(sqrt(x) + 1) + 2sqrt(x)", ExprParser.Parse("1/(1 + sqrt(x))").Integrate("x").Print());
         Assert.Equal("x^2 + x + (x - 1) / abs(x - 1)^2 + 1", ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print());
     }
 
