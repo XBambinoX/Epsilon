@@ -28,6 +28,17 @@ public class TrigonometricIntegralsTests
     [InlineData("sin(2*x)/(1 + cos(x)^2)")]
     [InlineData("1/(sin(2*x + 1)*cos(2*x + 1))")]
     [InlineData("sin(x/2)^3/(1 + cos(x/2)^2)")]
+    [InlineData("1/(2 + cos(x))")]
+    [InlineData("1/(1 + sin(x))")]
+    [InlineData("sin(x)/(1 + sin(x))")]
+    [InlineData("cos(2*x)/(cos(x) - sin(x))")]
+    [InlineData("1/(3 + 5*sin(x))")]
+    [InlineData("1/(sin(x) + cos(x))")]
+    [InlineData("1/(1 + sin(x) + cos(x))")]
+    [InlineData("(1 + sin(x))/(1 + cos(x))")]
+    [InlineData("1/(2 + cos(3*x + 1))")]
+    [InlineData("1/(2 + cos(x))^2")]
+    [InlineData("x/(1 + cos(x))")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -83,11 +94,36 @@ public class TrigonometricIntegralsTests
         Assert.Equal("ln(abs(tan(a * x))) / a", Integral("1/(sin(a*x)*cos(a*x))"));
     }
 
-    // Neither odd nor even: the substitution t = tan(x/2), not there yet.
+    // Neither odd nor even: t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2).
+    [Fact]
+    public void The_half_angle()
+    {
+        Assert.Equal("2atan(tan(x / 2) / sqrt(3)) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("(1/2) * atan(2tan(x / 2))", Integral("1/(5 - 3*cos(x))"));
+        Assert.Equal("x + 2 / (tan(x / 2) + 1)", Integral("sin(x)/(1 + sin(x))"));
+        Assert.Equal("ln(tan(x / 2)^2 + 1) + tan(x / 2)", Integral("(1 + sin(x))/(1 + cos(x))"));
+    }
+
+    // tan(x/2) jumps at pi, and with it the antiderivative: F(2 pi) - F(0) isn't the integral.
+    [Fact]
+    public void The_antiderivative_jumps_with_the_half_angle()
+    {
+        var f = ExprParser.Parse("1/(2 + cos(x))");
+        var antiderivative = f.Integrate("x");
+
+        Assert.Equal(0, antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0)), 1e-15);
+        Assert.Equal(3.627598728468432, f.Integrate(0, 2 * Math.PI));
+    }
+
+    [Fact]
+    public void By_parts_with_the_half_angle() =>
+        Assert.Equal("tan(x / 2) * x + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
+
+    // x elsewhere than in sin and cos: non-elementary, or wanting an identity first.
     [Theory]
-    [InlineData("1/(2 + cos(x))")]
-    [InlineData("sin(x)/(1 + sin(x))")]
-    [InlineData("cos(2*x)/(cos(x) - sin(x))")]
-    public void What_isnt_integrated_yet(string integrand) =>
+    [InlineData("x/(2 + cos(x))")]
+    [InlineData("sin(x)/x")]
+    [InlineData("exp(x)*cos(x)^2")]
+    public void What_isnt_integrated(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 }

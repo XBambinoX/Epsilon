@@ -437,7 +437,6 @@ public class CalculusSymbolicIntegrationDocTests
     }
 
     [Theory]
-    [InlineData("1/(2 + cos(x))")]
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("exp(x)*cos(x)^2")]
@@ -463,7 +462,7 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)", "1/(2 + cos(x))",
+        foreach (string integrand in new[] { "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)",
             "1/(x^5 - x - 1)", "1/(x^2 + a^2)", "1/(x^3 + pi)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 

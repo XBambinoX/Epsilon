@@ -16,7 +16,7 @@ internal sealed partial class IntegrationTable
 
         var factors = Factors(denominator);
         RationalPolynomial d = factors.Aggregate(RationalPolynomial.One, (product, factor) => product * factor.Factor.Pow(factor.Multiplicity));
-        if (d.Degree == 0)
+        if (d.Degree == 0 && RationalPolynomial.Of(f, variable) is not null)
             return null;
 
         Rational leading = denominator.Aggregate(Rational.One, (product, b) => product * b.Base.Leading.Pow(b.Exponent));
@@ -74,8 +74,7 @@ internal sealed partial class IntegrationTable
                 return false;
 
             numerator.Add(top.Pow(Math.Abs(exponent)));
-            if (bottom.Degree > 0)
-                denominator.Add((bottom, Math.Abs(exponent)));
+            denominator.Add((bottom, Math.Abs(exponent)));
 
             return true;
         }

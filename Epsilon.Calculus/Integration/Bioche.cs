@@ -9,7 +9,7 @@ internal sealed partial class IntegrationTable
     // A rational function R(sin u, cos u) of a linear u by Bioche's rules: t = cos u when R dx is
     // unchanged by u -> -u (R odd in sin), t = sin u by u -> pi - u (odd in cos), t = tan u by
     // u -> pi + u (even in both together). Each gives a rational function of t; of those that
-    // apply, the shortest result is taken.
+    // apply, the shortest result is taken. Where none does, t = tan(u/2).
     private Expr? ByBioche(Expr f)
     {
         var s = new Variable(FreshName(f));
@@ -18,16 +18,21 @@ internal sealed partial class IntegrationTable
         if (SinCosForm(f, s, c) is not var (r, u) || Slope(u) is not { } a)
             return null;
 
-        Expr q = 1 - new Power(t, 2);
-        (Expr? H, Expr G)[] rules =
-        [
-            (Transform(r, s, (1, true), c, (t, false), q) is (var e, true) ? -e : null, new Cos(u)),
-            (Transform(r, s, (t, false), c, (1, true), q) is (var e2, true) ? e2 : null, new Sin(u)),
-            (Transform(r, s, (t, true), c, (1, true), 1 / (1 + new Power(t, 2))) is (var e3, false) ? e3 / (1 + new Power(t, 2)) : null, new Tan(u)),
-        ];
+        Expr q = 1 - new Power(t, 2), square = 1 + new Power(t, 2);
+        var rules = new List<(Expr H, Expr G)>();
+        if (Transform(r, s, (1, true), c, (t, false), q) is (var odd, true))
+            rules.Add((-odd, new Cos(u)));
+        if (Transform(r, s, (t, false), c, (1, true), q) is (var oddInCos, true))
+            rules.Add((oddInCos, new Sin(u)));
+        if (Transform(r, s, (t, true), c, (1, true), 1 / square) is (var even, false))
+            rules.Add((even / square, new Tan(u)));
 
-        return rules.Where(rule => rule.H is not null)
-            .Select(rule => Back((rule.H! / a).Simplify(), t, rule.G))
+        // sin u = 2t/(1 + t^2), cos u = (1 - t^2)/(1 + t^2) and du = 2 dt/(1 + t^2).
+        if (rules.Count == 0)
+            rules.Add((r.Substitute(s.Name, 2 * t / square).Substitute(c.Name, q / square) * 2 / square, new Tan(u / 2)));
+
+        return rules
+            .Select(rule => Back((rule.H / a).Simplify(), t, rule.G))
             .OfType<Expr>()
             .Select(integral => Shorter(WithoutAtanOfTan(integral.Simplify())))
             .MinBy(integral => integral.Print().Length);
@@ -52,7 +57,15 @@ internal sealed partial class IntegrationTable
 
         Expr u = arguments.MinBy(argument => Slope(argument) is { } slope && slope.GetVariables().Count == 0 ? Math.Abs(slope.Evaluate()) : double.MaxValue)!;
         Expr a = Slope(u)!;
-        return Rewrite(f) is { } r && !r.DependsOn(variable) ? (r, u) : null;
+        return Rewrite(f) is { } r && !r.DependsOn(variable) && IsRational(r) ? (r, u) : null;
+
+        bool IsRational(Expr e) => !e.DependsOn(s.Name) && !e.DependsOn(c.Name) || e switch
+        {
+            Variable => true,
+            Add or Subtract or Negate or Multiply or Divide => e.Children.All(IsRational),
+            Power { Exponent: Constant { Value.IsInteger: true } } power => IsRational(power.Base),
+            _ => false,
+        };
 
         Expr? Rewrite(Expr e)
         {

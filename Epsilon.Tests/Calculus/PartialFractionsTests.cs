@@ -205,6 +205,14 @@ public class PartialFractionsTests
             + " + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
 
+    // A sum of fractions brought to one, which may be a polynomial.
+    [Fact]
+    public void Sums_of_fractions()
+    {
+        Assert.Equal("x - ln(abs(x + 1))", Integral("1/(1/x + 1)"));
+        Assert.Equal("(1/6) * x^3 + (1/2) * x", Integral("1/((1 - x^2)/(1 + x^2) + 1)"));
+    }
+
     // A polynomial in x^k splits as one in y = x^k does, which the search for linear and
     // quadratic factors doesn't find.
     [Fact]

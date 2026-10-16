@@ -118,6 +118,7 @@ public class IntegrationByPartsTests
     [InlineData("exp(x)/x")]
     [InlineData("exp(x)*cos(x)^2")]
     [InlineData("x*asin(x)")]
+    [InlineData("x/(2 + cos(x))")]
     public void What_isnt_integrated_by_parts(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 }

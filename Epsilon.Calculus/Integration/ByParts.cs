@@ -41,9 +41,8 @@ internal sealed partial class IntegrationTable
         var factors = new List<Expr>();
         Flatten(f, factors);
 
-        Expr? u = factors.FirstOrDefault(factor => factor is Ln or Power { Base: Ln, Exponent: Constant { Value: { IsInteger: true, Sign: > 0 } } })
-            ?? factors.FirstOrDefault(factor => factor is Asin or Acos or Atan or Asinh or Acosh or Atanh
-                or Power { Base: Asin or Acos or Atan or Asinh or Acosh or Atanh, Exponent: Constant { Value: { IsInteger: true, Sign: > 0 } } })
+        Expr? u = factors.FirstOrDefault(factor => Raised(factor) is Ln { Argument: var a } && IsAlgebraic(a))
+            ?? factors.FirstOrDefault(factor => Raised(factor) is (Asin or Acos or Atan or Asinh or Acosh or Atanh) and UnaryExpr { Argument: var a } && IsAlgebraic(a))
             ?? factors.FirstOrDefault(factor => factor.DependsOn(variable) && IsPolynomial(factor));
         bool cyclic = u is null;
         if (cyclic)
@@ -86,6 +85,19 @@ internal sealed partial class IntegrationTable
                 break;
         }
     }
+
+    private static Expr Raised(Expr factor) =>
+        factor is Power { Exponent: Constant { Value: { IsInteger: true, Sign: > 0 } } } power ? power.Base : factor;
+
+    // A logarithm or inverse function of anything else, as atan(tan(x/2)/sqrt(3)) from 1/(2 + cos(x)),
+    // has a derivative that integration by parts only makes longer.
+    private bool IsAlgebraic(Expr e) => e switch
+    {
+        Sqrt or NthRoot or Abs => e.Children.All(IsAlgebraic),
+        UnaryExpr => !e.DependsOn(variable),
+        Power power => !power.Exponent.DependsOn(variable) && IsAlgebraic(power.Base),
+        _ => e.Children.All(IsAlgebraic),
+    };
 
     private static bool HasLogarithm(Expr e) => e is Ln || e.Children.Any(HasLogarithm);
 }
