@@ -9,27 +9,34 @@ internal sealed partial class IntegrationTable
         Expr constant = 1;
         var numerator = new List<RationalPolynomial>();
         var denominator = new List<(RationalPolynomial Base, int Exponent)>();
-        if (!Collect(f, 1) || Factors(denominator) is not ({ Count: > 0 } factors, var leading))
+        if (!Collect(f, 1))
             return null;
+
+        var factors = Factors(denominator);
+        RationalPolynomial d = factors.Aggregate(RationalPolynomial.One, (product, factor) => product * factor.Factor.Pow(factor.Multiplicity));
+        if (d.Degree == 0)
+            return null;
+
+        Rational leading = denominator.Aggregate(Rational.One, (product, b) => product * b.Base.Leading.Pow(b.Exponent));
         if (constant.Simplify() is Constant { Value: var scale })
             (constant, leading) = (1, leading / scale);
 
-        RationalPolynomial whole = numerator.Aggregate(RationalPolynomial.One, (product, factor) => product * factor) * (1 / leading);
-        RationalPolynomial d = factors.Aggregate(RationalPolynomial.One, (product, factor) => product * factor.Factor.Pow(factor.Multiplicity));
-        (whole, RationalPolynomial rest) = whole.DivRem(d);
+        RationalPolynomial n = numerator.Aggregate(RationalPolynomial.One, (product, factor) => product * factor) * (1 / leading);
+        var (whole, rest) = n.DivRem(d);
+        var (rational, a) = Hermite(rest, d, factors);
 
+        Expr integral = whole.Antiderivative().ToExpr(_x) + RationalPart(rational, factors);
         var logarithms = new List<(Rational Coefficient, RationalPolynomial Argument)>();
-        Expr integral = whole.Antiderivative().ToExpr(_x);
-        foreach (var (factor, multiplicity) in factors)
+        RationalPolynomial s = factors.Aggregate(RationalPolynomial.One, (product, factor) => product * factor.Factor);
+        foreach (var (factor, _) in factors)
         {
-            RationalPolynomial power = factor.Pow(multiplicity);
-            RationalPolynomial c = (rest * d.DivRem(power).Quotient.InverseModulo(power)).DivRem(power).Remainder;
-            for (int j = multiplicity; j >= 1; j--)
-            {
-                (c, RationalPolynomial a) = c.DivRem(factor);
-                if (!a.IsZero)
-                    integral += Term(a, factor, j, logarithms);
-            }
+            RationalPolynomial c = (a * (s / factor).InverseModulo(factor)).DivRem(factor).Remainder;
+            if (c.IsZero)
+                continue;
+            if (Term(c, factor, logarithms) is not { } term)
+                return null;
+
+            integral += term;
         }
 
         return constant * (integral + Logarithms(logarithms));
@@ -68,56 +75,100 @@ internal sealed partial class IntegrationTable
         }
     }
 
-    // The denominator's monic irreducible factors, merged, and its leading coefficient.
-    private static (List<(RationalPolynomial Factor, int Multiplicity)> Factors, Rational Leading)? Factors(List<(RationalPolynomial Base, int Exponent)> denominator)
+    // The factors of the bases, made coprime, with their multiplicities in the denominator.
+    private static List<(RationalPolynomial Factor, int Multiplicity)> Factors(List<(RationalPolynomial Base, int Exponent)> denominator)
     {
         var factors = new List<(RationalPolynomial Factor, int Multiplicity)>();
-        Rational leading = Rational.One;
         foreach (var (b, exponent) in denominator)
-        {
-            if (b.Factor() is not { } own)
-                return null;
-
-            leading *= b.Leading.Pow(exponent);
-            foreach (var (factor, multiplicity) in own)
+            foreach (var (piece, multiplicity) in b.Factor())
             {
-                int index = factors.FindIndex(known => known.Factor.Equals(factor));
-                if (index < 0)
-                    factors.Add((factor, multiplicity * exponent));
-                else
-                    factors[index] = (factor, factors[index].Multiplicity + multiplicity * exponent);
-            }
-        }
+                RationalPolynomial p = piece;
+                var coprime = new List<(RationalPolynomial Factor, int Multiplicity)>();
+                foreach (var (q, m) in factors)
+                {
+                    RationalPolynomial common = RationalPolynomial.Gcd(p, q);
+                    if (common.Degree == 0)
+                    {
+                        coprime.Add((q, m));
+                        continue;
+                    }
 
-        return (factors, leading);
+                    coprime.Add((common, m + multiplicity * exponent));
+                    if (common.Degree < q.Degree)
+                        coprime.Add((q / common, m));
+                    p /= common;
+                }
+
+                if (p.Degree > 0)
+                    coprime.Add((p, multiplicity * exponent));
+                factors = coprime;
+            }
+
+        return factors;
     }
 
-    // a / f^j for a monic f and a of lower degree, written with g = d f, the multiple of f with
+    // Hermite's reduction: a/d = (g/q)' + h/s for q the product of the factors to one power less
+    // and s their product; returns g and h.
+    private static (RationalPolynomial G, RationalPolynomial H) Hermite(RationalPolynomial a, RationalPolynomial d, List<(RationalPolynomial Factor, int Multiplicity)> factors)
+    {
+        RationalPolynomial q = factors.Aggregate(RationalPolynomial.One, (product, factor) => product * factor.Factor.Pow(factor.Multiplicity - 1));
+        RationalPolynomial g = RationalPolynomial.Zero;
+        foreach (var (v, i) in factors.Where(factor => factor.Multiplicity > 1))
+        {
+            RationalPolynomial u = d / v.Pow(i), w = u * v.Derivative();
+            for (int j = i - 1; j >= 1; j--)
+            {
+                // b w + c v = -a/j makes a/(u v^(j+1)) = (b/v^j)' + (-j c - u b')/(u v^j).
+                RationalPolynomial right = a * new Rational(-1, j);
+                RationalPolynomial b = (right * w.InverseModulo(v)).DivRem(v).Remainder, c = (right - b * w) / v;
+                g += b * (q / v.Pow(j));
+                a = c * -j - u * b.Derivative();
+            }
+
+            d = u * v;
+        }
+
+        return (g, a);
+    }
+
+    // g over the factors to one power less, written with their multiples with integer coefficients.
+    private Expr RationalPart(RationalPolynomial g, List<(RationalPolynomial Factor, int Multiplicity)> factors)
+    {
+        if (g.IsZero)
+            return 0;
+
+        Expr denominator = 1;
+        foreach (var (factor, multiplicity) in factors.Where(factor => factor.Multiplicity > 1))
+        {
+            RationalPolynomial primitive = factor.Primitive();
+            g *= primitive.Leading.Pow(multiplicity - 1);
+            denominator *= new Power(primitive.ToExpr(_x), multiplicity - 1);
+        }
+
+        RationalPolynomial integral = g.Monic().Primitive();
+        Rational content = g.Leading / integral.Leading;
+        return new Rational(content.Numerator) * integral.ToExpr(_x) / (new Rational(content.Denominator) * denominator);
+    }
+
+    // a/f for a monic f and a of lower degree, written with g = d f, the multiple of f with
     // integer coefficients. The logarithms are left to be merged.
-    private Expr Term(RationalPolynomial a, RationalPolynomial f, int j, List<(Rational Coefficient, RationalPolynomial Argument)> logarithms)
+    private Expr? Term(RationalPolynomial a, RationalPolynomial f, List<(Rational Coefficient, RationalPolynomial Argument)> logarithms)
     {
         RationalPolynomial g = f.Primitive();
-        Rational d = g.Leading;
-        Expr gx = g.ToExpr(_x);
         if (f.Degree == 1)
         {
-            if (j > 1)
-                return a[0] * d.Pow(j - 1) / ((1 - j) * new Power(gx, j - 1));
-
             logarithms.Add((a[0], g));
             return 0;
         }
+        if (f.Degree > 2)
+            return null;
 
         // a = alpha x + beta = alpha/2 f' + gamma
         Rational alpha = a[1], gamma = a[0] - alpha * f[1] / 2;
-        QuadraticIntegrals q = QuadraticIntegrals.Of(gx, variable)!;
-        Expr rest = gamma.IsZero ? 0 : gamma * d.Pow(j) * q.ReciprocalPower(j);
-        if (j > 1)
-            return -alpha / 2 * d.Pow(j - 1) / ((j - 1) * new Power(gx, j - 1)) + rest;
-
         if (!alpha.IsZero)
             logarithms.Add((alpha / 2, g));
-        return rest;
+
+        return gamma.IsZero ? 0 : gamma * g.Leading * QuadraticIntegrals.Of(g.ToExpr(_x), variable)!.Reciprocal();
     }
 
     // c ln|g| for each c and g, with the logarithms of coefficients equal in size merged into one

@@ -117,7 +117,8 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             _ when QuadraticIntegrals.Of(b, variable) is { } q =>
                 Is(e, new Rational(1, 2)) ? q.Sqrt()
                 : Is(e, new Rational(-1, 2)) ? q.InverseSqrt()
-                : e.Simplify() is Constant { Value: { IsInteger: true, Sign: < 0 } n } && n >= -RationalPolynomial.MaxDegree && !HasRationalRoots(b)
+                : e.Simplify() is Constant { Value: { IsInteger: true, Sign: < 0 } n } && n >= -RationalPolynomial.MaxDegree
+                    && (n == -1 ? !HasRationalRoots(b) : RationalPolynomial.Of(b, variable) is null)
                     ? q.ReciprocalPower((int)-n.Numerator)
                 : null,
             _ => null,
@@ -295,7 +296,8 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         return radicand is not null && QuadraticIntegrals.Of(radicand, variable) is { } r ? r.LinearOverSqrt(alpha, beta) : null;
     }
 
-    // Left to partial fractions: (x + 3)/(x^2 - 1) is 2ln|x - 1| - ln|x + 1|.
+    // Left to partial fractions, as are powers of quadratics with rational coefficients: (x + 3)/(x^2 - 1)
+    // is 2ln|x - 1| - ln|x + 1|.
     private bool HasRationalRoots(Expr quadratic) => RationalPolynomial.Of(quadratic, variable) is { } p && p.RationalRoots().Any();
 
     // The coefficients of a polynomial in the variable, lowest degree first, as its derivatives

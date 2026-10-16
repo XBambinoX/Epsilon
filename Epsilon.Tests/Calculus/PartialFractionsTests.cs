@@ -28,6 +28,12 @@ public class PartialFractionsTests
     [InlineData("pi/(x^3 - 1)")]
     [InlineData("-x/(2*(x^2 + x - 6))")]
     [InlineData("x*(x + 1)^(-2)")]
+    [InlineData("1/(x^4 - 2*x^2 + 1)")]
+    [InlineData("1/((x^2 - 1)*(x + 1))")]
+    [InlineData("x^2/(x^3 - 2)^2")]
+    [InlineData("1/(x^2 + 2*x + 5)^2")]
+    [InlineData("1/(2*x^2 + 1)^2")]
+    [InlineData("1/(x^2 + pi)^2")]
     [InlineData("atan(x)/x^2")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
@@ -56,14 +62,30 @@ public class PartialFractionsTests
         Assert.Equal("(1/2) * ln(abs(x^2 - 1)) - ln(abs(x))", Integral("1/(x^3 - x)"));
     }
 
+    // Hermite's reduction: the rational part is one fraction over the repeated factors to one power less.
     [Fact]
     public void Repeated_factors()
     {
         Assert.Equal("-1 / (x - 1) + ln(abs(x - 1))", Integral("x/(x - 1)^2"));
         Assert.Equal("-1 / (2x^2) + ln(abs(x))", Integral("(x^2 + 1)/x^3"));
-        Assert.Equal("(atan(x) + x / (x^2 + 1)) / 2", Integral("1/(x^2 + 1)^2"));
+        Assert.Equal("x / (2 * (x^2 + 1)) + (1/2) * atan(x)", Integral("1/(x^2 + 1)^2"));
+        Assert.Equal("(3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)", Integral("1/(x^2 + 1)^3"));
         Assert.Equal("-1 / (2 * (x^2 + 1))", Integral("x/(x^2 + 1)^2"));
+        Assert.Equal("(3x^3 - 5x) / (8(x + 1)^2 * (x - 1)^2) + (3/16) * ln(abs((x - 1) / (x + 1)))", Integral("1/((x - 1)^3*(x + 1)^3)"));
     }
+
+    // Repeated factors found in an expanded denominator, and shared by two factors of it.
+    [Fact]
+    public void Squarefree_factorization()
+    {
+        Assert.Equal("-x / (2 * (x + 1) * (x - 1)) + (1/4) * ln(abs((x + 1) / (x - 1)))", Integral("1/(x^4 - 2*x^2 + 1)"));
+        Assert.Equal("1 / (2 * (x + 1)) + (1/4) * ln(abs((x - 1) / (x + 1)))", Integral("1/((x^2 - 1)*(x + 1))"));
+    }
+
+    // Without a logarithmic part the factors needn't be split.
+    [Fact]
+    public void Only_a_rational_part() =>
+        Assert.Equal("-1 / (3 * (x^3 - 2))", Integral("x^2/(x^3 - 2)^2"));
 
     [Fact]
     public void Quadratic_factors()

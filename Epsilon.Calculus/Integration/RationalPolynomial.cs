@@ -2,7 +2,7 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
+internal sealed class RationalPolynomial
 {
     public const int MaxDegree = 64;
     private const long MaxDivided = 1_000_000;
@@ -18,6 +18,7 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
         _coefficients = length == 0 ? [Rational.Zero] : coefficients[..length];
     }
 
+    public static RationalPolynomial Zero { get; } = new(Rational.Zero);
     public static RationalPolynomial One { get; } = new(Rational.One);
 
     public int Degree => _coefficients.Length - 1;
@@ -25,7 +26,7 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
     public bool IsZero => _coefficients is [{ IsZero: true }];
     public Rational this[int k] => k < _coefficients.Length ? _coefficients[k] : Rational.Zero;
 
-    public static RationalPolynomial Linear(Rational root) => new(-root, 1);
+    private static RationalPolynomial Linear(Rational root) => new(-root, 1);
 
     public static RationalPolynomial? Of(Expr e, string variable) => e switch
     {
@@ -61,13 +62,15 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
         return new(product);
     }
 
+    public static RationalPolynomial operator /(RationalPolynomial a, RationalPolynomial b) => a.DivRem(b).Quotient;
+
     public RationalPolynomial Pow(int n) => Enumerable.Repeat(this, n).Aggregate(One, (product, factor) => product * factor);
 
     public (RationalPolynomial Quotient, RationalPolynomial Remainder) DivRem(RationalPolynomial divisor)
     {
         int degree = divisor.Degree;
         if (Degree < degree)
-            return (new(Rational.Zero), this);
+            return (Zero, this);
 
         var remainder = (Rational[])_coefficients.Clone();
         var quotient = new Rational[Degree - degree + 1];
@@ -84,7 +87,7 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
     // s with s * this = 1 modulo m, by the extended Euclidean algorithm; this and m are coprime.
     public RationalPolynomial InverseModulo(RationalPolynomial m)
     {
-        RationalPolynomial r0 = m, r1 = DivRem(m).Remainder, s0 = new(Rational.Zero), s1 = One;
+        RationalPolynomial r0 = m, r1 = DivRem(m).Remainder, s0 = Zero, s1 = One;
         while (!r1.IsZero)
         {
             var (quotient, remainder) = r0.DivRem(r1);
@@ -116,27 +119,62 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
         return this * multiple;
     }
 
+    public RationalPolynomial Derivative() => new([.. _coefficients.Skip(1).Select((c, k) => c * (k + 1))]);
+
     public RationalPolynomial Antiderivative() => new([0, .. _coefficients.Select((c, k) => c / (k + 1))]);
 
     public Expr ToExpr(Expr x) => _coefficients.Select((c, k) => c * new Power(x, k)).Aggregate((sum, term) => sum + term).Simplify();
 
-    // Monic factors irreducible over the rationals, with their multiplicities; null when one is of
-    // degree 3 or more, as x^3 - 2.
-    public List<(RationalPolynomial Factor, int Multiplicity)>? Factor()
+    // Monic factors with their multiplicities: x - r for each rational root r, quadratics with
+    // rational coefficients, and what is left of each squarefree part, as x^3 - 2.
+    public List<(RationalPolynomial Factor, int Multiplicity)> Factor()
     {
         var factors = new List<(RationalPolynomial Factor, int Multiplicity)>();
-        RationalPolynomial rest = Monic();
-        foreach (Rational root in RationalRoots())
-            factors.Add((Linear(root), DivideOut(ref rest, Linear(root))));
-        while (rest.Degree > 2 && rest.QuadraticFactor() is { } quadratic)
-            factors.Add((quadratic, DivideOut(ref rest, quadratic)));
-
-        if (rest.Degree > 2)
-            return null;
-        if (rest.Degree == 2)
-            factors.Add((rest, 1));
+        int multiplicity = 0;
+        foreach (RationalPolynomial part in SquareFree())
+        {
+            multiplicity++;
+            RationalPolynomial rest = part;
+            foreach (Rational root in part.RationalRoots())
+            {
+                factors.Add((Linear(root), multiplicity));
+                rest /= Linear(root);
+            }
+            while (rest.Degree > 2 && rest.QuadraticFactor() is { } quadratic)
+            {
+                factors.Add((quadratic, multiplicity));
+                rest /= quadratic;
+            }
+            if (rest.Degree > 0)
+                factors.Add((rest, multiplicity));
+        }
 
         return factors;
+    }
+
+    // Yun's algorithm: the monic polynomial is D1 D2^2 D3^3 ... with each Di squarefree and coprime to the others.
+    private List<RationalPolynomial> SquareFree()
+    {
+        var parts = new List<RationalPolynomial>();
+        RationalPolynomial derivative = Derivative(), common = Gcd(this, derivative);
+        RationalPolynomial b = Monic() / common, c = derivative * (1 / Leading) / common, d = c - b.Derivative();
+        while (b.Degree > 0)
+        {
+            RationalPolynomial part = Gcd(b, d);
+            parts.Add(part);
+            (b, c) = (b / part, d / part);
+            d = c - b.Derivative();
+        }
+
+        return parts;
+    }
+
+    public static RationalPolynomial Gcd(RationalPolynomial a, RationalPolynomial b)
+    {
+        while (!b.IsZero)
+            (a, b) = (b, a.DivRem(b).Remainder);
+
+        return a.Monic();
     }
 
     // By the rational root theorem, on the coefficients made integers; each root once.
@@ -174,18 +212,6 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
         return divisors;
     }
 
-    private static int DivideOut(ref RationalPolynomial p, RationalPolynomial factor)
-    {
-        int multiplicity = 0;
-        while (p.DivRem(factor) is (var quotient, { IsZero: true }))
-        {
-            p = quotient;
-            multiplicity++;
-        }
-
-        return multiplicity;
-    }
-
     // By Kronecker's method: a factor with integer coefficients takes values at -1, 0 and 1 that
     // divide the polynomial's there, and three values fix a quadratic.
     private RationalPolynomial? QuadraticFactor()
@@ -209,10 +235,4 @@ internal sealed class RationalPolynomial : IEquatable<RationalPolynomial>
 
         return null;
     }
-
-    public bool Equals(RationalPolynomial? other) => other is not null && _coefficients.AsSpan().SequenceEqual(other._coefficients);
-
-    public override bool Equals(object? obj) => Equals(obj as RationalPolynomial);
-
-    public override int GetHashCode() => _coefficients.Aggregate(0, HashCode.Combine);
 }
