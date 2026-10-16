@@ -417,6 +417,37 @@ public class CalculusSymbolicIntegrationDocTests
     }
 
     [Fact]
+    public void Trigonometric_and_hyperbolic_functions()
+    {
+        Assert.Equal("cos(x) - 2atan(cos(x))", Integral("sin(x)^3/(1 + cos(x)^2)"));
+        Assert.Equal("(1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
+        Assert.Equal("(1/2) * atan(tan(x) / 2)", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("-ln(cos(x)^2 + 1)", Integral("sin(2*x)/(1 + cos(x)^2)"));
+
+        Assert.Equal("2atan(tan(x / 2) / sqrt(3)) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("x + 2 / (tan(x / 2) + 1)", Integral("sin(x)/(1 + sin(x))"));
+
+        var f = ExprParser.Parse("1/(2 + cos(x))");
+        var antiderivative = f.Integrate("x");
+        Assert.Equal(-8.16431199431569E-17, antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0)));
+        Assert.Equal(3.627598728468432, f.Integrate(0, 2 * Math.PI));
+
+        Assert.Equal("ln(abs((exp(x) - sqrt(3) + 2) / (exp(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cosh(x))"));
+        Assert.Equal("x - coth(x)", Integral("cosh(x)^2/sinh(x)^2"));
+    }
+
+    [Fact]
+    public void Square_roots_of_quadratics()
+    {
+        Assert.Equal("-(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)", Integral("x^2/sqrt(1 - x^2)"));
+        Assert.Equal("-sqrt(x^2 + 4) / (4x)", Integral("1/(x^2*sqrt(4 + x^2))"));
+        Assert.Equal("(1/4) * x^3 * sqrt(x^2 + 1) + (1/8) * sqrt(x^2 + 1) * x - (1/8) * asinh(x)", Integral("x^2*sqrt(x^2 + 1)"));
+
+        Assert.Equal("sqrt(x^2 - 1) / x", Integral("1/(x^2*sqrt(x^2 - 1))"));
+        Assert.Equal("ln(abs(x + sqrt(x^2 - 1))) - sqrt(x^2 - 1) / x", Integral("sqrt(x^2 - 1)/x^2"));
+    }
+
+    [Fact]
     public void Integration_by_parts()
     {
         Assert.Equal("exp(x) * x - exp(x)", Integral("x*exp(x)"));
@@ -426,6 +457,7 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
         Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
         Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)", Integral("asin(x)^2"));
+        Assert.Equal("(1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)", Integral("x*asin(x)"));
 
         Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));
         Assert.Equal("(2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)", Integral("exp(2*x)*cos(3*x)"));
@@ -442,6 +474,8 @@ public class CalculusSymbolicIntegrationDocTests
     [InlineData("exp(x)*cos(x)^2")]
     [InlineData("exp(x^2)")]
     [InlineData("x*tan(x)")]
+    [InlineData("sqrt(1 + x^3)")]
+    [InlineData("1/sqrt(x^4 + 1)")]
     public void What_isnt_integrated_yet(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
@@ -460,9 +494,12 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "exp(x)*cos(x)^2",
+        foreach (string integrand in new[] { "exp(x)*cos(x)^2", "sqrt(1 + x^3)", "1/sqrt(x^4 + 1)",
             "1/(x^5 - x - 1)", "1/(x^2 + a^2)", "1/(x^3 + pi)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
+
+        Assert.Equal("2atan(tan(x / 2) / sqrt(3)) / sqrt(3)", ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print());
+        Assert.Contains("sign(x - 1)", ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))").Integrate("x").Print());
 
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^6 - x^4 + x^3 - 2*x - 2)").Integrate("x"));
         Assert.NotNull(ExprParser.Parse("1/((x^3 - x - 1)*(x^3 + 2))").Integrate("x"));

@@ -2,8 +2,9 @@
 
 `Integrate("x")` gives an antiderivative: an expression whose derivative is the integrand
 wherever the integrand is defined. It comes from the rules of a table of integrals, from
-partial fractions, from substitution and from integration by parts, simplified, without a
-constant of integration. Where none of them finds one, it throws `NotSupportedException`.
+partial fractions, from substitutions, trigonometric ones among them, and from integration by
+parts, simplified, without a constant of integration. Where none of them finds one, it throws
+`NotSupportedException`.
 
 ## Antiderivatives
 
@@ -62,9 +63,12 @@ trigonometric and hyperbolic functions. The quadratics may have any numeric coef
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
 of q. One with rational coefficients is left to [partial fractions](#rational-functions) when it
 has rational roots or is raised to a power. What fits no rule is tried by partial fractions, then
-by [substitution](#substitution), then by partial fractions over the roots of factors of degree
-3 and more. Last it is expanded once and tried again, which integrates products of
-polynomials, and is integrated [by parts](#integration-by-parts).
+by [substitution](#substitution), by the substitutions for
+[sin and cos](#trigonometric-and-hyperbolic-functions) and for
+[square roots of quadratics](#square-roots-of-quadratics), and by partial fractions over the
+roots of factors of degree 3 and more. Then it is expanded once and tried again, which
+integrates products of polynomials, a rational function of exp, sinh and cosh is one of
+t = exp(x), and last it is integrated [by parts](#integration-by-parts).
 
 ## Rational functions
 
@@ -180,6 +184,71 @@ ExprParser.Parse("sin(x)^2*cos(x)^2").Integrate("x").Print();   // (1/8) * x - (
 ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x))) + (1/2) * sec(x)^2
 ```
 
+## Trigonometric and hyperbolic functions
+
+A rational function of sin x and cos x, tan, cot, sec and csc among them, is one of t by
+Bioche's rules: t = cos x where the integrand is odd in sin x, t = sin x where it is odd in
+cos x, and t = tan x where it is unchanged when both change sign. sin(k x) and cos(k x) are
+written in sin x and cos x first, and the argument may be any linear expression. Where several
+rules apply, the shortest result is taken:
+
+```csharp
+ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();    // cos(x) - 2atan(cos(x))
+ExprParser.Parse("cos(x)^5/sin(x)^2").Integrate("x").Print();          // (1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)
+ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * atan(tan(x) / 2)
+ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(cos(x)^2 + 1)
+```
+
+Where no rule applies, t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2):
+
+```csharp
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();       // 2atan(tan(x / 2) / sqrt(3)) / sqrt(3)
+ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();  // x + 2 / (tan(x / 2) + 1)
+```
+
+These are antiderivatives between the points where tan x or tan(x/2) is undefined, and jump at
+them, even where the integrand doesn't: F(b) - F(a) across such a point isn't the definite
+integral. Over a whole period of 1/(2 + cos x) it is 0, where the integral is 2 pi/sqrt(3):
+
+```csharp
+var f = ExprParser.Parse("1/(2 + cos(x))");
+var antiderivative = f.Integrate("x");
+
+antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // -8.16431199431569E-17
+f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
+```
+
+A rational function of exp, sinh and cosh is one of t = exp(x), and quotients of equal powers of
+sin and cos, or sinh and cosh, are powers of tan, cot, tanh or coth:
+
+```csharp
+ExprParser.Parse("1/(2 + cosh(x))").Integrate("x").Print();
+// ln(abs((exp(x) - sqrt(3) + 2) / (exp(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("cosh(x)^2/sinh(x)^2").Integrate("x").Print();   // x - coth(x)
+```
+
+## Square roots of quadratics
+
+A rational function of x and the square root of a quadratic q = p((x - h)^2 + k) becomes one of
+sin and cos, or sinh and cosh: x - h = r sin(t) for p, k < 0, r sinh(t) for p, k > 0, and
+r cosh(t) for p > 0 > k, with r = sqrt(|k|). The square root is then a multiple of cos(t),
+cosh(t) or sinh(t), and the result is written back in x:
+
+```csharp
+ExprParser.Parse("x^2/sqrt(1 - x^2)").Integrate("x").Print();       // -(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)
+ExprParser.Parse("1/(x^2*sqrt(4 + x^2))").Integrate("x").Print();   // -sqrt(x^2 + 4) / (4x)
+ExprParser.Parse("x^2*sqrt(x^2 + 1)").Integrate("x").Print();
+// (1/4) * x^3 * sqrt(x^2 + 1) + (1/8) * sqrt(x^2 + 1) * x - (1/8) * asinh(x)
+```
+
+For p > 0 > k, x - h is r cosh(t) on one side of the gap around h and -r cosh(t) on the other.
+Both are taken at once, so the result holds on both sides:
+
+```csharp
+ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x").Print();   // sqrt(x^2 - 1) / x
+ExprParser.Parse("sqrt(x^2 - 1)/x^2").Integrate("x").Print();       // ln(abs(x + sqrt(x^2 - 1))) - sqrt(x^2 - 1) / x
+```
+
 ## Integration by parts
 
 The integral of u dv is u v less that of v du. For u the factor whose derivative is simpler is
@@ -198,6 +267,7 @@ A logarithm or an inverse function alone, or a power of one, is u with dv = dx:
 ExprParser.Parse("ln(x)^2").Integrate("x").Print();       // 2x + ln(x)^2 * x - 2ln(x) * x
 ExprParser.Parse("ln(x^2 + 1)").Integrate("x").Print();   // ln(x^2 + 1) * x - 2x + 2atan(x)
 ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)
+ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // (1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)
 ```
 
 An exponential times sin or cos, and sin or cos of a logarithm, come back to the integral I
@@ -232,7 +302,8 @@ integral.Differentiate("x").Print(); // atan(x)
 
 The simplifier doesn't always bring a derivative back to the form of the integrand, but the
 values agree. An antiderivative gives a definite integral as F(b) - F(a), here half the area
-of the unit disk. This holds when the integrand is defined on all of [a, b], and the numeric
+of the unit disk. This holds when the integrand is defined on all of [a, b] and the
+antiderivative doesn't [jump](#trigonometric-and-hyperbolic-functions) in it, and the numeric
 integral agrees:
 
 ```csharp
@@ -244,22 +315,21 @@ ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.5707963267948
 
 ## What isn't integrated yet
 
-Trigonometric substitutions are planned, and so is rewriting by identities. Until then these
-throw:
+Some integrands need what isn't there yet, others have no antiderivative made of elementary
+functions at all. Both throw:
 
 ```csharp
-ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x");
-// NotSupportedException: No antiderivative of 1 / (x^2 * sqrt(x^2 - 1)) by x was found.
+ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x");
+// NotSupportedException: No antiderivative of exp(x) * cos(x)^2 by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `1/(2 + cos(x))` | the substitution t = tan(x/2), which makes a rational function of sin and cos one of t |
+| `exp(x)*cos(x)^2` | rewriting first by the double angle, which is done only in rational functions of sin and cos |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
-| `sin(2*x)/(1 + cos(x)^2)`, `exp(x)*cos(x)^2` | rewriting first by the double angle |
-| `1/(x^2*sqrt(x^2 - 1))`, `x*asin(x)` | a trigonometric substitution, such as x = sec(t) |
 | `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
+| `sqrt(1 + x^3)`, `1/sqrt(x^4 + 1)` | nothing either: these square roots of a cubic and a quartic give elliptic integrals |
 
 `exp(x^2)` has no antiderivative made of elementary functions, but its definite integrals are
 [numbers](numeric-integration.md) all the same:

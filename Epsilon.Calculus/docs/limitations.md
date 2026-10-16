@@ -7,14 +7,20 @@ is updated with it. The expressions have
 
 ## Symbolic integration
 
-- **The integrand isn't rewritten by identities first.** Substitution and integration by parts
-  take it as it stands, so `sin(2*x)/(1 + cos(x)^2)` waits for sin(2x) to be written as
-  2 sin(x) cos(x), and `exp(x)*cos(x)^2` for cos(x)^2 to be (1 + cos(2x))/2; see
+- **Identities are used only in rational functions of sin and cos.** There sin(k x) and
+  cos(k x) are written in sin x and cos x, but elsewhere the integrand is taken as it stands:
+  `exp(x)*cos(x)^2` waits for cos(x)^2 to be (1 + cos(2x))/2; see
   [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
-- **No trigonometric substitutions.** x = sec(t) for `1/(x^2*sqrt(x^2 - 1))` isn't tried, nor
-  x = sin(t) for the x^2/sqrt(1 - x^2) that integrating `x*asin(x)` by parts leads to, nor
-  t = tan(x/2), which makes a rational function of sin and cos such as `1/(2 + cos(x))` one
-  of t.
+- **Antiderivatives by t = tan x or t = tan(x/2) jump** where tan is undefined, even where the
+  integrand is continuous, as 1/(2 + cos(x)) is, so F(b) - F(a) across such a point isn't the
+  definite integral; see
+  [Trigonometric and hyperbolic functions](symbolic-integration.md#trigonometric-and-hyperbolic-functions).
+  The [numeric integral](numeric-integration.md) is right there.
+- **Square roots of one quadratic at a time.** `sqrt(1 + x^3)` and `1/sqrt(x^4 + 1)` aren't
+  integrated, having no elementary antiderivative. And where a substitution by cosh leaves the
+  side of the gap inside a sum, the two sides are integrated apart and joined by a sign, whose
+  derivative the core doesn't have yet: `1/(x*sqrt(x^2 - 2*x))` gives an antiderivative with
+  sign(x - 1) in it.
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.
