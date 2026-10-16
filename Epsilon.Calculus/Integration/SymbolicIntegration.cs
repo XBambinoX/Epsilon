@@ -38,7 +38,8 @@ public static class SymbolicIntegrationExtensions
         /// ln(x)/x), with the powers of x written in u for g = p x^k + q; by x in terms of u for a
         /// root of a linear expression (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by
         /// their squares. After it, a factor of the denominator of degree 3 or more that divides some
-        /// x^n - a, as x^3 - 2 and x^4 + 1, is split over the roots of that binomial. Then the
+        /// x^n - a, as x^3 - 2 and x^4 + 1, is split over the roots of that binomial, and any other
+        /// of degree 3 or 4 over its roots in radicals, by Cardano's and Ferrari's formulas. Then the
         /// integrand is expanded once and tried again, so x (x + 1) is integrated as x^2 + x. Last, it
         /// is integrated by parts, with u a logarithm, an inverse function or a polynomial
         /// (x exp(x), x ln(x), ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)),

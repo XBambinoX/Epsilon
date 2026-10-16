@@ -16,9 +16,16 @@ internal sealed partial class IntegrationTable
             return 0;
         }
 
-        if (!overRoots || BinomialRoots(p) is not var (h, radius, turns))
+        if (!overRoots)
             return null;
+        if (BinomialRoots(p) is var (h, radius, turns))
+            return OverBinomialRoots(s, h, radius, turns);
 
+        return p.Degree is 3 or 4 ? OverRadicals(p, s) : null;
+    }
+
+    private Expr OverBinomialRoots(RationalPolynomial s, Rational h, Expr radius, List<Rational> turns)
+    {
         RationalPolynomial shifted = s.Shift(h);
         Expr t = _x + h;
         var logs = new List<(Expr Coefficient, Expr Argument, bool Positive)>();

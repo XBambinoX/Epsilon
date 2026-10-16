@@ -10,7 +10,7 @@ internal sealed class RationalPolynomial
 
     private readonly Rational[] _coefficients;
 
-    private RationalPolynomial(params Rational[] coefficients)
+    public RationalPolynomial(params Rational[] coefficients)
     {
         int length = coefficients.Length;
         while (length > 1 && coefficients[length - 1].IsZero)

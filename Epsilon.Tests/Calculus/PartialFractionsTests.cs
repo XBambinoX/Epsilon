@@ -51,6 +51,19 @@ public class PartialFractionsTests
     [InlineData("1/(x^3 - 2)^2")]
     [InlineData("1/((x^3 - 2)*(x^3 - 3))")]
     [InlineData("1/(x^5 + x)")]
+    [InlineData("1/(x^3 - x - 1)")]
+    [InlineData("x/(x^3 + x + 1)")]
+    [InlineData("(x^2 + 1)/(x^3 + 3*x^2 + 1)")]
+    [InlineData("1/(x^3 - 3*x + 1)")]
+    [InlineData("1/(x^3 - 7*x + 7)")]
+    [InlineData("1/(x^3 - x - 1)^2")]
+    [InlineData("1/((x^3 - x - 1)*(x^2 + 1))")]
+    [InlineData("1/(x^4 - 2*x^2 + 2*x + 3)")]
+    [InlineData("1/(x^4 + x + 1)")]
+    [InlineData("1/(x^4 - 4*x - 1)")]
+    [InlineData("(x^3 + 1)/(x^4 + x^3 + 2)")]
+    [InlineData("1/(x^4 + 2*x^2 + 3)")]
+    [InlineData("1/(x^4 - 10*x^2 + 1)")]
     [InlineData("atan(x)/x^2")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
@@ -170,11 +183,28 @@ public class PartialFractionsTests
     public void A_constant_residue_needs_no_roots() =>
         Assert.Equal("ln(abs(x)) - (1/4) * ln(x^4 + 1)", Integral("1/(x^5 + x)"));
 
-    // Roots that can't be written in radicals, a cubic that isn't a binomial, and symbols in the
-    // denominator.
+    // Cardano's formula: everything about the pair of complex roots is a polynomial in the real root.
+    [Fact]
+    public void Cubics()
+    {
+        const string r = "(nthroot((1/18) * -sqrt(69) + 1/2, 3) + nthroot((1/18) * sqrt(69) + 1/2, 3))";
+        Assert.Equal($"((-6/23) * {r}^2 + (9/23) * {r} + 4/23) * ln(abs(x - nthroot((1/18) * -sqrt(69) + 1/2, 3) - nthroot((1/18) * sqrt(69) + 1/2, 3)))"
+            + $" + ln(x^2 + {r} * x + {r}^2 - 1) * ((-9/46) * {r} + (3/23) * {r}^2 - 2/23)"
+            + $" - ((6/23) * {r} + 9/23) * atan((2x + nthroot((1/18) * -sqrt(69) + 1/2, 3) + nthroot((1/18) * sqrt(69) + 1/2, 3)) / sqrt(3{r}^2 - 4)) * sqrt(3{r}^2 - 4)",
+            Integral("1/(x^3 - x - 1)"));
+    }
+
+    // Three real roots in the trigonometric form.
+    [Fact]
+    public void Cubics_with_three_real_roots() =>
+        Assert.Equal("ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (-2cos((1/9) * π))^2 - 4/9)"
+            + " + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)"
+            + " + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
+
+    // Roots that can't be written in radicals, and symbols in the denominator.
     [Theory]
     [InlineData("1/(x^5 - x - 1)")]
-    [InlineData("1/(x^3 - x - 1)")]
+    [InlineData("1/(x^6 + x + 1)")]
     [InlineData("1/(x^3 + a)")]
     public void What_isnt_integrated(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
