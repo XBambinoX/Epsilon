@@ -220,7 +220,7 @@ public class SymbolicIntegrationTests
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("floor(x)")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("sin(2*x)/(1 + cos(x)^2)")]
+    [InlineData("exp(x)*cos(x)^2")]
     [InlineData("1/(x^2*sqrt(x^2 - 1))")]
     public void What_no_rule_fits_throws(string integrand) =>
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",

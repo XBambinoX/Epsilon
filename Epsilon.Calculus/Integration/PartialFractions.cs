@@ -66,12 +66,16 @@ internal sealed partial class IntegrationTable
                     return Collect(power.Base, exponent * (int)n.Value.Numerator);
             }
 
-            if (RationalPolynomial.Of(e, variable) is not { } p || p.Degree * Math.Abs(exponent) > RationalPolynomial.MaxDegree)
+            if (RationalPolynomial.Fraction(e, variable) is not var (top, bottom) || Math.Max(top.Degree, bottom.Degree) * Math.Abs(exponent) > RationalPolynomial.MaxDegree)
                 return false;
-            if (exponent >= 0)
-                numerator.Add(p.Pow(exponent));
-            else
-                denominator.Add((p, -exponent));
+            if (exponent < 0)
+                (top, bottom) = (bottom, top);
+            if (bottom.IsZero)
+                return false;
+
+            numerator.Add(top.Pow(Math.Abs(exponent)));
+            if (bottom.Degree > 0)
+                denominator.Add((bottom, Math.Abs(exponent)));
 
             return true;
         }

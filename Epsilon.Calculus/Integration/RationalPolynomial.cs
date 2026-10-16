@@ -44,6 +44,32 @@ internal sealed class RationalPolynomial
         _ => null,
     };
 
+    // A rational function as n/d in lowest terms with a monic d: 1/(t^2/(1 + t^2) + 1) is (t^2 + 1)/(2t^2 + 1).
+    public static (RationalPolynomial N, RationalPolynomial D)? Fraction(Expr e, string variable)
+    {
+        if (Of(e, variable) is { } p)
+            return (p, One);
+
+        (RationalPolynomial N, RationalPolynomial D)? Part(Expr child) => Fraction(child, variable);
+        (RationalPolynomial N, RationalPolynomial D)? fraction = e switch
+        {
+            Add sum when Part(sum.Left) is var (n1, d1) && Part(sum.Right) is var (n2, d2) => (n1 * d2 + n2 * d1, d1 * d2),
+            Subtract difference when Part(difference.Left) is var (n1, d1) && Part(difference.Right) is var (n2, d2) => (n1 * d2 - n2 * d1, d1 * d2),
+            Multiply product when Part(product.Left) is var (n1, d1) && Part(product.Right) is var (n2, d2) => (n1 * n2, d1 * d2),
+            Divide quotient when Part(quotient.Numerator) is var (n1, d1) && Part(quotient.Denominator) is var (n2, d2) && !n2.IsZero => (n1 * d2, d1 * n2),
+            Negate negate when Part(negate.Argument) is var (n, d) => (-n, d),
+            Power { Exponent: Constant { Value: { IsInteger: true } k } } power when k.Abs() <= MaxDegree && Part(power.Base) is var (n, d) && (k.Sign >= 0 || !n.IsZero) =>
+                k.Sign >= 0 ? (n.Pow((int)k.Numerator), d.Pow((int)k.Numerator)) : (d.Pow((int)-k.Numerator), n.Pow((int)-k.Numerator)),
+            _ => null,
+        };
+        if (fraction is not var (numerator, denominator) || numerator.Degree > MaxDegree || denominator.Degree > MaxDegree)
+            return null;
+
+        RationalPolynomial common = Gcd(numerator, denominator);
+        (numerator, denominator) = (numerator / common, denominator / common);
+        return (numerator * (1 / denominator.Leading), denominator.Monic());
+    }
+
     public static RationalPolynomial operator +(RationalPolynomial a, RationalPolynomial b) =>
         new([.. Enumerable.Range(0, Math.Max(a._coefficients.Length, b._coefficients.Length)).Select(k => a[k] + b[k])]);
 
