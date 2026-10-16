@@ -6,8 +6,8 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
 {
     private readonly Variable _x = new(variable);
 
-    public static Expr? Antiderivative(Expr expr, string variable) =>
-        new IntegrationTable(variable).Integrate(expr.Simplify())?.Simplify() is { } integral ? FoldNegations(integral) : null;
+    public static Expr? Antiderivative(Expr simplified, string variable) =>
+        new IntegrationTable(variable).Integrate(simplified)?.Simplify() is { } integral ? FoldNegations(integral) : null;
 
     private static Expr FoldNegations(Expr e) => e switch
     {

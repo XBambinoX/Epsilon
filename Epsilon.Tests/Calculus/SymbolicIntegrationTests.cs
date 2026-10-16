@@ -226,6 +226,25 @@ public class SymbolicIntegrationTests
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
+    // The rules are those of real functions: ln|x + i| isn't an antiderivative of 1/(x + i).
+    [Theory]
+    [InlineData("1/(x + i)")]
+    [InlineData("1/(x^2 + i)")]
+    [InlineData("exp(i*x)")]
+    [InlineData("x^i")]
+    public void The_imaginary_unit_elsewhere_throws(string integrand) =>
+        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only as a constant factor or term.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
+
+    [Fact]
+    public void The_imaginary_unit_as_a_constant_factor_or_term()
+    {
+        Assert.Equal("i * x^2 / 2", Integral("i*x"));
+        Assert.Equal("(1/2) * x^2 + i * x", Integral("x + i"));
+        Assert.Equal("i * ln(abs(x))", Integral("i/x"));
+        Assert.Equal("-x^2 / 2", Integral("i^2*x"));
+    }
+
     [Fact]
     public void Null_arguments_throw()
     {

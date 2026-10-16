@@ -11,7 +11,9 @@ public static class SymbolicIntegrationExtensions
         /// An antiderivative by the expression's only variable. See <see cref="Integrate(Expr, string)"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException">The expression doesn't have exactly one variable.</exception>
-        /// <exception cref="NotSupportedException">No antiderivative was found.</exception>
+        /// <exception cref="NotSupportedException">
+        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term.
+        /// </exception>
         public Expr Integrate()
         {
             ArgumentNullException.ThrowIfNull(expr);
@@ -45,14 +47,34 @@ public static class SymbolicIntegrationExtensions
         /// (x exp(x), x ln(x), ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)),
         /// and sec^n and csc^n by their reduction formulas.
         /// </remarks>
-        /// <exception cref="NotSupportedException">No antiderivative was found.</exception>
+        /// <exception cref="NotSupportedException">
+        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term:
+        /// the rules are those of real functions, and ln|x + i| isn't an antiderivative of 1/(x + i).
+        /// </exception>
         public Expr Integrate(string variable)
         {
             ArgumentNullException.ThrowIfNull(expr);
             ArgumentNullException.ThrowIfNull(variable);
 
-            return IntegrationTable.Antiderivative(expr, variable)
+            Expr simplified = expr.Simplify();
+            if (ImaginaryInside(simplified, variable))
+                throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only as a constant factor or term.");
+
+            return IntegrationTable.Antiderivative(simplified, variable)
                 ?? throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found.");
         }
     }
+
+    // Outside sums and constant factors, numerators and denominators, a part with the variable has no i.
+    private static bool ImaginaryInside(Expr e, string variable) => e.DependsOn(variable) && e switch
+    {
+        Add or Subtract or Negate => e.Children.Any(child => ImaginaryInside(child, variable)),
+        Multiply product when !product.Left.DependsOn(variable) || !product.Right.DependsOn(variable) =>
+            e.Children.Any(child => ImaginaryInside(child, variable)),
+        Divide quotient when !quotient.Denominator.DependsOn(variable) => ImaginaryInside(quotient.Numerator, variable),
+        Divide quotient when !quotient.Numerator.DependsOn(variable) => HasImaginaryUnit(quotient.Denominator),
+        _ => HasImaginaryUnit(e),
+    };
+
+    private static bool HasImaginaryUnit(Expr e) => e is ImaginaryUnit || e.Children.Any(HasImaginaryUnit);
 }

@@ -472,6 +472,10 @@ public class CalculusLimitationsDocTests
         Assert.InRange(ExprParser.Parse("1/(x^4 + x + 1)").Integrate("x").Print().Length, 2500, 3500);
         Assert.NotNull(ExprParser.Parse("1/(x^2 + pi)").Integrate("x"));
 
+        Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
+        Assert.Equal("(1/2) * x^2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x + i)").Integrate("x"));
+
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
         Assert.Equal("2atan(2x / sqrt(2)) / sqrt(2)", ExprParser.Parse("1/(x^2 + 1/2)").Integrate("x").Print());
         Assert.Equal("x^2 + x + (x - 1) / abs(x - 1)^2 + 1", ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print());
