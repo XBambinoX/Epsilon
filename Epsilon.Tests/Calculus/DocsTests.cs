@@ -401,7 +401,7 @@ public class CalculusSymbolicIntegrationDocTests
     }
 
     [Theory]
-    [InlineData("1/(x^4 + 1)")]
+    [InlineData("1/(x^5 - x - 1)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("sin(2*x)/(1 + cos(x)^2)")]
     [InlineData("exp(x)*cos(x)^2")]

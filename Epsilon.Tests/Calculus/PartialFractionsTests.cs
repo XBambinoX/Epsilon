@@ -34,6 +34,23 @@ public class PartialFractionsTests
     [InlineData("1/(x^2 + 2*x + 5)^2")]
     [InlineData("1/(2*x^2 + 1)^2")]
     [InlineData("1/(x^2 + pi)^2")]
+    [InlineData("1/(x^3 - 2)")]
+    [InlineData("1/(x^3 + 2)")]
+    [InlineData("x/(x^3 - 3)")]
+    [InlineData("1/(x^4 + 1)")]
+    [InlineData("x^2/(x^4 + 1)")]
+    [InlineData("1/(x^4 + 2)")]
+    [InlineData("1/(x^5 - 1)")]
+    [InlineData("1/(x^5 + 1)")]
+    [InlineData("1/(x^4 + x^3 + x^2 + x + 1)")]
+    [InlineData("1/(x^6 + 1)")]
+    [InlineData("1/(x^7 - 1)")]
+    [InlineData("1/(x^8 - 1)")]
+    [InlineData("1/(x^12 - 1)")]
+    [InlineData("1/((x + 1)^3 - 2)")]
+    [InlineData("1/(x^3 - 2)^2")]
+    [InlineData("1/((x^3 - 2)*(x^3 - 3))")]
+    [InlineData("1/(x^5 + x)")]
     [InlineData("atan(x)/x^2")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
@@ -128,12 +145,37 @@ public class PartialFractionsTests
     public void After_integration_by_parts() =>
         Assert.Equal("ln(abs(x)) - atan(x) / x - (1/2) * ln(x^2 + 1)", Integral("atan(x)/x^2"));
 
-    // Factors of degree 3 or more over the rationals, and symbols in the denominator.
+    // Factors of degree 3 or more over the rationals by the roots of x^n - a they divide: a pair
+    // of complex roots gives a logarithm and an arctangent.
+    [Fact]
+    public void Roots_of_binomials()
+    {
+        Assert.Equal("(1/8) * ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) * sqrt(2) + (1/4) * (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) * sqrt(2)",
+            Integral("1/(x^4 + 1)"));
+        Assert.Equal("(1/6) * (atan(2x + sqrt(3)) + atan(2x - sqrt(3))) + (1/3) * atan(x) + (1/12) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) * sqrt(3)",
+            Integral("1/(x^6 + 1)"));
+        Assert.Equal("(-1/12) * ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) * nthroot(2, 3) + (1/6) * ln(abs(x - nthroot(2, 3))) * nthroot(2, 3)"
+            + " + (-1/6) * atan(2sqrt(3) * x / (3nthroot(2, 3)) + (1/3) * sqrt(3)) * nthroot(2, 3) * sqrt(3)", Integral("1/(x^3 - 2)"));
+    }
+
+    // Angles without a known value stay exact.
+    [Fact]
+    public void Roots_of_unity() =>
+        Assert.Equal("(1/5) * ln(abs(x - 1)) + (-2/5) * atan(csc((1/5) * π) * x + cot((1/5) * π)) * sin((1/5) * π)"
+            + " + (-2/5) * atan(csc((2/5) * π) * x - cot((2/5) * π)) * sin((2/5) * π) + (-1/5) * cos((1/5) * π) * ln(x^2 + 2cos((1/5) * π) * x + 1)"
+            + " + (1/5) * cos((2/5) * π) * ln(x^2 - 2cos((2/5) * π) * x + 1)", Integral("1/(x^5 - 1)"));
+
+    // c/p' is a constant modulo p: one logarithm of p, whatever its roots.
+    [Fact]
+    public void A_constant_residue_needs_no_roots() =>
+        Assert.Equal("ln(abs(x)) - (1/4) * ln(x^4 + 1)", Integral("1/(x^5 + x)"));
+
+    // Roots that can't be written in radicals, a cubic that isn't a binomial, and symbols in the
+    // denominator.
     [Theory]
-    [InlineData("1/(x^4 + 1)")]
-    [InlineData("1/(x^3 - 2)")]
-    [InlineData("1/(x^5 + x)")]
+    [InlineData("1/(x^5 - x - 1)")]
+    [InlineData("1/(x^3 - x - 1)")]
     [InlineData("1/(x^3 + a)")]
-    public void What_doesnt_split_isnt_integrated(string integrand) =>
+    public void What_isnt_integrated(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 }

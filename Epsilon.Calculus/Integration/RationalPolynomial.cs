@@ -20,6 +20,7 @@ internal sealed class RationalPolynomial
 
     public static RationalPolynomial Zero { get; } = new(Rational.Zero);
     public static RationalPolynomial One { get; } = new(Rational.One);
+    private static RationalPolynomial X { get; } = new(0, 1);
 
     public int Degree => _coefficients.Length - 1;
     public Rational Leading => _coefficients[^1];
@@ -105,6 +106,33 @@ internal sealed class RationalPolynomial
             value = value * x + _coefficients[k];
 
         return value;
+    }
+
+    public (double Re, double Im) Evaluate(double re, double im)
+    {
+        double valueRe = 0, valueIm = 0;
+        for (int k = Degree; k >= 0; k--)
+            (valueRe, valueIm) = (valueRe * re - valueIm * im + _coefficients[k].ToDouble(), valueRe * im + valueIm * re);
+
+        return (valueRe, valueIm);
+    }
+
+    // p(x - h).
+    public RationalPolynomial Shift(Rational h) => Enumerable.Reverse(_coefficients).Aggregate(Zero, (value, c) => value * Linear(h) + new RationalPolynomial(c));
+
+    // The least m from the degree up to which x^m is a nonzero constant a modulo this monic
+    // polynomial, which then divides x^m - a.
+    public (int Exponent, Rational Value)? BinomialMultiple()
+    {
+        RationalPolynomial power = X.Pow(Degree).DivRem(this).Remainder;
+        for (int m = Degree; m <= 6 * Degree; m++)
+        {
+            if (power.Degree == 0 && !power.IsZero)
+                return (m, power[0]);
+            power = (power * X).DivRem(this).Remainder;
+        }
+
+        return null;
     }
 
     public RationalPolynomial Monic() => this * (1 / Leading);

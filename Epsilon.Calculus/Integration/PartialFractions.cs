@@ -4,7 +4,9 @@ namespace Epsilon.Calculus;
 
 internal sealed partial class IntegrationTable
 {
-    private Expr? PartialFractions(Expr f)
+    // Over the roots of factors of degree 3 or more only after substitution, which writes
+    // x/(1 + x^4) as atan(x^2)/2.
+    private Expr? PartialFractions(Expr f, bool overRoots)
     {
         Expr constant = 1;
         var numerator = new List<RationalPolynomial>();
@@ -33,7 +35,7 @@ internal sealed partial class IntegrationTable
             RationalPolynomial c = (a * (s / factor).InverseModulo(factor)).DivRem(factor).Remainder;
             if (c.IsZero)
                 continue;
-            if (Term(c, factor, logarithms) is not { } term)
+            if (Term(c, factor, logarithms, overRoots) is not { } term)
                 return null;
 
             integral += term;
@@ -152,7 +154,7 @@ internal sealed partial class IntegrationTable
 
     // a/f for a monic f and a of lower degree, written with g = d f, the multiple of f with
     // integer coefficients. The logarithms are left to be merged.
-    private Expr? Term(RationalPolynomial a, RationalPolynomial f, List<(Rational Coefficient, RationalPolynomial Argument)> logarithms)
+    private Expr? Term(RationalPolynomial a, RationalPolynomial f, List<(Rational Coefficient, RationalPolynomial Argument)> logarithms, bool overRoots)
     {
         RationalPolynomial g = f.Primitive();
         if (f.Degree == 1)
@@ -161,7 +163,7 @@ internal sealed partial class IntegrationTable
             return 0;
         }
         if (f.Degree > 2)
-            return null;
+            return Residues(a, f, logarithms, overRoots);
 
         // a = alpha x + beta = alpha/2 f' + gamma
         Rational alpha = a[1], gamma = a[0] - alpha * f[1] / 2;

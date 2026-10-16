@@ -48,8 +48,9 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             _ => null,
         };
 
-        result ??= PartialFractions(f);
+        result ??= PartialFractions(f, overRoots: false);
         result ??= BySubstitution(f);
+        result ??= PartialFractions(f, overRoots: true);
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             result = Integrate(expanded, expand: false);
 

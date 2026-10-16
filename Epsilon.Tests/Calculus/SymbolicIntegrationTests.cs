@@ -213,11 +213,11 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // Non-elementary, a denominator that doesn't split over the rationals, a step, a quadratic
-    // whose sign isn't known, the double angle, and a trigonometric substitution.
+    // Non-elementary, a denominator whose roots can't be written, a step, a quadratic whose sign
+    // isn't known, the double angle, and a trigonometric substitution.
     [Theory]
     [InlineData("exp(x^2)")]
-    [InlineData("1/(x^4 + 1)")]
+    [InlineData("1/(x^5 - x - 1)")]
     [InlineData("floor(x)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("sin(2*x)/(1 + cos(x)^2)")]
