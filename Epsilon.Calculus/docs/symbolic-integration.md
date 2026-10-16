@@ -2,8 +2,8 @@
 
 `Integrate("x")` gives an antiderivative: an expression whose derivative is the integrand
 wherever the integrand is defined. It comes from the rules of a table of integrals, from
-substitution and from integration by parts, simplified, without a constant of integration.
-Where none of them finds one, it throws `NotSupportedException`.
+partial fractions, from substitution and from integration by parts, simplified, without a
+constant of integration. Where none of them finds one, it throws `NotSupportedException`.
 
 ## Antiderivatives
 
@@ -52,7 +52,6 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | Polynomial division | `x^3/(x - 1)` | `(1/3) * x^3 + (1/2) * x^2 + x + ln(abs(x - 1))` |
 | | `x^2/(x^2 + 1)` | `x - atan(x)` |
 | Quadratic denominators | `1/(1 + x^2)`, `1/(x^2 + 2*x + 5)` | `atan(x)`, `atan((x + 1) / 2) / 2` |
-| | `1/(x^2 - 1)` | `ln(abs((x - 1) / (x + 1))) / 2` |
 | | `x/(x^2 + 1)` | `(1/2) * ln(x^2 + 1)` |
 | Square roots of quadratics | `1/sqrt(1 - x^2)`, `1/sqrt(x^2 + 1)` | `asin(x)`, `asinh(x)` |
 | | `sqrt(1 - x^2)` | `(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)` |
@@ -61,9 +60,85 @@ The arguments may be any linear expression a x + b: the exponential, logarithm, 
 hyperbolic and inverse functions, abs and sign, and the squares, reciprocals and products of the
 trigonometric and hyperbolic functions. The quadratics may have any numeric coefficients. Their
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
-of q. What fits neither a rule nor a [substitution](#substitution) is expanded once and tried
-again, which integrates products of polynomials, and is integrated
-[by parts](#integration-by-parts) last.
+of q. One with rational coefficients is left to [partial fractions](#rational-functions) when it
+has rational roots or is raised to a power. What fits no rule is tried by partial fractions, then
+by [substitution](#substitution), then by partial fractions over the roots of factors of degree
+3 and more. Last it is expanded once and tried again, which integrates products of
+polynomials, and is integrated [by parts](#integration-by-parts).
+
+## Rational functions
+
+A quotient of polynomials with rational coefficients is integrated by partial fractions: its
+denominator is split into factors over the rationals, and the fraction into a polynomial and a
+sum of fractions over them. A linear factor gives a logarithm, a quadratic one a logarithm and
+an arctangent:
+
+```csharp
+ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // (1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))
+ExprParser.Parse("1/(x*(x^2 + 1))").Integrate("x").Print();      // ln(abs(x)) - (1/2) * ln(x^2 + 1)
+ExprParser.Parse("1/(x^3 + 1)").Integrate("x").Print();
+// atan((2x - 1) / sqrt(3)) / sqrt(3) + (1/3) * ln(abs(x + 1)) - (1/6) * ln(x^2 - x + 1)
+```
+
+Logarithms whose coefficients are equal or opposite are merged into one, of a product or a
+quotient. The factors are found in an expanded denominator too, x^4 + x^2 + 1 being
+(x^2 + x + 1)(x^2 - x + 1):
+
+```csharp
+ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();     // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("x^2/(x^3 + 1)").Integrate("x").Print();   // (1/3) * ln(abs(x^3 + 1))
+ExprParser.Parse("1/(x^4 + x^2 + 1)").Integrate("x").Print();
+// atan((2x + 1) / sqrt(3)) / (2sqrt(3)) + atan((2x - 1) / sqrt(3)) / (2sqrt(3)) + (1/4) * ln((x^2 + x + 1) / (x^2 - x + 1))
+```
+
+Repeated factors give a rational part: by Hermite's reduction, one fraction over the repeated
+factors to one power less. It doesn't split the factors, so in the last example the roots of
+x^3 - 2 aren't needed:
+
+```csharp
+ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)
+ExprParser.Parse("1/(x^4 - 2*x^2 + 1)").Integrate("x").Print();   // -x / (2 * (x + 1) * (x - 1)) + (1/4) * ln(abs((x + 1) / (x - 1)))
+ExprParser.Parse("x^2/(x^3 - 2)^2").Integrate("x").Print();       // -1 / (3 * (x^3 - 2))
+```
+
+A factor of degree 3 or more is integrated over its roots: each root r gives S(r) ln(x - r),
+where S is the numerator over the derivative of the factor, and a pair of complex roots gives
+a logarithm and an arctangent. A factor of x^n - a has roots of that binomial, the n-th roots
+of a; their angles are written exactly, by values such as sqrt(2) where they are known, and
+otherwise as cos(pi/5) is for x^5 - 1:
+
+```csharp
+ExprParser.Parse("1/(x^4 + 1)").Integrate("x").Print();
+// (1/8) * ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) * sqrt(2) + (1/4) * (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) * sqrt(2)
+ExprParser.Parse("1/(x^6 + 1)").Integrate("x").Print();
+// (1/6) * (atan(2x + sqrt(3)) + atan(2x - sqrt(3))) + (1/3) * atan(x) + (1/12) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) * sqrt(3)
+```
+
+The roots of any other cubic or quartic come from Cardano's and Ferrari's formulas, three real
+roots of a cubic in trigonometric form:
+
+```csharp
+ExprParser.Parse("1/(x^3 - 3*x + 1)").Integrate("x").Print();
+// ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (-2cos((1/9) * π))^2 - 4/9)
+//   + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)
+//   + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)
+```
+
+These are exact, but a root in radicals takes room, and it appears in every coefficient. With
+the one real root of x^3 - x - 1 the antiderivative is a thousand characters long; its
+derivative is still the integrand, here 1/(8 - 2 - 1) at 2:
+
+```csharp
+var integral = ExprParser.Parse("1/(x^3 - x - 1)").Integrate("x");
+
+integral.Print().Length;                          // 1012
+integral.Differentiate("x").Evaluate(("x", 2));   // 0.20000000000000007
+```
+
+Over the roots, partial fractions come after [substitution](#substitution), which writes
+x/(1 + x^4) as atan(x^2)/2. A factor of degree 5 or more that divides no x^n - a isn't
+integrated: its roots can't be written in radicals in general, see
+[what isn't integrated yet](#what-isnt-integrated-yet).
 
 ## Substitution
 
@@ -74,7 +149,7 @@ in u = g, which the table may know:
 ExprParser.Parse("2*x*cos(x^2)").Integrate("x").Print();         // sin(x^2)
 ExprParser.Parse("ln(x)/x").Integrate("x").Print();              // ln(x)^2 / 2
 ExprParser.Parse("cos(x)*exp(sin(x))").Integrate("x").Print();   // exp(sin(x))
-ExprParser.Parse("x^2/(x^3 + 1)").Integrate("x").Print();        // (1/3) * ln(abs(x^3 + 1))
+ExprParser.Parse("x*exp(x^2)").Integrate("x").Print();           // (1/2) * exp(x^2)
 ```
 
 Powers of the part count as powers of u: x^4 is u^2 for u = x^2, and exp(2x) is u^2 for
@@ -169,20 +244,21 @@ ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.5707963267948
 
 ## What isn't integrated yet
 
-Partial fractions of higher degree and trigonometric substitutions are planned. Until then
-these throw:
+Trigonometric substitutions are planned, and so is rewriting by identities. Until then these
+throw:
 
 ```csharp
-ExprParser.Parse("1/(x^3 + 1)").Integrate("x");
-// NotSupportedException: No antiderivative of 1 / (x^3 + 1) by x was found.
+ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x");
+// NotSupportedException: No antiderivative of 1 / (x^2 * sqrt(x^2 - 1)) by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `1/(x^3 + 1)`, `atan(x)/x^2` | partial fractions with a denominator of degree 3, which integration by parts leads to for the second |
+| `1/(2 + cos(x))` | the substitution t = tan(x/2), which makes a rational function of sin and cos one of t |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
 | `sin(2*x)/(1 + cos(x)^2)`, `exp(x)*cos(x)^2` | rewriting first by the double angle |
 | `1/(x^2*sqrt(x^2 - 1))`, `x*asin(x)` | a trigonometric substitution, such as x = sec(t) |
+| `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
 
 `exp(x^2)` has no antiderivative made of elementary functions, but its definite integrals are
