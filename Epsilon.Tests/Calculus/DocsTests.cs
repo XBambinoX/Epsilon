@@ -4,6 +4,13 @@ using Epsilon.LinearAlgebra;
 
 namespace Epsilon.Tests.Calculus;
 
+// The digits shown for numeric integrals, up to the last ones: the nodes come from sinh, cosh and
+// tanh of the C library, which round differently from version to version (glibc 2.39 and 2.44).
+internal static class Shown
+{
+    public static void Equal(double shown, double actual) => Assert.Equal(shown, actual, Math.Abs(shown) * 1e-14);
+}
+
 // Epsilon.Calculus/docs/api-reference.md must list every public type and member. A new public
 // member fails this test until it is documented there.
 public class CalculusApiReferenceDocTests
@@ -46,8 +53,8 @@ public class CalculusReadmeExamplesTests
         Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
         Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", Integral("1/(x^2 - 1)"));
 
-        Assert.Equal(1.7724538509055159, ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
-        Assert.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
+        Shown.Equal(1.7724538509055159, ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
+        Shown.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
     }
 
     [Fact]
@@ -100,10 +107,10 @@ public class CalculusReadmeExamplesTests
     [Fact]
     public void Definite_integrals()
     {
-        Assert.Equal(3.141592653589763, ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1));
-        Assert.Equal(8.999999999999998, ExprParser.Parse("abs(x)^(-2/3)").Integrate(-1, 8));
-        Assert.Equal(1.772453850905513, ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
-        Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
+        Shown.Equal(3.141592653589763, ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1));
+        Shown.Equal(8.999999999999998, ExprParser.Parse("abs(x)^(-2/3)").Integrate(-1, 8));
+        Shown.Equal(1.772453850905513, ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
+        Shown.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
 
         Assert.Equal("The integral diverges at x = 0, or converges there too slowly for double precision.",
             Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/x").Integrate(0, 1)).Message);
@@ -121,7 +128,7 @@ public class CalculusReadmeExamplesTests
         Assert.Equal(2 * Math.PI / Math.Sqrt(3), f.Integrate(0, 2 * Math.PI), 1e-14);
 
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("floor(x)*y").Gradient());
-        Assert.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
+        Shown.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
         Assert.Equal("abs(x)", Integral("sign(x)"));
         Assert.NotNull(ExprParser.Parse("max(x, 0)").Integrate("x"));
     }
@@ -142,9 +149,9 @@ public class CalculusGettingStartedDocTests
 
         Assert.Equal("x^3 - 3x", ExprParser.Parse("3*x^2 - 3").Integrate("x").Print());
         double gauss = ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);
-        Assert.Equal(1.7724538509055159, gauss);
-        Assert.Equal(Math.Sqrt(Math.PI), gauss);
-        Assert.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
+        Shown.Equal(1.7724538509055159, gauss);
+        Shown.Equal(Math.Sqrt(Math.PI), gauss);
+        Shown.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
     }
 }
 
@@ -334,46 +341,46 @@ public class CalculusNumericIntegrationDocTests
     [Fact]
     public void Definite_integrals()
     {
-        Assert.Equal(0.33333333333333326, Integrate("x^2", 0, 1));
-        Assert.Equal(0.6826894921370859, Integrate("exp(-x^2/2)/sqrt(2*pi)", -1, 1));
-        Assert.Equal(-0.33333333333333326, Integrate("x^2", 1, 0));
-        Assert.Equal(1.7724538509055159, ExprParser.Parse("exp(-t^2)").Integrate("t", -Inf, Inf));
+        Shown.Equal(0.33333333333333326, Integrate("x^2", 0, 1));
+        Shown.Equal(0.6826894921370859, Integrate("exp(-x^2/2)/sqrt(2*pi)", -1, 1));
+        Shown.Equal(-0.33333333333333326, Integrate("x^2", 1, 0));
+        Shown.Equal(1.7724538509055159, ExprParser.Parse("exp(-t^2)").Integrate("t", -Inf, Inf));
 
         Assert.Equal("The expression has the variable 'a' besides 'x': substitute a value for it first. (Parameter 'variable')",
             Assert.Throws<ArgumentException>(() => ExprParser.Parse("a*x").Integrate("x", 0, 1)).Message);
-        Assert.Equal(1.4999999999999998, ExprParser.Parse("a*x").Substitute("a", 3).Integrate("x", 0, 1));
+        Shown.Equal(1.4999999999999998, ExprParser.Parse("a*x").Substitute("a", 3).Integrate("x", 0, 1));
     }
 
     [Fact]
     public void Infinite_limits()
     {
-        Assert.Equal(0.9999999999999994, Integrate("exp(-x)", 0, Inf));
-        Assert.Equal(3.1415926535897927, Integrate("1/(1 + x^2)", -Inf, Inf));
+        Shown.Equal(0.9999999999999994, Integrate("exp(-x)", 0, Inf));
+        Shown.Equal(3.1415926535897927, Integrate("1/(1 + x^2)", -Inf, Inf));
     }
 
     [Fact]
     public void Singularities()
     {
-        Assert.Equal(-4, Integrate("ln(x)/sqrt(x)", 0, 1));
-        Assert.Equal(10, Integrate("x^(-0.9)", 0, 1));
-        Assert.Equal(2, Integrate("(1 - x)^(-1/2)", 0, 1));
-        Assert.Equal(3.141592653589763, Integrate("1/sqrt(1 - x^2)", -1, 1));
+        Shown.Equal(-4, Integrate("ln(x)/sqrt(x)", 0, 1));
+        Shown.Equal(10, Integrate("x^(-0.9)", 0, 1));
+        Shown.Equal(2, Integrate("(1 - x)^(-1/2)", 0, 1));
+        Shown.Equal(3.141592653589763, Integrate("1/sqrt(1 - x^2)", -1, 1));
 
-        Assert.Equal(8.999999999999998, Integrate("abs(x)^(-2/3)", -1, 8));
-        Assert.Equal(6, Integrate("1/sqrt(abs(x))", -1, 4));
-        Assert.Equal(2.768765168078484, Integrate("abs(x - 0.3)^(-1/2)", 0, 1));
-        Assert.Equal(1.8921661407343664, Integrate("sin(x)/x", -1, 1));
+        Shown.Equal(8.999999999999998, Integrate("abs(x)^(-2/3)", -1, 8));
+        Shown.Equal(6, Integrate("1/sqrt(abs(x))", -1, 4));
+        Shown.Equal(2.768765168078484, Integrate("abs(x - 0.3)^(-1/2)", 0, 1));
+        Shown.Equal(1.8921661407343664, Integrate("sin(x)/x", -1, 1));
     }
 
     [Fact]
     public void Kinks_jumps_and_peaks()
     {
-        Assert.Equal(2.499999999999999, Integrate("abs(x)", -1, 2));
-        Assert.Equal(0.24999999999999992, Integrate("min(x, 1 - x)", 0, 1));
-        Assert.Equal(4.500000000000001, Integrate("floor(x)", 0, 3.5));
-        Assert.Equal(1.772453850905513, Integrate("exp(-(x - 200)^2)", -Inf, Inf));
+        Shown.Equal(2.499999999999999, Integrate("abs(x)", -1, 2));
+        Shown.Equal(0.24999999999999992, Integrate("min(x, 1 - x)", 0, 1));
+        Shown.Equal(4.500000000000001, Integrate("floor(x)", 0, 3.5));
+        Shown.Equal(1.772453850905513, Integrate("exp(-(x - 200)^2)", -Inf, Inf));
 
-        Assert.Equal(3139.5926542564584, Integrate("1/(x^2 + 1e-6)", -1, 1));
+        Shown.Equal(3139.5926542564584, Integrate("1/(x^2 + 1e-6)", -1, 1));
         Assert.Equal(3139.59265425646, 2000 * Math.Atan(1000), 1e-10);
     }
 
@@ -392,7 +399,7 @@ public class CalculusNumericIntegrationDocTests
     {
         Assert.Equal("The integrand is singular next to x = 3.141592653589793, at a point that isn't a double, which limits the accuracy to about 1.1E-07.",
             Fails("1/sqrt(sin(x))", 0, Math.PI));
-        Assert.Equal(5.2441150944578965, ExprParser.Parse("1/sqrt(sin(x))").Integrate(0, Math.PI, 1e-6));
+        Shown.Equal(5.2441150944578965, ExprParser.Parse("1/sqrt(sin(x))").Integrate(0, Math.PI, 1e-6));
     }
 
     [Fact]
@@ -500,7 +507,7 @@ public class CalculusSymbolicIntegrationDocTests
 
         var area = ExprParser.Parse("sqrt(1 - x^2)").Integrate("x");
         Assert.Equal(1.5707963267948966, area.Evaluate(("x", 1)) - area.Evaluate(("x", -1)));
-        Assert.Equal(1.570796326794897, ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1));
+        Shown.Equal(1.570796326794897, ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1));
     }
 
     [Fact]
@@ -537,7 +544,7 @@ public class CalculusSymbolicIntegrationDocTests
         var f = ExprParser.Parse("1/(2 + cos(x))");
         var antiderivative = f.Integrate("x");
         Assert.Equal(-8.16431199431569E-17, antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0)));
-        Assert.Equal(3.627598728468432, f.Integrate(0, 2 * Math.PI));
+        Shown.Equal(3.627598728468432, f.Integrate(0, 2 * Math.PI));
 
         Assert.Equal("ln(abs((exp(x) - sqrt(3) + 2) / (exp(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cosh(x))"));
         Assert.Equal("x - coth(x)", Integral("cosh(x)^2/sinh(x)^2"));
@@ -591,7 +598,7 @@ public class CalculusSymbolicIntegrationDocTests
     {
         Assert.Equal("No antiderivative of exp(x) * cos(x)^2 by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x")).Message);
-        Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
+        Shown.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
 }
 
@@ -617,7 +624,7 @@ public class CalculusLimitationsDocTests
 
         foreach (string integrand in new[] { "floor(x)", "ceiling(x)", "round(x)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
-        Assert.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
+        Shown.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
         Assert.Equal("abs(x)", ExprParser.Parse("sign(x)").Integrate("x").Print());
 
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
@@ -634,11 +641,11 @@ public class CalculusLimitationsDocTests
     {
         var peak = ExprParser.Parse("sech(10*(x - 1000))^2");
         Assert.Equal(0, peak.Integrate(double.NegativeInfinity, double.PositiveInfinity));
-        Assert.Equal(0.19999999999998613, peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity));
+        Shown.Equal(0.19999999999998613, peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity));
 
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity));
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300));
-        Assert.Equal(0.8862269254527579, ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity));
+        Shown.Equal(0.8862269254527579, ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity));
     }
 
     [Fact]

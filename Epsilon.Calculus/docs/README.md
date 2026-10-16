@@ -30,4 +30,5 @@ Every public member also has XML documentation, which your IDE shows as you type
 - [Contributing](../../CONTRIBUTING.md)
 
 Every code example in these pages is checked by a test in `Epsilon.Tests/Calculus/DocsTests.cs`,
-so the results shown are the results you get.
+so the results shown are the results you get, up to the last digit or two of
+[numeric integrals](numeric-integration.md).

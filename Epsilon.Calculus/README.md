@@ -155,6 +155,8 @@ ExprParser.Parse("1/x").Integrate(0, 1);
 - floor, ceiling, round, sign, min and max have no derivatives in the core yet, so gradients and
   Hessians of them throw. `Integrate(a, b)` takes all of them, and `Integrate("x")` sign, min
   and max.
+- The last digit or two of a numeric integral can differ from one system to another, whose C
+  libraries round sinh, cosh and tanh differently in the last bit.
 - Gradients are the `Vector<T>` of Epsilon.LinearAlgebra, which clashes with that of
   System.Numerics in a file that uses both namespaces; the
   [linear algebra README](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.LinearAlgebra/README.md#good-to-know)

@@ -2,6 +2,8 @@
 
 `Integrate(a, b)` computes a definite integral numerically: to about 10 digits by default,
 usually to all 16, or it throws. It doesn't return a number for an integral that diverges.
+The last digit or two of the results shown here can differ on another system: the nodes of the
+rules come from sinh, cosh and tanh, which C libraries round differently in the last bit.
 
 ## Definite integrals
 
