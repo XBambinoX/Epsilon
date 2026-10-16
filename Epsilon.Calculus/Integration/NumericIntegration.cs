@@ -2,812 +2,140 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-/// <summary>Numeric definite integration, including improper integrals.</summary>
-public static class NumericIntegration
+/// <summary>Definite integrals computed numerically, over finite and infinite intervals.</summary>
+public static class NumericIntegrationExtensions
 {
-    private const int MaxRefinements = 12;
-    private const int MaxSingularityDepth = 12;
+    private const double DefaultTolerance = 1e-10;
+    private const int MaxSplits = 30;
 
-    private const double InitialStep = 0.5;
-    private const double MinStep = 1.0 / 4096.0;
-
-    private const double TanhSinhLimit = 25.0;
-
-    private const int SingularityProbeCount = 33;
-
-    private const double FiniteValueLimit = 1e300;
-
-    /// <summary>
-    /// Numerically integrates an expression over [a, b].
-    ///
-    /// Supports:
-    /// - finite intervals;
-    /// - improper integrals;
-    /// - infinite bounds;
-    /// - endpoint singularities;
-    /// - interior singularities;
-    /// - reversed integration limits.
-    /// </summary>
-    public static double Integrate(
-        this Expr expr,
-        double a,
-        double b,
-        double tolerance = 1e-8)
+    extension(Expr expr)
     {
-        ArgumentNullException.ThrowIfNull(expr);
-
-        if (double.IsNaN(a) || double.IsNaN(b))
-            throw new ArgumentException("Integration bounds cannot be NaN.");
-
-        if (double.IsNaN(tolerance) ||
-            double.IsInfinity(tolerance) ||
-            tolerance <= 0.0)
+        /// <summary>
+        /// The definite integral of an expression of at most one variable from <paramref name="a"/>
+        /// to <paramref name="b"/>, computed numerically. See
+        /// <see cref="Integrate(Expr, string, double, double, double)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A limit is NaN.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The tolerance is not between 0 and 1.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The expression has more than one variable, or the integral diverges or can't be
+        /// computed, as for the overload with the variable.
+        /// </exception>
+        public double Integrate(double a, double b, double tolerance = DefaultTolerance)
         {
-            throw new ArgumentException(
-                "Tolerance must be finite and positive.",
-                nameof(tolerance));
+            ArgumentNullException.ThrowIfNull(expr);
+            return expr.Integrate(expr.GetVariables().Count == 0 ? "x" : expr.GetSingleVariable(), a, b, tolerance);
         }
 
-        if (a == b)
-            return 0.0;
-
-        if (a > b)
-            return -Integrate(expr, b, a, tolerance);
-
-        bool leftInfinite = double.IsNegativeInfinity(a);
-        bool rightInfinite = double.IsPositiveInfinity(b);
-
-        if (leftInfinite && rightInfinite)
-            return IntegrateTwoSidedInfinite(expr, tolerance);
-
-        if (leftInfinite)
-            return IntegrateLeftInfinite(expr, b, tolerance);
-
-        if (rightInfinite)
-            return IntegrateRightInfinite(expr, a, tolerance);
-
-        return IntegrateFinite(expr, a, b, tolerance);
-    }
-
-    // FINITE INTERVAL
-
-    private static double IntegrateFinite(
-        Expr expr,
-        double a,
-        double b,
-        double tolerance)
-    {
-        if (IsFiniteAt(expr, a) &&
-            IsFiniteAt(expr, b))
+        /// <summary>
+        /// The definite integral by <paramref name="variable"/> from <paramref name="a"/> to
+        /// <paramref name="b"/>, computed numerically to about <paramref name="tolerance"/> times
+        /// the integral of the absolute value. A limit may be infinite; for b &lt; a it is the
+        /// negative of the integral from b to a. The integrand may be singular at the limits and
+        /// inside as long as the integral converges: <c>ln(x)</c> from 0 to 1 is -1, and
+        /// <c>1/sqrt(abs(x))</c> from -1 to 4 is 6.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The interval is split where the expression shows the integrand may be singular or not
+        /// smooth: zeros of denominators, of the bases of fractional and negative powers and of the
+        /// arguments of roots, logarithms and abs, poles of tan, edges of the domains of the
+        /// inverse functions, kinks of min and max, jumps of floor, ceiling and round of linear
+        /// arguments, and peaks of exponentials, so that a normal density far from 0 is found.
+        /// Each piece is integrated by the tanh-sinh rule, or exp-sinh to an infinity, with the
+        /// step halved until two estimates agree.
+        /// </para>
+        /// <para>
+        /// Next to a singularity at a point that isn't a double, such as the zero of x^2 - 2, the
+        /// accuracy is limited to about 1e-8. Another narrow feature far from 0 on an infinite
+        /// interval, such as the peak of sech(10(x - 1000))^2, can be missed: split the interval there.
+        /// Integrals that converge only by cancellation to an infinity, such as of sin(x)/x, are
+        /// reported as divergent.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentException">
+        /// A limit is NaN, or the expression has a variable besides <paramref name="variable"/>.
+        /// </exception>
+        /// <exception cref="ArgumentOutOfRangeException">The tolerance is not between 0 and 1.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The integral diverges or converges too slowly for double precision, the integrand is not
+        /// a real number or is infinite somewhere inside, or the estimates didn't agree.
+        /// </exception>
+        public double Integrate(string variable, double a, double b, double tolerance = DefaultTolerance)
         {
-            return IntegrateRegularFinite(
-                expr,
-                a,
-                b,
-                tolerance);
-        }
-        return IntegrateTanhSinh(
-            expr,
-            a,
-            b,
-            tolerance);
-    }
-
-    private static double IntegrateRegularFinite(
-        Expr expr,
-        double a,
-        double b,
-        double tolerance)
-    {
-        List<double> breakpoints =
-            FindInteriorSingularities(expr, a, b);
-
-        if (breakpoints.Count == 0)
-        {
-            double result = IntegrateTanhSinh(
-                expr,
-                a,
-                b,
-                tolerance);
-
-            EnsureFiniteResult(result);
-
-            return result;
-        }
-
-        double total = 0.0;
-
-        double left = a;
-
-        for (int i = 0; i < breakpoints.Count; i++)
-        {
-            double point = breakpoints[i];
-
-            if (point <= left || point >= b)
-                continue;
-
-            double localTolerance =
-                tolerance / (breakpoints.Count + 1);
-
-            double part = IntegrateTanhSinh(
-                expr,
-                left,
-                point,
-                localTolerance);
-
-            EnsureFiniteResult(part);
-
-            total += part;
-            left = point;
-        }
-
-        if (left < b)
-        {
-            double localTolerance =
-                tolerance / (breakpoints.Count + 1);
-
-            double part = IntegrateTanhSinh(
-                expr,
-                left,
-                b,
-                localTolerance);
-
-            EnsureFiniteResult(part);
-
-            total += part;
-        }
-
-        EnsureFiniteResult(total);
-
-        return total;
-    }
-
-    // TANH-SINH QUADRATURE
-
-    /*
-     * Double exponential / tanh-sinh quadrature.
-     *
-     * Mapping:
-     *
-     *     x = midpoint + halfWidth * tanh((pi/2) sinh(t))
-     *
-     * This has an extremely useful property:
-     *
-     *     t -> -inf  => x -> a
-     *     t -> +inf  => x -> b
-     *
-     * Therefore the actual endpoints are never evaluated.
-     */
-    private static double IntegrateTanhSinh(
-        Expr expr,
-        double a,
-        double b,
-        double tolerance)
-    {
-        if (!(a < b))
-            return 0.0;
-
-        double previous = double.NaN;
-        double step = InitialStep;
-
-        for (int refinement = 0;
-             refinement < MaxRefinements;
-             refinement++)
-        {
-            double current =
-                TanhSinhSum(
-                    expr,
-                    a,
-                    b,
-                    step);
-
-            EnsureFiniteResult(current);
-
-            if (double.IsFinite(previous))
-            {
-                double error =
-                    Math.Abs(current - previous);
-
-                double scale =
-                    Math.Max(1.0, Math.Abs(current));
-
-                if (error <= tolerance * scale)
-                    return current;
-            }
-
-            previous = current;
-            step *= 0.5;
-
-            if (step < MinStep)
-                break;
-        }
-
-        /*
-         * At this point the result itself is finite, but we did
-         * not reach the requested tolerance. Returning the best
-         * estimate is more useful than silently returning Infinity.
-         */
-        EnsureFiniteResult(previous);
-
-        return previous;
-    }
-
-    private static double TanhSinhSum(
-        Expr expr,
-        double a,
-        double b,
-        double step)
-    {
-        double midpoint = (a + b) * 0.5;
-        double halfWidth = (b - a) * 0.5;
-
-        double sum = 0.0;
-
-        /*
-         * t = 0 is evaluated once.
-         */
-        {
-            double x = midpoint;
-
-            double derivative =
-                halfWidth * Math.PI * 0.5;
-
-            double value =
-                EvaluateForQuadrature(expr, x);
-
-            sum += value * derivative;
-        }
-
-        /*
-         * Positive and negative t are symmetric in the mapping.
-         */
-        for (int k = 1; k < 100000; k++)
-        {
-            double t = k * step;
-
-            double sinhT;
-
-            try
-            {
-                sinhT = Math.Sinh(t);
-            }
-            catch
-            {
-                break;
-            }
-
-            double z =
-                Math.PI * 0.5 * sinhT;
-
-            /*
-             * Once z is large enough, sech²(z) is effectively
-             * zero in double precision.
-             */
-            if (z > TanhSinhLimit)
-                break;
-
-            double coshT =
-                Math.Cosh(t);
-
-            double tanhZ =
-                Math.Tanh(z);
-
-            double coshZ =
-                Math.Cosh(z);
-
-            double derivative =
-                halfWidth *
-                Math.PI *
-                0.5 *
-                coshT /
-                (coshZ * coshZ);
-
-            if (derivative == 0.0 ||
-                !double.IsFinite(derivative))
-            {
-                break;
-            }
-
-            double rightX =
-                midpoint + halfWidth * tanhZ;
-
-            double leftX =
-                midpoint - halfWidth * tanhZ;
-
-            /*
-             * Floating point arithmetic can eventually make
-             * rightX == b or leftX == a. Do not evaluate there.
-             */
-            if (rightX < b && rightX > a)
-            {
-                double rightValue =
-                    EvaluateForQuadrature(expr, rightX);
-
-                sum += rightValue * derivative;
-            }
-
-            if (leftX > a && leftX < b)
-            {
-                double leftValue =
-                    EvaluateForQuadrature(expr, leftX);
-
-                sum += leftValue * derivative;
-            }
-        }
-
-        double result = sum * step;
-
-        EnsureFiniteResult(result);
-
-        return result;
-    }
-
-    // INFINITE INTERVALS
-
-    private static double IntegrateRightInfinite(
-        Expr expr,
-        double a,
-        double tolerance)
-    {
-        double result =
-            IntegrateTanhSinhTransformed(
-                expr,
-                a,
-                false,
-                tolerance);
-
-        EnsureFiniteResult(result);
-
-        return result;
-    }
-
-    private static double IntegrateLeftInfinite(
-        Expr expr,
-        double b,
-        double tolerance)
-    {
-        double result =
-            IntegrateTanhSinhTransformed(
-                expr,
-                b,
-                true,
-                tolerance);
-
-        EnsureFiniteResult(result);
-
-        return result;
-    }
-
-    private static double IntegrateTwoSidedInfinite(
-        Expr expr,
-        double tolerance)
-    {
-        /*
-         * IMPORTANT:
-         * This is NOT a Cauchy principal value.
-         * Both halves must converge independently.
-         */
-        double left =
-            IntegrateLeftInfinite(
-                expr,
-                0.0,
-                tolerance * 0.5);
-
-        double right =
-            IntegrateRightInfinite(
-                expr,
-                0.0,
-                tolerance * 0.5);
-
-        EnsureFiniteResult(left);
-        EnsureFiniteResult(right);
-
-        double result = left + right;
-
-        EnsureFiniteResult(result);
-
-        return result;
-    }
-
-    private static double IntegrateTanhSinhTransformed(
-        Expr expr,
-        double finiteBound,
-        bool leftInfinite,
-        double tolerance)
-    {
-        double previous = double.NaN;
-        double step = InitialStep;
-
-        for (int refinement = 0;
-             refinement < MaxRefinements;
-             refinement++)
-        {
-            double current =
-                InfiniteTanhSinhSum(
-                    expr,
-                    finiteBound,
-                    leftInfinite,
-                    step);
-
-            EnsureFiniteResult(current);
-
-            if (double.IsFinite(previous))
-            {
-                double error =
-                    Math.Abs(current - previous);
-
-                double scale =
-                    Math.Max(1.0, Math.Abs(current));
-
-                if (error <= tolerance * scale)
-                    return current;
-            }
-
-            previous = current;
-            step *= 0.5;
-
-            if (step < MinStep)
-                break;
-        }
-
-        EnsureFiniteResult(previous);
-
-        return previous;
-    }
-
-    private static double InfiniteTanhSinhSum(
-        Expr expr,
-        double finiteBound,
-        bool leftInfinite,
-        double step)
-    {
-        /*
-         * First transform:
-         *     u in (0,1)
-         *
-         * Second transform:
-         *
-         *     u = (1 + tanh((pi/2)sinh(t))) / 2
-         *
-         * Combined:
-         *
-         *     x = bound +/- tan(pi*u/2)
-         * The tanh-sinh part keeps us away from u = 0 and u = 1.
-         */
-
-        double sum = 0.0;
-
-        for (int k = 0; k < 100000; k++)
-        {
-            double t = k * step;
-
-            if (k == 0)
-            {
-                double u = 0.5;
-
-                double value =
-                    EvaluateInfiniteTransformed(
-                        expr,
-                        finiteBound,
-                        leftInfinite,
-                        u);
-
-                double derivative =
-                    Math.PI * 0.25;
-
-                sum += value * derivative;
-
-                continue;
-            }
-
-            double sinhT =
-                Math.Sinh(t);
-
-            double z =
-                Math.PI * 0.5 * sinhT;
-
-            if (z > TanhSinhLimit)
-                break;
-
-            double coshT =
-                Math.Cosh(t);
-
-            double tanhZ =
-                Math.Tanh(z);
-
-            double coshZ =
-                Math.Cosh(z);
-
-            double duDt =
-                0.5 *
-                Math.PI *
-                0.5 *
-                coshT /
-                (coshZ * coshZ);
-
-            if (duDt == 0.0 ||
-                !double.IsFinite(duDt))
-            {
-                break;
-            }
-
-            double rightU =
-                0.5 * (1.0 + tanhZ);
-
-            double leftU =
-                0.5 * (1.0 - tanhZ);
-
-            if (rightU > 0.0 && rightU < 1.0)
-            {
-                double value =
-                    EvaluateInfiniteTransformed(
-                        expr,
-                        finiteBound,
-                        leftInfinite,
-                        rightU);
-
-                sum += value * duDt;
-            }
-
-            if (leftU > 0.0 && leftU < 1.0)
-            {
-                double value =
-                    EvaluateInfiniteTransformed(
-                        expr,
-                        finiteBound,
-                        leftInfinite,
-                        leftU);
-
-                sum += value * duDt;
-            }
-        }
-
-        /*
-         * The infinite transformation itself already contains
-         * the dx/du Jacobian.
-         */
-        double result = sum * step;
-
-        EnsureFiniteResult(result);
-
-        return result;
-    }
-
-    private static double EvaluateInfiniteTransformed(
-        Expr expr,
-        double finiteBound,
-        bool leftInfinite,
-        double u)
-    {
-
-        double angle =
-            Math.PI * 0.5 * u;
-
-        double cosine =
-            Math.Cos(angle);
-
-        if (Math.Abs(cosine) < 1e-14) return 0.0;
-
-        double tangent =
-            Math.Tan(angle);
-
-        double x;
-
-        if (leftInfinite)
-            x = finiteBound - tangent;
-        else
-            x = finiteBound + tangent;
-
-        if (!double.IsFinite(x))
-            return 0.0;
-
-        double jacobian =
-            (Math.PI * 0.5) /
-            (cosine * cosine);
-
-        if (!double.IsFinite(jacobian))
-            return 0.0;
-
-        double value =
-            EvaluateForQuadrature(expr, x);
-
-        return value * jacobian;
-    }
-
-    // SINGULARITY DETECTION
-
-    /*
-     * Numerical singularity detection.
-     *
-     * We deliberately do NOT declare every large function value
-     * to be a singularity. Instead, we look for points where the
-     * expression cannot be evaluated as a finite real number.
-     */
-    private static List<double> FindInteriorSingularities(
-        Expr expr,
-        double a,
-        double b)
-    {
-        var singularities = new List<double>();
-
-        double length = b - a;
-
-        for (int i = 1;
-             i < SingularityProbeCount;
-             i++)
-        {
-            double x =
-                a + length *
-                i / (double)SingularityProbeCount;
-
-            if (!IsFiniteAt(expr, x))
-                singularities.Add(x);
-        }
-
-        FindSingularitiesRecursive(
-            expr,
-            a,
-            b,
-            0,
-            singularities);
-
-        singularities.Sort();
-
-        RemoveDuplicatePoints(
-            singularities,
-            Math.Abs(b - a) * 1e-12);
-
-        return singularities;
-    }
-
-    private static void FindSingularitiesRecursive(
-        Expr expr,
-        double a,
-        double b,
-        int depth,
-        List<double> singularities)
-    {
-        if (depth >= MaxSingularityDepth)
-            return;
-
-        double midpoint =
-            (a + b) * 0.5;
-
-        bool leftFinite =
-            IsFiniteAt(expr, a);
-
-        bool middleFinite =
-            IsFiniteAt(expr, midpoint);
-
-        bool rightFinite =
-            IsFiniteAt(expr, b);
-
-        if (!middleFinite)
-        {
-            if (midpoint > a && midpoint < b)
-                singularities.Add(midpoint);
-
-            FindSingularitiesRecursive(
-                expr,
-                a,
-                midpoint,
-                depth + 1,
-                singularities);
-
-            FindSingularitiesRecursive(
-                expr,
-                midpoint,
-                b,
-                depth + 1,
-                singularities);
-
-            return;
-        }
-
-        if (!leftFinite)
-        {
-            if (a > double.NegativeInfinity)
-                singularities.Add(a);
-        }
-
-        if (!rightFinite)
-        {
-            if (b < double.PositiveInfinity)
-                singularities.Add(b);
+            ArgumentNullException.ThrowIfNull(expr);
+            ArgumentNullException.ThrowIfNull(variable);
+            if (double.IsNaN(a) || double.IsNaN(b))
+                throw new ArgumentException("A limit of integration is NaN.");
+            if (!(tolerance > 0 && tolerance < 1))
+                throw new ArgumentOutOfRangeException(nameof(tolerance), tolerance, "The tolerance must be between 0 and 1.");
+
+            foreach (string name in expr.GetVariables())
+                if (name != variable)
+                    throw new ArgumentException(
+                        $"The expression has the variable '{name}' besides '{variable}': substitute a value for it first.", nameof(variable));
+
+            if (a == b)
+                return 0;
+
+            return a < b ? IntegrateAscending(expr, variable, a, b, tolerance) : -IntegrateAscending(expr, variable, b, a, tolerance);
         }
     }
 
-    private static void RemoveDuplicatePoints(
-        List<double> points,
-        double tolerance)
+    private static double IntegrateAscending(Expr expr, string variable, double a, double b, double tolerance)
     {
-        if (points.Count < 2)
-            return;
+        // The ends of the pieces, null for an infinite limit.
+        var ends = new List<IntegrationPoint?> { Limit(a) };
+        foreach (IntegrationPoint point in Breakpoints.Find(expr, variable, a, b))
+            ends.Add(point);
+        ends.Add(Limit(b));
+        if (ends is [null, null])
+            ends.Insert(1, new IntegrationPoint(0, 0));
 
-        int writeIndex = 1;
+        var integrand = new ShiftedIntegrand(expr, variable);
+        var pieces = new List<(DoubleExponential Rule, IntegrationPoint? P, IntegrationPoint? Q)>();
+        for (int i = 0; i + 1 < ends.Count; i++)
+            pieces.Add((Piece(integrand, ends[i], ends[i + 1]), ends[i], ends[i + 1]));
 
-        for (int i = 1; i < points.Count; i++)
-        {
-            if (Math.Abs(points[i] - points[writeIndex - 1])
-                > tolerance)
-            {
-                points[writeIndex++] = points[i];
-            }
-        }
-
-        if (writeIndex < points.Count)
-            points.RemoveRange(
-                writeIndex,
-                points.Count - writeIndex);
+        // Each piece gets its share of tolerance * the integral of |f|, and at least an even share,
+        // so a piece where the integrand is almost 0 isn't held to digits it doesn't have.
+        double scale = pieces.Sum(piece => piece.Rule.AbsoluteIntegral);
+        return pieces.Sum(piece => Converge(integrand, piece.Rule, piece.P, piece.Q, tolerance / 2, scale / pieces.Count, 0));
     }
 
-    // EVALUATION
+    private static IntegrationPoint? Limit(double limit) =>
+        double.IsFinite(limit) ? new IntegrationPoint(limit, new Constant(limit)) : null;
 
-    private static double EvaluateForQuadrature(
-        Expr expr,
-        double x)
+    private static DoubleExponential Piece(ShiftedIntegrand integrand, IntegrationPoint? p, IntegrationPoint? q)
     {
-        double value;
-
-        try
+        if (p is { } from && q is { } to)
         {
-            value = expr.Evaluate(x);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException(
-                $"Failed to evaluate expression at x = {x}.",
-                ex);
+            double halfWidth = to.Value / 2 - from.Value / 2;
+            return DoubleExponential.Finite(integrand.Near(from, 1, halfWidth), integrand.Near(to, -1, halfWidth), from.Value, to.Value);
         }
 
-        if (double.IsNaN(value))
-        {
-            throw new InvalidOperationException(
-                $"Expression evaluated to NaN at x = {x}.");
-        }
-
-        if (double.IsInfinity(value))
-        {
-            throw new InvalidOperationException(
-                $"Expression is singular at x = {x}.");
-        }
-
-        if (Math.Abs(value) > FiniteValueLimit)
-        {
-            throw new InvalidOperationException(
-                $"Expression is numerically unstable at x = {x}.");
-        }
-
-        return value;
+        IntegrationPoint end = (p ?? q).GetValueOrDefault();
+        int direction = p is null ? -1 : 1;
+        return DoubleExponential.SemiInfinite(integrand.Near(end, direction, double.PositiveInfinity), end.Value, direction);
     }
 
-    private static bool IsFiniteAt(
-        Expr expr,
-        double x)
+    // A piece that doesn't converge, around a sharp peak say, is split in two, a finite one in
+    // the middle and a half-line at its peak, so that the trouble ends up next to an end of a
+    // piece, where the nodes crowd.
+    private static double Converge(
+        ShiftedIntegrand integrand, DoubleExponential rule, IntegrationPoint? p, IntegrationPoint? q,
+        double tolerance, double floor, int depth)
     {
-        if (!double.IsFinite(x))
-            return false;
+        if (rule.TryConverge(tolerance, floor, out double estimate))
+            return estimate;
 
-        try
-        {
-            double value =
-                expr.Evaluate(x);
+        double split = p is { } from && q is { } to ? from.Value / 2 + to.Value / 2 : rule.Peak;
+        double low = p?.Value ?? double.NegativeInfinity, high = q?.Value ?? double.PositiveInfinity;
+        if (depth == MaxSplits || !(low < split && split < high) || !double.IsFinite(split))
+            throw rule.NotConverged();
 
-            return double.IsFinite(value);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static void EnsureFiniteResult(
-        double value)
-    {
-        if (!double.IsFinite(value))
-        {
-            throw new InvalidOperationException(
-                "The integral does not have a finite numerical value.");
-        }
+        var middle = new IntegrationPoint(split, new Constant(split));
+        return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, depth + 1)
+            + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, depth + 1);
     }
 }

@@ -11,7 +11,8 @@ a symbolic equation solver and protection against deep nesting. The only excepti
 [roadmap](../README.md#roadmap) for the order.
 
 Everything here reflects version 1.2.0. Each example is checked by a test
-(in `Epsilon.Tests/DocsExamplesTests.cs`), so when a limitation is lifted this page is updated with it.
+(in `Epsilon.Tests/Core/DocsExamplesTests.cs`), so when a limitation is lifted this page is
+updated with it.
 
 ## Algebra
 
@@ -143,7 +144,7 @@ something that doesn't underflow (for `exp`, its logarithm).
 
 ## Not in the package
 
-Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`; its
-[known limitations](../../Epsilon.LinearAlgebra/docs/limitations.md) are on a page of its own. The
-repository also contains `Epsilon.Calculus` (integration, gradients, Hessians). It is
-experimental and not published yet; its API will change before it is.
+Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`, gradients, Hessians
+and integrals in `Epsilon.Calculus`. Their known limitations are on pages of their own:
+[linear algebra](../../Epsilon.LinearAlgebra/docs/limitations.md),
+[calculus](../../Epsilon.Calculus/docs/limitations.md).
