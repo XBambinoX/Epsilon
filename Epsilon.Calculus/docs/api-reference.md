@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.Calculus` package, version 1.0.0 in development.
+Every public type and member of the `Epsilon.Calculus` package, version 1.0.0.
 All types are in the namespace `Epsilon.Calculus`. Each entry has a one-line description; the
 [guides](README.md) explain the details, and your IDE shows the full XML documentation for every
 member.

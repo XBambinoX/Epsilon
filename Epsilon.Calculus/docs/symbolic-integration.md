@@ -67,8 +67,8 @@ by [substitution](#substitution), by the substitutions for
 [sin and cos](#trigonometric-and-hyperbolic-functions) and for
 [square roots of quadratics](#square-roots-of-quadratics), and by partial fractions over the
 roots of factors of degree 3 and more. Then it is expanded once and tried again, which
-integrates products of polynomials, a rational function of exp, sinh and cosh is one of
-t = exp(x), and last it is integrated [by parts](#integration-by-parts).
+integrates products of polynomials; a rational function of exp, sinh and cosh becomes one of
+t = exp(x); and last it is integrated [by parts](#integration-by-parts).
 
 ## Rational functions
 

@@ -1,6 +1,6 @@
 # Known limitations
 
-What `Epsilon.Calculus`, version 1.0.0 in development, doesn't do yet. Each example is checked
+What version 1.0.0 of `Epsilon.Calculus` doesn't do yet. Each example is checked
 by a test (in `Epsilon.Tests/Calculus/DocsTests.cs`), so when a limitation is lifted this page
 is updated with it. The expressions have
 [limitations of their own](../../Epsilon.Core/docs/limitations.md).

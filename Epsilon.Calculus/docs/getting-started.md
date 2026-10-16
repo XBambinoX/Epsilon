@@ -2,12 +2,8 @@
 
 ## Install
 
-Version 1.0.0 of `Epsilon.Calculus` isn't on NuGet yet. Until it is, reference the project from
-a clone of the repository:
-
 ```bash
-git clone https://github.com/XBambinoX/Epsilon.git
-dotnet add reference Epsilon/Epsilon.Calculus/Epsilon.Calculus.csproj
+dotnet add package Epsilon.Calculus
 ```
 
 It requires .NET 10, and brings the core and `Epsilon.LinearAlgebra` with it. Three namespaces
