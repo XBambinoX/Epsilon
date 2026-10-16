@@ -42,11 +42,15 @@ public static class SymbolicIntegrationExtensions
         /// their squares. A rational function of sin and cos is then one of t for t = cos x, sin x or
         /// tan x by Bioche's rules, with sin(k x) and cos(k x) by the multiple-angle formulas, and of
         /// those that apply the shortest result is taken; where none does, t = tan(x/2), whose
-        /// antiderivatives jump where tan(x/2) does. After it, a factor of the denominator of
+        /// antiderivatives jump where tan(x/2) does. A rational function of x and sqrt(q) for a
+        /// quadratic q = p((x - h)^2 + k) is one of sin and cos, or sinh and cosh, by x - h = r sin(a)
+        /// for p, k &lt; 0, r sinh(a) for p, k &gt; 0 and r cosh(a) on each side of the gap for
+        /// p &gt; 0 &gt; k, with r = sqrt(|k|). After it, a factor of the denominator of
         /// degree 3 or more that divides some x^n - a, as x^3 - 2 and x^4 + 1, is split over the
         /// roots of that binomial, and any other of degree 3 or 4 over its roots in radicals, by
         /// Cardano's and Ferrari's formulas. Then the integrand is expanded once and tried again, so
-        /// x (x + 1) is integrated as x^2 + x. Last, it is integrated by parts, with u a logarithm or
+        /// x (x + 1) is integrated as x^2 + x. A rational function of exp, sinh and cosh is one of
+        /// t = exp(x). Last, it is integrated by parts, with u a logarithm or
         /// an inverse function of an algebraic argument, or a polynomial (x exp(x), x ln(x),
         /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)), and sec^n and csc^n by
         /// their reduction formulas.

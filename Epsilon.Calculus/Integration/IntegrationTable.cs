@@ -35,6 +35,13 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
                 Integrate(quotient.Numerator, expand) is { } g ? g / quotient.Denominator : null,
             Divide { Denominator: Multiply { Left: var factor } denominator } quotient when !factor.DependsOn(variable) =>
                 Integrate(quotient.Numerator / denominator.Right, expand) is { } g ? g / factor : null,
+            Divide { Denominator: Multiply { Right: var factor } denominator } quotient when !factor.DependsOn(variable) =>
+                Integrate(quotient.Numerator / denominator.Left, expand) is { } g ? g / factor : null,
+            Divide { Numerator: Multiply { Left: var factor and not Constant } numerator } quotient when !factor.DependsOn(variable) =>
+                Integrate(numerator.Right / quotient.Denominator, expand) is { } g ? factor * g : null,
+            Divide { Numerator: Multiply { Right: var factor and not Constant } numerator } quotient when !factor.DependsOn(variable) =>
+                Integrate(numerator.Left / quotient.Denominator, expand) is { } g ? g * factor : null,
+            Divide quotient when PowerOfRatio(quotient) is { } power => Integrate(power, expand),
             Divide quotient when !quotient.Numerator.DependsOn(variable) =>
                 PowerOf(quotient.Denominator, -1) is { } g ? quotient.Numerator * g : null,
             Divide quotient => Quotient(quotient.Numerator, quotient.Denominator),
@@ -51,11 +58,12 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         result ??= PartialFractions(f, overRoots: false);
         result ??= BySubstitution(f);
         result ??= ByBioche(f);
+        result ??= ByTrigonometricSubstitution(f);
         result ??= PartialFractions(f, overRoots: true);
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             result = Integrate(expanded, expand: false);
 
-        return result ?? ByParts(f);
+        return result ?? ByExponential(f) ?? ByParts(f);
     }
 
     private static Expr? Elementary(UnaryExpr function)
@@ -147,8 +155,8 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
     {
         if (n == -1 && Reciprocal(function) is { } reciprocal)
             return Integrate(reciprocal);
-        if (n == -2 && Reciprocal(function) is { } squared)
-            return Integrate(new Power(squared, 2));
+        if (n.IsInteger && n < -1 && n > -RationalPolynomial.MaxDegree && Reciprocal(function) is { } raised)
+            return Integrate(new Power(raised, -n));
 
         Expr u = function.Argument;
         if (n.IsInteger && n > 2 && function is Tan or Cot or Tanh or Coth)
@@ -198,6 +206,33 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         };
 
         return g is null ? null : g / a;
+    }
+
+    // sin^n u / cos^n u is tan^n u, and so for cot, tanh and coth.
+    private static Expr? PowerOfRatio(Divide quotient)
+    {
+        static (UnaryExpr Function, Expr Exponent)? Split(Expr e) => e switch
+        {
+            UnaryExpr function => (function, 1),
+            Power { Base: UnaryExpr function, Exponent: Constant } power => (function, power.Exponent),
+            _ => null,
+        };
+
+        if (Split(quotient.Numerator) is not var (top, n) || Split(quotient.Denominator) is not var (bottom, m)
+            || !n.Equals(m) || !top.Argument.Equals(bottom.Argument))
+            return null;
+
+        Expr u = top.Argument;
+        Expr? ratio = (top, bottom) switch
+        {
+            (Sin, Cos) => new Tan(u),
+            (Cos, Sin) => new Cot(u),
+            (Sinh, Cosh) => new Tanh(u),
+            (Cosh, Sinh) => new Coth(u),
+            _ => null,
+        };
+
+        return ratio is null ? null : new Power(ratio, n);
     }
 
     private static Expr? Reciprocal(UnaryExpr function)

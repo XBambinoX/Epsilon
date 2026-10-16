@@ -39,6 +39,30 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(2 + cos(3*x + 1))")]
     [InlineData("1/(2 + cos(x))^2")]
     [InlineData("x/(1 + cos(x))")]
+    [InlineData("x^2/sqrt(1 - x^2)")]
+    [InlineData("sqrt(4 - x^2)/x^2")]
+    [InlineData("(1 - x^2)^(3/2)")]
+    [InlineData("1/(x*sqrt(1 - x^2))")]
+    [InlineData("x*asin(x)")]
+    [InlineData("x*acos(x)")]
+    [InlineData("x^2*sqrt(x^2 + 1)")]
+    [InlineData("1/(x^2*sqrt(4 + x^2))")]
+    [InlineData("1/(x*sqrt(x^2 + 1))")]
+    [InlineData("x^2/sqrt(x^2 + 2*x + 5)")]
+    [InlineData("1/(1 + x^2)^(3/2)")]
+    [InlineData("1/(x^2 + 1)^(5/2)")]
+    [InlineData("sqrt(x^2 + 1)/x^2")]
+    [InlineData("1/(x^2*sqrt(x^2 - 1))")]
+    [InlineData("x^2*sqrt(x^2 - 1)")]
+    [InlineData("1/(x^3*sqrt(x^2 - 1))")]
+    [InlineData("sqrt(x^2 - 1)/x^2")]
+    [InlineData("1/(x^2 - 1)^(3/2)")]
+    [InlineData("x^2/sqrt(x^2 - 2*x)")]
+    [InlineData("sqrt(x^2 - 4)")]
+    [InlineData("1/(2 + cosh(x))")]
+    [InlineData("1/(1 + sinh(x))")]
+    [InlineData("1/(sinh(x)^2*cosh(x))")]
+    [InlineData("cosh(x)^2/sinh(x)^2")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -119,11 +143,68 @@ public class TrigonometricIntegralsTests
     public void By_parts_with_the_half_angle() =>
         Assert.Equal("tan(x / 2) * x + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
 
+    // sqrt(q) for q = p((x - h)^2 + k) with p, k < 0: x - h = sqrt(-k) sin(a), sqrt(q) a multiple of cos(a).
+    [Fact]
+    public void Square_roots_by_sin()
+    {
+        Assert.Equal("-(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)", Integral("x^2/sqrt(1 - x^2)"));
+        Assert.Equal("-sqrt(-x^2 + 4) / x - asin(x / 2)", Integral("sqrt(4 - x^2)/x^2"));
+        Assert.Equal("(1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)", Integral("x*asin(x)"));
+    }
+
+    // p, k > 0: x - h = sqrt(k) sinh(a), sqrt(q) a multiple of cosh(a).
+    [Fact]
+    public void Square_roots_by_sinh()
+    {
+        Assert.Equal("(1/4) * x^3 * sqrt(x^2 + 1) + (1/8) * sqrt(x^2 + 1) * x - (1/8) * asinh(x)", Integral("x^2*sqrt(x^2 + 1)"));
+        Assert.Equal("-sqrt(x^2 + 4) / (4x)", Integral("1/(x^2*sqrt(4 + x^2))"));
+        Assert.Equal("x / sqrt(x^2 + 1)", Integral("1/(1 + x^2)^(3/2)"));
+        Assert.Equal("(1/2) * sqrt(x^2 + 2x + 5) * x - asinh((1/2) * x + 1/2) - (3/2) * sqrt(x^2 + 2x + 5)", Integral("x^2/sqrt(x^2 + 2*x + 5)"));
+    }
+
+    // p > 0 > k: x - h = s sqrt(-k) cosh(a) for the sign s of x - h, so the result holds on both
+    // sides of the gap.
+    [Fact]
+    public void Square_roots_by_cosh()
+    {
+        Assert.Equal("sqrt(x^2 - 1) / x", Integral("1/(x^2*sqrt(x^2 - 1))"));
+        Assert.Equal("sqrt(x^2 - 1) / (2x^2) + (1/2) * atan(sqrt(x^2 - 1))", Integral("1/(x^3*sqrt(x^2 - 1))"));
+        Assert.Equal("(1/4) * x^3 * sqrt(x^2 - 1) - (1/8) * sqrt(x^2 - 1) * x - (1/8) * ln(abs(x + sqrt(x^2 - 1)))", Integral("x^2*sqrt(x^2 - 1)"));
+        Assert.Equal("(1/2) * sqrt(x^2 - 2x) * x + (3/2) * ln(abs(x + sqrt(x^2 - 2x) - 1)) + (3/2) * sqrt(x^2 - 2x)", Integral("x^2/sqrt(x^2 - 2*x)"));
+    }
+
+    // Where the sign stays in the integrand, each side of the gap is integrated apart and the two
+    // joined by sign(x - h), which the core can't differentiate: checked by difference quotients.
+    [Fact]
+    public void Both_sides_of_the_gap_apart()
+    {
+        var f = ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))");
+        var antiderivative = f.Integrate("x");
+        Assert.Contains("sign(x - 1)", antiderivative.Print());
+
+        foreach (double x in new[] { -3.0, -0.5, 2.5, 4.0 })
+        {
+            const double h = 1e-5;
+            double slope = (antiderivative.Evaluate(("x", x + h)) - antiderivative.Evaluate(("x", x - h))) / (2 * h);
+            Assert.Equal(f.Evaluate(("x", x)), slope, 1e-7);
+        }
+    }
+
+    // Rational functions of exp, sinh and cosh by t = exp(x), and quotients of equal powers.
+    [Fact]
+    public void Hyperbolic_functions()
+    {
+        Assert.Equal("ln(abs((exp(x) - sqrt(3) + 2) / (exp(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cosh(x))"));
+        Assert.Equal("x - coth(x)", Integral("cosh(x)^2/sinh(x)^2"));
+    }
+
     // x elsewhere than in sin and cos: non-elementary, or wanting an identity first.
     [Theory]
     [InlineData("x/(2 + cos(x))")]
     [InlineData("sin(x)/x")]
     [InlineData("exp(x)*cos(x)^2")]
+    [InlineData("sqrt(1 + x^3)")]
+    [InlineData("1/sqrt(x^4 + 1)")]
     public void What_isnt_integrated(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 }

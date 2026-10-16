@@ -109,12 +109,13 @@ internal sealed partial class IntegrationTable
                 Arguments(child, arguments);
     }
 
-    // sin(k u) and cos(k u) as polynomials in s = sin u and c = cos u.
-    private static (Expr Sin, Expr Cos) MultipleAngle(int k, Variable s, Variable c)
+    // sin(k u) and cos(k u) as polynomials in s = sin u and c = cos u, or sinh(k u) and cosh(k u)
+    // in s = sinh u and c = cosh u.
+    private static (Expr Sin, Expr Cos) MultipleAngle(int k, Expr s, Expr c, bool hyperbolic = false)
     {
         Expr sin = 0, cos = 1;
         for (int i = 0; i < Math.Abs(k); i++)
-            (sin, cos) = ((sin * c + cos * s).Expand(), (cos * c - sin * s).Expand());
+            (sin, cos) = ((sin * c + cos * s).Expand(), (hyperbolic ? cos * c + sin * s : cos * c - sin * s).Expand());
 
         return (k < 0 ? (-sin).Simplify() : sin, cos);
     }

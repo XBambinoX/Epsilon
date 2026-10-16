@@ -440,8 +440,6 @@ public class CalculusSymbolicIntegrationDocTests
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("exp(x)*cos(x)^2")]
-    [InlineData("1/(x^2*sqrt(x^2 - 1))")]
-    [InlineData("x*asin(x)")]
     [InlineData("exp(x^2)")]
     [InlineData("x*tan(x)")]
     public void What_isnt_integrated_yet(string integrand) =>
@@ -450,8 +448,8 @@ public class CalculusSymbolicIntegrationDocTests
     [Fact]
     public void The_message_and_the_numeric_integral()
     {
-        Assert.Equal("No antiderivative of 1 / (x^2 * sqrt(x^2 - 1)) by x was found.",
-            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x")).Message);
+        Assert.Equal("No antiderivative of exp(x) * cos(x)^2 by x was found.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x")).Message);
         Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
 }
@@ -462,7 +460,7 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "exp(x)*cos(x)^2", "1/(x^2*sqrt(x^2 - 1))", "x*asin(x)",
+        foreach (string integrand in new[] { "exp(x)*cos(x)^2",
             "1/(x^5 - x - 1)", "1/(x^2 + a^2)", "1/(x^3 + pi)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 

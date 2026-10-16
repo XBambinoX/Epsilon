@@ -22,6 +22,9 @@ internal sealed class QuadraticIntegrals
         _kSign = kSign;
     }
 
+    // q = p((x - h)^2 + k).
+    public (Expr P, Expr H, Expr K, int PSign, int KSign) Vertex => (_p, _h, _k, _pSign, _kSign);
+
     public static QuadraticIntegrals? Of(Expr q, string variable)
     {
         Expr first, second;
@@ -39,7 +42,18 @@ internal sealed class QuadraticIntegrals
         if (p.GetVariables().Count > 0)
             return null;
 
-        Expr b = first.Substitute(variable, 0).Simplify(), c = q.Substitute(variable, 0).Simplify();
+        Expr b, c;
+        try
+        {
+            b = first.Substitute(variable, 0).Simplify();
+            c = q.Substitute(variable, 0).Simplify();
+        }
+        catch (DivideByZeroException)
+        {
+            // Not a polynomial, as ((u + 1/u)/2 + 2) u: the core's Simplify throws on 0^-1.
+            return null;
+        }
+
         if (b.GetVariables().Count > 0 || c.GetVariables().Count > 0)
             return null;
 
