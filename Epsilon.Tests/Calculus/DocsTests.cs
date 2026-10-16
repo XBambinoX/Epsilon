@@ -17,7 +17,114 @@ public class CalculusDocsLinksTests
 {
     [Fact]
     public void Relative_links_resolve() =>
-        Assert.Empty(LinearAlgebra.MarkdownLinks.Broken(Path.Combine("Epsilon.Calculus", "docs")));
+        Assert.Empty(LinearAlgebra.MarkdownLinks.Broken(Path.Combine("Epsilon.Calculus", "docs"), Path.Combine("Epsilon.Calculus", "CHANGELOG.md")));
+}
+
+// Every example in Epsilon.Calculus/README.md, with the result its comment shows.
+public class CalculusReadmeExamplesTests
+{
+    private static readonly Expr F = ExprParser.Parse("x^2*y + sin(y)");
+
+    private static string Integral(string integrand) => ExprParser.Parse(integrand).Integrate("x").Print();
+
+    [Fact]
+    public void Header()
+    {
+        var f = ExprParser.Parse("x^3 - 3*x + y^2");
+        Assert.Equal("[3x^2 - 3, 2y]", f.Gradient("x", "y").Print());
+        Assert.Equal(CriticalPointKind.LocalMinimum, f.ClassifyCriticalPoint(("x", 1), ("y", 0)));
+        Assert.Equal("exp(x) * x - exp(x)", Integral("x*exp(x)"));
+    }
+
+    [Fact]
+    public void Quick_start()
+    {
+        Assert.Equal("[2x * y, x^2 + cos(y)]", F.Gradient("x", "y").Print());
+        Assert.Equal("[[2y, 2x], [2x, -sin(y)]]", F.Hessian("x", "y").Print());
+        Assert.Equal("2y - sin(y)", F.Laplacian("x", "y").Print());
+
+        Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
+        Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", Integral("1/(x^2 - 1)"));
+
+        Assert.Equal(1.7724538509055159, ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
+        Assert.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
+    }
+
+    [Fact]
+    public void Gradients_and_vector_fields()
+    {
+        var gradient = F.Gradient("x", "y");
+        Assert.Equal("[4, 0.5838531634528576]", gradient.Evaluate(("x", 1), ("y", 2)).ToString());
+        Assert.Equal("[4, 0.5838531634528576]", gradient.Compile("x", "y")(1, 2).ToString());
+
+        Assert.Equal("2x * y + x^2", ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print());
+        Assert.Equal("3y", Vector<Expr>.Parse("[x*y, y^2]").Divergence("x", "y").Print());
+        Assert.Equal("[0, 0, 2]", Vector<Expr>.Parse("[-y, x, 0]").Curl("x", "y", "z").Print());
+    }
+
+    [Fact]
+    public void Hessians_and_critical_points()
+    {
+        var g = ExprParser.Parse("x^3 - 3*x + y^2");
+        Assert.Equal(CriticalPointKind.LocalMinimum, g.ClassifyCriticalPoint(("x", 1), ("y", 0)));
+        Assert.Equal(CriticalPointKind.Saddle, g.ClassifyCriticalPoint(("x", -1), ("y", 0)));
+        Assert.Equal(CriticalPointKind.Inconclusive, ExprParser.Parse("x^4 + y^4").ClassifyCriticalPoint(("x", 0), ("y", 0)));
+
+        var rosenbrock = ExprParser.Parse("(1 - x)^2 + 100*(y - x^2)^2");
+        var slope = rosenbrock.Gradient("x", "y").Compile("x", "y");
+        var hessian = rosenbrock.Hessian("x", "y").Compile("x", "y");
+
+        Vector<double> p = [-1.2, 1.0];
+        for (int i = 0; i < 8; i++)
+            p -= hessian(p[0], p[1]).Solve(slope(p[0], p[1]));
+
+        Assert.Equal("[1, 1]", p.ToString());
+    }
+
+    [Fact]
+    public void Antiderivatives()
+    {
+        Assert.Equal("sin(x^2)", Integral("2*x*cos(x^2)"));
+        Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));
+        Assert.Equal("3nthroot(x, 3) * x / 4", Integral("nthroot(x, 3)"));
+        Assert.Equal("-sqrt(x^2 + 4) / (4x)", Integral("1/(x^2*sqrt(4 + x^2))"));
+
+        Assert.Equal("(1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))", Integral("x/((x - 1)*(x + 2))"));
+        Assert.Equal("(3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)", Integral("1/(x^2 + 1)^3"));
+        Assert.Equal("cos(x) - 2atan(cos(x))", Integral("sin(x)^3/(1 + cos(x)^2)"));
+        Assert.Equal("2atan(tan(x / 2) / sqrt(3)) / sqrt(3)", Integral("1/(2 + cos(x))"));
+
+        Assert.Throws<NotSupportedException>(() => Integral("exp(x^2)"));
+    }
+
+    [Fact]
+    public void Definite_integrals()
+    {
+        Assert.Equal(3.141592653589763, ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1));
+        Assert.Equal(8.999999999999998, ExprParser.Parse("abs(x)^(-2/3)").Integrate(-1, 8));
+        Assert.Equal(1.772453850905513, ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
+        Assert.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
+
+        Assert.Equal("The integral diverges at x = 0, or converges there too slowly for double precision.",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/x").Integrate(0, 1)).Message);
+    }
+
+    [Fact]
+    public void Good_to_know()
+    {
+        Assert.Equal("[sigma^2, 2omega * sigma]",
+            ExprParser.Parse("omega*sigma^2", "omega", "sigma").Gradient("omega", "sigma").Print());
+
+        var f = ExprParser.Parse("1/(2 + cos(x))");
+        var antiderivative = f.Integrate("x");
+        Assert.True(Math.Abs(antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0))) < 1e-15);
+        Assert.Equal(2 * Math.PI / Math.Sqrt(3), f.Integrate(0, 2 * Math.PI), 1e-14);
+
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("floor(x)*y").Gradient());
+        Assert.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
+        Assert.Equal("abs(x)", Integral("sign(x)"));
+        Assert.NotNull(ExprParser.Parse("max(x, 0)").Integrate("x"));
+    }
 }
 
 // Every example in Epsilon.Calculus/docs/getting-started.md.
@@ -507,6 +614,11 @@ public class CalculusLimitationsDocTests
         Assert.InRange(ExprParser.Parse("1/(x^3 - x - 1)").Integrate("x").Print().Length, 900, 1100);
         Assert.InRange(ExprParser.Parse("1/(x^4 + x + 1)").Integrate("x").Print().Length, 2500, 3500);
         Assert.NotNull(ExprParser.Parse("1/(x^2 + pi)").Integrate("x"));
+
+        foreach (string integrand in new[] { "floor(x)", "ceiling(x)", "round(x)" })
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
+        Assert.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
+        Assert.Equal("abs(x)", ExprParser.Parse("sign(x)").Integrate("x").Print());
 
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
         Assert.Equal("(1/2) * x^2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());

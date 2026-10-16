@@ -25,6 +25,7 @@ jobs:
       # The packages are built on every run, so a broken pack shows up before a release.
       - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release --no-build -o artifacts
       - run: dotnet pack Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj -c Release --no-build -o artifacts
+      - run: dotnet pack Epsilon.Calculus/Epsilon.Calculus.csproj -c Release --no-build -o artifacts
 
       - uses: actions/upload-artifact@v4
         with:

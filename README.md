@@ -16,13 +16,14 @@ dependencies beyond the .NET base library.
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular value decompositions and least squares for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
+| [Epsilon.Calculus](Epsilon.Calculus/README.md) | Gradients, divergence and curl, Hessians, Laplacians and the second-derivative test; exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by the substitutions for trigonometric functions and square roots of quadratics; numeric definite integrals over infinite intervals and through singularities, with divergent integrals detected | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Calculus)](https://www.nuget.org/packages/Epsilon.Calculus) |
 
-Calculus is in development in this repository; see the [roadmap](#roadmap). Every package
-targets .NET 10, and the packages built on the core bring it with them:
+Every package targets .NET 10, and the packages built on the core bring it with them:
 
 ```bash
 dotnet add package Epsilon
 dotnet add package Epsilon.LinearAlgebra
+dotnet add package Epsilon.Calculus
 ```
 
 ## Core
@@ -59,6 +60,24 @@ The [package README](Epsilon.LinearAlgebra/README.md) shows every feature; the
 [guides](Epsilon.LinearAlgebra/docs/README.md) and the
 [API reference](Epsilon.LinearAlgebra/docs/api-reference.md) cover it in detail.
 
+## Calculus
+
+```csharp
+using Epsilon.Calculus;
+
+var f = ExprParser.Parse("x^3 - 3*x + y^2");
+
+f.Gradient("x", "y").Print();                                // [3x^2 - 3, 2y]
+f.ClassifyCriticalPoint(("x", 1), ("y", 0));                 // LocalMinimum
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();         // exp(x) * x - exp(x)
+ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();      // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1);             // -4
+```
+
+The [package README](Epsilon.Calculus/README.md) shows every feature; the
+[guides](Epsilon.Calculus/docs/README.md) and the
+[API reference](Epsilon.Calculus/docs/api-reference.md) cover it in detail.
+
 ## Design principles
 
 - **Exact first.** Rationals instead of doubles; exact factoring or none at all.
@@ -77,9 +96,8 @@ The areas built on the core as separate packages, in this order:
    matrices, quaternions and camera matrices for games and real-time code since 1.2 and 1.3,
    symbolic matrices compiled to fast delegates or C# source since 1.4, and least squares
    with QR, Cholesky, eigenvalue and singular value decompositions since 1.5.
-2. **Calculus** - symbolic and numeric integration (improper integrals included), gradients,
-   Hessians, Laplacians. Already in this repository as an experimental project.
-   Planned next, as far as time and energy allow: limits (including multivariable limits in
+2. **Calculus** - available as `Epsilon.Calculus`: gradients, vector fields, Hessians and
+   Laplacians, symbolic and numeric integration (improper integrals included). Planned next, as far as time and energy allow: limits (including multivariable limits in
    2D and 3D), double and triple integrals, surface and contour integrals, Lebesgue
    integration and more.
 3. **Transforms** - Fourier, wavelets and more.

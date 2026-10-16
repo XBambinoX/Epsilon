@@ -35,6 +35,9 @@ is updated with it. The expressions have
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
   coefficients, as in 1/(x^2 + pi), is in the table.
+- **floor, ceiling and round have no antiderivatives** yet. Their definite integrals are
+  [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same, and sign, min and max
+  are integrated through abs.
 - **Complex numbers only as constant factors and terms.** The rules are those of real
   functions, so `i*x` and `x + i` are integrated, but `1/(x + i)` throws
   `NotSupportedException`: ln|x + i| isn't its antiderivative.

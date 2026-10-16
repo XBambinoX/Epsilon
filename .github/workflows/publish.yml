@@ -1,15 +1,14 @@
 name: Publish
 
-# Pushing a tag publishes one package to nuget.org: core-v<version> publishes Epsilon and
-# linalg-v<version> publishes Epsilon.LinearAlgebra, at the version after the prefix. Every
-# package gets its own tag prefix (later calculus-v* and so on); v1.0.0 is the only release
-# tagged before this scheme.
+# Pushing a tag publishes one package to nuget.org at the version after the prefix: core-v*
+# publishes Epsilon, linalg-v* Epsilon.LinearAlgebra and calculus-v* Epsilon.Calculus. Every
+# package gets its own tag prefix; v1.0.0 is the only release tagged before this scheme.
 # Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
 # GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
 # this repository and workflow file.
 on:
   push:
-    tags: ["core-v*", "linalg-v*"]
+    tags: ["core-v*", "linalg-v*", "calculus-v*"]
 
 permissions:
   contents: read
@@ -38,17 +37,17 @@ jobs:
           case "$GITHUB_REF_NAME" in
             core-v*)
               dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release -o artifacts -p:Version=${GITHUB_REF_NAME#core-v}
+              exit 0
               ;;
-            linalg-v*)
-              project=Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj
-              version=$(dotnet msbuild $project -getProperty:Version)
-              if [ "$version" != "${GITHUB_REF_NAME#linalg-v}" ]; then
-                echo "::error::The tag $GITHUB_REF_NAME does not match the version $version in $project."
-                exit 1
-              fi
-              dotnet pack $project -c Release -o artifacts
-              ;;
+            linalg-v*) project=Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj ;;
+            calculus-v*) project=Epsilon.Calculus/Epsilon.Calculus.csproj ;;
           esac
+          version=$(dotnet msbuild $project -getProperty:Version)
+          if [ "$version" != "${GITHUB_REF_NAME#*-v}" ]; then
+            echo "::error::The tag $GITHUB_REF_NAME does not match the version $version in $project."
+            exit 1
+          fi
+          dotnet pack $project -c Release -o artifacts
 
       - uses: NuGet/login@v1
         id: nuget-login

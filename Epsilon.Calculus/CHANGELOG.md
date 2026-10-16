@@ -34,12 +34,13 @@ later.
   over finite and infinite intervals, by the tanh-sinh and exp-sinh rules. The interval is split
   where the expression may be singular or not smooth: at the zeros of denominators, of the bases
   of fractional and negative powers and of the arguments of roots, logarithms and abs, at the
-  poles of tan, cot, sec and csc, at the edges of the domains of the inverse functions, at kinks
-  and jumps, and at the peaks of exponentials. Singular ends lose no accuracy: the nodes are
-  measured by their distance from the end, and the integrand is shifted to the end
-  symbolically. A divergent integral throws `InvalidOperationException` instead of returning a
-  finite number, and so does a singularity at a point that isn't a double where it limits the
-  accuracy below the tolerance.
+  poles of tan, cot, sec and csc, at the edges of the domains of the inverse functions, at the
+  kinks and jumps of abs, sign, min and max and of floor, ceiling and round of linear arguments,
+  and at the peaks of exponentials. Singular ends lose no accuracy: the nodes are measured by
+  their distance from the end, and the integrand is shifted to the end symbolically. A
+  divergent integral throws `InvalidOperationException` instead of returning a finite number,
+  and so does a singularity at a point that isn't a double where it limits the accuracy below
+  the tolerance.
 - **Antiderivatives.** `Integrate(variable)` and `Integrate()` give an exact, simplified
   antiderivative, without a constant of integration, and throw `NotSupportedException` where
   none is found. Exponents stay exact fractions, 1/x gives ln|x|, valid on both sides of 0, and
@@ -54,12 +55,14 @@ later.
   - **integration by parts**, with u a logarithm, an inverse function or a polynomial, integrals
     that come back to themselves, such as exp(x) sin(x), solved for, and the reduction formulas
     of sec, csc, sech and csch;
-  - **partial fractions** for every rational function with rational coefficients whose
-    denominator has factors of degree 4 at most over the rationals, or factors of x^n - a:
-    Hermite's reduction for repeated factors, logarithms and arctangents over linear and
-    quadratic factors, and over the roots of the others, by the roots of binomials and by
-    Cardano's and Ferrari's formulas; logarithms with coefficients of the same size are merged
-    into one;
+  - **partial fractions** for rational functions with rational coefficients: Hermite's
+    reduction for repeated factors, logarithms and arctangents over the linear and quadratic
+    factors over the rationals, and over the roots of the others, those of degree 3 and 4 by
+    Cardano's and Ferrari's formulas and those of any degree that divide a binomial x^n - a by
+    its roots; logarithms with coefficients of the same size are merged into one. A denominator
+    whose factors over the rationals are of degree 4 at most is integrated when it is given
+    factored; expanded, two factors of degree 3 or 4 are told apart only in a polynomial in a
+    power of x, as x^6 - 5x^3 + 6 is (x^3 - 2)(x^3 - 3);
   - **rational functions of sin and cos** by Bioche's rules (t = cos x, sin x or tan x) and
     otherwise by t = tan(x/2), and of exp, sinh and cosh by t = exp(x);
   - **square roots of quadratics** by x = h + r sin(t), r sinh(t) or r cosh(t), on both sides of
@@ -67,8 +70,9 @@ later.
 
   The imaginary unit is integrated only as a constant factor or term; elsewhere `Integrate`
   throws `NotSupportedException` rather than give an antiderivative of a real function.
-- **Documentation**: [getting started](docs/getting-started.md), gradients, vector fields,
-  Hessians and critical points, [numeric integration](docs/numeric-integration.md),
+- **Documentation**: the [package README](README.md) and the guides
+  [getting started](docs/getting-started.md), gradients, vector fields, Hessians and critical
+  points, [numeric integration](docs/numeric-integration.md),
   [symbolic integration](docs/symbolic-integration.md), the [API reference](docs/api-reference.md)
   and [known limitations](docs/limitations.md), with every example checked by a test.
 - **Package.** XML documentation for every public member, symbols package (`.snupkg`) and

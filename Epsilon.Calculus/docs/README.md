@@ -1,7 +1,7 @@
 # Epsilon.Calculus documentation
 
-Guides for the `Epsilon.Calculus` package, version 1.0.0. The types are in the namespace
-`Epsilon.Calculus`.
+Guides for the `Epsilon.Calculus` package, version 1.0.0. For a one-page overview see the
+[package README](../README.md). The types are in the namespace `Epsilon.Calculus`.
 The expressions come from the core, namespace `Epsilon.Core`, which has
 [its own documentation](../../Epsilon.Core/docs/README.md); gradients and Hessians are the
 vectors and matrices of [Epsilon.LinearAlgebra](../../Epsilon.LinearAlgebra/docs/README.md).

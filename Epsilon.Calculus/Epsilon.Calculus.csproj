@@ -6,13 +6,41 @@
     <Nullable>enable</Nullable>
     <!-- Ships the /// docs with the package so IntelliSense shows them to library users. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- Experimental: not published until its API is stabilized like Epsilon.Core. -->
-    <IsPackable>false</IsPackable>
   </PropertyGroup>
 
-  <ItemGroup> 
-    <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" /> 
-    <ProjectReference Include="..\Epsilon.LinearAlgebra\Epsilon.LinearAlgebra.csproj" /> 
+  <!-- NuGet package. It depends on Epsilon and Epsilon.LinearAlgebra at the <Version> of their
+       csproj files, so both must name released versions with everything this project uses. -->
+  <PropertyGroup>
+    <PackageId>Epsilon.Calculus</PackageId>
+    <!-- Not passed as -p:Version when packing: a global Version would reach the referenced
+         projects too. publish.yml checks the tag against it instead. -->
+    <Version>1.0.0</Version>
+    <Authors>Max Zakharov</Authors>
+    <Description>Calculus for the Epsilon symbolic math library. Gradients, directional derivatives, divergence and curl, Hessians, Laplacians and the second-derivative test for functions of several variables, as vectors and matrices of expressions that compile to fast delegates. Exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions with Hermite's reduction (over the roots of cubic and quartic factors in radicals too), by Bioche's rules and t = tan(x/2) for rational functions of sin and cos, by t = exp(x) and by trigonometric and hyperbolic substitutions for square roots of quadratics. Numeric definite integrals by the tanh-sinh and exp-sinh rules over finite and infinite intervals, split at the singularities, kinks and peaks found in the expression, accurate at singular ends, and with divergent integrals reported instead of returned as numbers.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;calculus;integral;integration;antiderivative;numerical-integration;improper-integral;tanh-sinh;partial-fractions;substitution;integration-by-parts;gradient;hessian;laplacian;divergence;curl;vector-field;critical-points;optimization;newton-method</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- Symbols (.snupkg) and Source Link, so users can step into the library's source. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
+    <ProjectReference Include="..\Epsilon.LinearAlgebra\Epsilon.LinearAlgebra.csproj" />
   </ItemGroup>
 
 </Project>
