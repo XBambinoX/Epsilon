@@ -82,7 +82,7 @@ ExprParser.Parse("1/(x^3 + 1)").Integrate("x").Print();
 
 Logarithms whose coefficients are equal or opposite are merged into one, of a product or a
 quotient. The factors are found in an expanded denominator too, x^4 + x^2 + 1 being
-(x^2 + x + 1)(x^2 - x + 1):
+(x^2 + x + 1)(x^2 - x + 1), and x^6 - 5x^3 + 6, a polynomial in x^3, (x^3 - 2)(x^3 - 3):
 
 ```csharp
 ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();     // (1/2) * ln(abs((x - 1) / (x + 1)))

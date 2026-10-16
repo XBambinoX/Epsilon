@@ -174,10 +174,24 @@ internal sealed class RationalPolynomial
                 rest /= quadratic;
             }
             if (rest.Degree > 0)
-                factors.Add((rest, multiplicity));
+                factors.AddRange(rest.InPowers().Select(piece => (piece, multiplicity)));
         }
 
         return factors;
+    }
+
+    // g(x^k) splits as g does, each factor in x^k: x^6 - 5x^3 + 6 is (x^3 - 2)(x^3 - 3).
+    private IEnumerable<RationalPolynomial> InPowers()
+    {
+        int k = Enumerable.Range(1, Degree).Where(i => !_coefficients[i].IsZero).Aggregate(0, Gcd);
+        if (k < 2)
+            return [this];
+
+        var g = new RationalPolynomial([.. _coefficients.Where((_, i) => i % k == 0)]);
+        return g.Factor().Select(factor => new RationalPolynomial([.. Enumerable.Range(0, factor.Factor.Degree * k + 1)
+            .Select(i => i % k == 0 ? factor.Factor[i / k] : Rational.Zero)]));
+
+        static int Gcd(int a, int b) => b == 0 ? a : Gcd(b, a % b);
     }
 
     // Yun's algorithm: the monic polynomial is D1 D2^2 D3^3 ... with each Di squarefree and coprime to the others.

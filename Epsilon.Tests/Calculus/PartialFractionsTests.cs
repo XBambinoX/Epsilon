@@ -64,6 +64,10 @@ public class PartialFractionsTests
     [InlineData("(x^3 + 1)/(x^4 + x^3 + 2)")]
     [InlineData("1/(x^4 + 2*x^2 + 3)")]
     [InlineData("1/(x^4 - 10*x^2 + 1)")]
+    [InlineData("1/(x^6 - 5*x^3 + 6)")]
+    [InlineData("1/(x^8 - 5*x^4 + 6)")]
+    [InlineData("1/(x^6 - 3*x^3 + 3)")]
+    [InlineData("1/((x^3 - x - 1)*(x^3 + 2))")]
     [InlineData("atan(x)/x^2")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
@@ -201,9 +205,17 @@ public class PartialFractionsTests
             + " + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
 
-    // Roots that can't be written in radicals, and symbols in the denominator.
+    // A polynomial in x^k splits as one in y = x^k does, which the search for linear and
+    // quadratic factors doesn't find.
+    [Fact]
+    public void Polynomials_in_a_power_of_x() =>
+        Assert.Equal(Integral("1/((x^3 - 2)*(x^3 - 3))"), Integral("1/(x^6 - 5*x^3 + 6)"));
+
+    // Roots that can't be written in radicals, an expanded product of cubics that isn't a
+    // polynomial in a power of x, and symbols in the denominator.
     [Theory]
     [InlineData("1/(x^5 - x - 1)")]
+    [InlineData("1/(x^6 - x^4 + x^3 - 2*x - 2)")]
     [InlineData("1/(x^6 + x + 1)")]
     [InlineData("1/(x^3 + a)")]
     public void What_isnt_integrated(string integrand) =>

@@ -18,6 +18,9 @@ is updated with it. The expressions have
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.
+- **Expanded products of factors of degree 3 and 4** are split only in a polynomial in a power
+  of x, as x^6 - 5x^3 + 6 is (x^3 - 2)(x^3 - 3). `1/(x^6 - x^4 + x^3 - 2*x - 2)` isn't
+  integrated, but given factored, `1/((x^3 - x - 1)*(x^3 + 2))` is.
 - **Long antiderivatives over cubic and quartic factors.** A root from Cardano's or Ferrari's
   formula is a nested radical that the simplifier doesn't denest, and it is in every
   coefficient: `1/(x^3 - x - 1)` gives about a thousand characters, `1/(x^4 + x + 1)` three
