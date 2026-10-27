@@ -55,16 +55,6 @@ is updated with it. The expressions have
 
 ## Numeric integration
 
-- **A narrow feature far from 0 on an infinite interval can be missed.** The interval is split
-  at the peaks of exponentials, but not of other functions. Far out the nodes are too sparse to
-  land on a peak this narrow, and every value they see is 0. Split the interval at the peak:
-
-  ```csharp
-  var peak = ExprParser.Parse("sech(10*(x - 1000))^2");
-  peak.Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 0, but the integral is 0.2
-  peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity);   // 0.19999999999998613
-  ```
-
 - **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, see
   [The tolerance](numeric-integration.md#the-tolerance).
 - **Oscillation towards an infinity is taken apart only with linear phases and commensurate

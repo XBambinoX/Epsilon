@@ -62,14 +62,16 @@ found numerically otherwise.
 ## Kinks, jumps and peaks
 
 The interval is also split at kinks and jumps (abs, sign, min and max, and floor, ceiling and
-round of linear arguments), and at the peaks of exponentials, so a normal density far from 0 is
-found:
+round of linear arguments), and at the peaks and steps of exponentials, sech, cosh, tanh and
+atan, so a normal density far from 0 is found. Far out the nodes are too sparse to land on a
+peak this narrow, and every value they would see is 0:
 
 ```csharp
 ExprParser.Parse("abs(x)").Integrate(-1, 2);                    // 2.499999999999999
 ExprParser.Parse("min(x, 1 - x)").Integrate(0, 1);             // 0.24999999999999992
 ExprParser.Parse("floor(x)").Integrate(0, 3.5);                 // 4.500000000000001
 ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 1.772453850905513
+ExprParser.Parse("sech(10*(x - 1000))^2").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 0.19999999999998613
 ```
 
 A piece that doesn't converge, around a sharp peak, is split in two until the peak is next to

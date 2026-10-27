@@ -379,6 +379,7 @@ public class CalculusNumericIntegrationDocTests
         Shown.Equal(0.24999999999999992, Integrate("min(x, 1 - x)", 0, 1));
         Shown.Equal(4.500000000000001, Integrate("floor(x)", 0, 3.5));
         Shown.Equal(1.772453850905513, Integrate("exp(-(x - 200)^2)", -Inf, Inf));
+        Shown.Equal(0.19999999999998613, Integrate("sech(10*(x - 1000))^2", -Inf, Inf));
 
         Shown.Equal(3139.5926542564584, Integrate("1/(x^2 + 1e-6)", -1, 1));
         Assert.Equal(3139.59265425646, 2000 * Math.Atan(1000), 1e-10);
@@ -649,10 +650,6 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Numeric_integration()
     {
-        var peak = ExprParser.Parse("sech(10*(x - 1000))^2");
-        Assert.Equal(0, peak.Integrate(double.NegativeInfinity, double.PositiveInfinity));
-        Shown.Equal(0.19999999999998613, peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity));
-
         Shown.Equal(0.2705135801622119, ExprParser.Parse("sin(x^2)*exp(-x)").Integrate(0, double.PositiveInfinity));
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
         Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",

@@ -70,6 +70,20 @@ public class NumericIntegrationTests
         Assert.Equal(1, Integrate("exp(-(x - 1e6)^2/(2*3^2))/(3*sqrt(2*pi))", -Inf, Inf), 1e-11);
     }
 
+    // These came out 0 before the zeros of the arguments became breakpoints. A product of two
+    // logistic steps, where exp(u) is 1, integrates to w / (1 - e^(-a w)).
+    [Fact]
+    public void Peaks_and_steps_of_hyperbolic_functions_far_from_0_are_split_at()
+    {
+        Assert.Equal(0.2, Integrate("sech(10*(x - 1000))^2", -Inf, Inf), 1e-13);
+        Assert.Equal(0.2, Integrate("sech(10*(x - 1000))^2", 0, 1e6), 1e-13);
+        Assert.Equal(Math.PI / 10, Integrate("1/cosh(10*(x + 1000))", -Inf, 0), 1e-13);
+        Assert.Equal(0.2, Integrate("1 - tanh(10*(x - 1000))^2", -Inf, Inf), 1e-13);
+        Assert.Equal(1, Integrate("(tanh(10*(x - 1000)) - tanh(10*(x - 1001)))/2", -Inf, Inf), 1e-13);
+        Assert.Equal(1 / (1 - Math.Exp(-10)), Integrate("1/((1 + exp(-10*(x - 1000)))*(1 + exp(10*(x - 1001))))", -Inf, Inf), 1e-12);
+        Assert.Equal(Math.PI / 2000, Integrate("sech(x^2 - 1e6)", 0, Inf), 1e-13);
+    }
+
     [Fact]
     public void Reversed_limits_negate_and_equal_limits_give_zero()
     {

@@ -132,7 +132,7 @@ throws `NotSupportedException`.
 
 `Integrate(a, b)` computes a definite integral numerically, over finite and infinite
 intervals. The interval is split where the expression may be singular, has a kink or a jump, or
-an exponential has its peak, and singular ends lose no accuracy. A divergent integral throws:
+has a peak or a step, and singular ends lose no accuracy. A divergent integral throws:
 
 ```csharp
 ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1);    // 3.141592653589763

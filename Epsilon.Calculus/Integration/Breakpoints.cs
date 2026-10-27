@@ -9,9 +9,10 @@ internal readonly record struct IntegrationPoint(double Value, Expr Exact);
 // smooth: the zeros of denominators, of the bases of fractional and negative powers and of the
 // arguments of roots, logarithms, abs and sign; the poles of tan, cot, sec and csc; the edges of
 // the domains of the inverse functions; the kinks of min and max; the jumps of floor, ceiling
-// and round of linear arguments; and the peaks of exponentials, where the slope of the exponent
-// vanishes: on an infinite piece the nodes far out are too sparse to see exp(-(x - 200)^2), and
-// all its values there are 0. Exact where the part that vanishes is linear, numeric otherwise.
+// and round of linear arguments; and the peaks and steps of exponentials, sech, cosh, tanh and
+// atan, where the argument or its slope vanishes: on an infinite piece the nodes far out are too
+// sparse to see exp(-(x - 200)^2) or sech(10(x - 1000))^2, and all their values there are 0.
+// Exact where the part that vanishes is linear, numeric otherwise.
 internal static class Breakpoints
 {
     private const int MaxJumps = 10_000;
@@ -35,12 +36,13 @@ internal static class Breakpoints
             case Divide divide:
                 yield return divide.Denominator;
                 break;
-            case Exp exp when Slope(exp.Argument, variable) is { } slope:
-                yield return slope;
+            case Exp or Sech or Cosh or Tanh or Atan:
+                foreach (Expr part in Centers(((UnaryExpr)expr).Argument, variable))
+                    yield return part;
                 break;
             case Power power when !power.Base.DependsOn(variable):
-                if (Slope(power.Exponent, variable) is { } exponentSlope)
-                    yield return exponentSlope;
+                foreach (Expr part in Centers(power.Exponent, variable))
+                    yield return part;
                 break;
             case Power power when power.Exponent is not Constant { Value: { IsInteger: true, Sign: >= 0 } }:
                 yield return power.Base;
@@ -79,6 +81,15 @@ internal static class Breakpoints
         foreach (Expr child in expr.Children)
             foreach (Expr part in VanishingParts(child, variable, a, b))
                 yield return part;
+    }
+
+    // exp(u) peaks where the slope of u vanishes, and is 1 where u is: there 1/(1 + exp(u)) steps.
+    // sech(u) peaks, and tanh(u) and atan(u) step, where u vanishes, or where |u| is least.
+    private static IEnumerable<Expr> Centers(Expr u, string variable)
+    {
+        yield return u;
+        if (Slope(u, variable) is { } slope)
+            yield return slope;
     }
 
     // floor and ceiling jump where the argument is an integer, round where it is an integer plus 1/2.
