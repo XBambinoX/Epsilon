@@ -70,13 +70,6 @@ is updated with it. The expressions have
   // InvalidOperationException: The integrand oscillates towards an infinity in a way that isn't taken apart yet: ...
   ```
 
-- **Very long finite intervals don't converge.** Integrate to infinity instead:
-
-  ```csharp
-  ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300);   // InvalidOperationException
-  ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity);   // 0.8862269254527579
-  ```
-
 - **No symbols besides the variable.** Substitute values for them first, see
   [Definite integrals](numeric-integration.md#definite-integrals).
 

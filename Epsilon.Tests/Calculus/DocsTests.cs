@@ -356,6 +356,7 @@ public class CalculusNumericIntegrationDocTests
     {
         Shown.Equal(0.9999999999999994, Integrate("exp(-x)", 0, Inf));
         Shown.Equal(3.1415926535897927, Integrate("1/(1 + x^2)", -Inf, Inf));
+        Shown.Equal(0.8862269254527574, Integrate("exp(-x^2)", 0, 1e300));
     }
 
     [Fact]
@@ -654,8 +655,6 @@ public class CalculusLimitationsDocTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
         Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",
             Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity)).Message);
-        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300));
-        Shown.Equal(0.8862269254527579, ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity));
     }
 
     [Fact]

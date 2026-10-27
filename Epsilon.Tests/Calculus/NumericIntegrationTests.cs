@@ -38,6 +38,19 @@ public class NumericIntegrationTests
         Assert.Equal(0, Integrate("0", -Inf, Inf));
     }
 
+    // Halved 30 times, these got down to [0, 9e290] and threw.
+    [Fact]
+    public void Very_long_finite_intervals()
+    {
+        Assert.Equal(Math.Sqrt(Math.PI) / 2, Integrate("exp(-x^2)", 0, 1e300), 1e-15);
+        Assert.Equal(Math.Sqrt(Math.PI), Integrate("exp(-x^2)", -1e300, 1e300), 1e-14);
+        Assert.Equal(Math.PI / 2, Integrate("1/(1 + x^2)", 0, 1e308), 1e-14);
+        Assert.Equal(2, Integrate("x^(-1.5)", 1, 1e300), 1e-14);
+        Assert.Equal(1, Integrate("1/x^2", -1e300, -1), 1e-14);
+        Assert.Equal(-0.5772156649015329, Integrate("ln(x)*exp(-x)", 0, 1e300), 1e-15);
+        Assert.Equal(300 * Math.Log(10), Integrate("1/x", 1, 1e300), 1e-12);
+    }
+
     [Fact]
     public void Gaussian_integrals()
     {

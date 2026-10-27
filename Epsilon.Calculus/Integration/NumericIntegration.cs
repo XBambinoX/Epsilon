@@ -8,6 +8,7 @@ public static class NumericIntegrationExtensions
     private const double DefaultTolerance = 1e-10;
     private const int MaxSplits = 30;
     private const int MaxOscillatingSplits = 64;
+    private const double FarFromTheMiddle = 4294967296;
 
     extension(Expr expr)
     {
@@ -174,7 +175,7 @@ public static class NumericIntegrationExtensions
             return estimate;
         }
 
-        double split = p is { } from && q is { } to ? from.Value / 2 + to.Value / 2 : rule.Peak;
+        double split = p is { } from && q is { } to ? FiniteSplit(rule.Peak, from.Value, to.Value) : rule.Peak;
         double low = p?.Value ?? double.NegativeInfinity, high = q?.Value ?? double.PositiveInfinity;
         if (depth == MaxSplits || !(low < split && split < high) || !double.IsFinite(split))
             throw rule.NotConverged();
@@ -185,5 +186,20 @@ public static class NumericIntegrationExtensions
         var middle = new IntegrationPoint(split, new Constant(split));
         return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, ref reserve, ref splits, depth + 1)
             + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, ref reserve, ref splits, depth + 1);
+    }
+
+    // A finite piece is split in the middle, unless the integral has its weight so much closer to
+    // an end than the width that halving would take more splits to get there than are allowed:
+    // exp(-x^2) on [0, 1e300] is split at 1e150, 1e75 and so on, the geometric means of the
+    // distance of its peak from 0 and the width.
+    private static double FiniteSplit(double peak, double low, double high)
+    {
+        double halfWidth = high / 2 - low / 2;
+        double fromLow = peak - low, fromHigh = high - peak, nearer = Math.Min(fromLow, fromHigh);
+        if (!(nearer > 0 && halfWidth > FarFromTheMiddle * nearer))
+            return low / 2 + high / 2;
+
+        double distance = Math.Sqrt(2 * nearer) * Math.Sqrt(halfWidth);
+        return fromLow <= fromHigh ? low + distance : high - distance;
     }
 }

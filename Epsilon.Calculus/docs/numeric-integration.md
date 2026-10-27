@@ -36,6 +36,14 @@ ExprParser.Parse("exp(-x)").Integrate(0, double.PositiveInfinity);              
 ExprParser.Parse("1/(1 + x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 3.1415926535897927
 ```
 
+A finite interval may be as long. Where its integral has the weight next to an end, a piece that
+doesn't converge is split not in the middle but at the geometric mean of the weight's distance
+from that end and the width, here at 1e150, 1e75 and so on:
+
+```csharp
+ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300);   // 0.8862269254527574
+```
+
 ## Singularities
 
 The integrand may be infinite at the limits or inside the interval, as long as the integral
