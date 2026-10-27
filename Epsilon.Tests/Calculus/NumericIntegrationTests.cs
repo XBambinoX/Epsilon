@@ -137,6 +137,17 @@ public class NumericIntegrationTests
         Assert.Equal(49.5, Integrate("floor(100*x)", 0, 1), 1e-12);
     }
 
+    // The 200 steps root finding takes by default missed most of the 318 zeros of sin(x) on
+    // [0, 1000]: the first took 24 s, and the second threw.
+    [Fact]
+    public void Kinks_and_jumps_of_an_oscillation_on_a_long_interval()
+    {
+        double rest = 1000 - 318 * Math.PI;
+        Assert.Equal(636 + 1 - Math.Cos(rest), Integrate("abs(sin(x))", 0, 1000), 1e-12);
+        Assert.Equal(rest, Integrate("sign(sin(x))", 0, 1000), 1e-12);
+        Assert.Equal((2 * 3183 + 1 - Math.Cos(10000 - 3183 * Math.PI)) / 10000, Integrate("abs(sin(10000*x))", 0, 1), 1e-13);
+    }
+
     [Fact]
     public void A_sharp_peak_is_found_by_halving_the_interval()
     {

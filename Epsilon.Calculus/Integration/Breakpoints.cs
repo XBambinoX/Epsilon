@@ -16,6 +16,8 @@ internal readonly record struct IntegrationPoint(double Value, Expr Exact);
 internal static class Breakpoints
 {
     private const int MaxJumps = 10_000;
+    private const int MinScanSteps = 200;
+    private const int MaxScanSteps = 100_000;
 
     public static List<IntegrationPoint> Find(Expr expr, string variable, double a, double b)
     {
@@ -121,9 +123,31 @@ internal static class Breakpoints
             return a < value && value < b ? [new IntegrationPoint(value, root)] : [];
         }
 
-        return part.FindRealRoots(variable, null, a, b)
+        return part.FindRealRoots(variable, null, a, b, ScanSteps(part, variable, a, b))
             .Where(value => a < value && value < b)
             .Select(value => new IntegrationPoint(value, new Constant(value)));
+    }
+
+    // The roots are looked for on a grid, which misses two of them in one of its steps: on
+    // [0, 1000] the 200 steps FindRealRoots takes by default found 82 of the 318 zeros of sin(x).
+    // Where the part oscillates through trigonometric functions of linear arguments, the grid
+    // gets 16 steps per pi of the fastest of them.
+    private static int ScanSteps(Expr part, string variable, double a, double b)
+    {
+        double fastest = Frequencies(part, variable).DefaultIfEmpty(0).Max();
+        double steps = Math.Ceiling(16 * (b - a) * fastest / Math.PI);
+        return double.IsFinite(steps) ? (int)Math.Clamp(steps, MinScanSteps, MaxScanSteps) : MinScanSteps;
+    }
+
+    private static IEnumerable<double> Frequencies(Expr expr, string variable)
+    {
+        if (expr is Sin or Cos or Tan or Cot or Sec or Csc
+            && Slope(((UnaryExpr)expr).Argument, variable) is { } slope && !slope.DependsOn(variable))
+            yield return Math.Abs(slope.Evaluate());
+
+        foreach (Expr child in expr.Children)
+            foreach (double frequency in Frequencies(child, variable))
+                yield return frequency;
     }
 
     // -u(0) / u' when u' is a nonzero constant.
