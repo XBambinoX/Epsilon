@@ -55,8 +55,16 @@ is updated with it. The expressions have
 
 ## Numeric integration
 
-- **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, see
-  [The tolerance](numeric-integration.md#the-tolerance).
+- **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, at the
+  limits, as Math.PI does for pi, and inside the interval unless the points are found exactly:
+  the zeros of sines and cosines of linear arguments and the roots of quadratics are, the root
+  of x^4 - 2 isn't. See [The tolerance](numeric-integration.md#the-tolerance).
+
+  ```csharp
+  ExprParser.Parse("1/sqrt(abs(x^4 - 2))").Integrate(0, 2);
+  // InvalidOperationException: The integrand is singular next to x = 1.189207115002721, at a point that isn't a double, which limits the accuracy to about 2.5E-08.
+  ```
+
 - **Oscillation towards an infinity is taken apart only with linear phases and commensurate
   periods**, see [Oscillating integrands](numeric-integration.md#oscillating-integrands).
   Otherwise the integral is computed where the integrand also decays fast, and throws where it

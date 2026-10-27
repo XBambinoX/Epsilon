@@ -52,8 +52,8 @@ public static class NumericIntegrationExtensions
         /// half periods, accelerated, so <c>sin(x)/x</c> from 0 to infinity is pi/2.
         /// </para>
         /// <para>
-        /// Next to a singularity at a point that isn't a double, such as the zero of x^2 - 2, the
-        /// accuracy is limited to about 1e-8.
+        /// Next to a singularity at a point that isn't a double and isn't found exactly, such as pi
+        /// as a limit or the zero of x^4 - 2, the accuracy is limited to about 1e-8.
         /// An oscillation towards an infinity with a phase that isn't linear, such as of sin(x^2),
         /// or with periods that aren't commensurate isn't taken apart: its integral is computed
         /// where the integrand also decays fast, as sin(x^2) exp(-x) does, and throws otherwise.

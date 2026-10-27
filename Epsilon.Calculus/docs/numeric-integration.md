@@ -64,8 +64,16 @@ ExprParser.Parse("sin(x)/x").Integrate(-1, 1);             // 1.8921661407343664
 The points inside are found in the expression. The interval is split at the zeros of
 denominators, of the bases of fractional and negative powers and of the arguments of roots,
 logarithms and abs, at the poles of tan, cot, sec and csc, and at the edges of the domains of
-the inverse functions. These zeros are exact where the part that vanishes is linear, and are
-found numerically otherwise.
+the inverse functions. These zeros are exact where the part that vanishes is linear, a sine or
+cosine of a linear argument, or a polynomial with linear and quadratic factors, and are found
+numerically otherwise. At an exact zero the integrand is shifted there symbolically: next to pi,
+sin(x) is -sin(d) of the distance d, and next to sqrt(2), x^2 - 2 is 2 sqrt(2) d + d^2, with
+nothing rounded:
+
+```csharp
+ExprParser.Parse("1/sqrt(abs(sin(x)))").Integrate(0, 4);     // 7.120606397869798
+ExprParser.Parse("1/sqrt(abs(x^2 - 2))").Integrate(0, 2);    // 2.45216991381447
+```
 
 ## Kinks, jumps and peaks
 
@@ -137,9 +145,10 @@ ExprParser.Parse("x^(-0.999)").Integrate(0, 1);   // InvalidOperationException
 ## The tolerance
 
 The last argument is the accuracy asked for, relative to the integral of the absolute value of
-the integrand; by default 1e-10. Next to a singularity at a point that isn't a double, such as
-pi, x can't come closer to it than its rounding, which limits the accuracy to about 1e-8. Asked
-for more, `Integrate` says so; asked for less, it gives the result:
+the integrand; by default 1e-10. Next to a singularity at a point that isn't a double and isn't
+found exactly, such as pi as a limit, x can't come closer to it than its rounding, which limits
+the accuracy to about 1e-8. Asked for more, `Integrate` says so; asked for less, it gives the
+result:
 
 ```csharp
 ExprParser.Parse("1/sqrt(sin(x))").Integrate(0, Math.PI);

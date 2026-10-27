@@ -64,7 +64,7 @@ internal sealed partial class IntegrationTable
             : new Cos(third - new Rational(2 * k, 3) * new Pi())) - h).Simplify())];
     }
 
-    private static Rational? PiMultiple(Expr e) => e switch
+    internal static Rational? PiMultiple(Expr e) => e switch
     {
         Pi => Rational.One,
         Multiply { Left: Constant c } product when PiMultiple(product.Right) is { } q => c.Value * q,

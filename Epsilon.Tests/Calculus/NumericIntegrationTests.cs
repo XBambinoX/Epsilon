@@ -309,7 +309,26 @@ public class NumericIntegrationTests
             Fails("1/sqrt(sin(x))", 0, Math.PI).Message);
 
         Assert.Equal(Exact, Integrate("1/sqrt(sin(x))", 0, Math.PI, tolerance: 1e-6), 1e-7);
-        Assert.Equal(Math.PI / 2 + Math.Acosh(Math.Sqrt(2)), Integrate("1/sqrt(abs(x^2 - 2))", 0, 2, tolerance: 1e-6), 1e-7);
+        Assert.StartsWith("The integrand is singular next to x = 1.189207115002721, at a point that isn't a double",
+            Fails("1/sqrt(abs(x^4 - 2))", 0, 2).Message);
+    }
+
+    // Zeros of sines and cosines of linear arguments and roots of quadratics are exact points,
+    // and next to them the integrand is shifted symbolically, sin(pi + d) to -sin(d): these threw
+    // as singular at points that aren't doubles. The values from substitutions that leave no
+    // singularity, s^2 = t for 1/sqrt(sin(t)).
+    [Fact]
+    public void Singularities_at_exact_points_that_are_not_doubles()
+    {
+        const double Lemniscate = 2.622057554292119;   // the integral of 1/sqrt(sin(x)) over [0, pi/2]
+        Assert.Equal(Math.PI / 2 + Math.Acosh(Math.Sqrt(2)), Integrate("1/sqrt(abs(x^2 - 2))", 0, 2), 1e-13);
+        Assert.Equal(Math.PI / 2 + Math.Asin(1 / Math.Sqrt(5)) + Math.Acosh(Math.Sqrt(5)), Integrate("1/sqrt(abs(x^2 - x - 1))", 0, 3), 1e-13);
+        Assert.Equal(5.61161034744466, Integrate("abs(x^2 - 2)^(-1/3)", -3, 3), 1e-14);
+        Assert.Equal(7.120606397869798, Integrate("1/sqrt(abs(sin(x)))", 0, 4), 1e-14);
+        Assert.Equal(5.080771852413529, Integrate("1/sqrt(abs(sin(2*x + 1)))", 0, 3), 1e-14);
+        Assert.Equal(Lemniscate + 2.4802275069959303, Integrate("1/sqrt(abs(cos(x)))", 0, 3), 1e-14);
+        Assert.Equal(1669.6344353647983, Integrate("1/sqrt(abs(sin(x)))", 0, 1000), 1e-11);
+        Assert.Equal(1000 - 318 * Math.PI, Integrate("sign(sin(x))", 0, 1000), 1e-14);
     }
 
     // Next to 1000 x is rounded to 2e-13, and a peak 1e-5 wide there lost 3e-10 to it. The first

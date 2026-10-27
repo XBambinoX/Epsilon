@@ -371,6 +371,9 @@ public class CalculusNumericIntegrationDocTests
         Shown.Equal(6, Integrate("1/sqrt(abs(x))", -1, 4));
         Shown.Equal(2.768765168078484, Integrate("abs(x - 0.3)^(-1/2)", 0, 1));
         Shown.Equal(1.8921661407343664, Integrate("sin(x)/x", -1, 1));
+
+        Shown.Equal(7.120606397869798, Integrate("1/sqrt(abs(sin(x)))", 0, 4));
+        Shown.Equal(2.45216991381447, Integrate("1/sqrt(abs(x^2 - 2))", 0, 2));
     }
 
     [Fact]
@@ -651,6 +654,9 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Numeric_integration()
     {
+        Assert.Equal("The integrand is singular next to x = 1.189207115002721, at a point that isn't a double, which limits the accuracy to about 2.5E-08.",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/sqrt(abs(x^4 - 2))").Integrate(0, 2)).Message);
+
         Shown.Equal(0.2705135801622119, ExprParser.Parse("sin(x^2)*exp(-x)").Integrate(0, double.PositiveInfinity));
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
         Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",

@@ -17,17 +17,29 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
 
     public IntegrandEnd Near(IntegrationPoint end, int direction, double halfWidth)
     {
-        double at = end.Value;
+        double at = end.Value, unresolved = 0;
         if (double.IsFinite(_plain(at)))
         {
-            double unresolved = Unresolved(at, direction, halfWidth, out bool fast);
-            if (!fast)
-                return new IntegrandEnd(d => _plain(at + direction * d), unresolved);
+            unresolved = Unresolved(at, direction, halfWidth, out bool fast);
+            if (!fast && unresolved == 0)
+                return new IntegrandEnd(d => _plain(at + direction * d), 0);
         }
 
+        IntegrandEnd shifted = Shifted(end, direction);
+
+        // Next to a singularity at a point that isn't a double, the shift removes the rounding
+        // only where the point is exact, as sqrt(2) and pi are, and the integrand is singular at
+        // 0. A limit such as Math.PI is kept to 15 digits, which are short of pi.
+        return unresolved > 0 && !double.IsInfinity(shifted.At(0))
+            ? new IntegrandEnd(d => _plain(at + direction * d), unresolved)
+            : shifted;
+    }
+
+    private IntegrandEnd Shifted(IntegrationPoint end, int direction)
+    {
         Expr distance = new Variable(variable);
-        Expr shifted = expr.Substitute(variable, direction > 0 ? end.Exact + distance : end.Exact - distance)
-            .Simplify(SimplifyMode.Strict);
+        Expr shifted = ReduceAngles(expr.Substitute(variable, direction > 0 ? end.Exact + distance : end.Exact - distance)
+            .Simplify(SimplifyMode.Strict));
         Func<double, double> far = shifted.Compile(variable);
 
         Expr expanded = ExpandVanishingSums(shifted);
@@ -37,9 +49,55 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
         // Expanded, 1 - (1 - d)^2 is 2d - d^2 next to the end, but away from it an expanded
         // power such as (1 - d)^50 loses more to cancellation than it saves.
         Func<double, double> near = expanded.Compile(variable);
-        double reach = 1e-6 * Math.Max(1, Math.Abs(at));
+        double reach = 1e-6 * Math.Max(1, Math.Abs(end.Value));
         return new IntegrandEnd(d => d < reach ? near(d) : far(d), 0);
     }
+
+    // sin(k pi/2 + r) and the others in sin r and cos r: next to pi, sin(pi + d) is -sin(d),
+    // where pi + d would be rounded first.
+    private Expr ReduceAngles(Expr e)
+    {
+        var children = e.Children;
+        Expr[]? changed = null;
+        for (int i = 0; i < children.Length; i++)
+        {
+            Expr child = ReduceAngles(children[i]);
+            if (!ReferenceEquals(child, children[i]))
+                (changed ??= [.. children])[i] = child;
+        }
+        if (changed is not null)
+            e = e.WithChildren(changed);
+
+        if (e is not (Sin or Cos or Tan or Cot or Sec or Csc) || !e.DependsOn(variable))
+            return e;
+
+        var (turn, rest) = Split(((UnaryExpr)e).Argument.Expand(SimplifyMode.Strict));
+        turn = turn.Simplify(SimplifyMode.Strict);
+        if (IntegrationTable.PiMultiple(turn) is not { IsZero: false } multiple || !(2 * multiple).IsInteger)
+            return e;
+
+        Expr sin = (new Sin(rest) * new Cos(turn) + new Cos(rest) * new Sin(turn)).Simplify(SimplifyMode.Strict);
+        Expr cos = (new Cos(rest) * new Cos(turn) - new Sin(rest) * new Sin(turn)).Simplify(SimplifyMode.Strict);
+        return e switch
+        {
+            Sin => sin,
+            Cos => cos,
+            Tan => sin / cos,
+            Cot => cos / sin,
+            Sec => 1 / cos,
+            _ => 1 / sin,
+        };
+    }
+
+    // The terms of a sum that don't depend on the variable, and the others.
+    private (Expr Constant, Expr Others) Split(Expr e) => e switch
+    {
+        _ when !e.DependsOn(variable) => (e, 0),
+        Add sum when (Split(sum.Left), Split(sum.Right)) is var ((c1, r1), (c2, r2)) => (c1 + c2, r1 + r2),
+        Subtract difference when (Split(difference.Left), Split(difference.Right)) is var ((c1, r1), (c2, r2)) => (c1 - c2, r1 - r2),
+        Negate negate when Split(negate.Argument) is var (c, r) => (-c, -r),
+        _ => (0, e),
+    };
 
     // Next to a nonzero end x can't come closer than its rounding, so a singularity at a point
     // that isn't a double (tan at the double nearest pi/2) looks finite there. Where |f| grows

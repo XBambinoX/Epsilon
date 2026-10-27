@@ -25,7 +25,17 @@ internal static class Breakpoints
         foreach (Expr part in VanishingParts(expr, variable, a, b).Distinct())
             points.AddRange(Zeros(part, variable, a, b));
 
-        return [.. points.OrderBy(point => point.Value).DistinctBy(point => point.Value)];
+        // A root found numerically is a double or two off the same one found exactly, which is kept.
+        var merged = new List<IntegrationPoint>();
+        foreach (IntegrationPoint point in points.OrderBy(point => point.Value))
+        {
+            if (merged.Count == 0 || point.Value - merged[^1].Value > 4 * (Math.BitIncrement(Math.Abs(point.Value)) - Math.Abs(point.Value)))
+                merged.Add(point);
+            else if (merged[^1].Exact is Constant)
+                merged[^1] = point;
+        }
+
+        return merged;
     }
 
     private static IEnumerable<Expr> VanishingParts(Expr expr, string variable, double a, double b)
@@ -123,9 +133,59 @@ internal static class Breakpoints
             return a < value && value < b ? [new IntegrationPoint(value, root)] : [];
         }
 
-        return part.FindRealRoots(variable, null, a, b, ScanSteps(part, variable, a, b))
+        if (part is Sin or Cos && WaveZeros((UnaryExpr)part, variable, a, b) is { } zeros)
+            return zeros.SelectMany(zero => Zeros(zero, variable, a, b));
+
+        var found = part.FindRealRoots(variable, null, a, b, ScanSteps(part, variable, a, b))
             .Where(value => a < value && value < b)
             .Select(value => new IntegrationPoint(value, new Constant(value)));
+        return [.. PolynomialRoots(part, variable, a, b), .. found];
+    }
+
+    // Points that aren't doubles, found exactly, so that the integrand can be shifted to them:
+    // sin(u) vanishes where u is a multiple of pi, and next to pi sin(x) is -sin(d) of the
+    // distance; the double nearest pi is 1.2e-16 off, which limited the accuracy to 1e-8.
+    private static IEnumerable<Expr>? WaveZeros(UnaryExpr wave, string variable, double a, double b)
+    {
+        Expr argument = wave.Argument;
+        if (!double.IsFinite(a) || !double.IsFinite(b) || LinearRoot(argument, variable) is null)
+            return null;
+
+        Expr offset = wave is Cos ? new Pi() / 2 : 0;
+        double atA = argument.Evaluate((variable, a)), atB = argument.Evaluate((variable, b));
+        double low = Math.Ceiling((Math.Min(atA, atB) - offset.Evaluate()) / Math.PI) - 1;
+        double high = Math.Floor((Math.Max(atA, atB) - offset.Evaluate()) / Math.PI) + 1;
+        if (!(high - low < MaxJumps))
+            return null;
+
+        return Enumerable.Range(0, (int)(high - low) + 1).Select(i => argument - ((long)(low + i) * new Pi() + offset));
+    }
+
+    // The roots of the linear and quadratic factors of a polynomial: next to sqrt(2), x^2 - 2 is
+    // 2 sqrt(2) d + d^2 of the distance.
+    private static IEnumerable<IntegrationPoint> PolynomialRoots(Expr part, string variable, double a, double b)
+    {
+        if (RationalPolynomial.Of(part, variable) is not { Degree: >= 2 } polynomial)
+            yield break;
+
+        foreach (var (factor, _) in polynomial.Factor())
+        {
+            Rational discriminant = factor[1] * factor[1] - 4 * factor[0] * factor[2];
+            Expr[] roots = factor.Degree switch
+            {
+                1 => [new Constant(-factor[0] / factor[1])],
+                2 when discriminant.Sign > 0 =>
+                [
+                    ((-factor[1] - new Sqrt(discriminant)) / (2 * factor[2])).Simplify(),
+                    ((-factor[1] + new Sqrt(discriminant)) / (2 * factor[2])).Simplify(),
+                ],
+                _ => [],
+            };
+
+            foreach (Expr root in roots)
+                if (root.Evaluate() is var value && a < value && value < b)
+                    yield return new IntegrationPoint(value, root);
+        }
     }
 
     // The roots are looked for on a grid, which misses two of them in one of its steps: on
