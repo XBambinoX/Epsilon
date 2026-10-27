@@ -8,7 +8,10 @@ internal sealed class DoubleExponential
 
     // How far out in t a value that isn't finite ends a half instead of failing: under- and
     // overflow cut the tails of convergent integrals short there (exp(-1/x) / x^2 is 0/0 near 0).
+    // So does one after the terms have died out, closer in on a half-line: cosh(x) / cosh(2x) is
+    // 0 from 355 on and inf/inf from 711, at t = 2.25.
     private const double FarOut = 4;
+    private const double MachineEpsilon = 2.220446049250313E-16;
 
     // The nodes from the middle of the piece out to End, an end of the piece or an infinity; At
     // takes the distance from the end the half is measured from, and Limit is the largest t
@@ -37,16 +40,19 @@ internal sealed class DoubleExponential
         for (int i = 0; i < 2; i++)
         {
             _last[i] = center;
+            double largest = Math.Abs(center);
             int j = 1;
             for (; j * _step <= _halves[i].Limit; j++)
             {
-                double term = Term(_halves[i], j * _step, farOutEnds: true);
+                bool diedOut = Math.Abs(_last[i]) < MachineEpsilon * largest;
+                double term = Term(_halves[i], j * _step, farOutEnds: j * _step >= FarOut || diedOut);
                 if (double.IsNaN(term))
                     break;
 
                 _sum += term;
                 _absoluteSum += Math.Abs(term);
                 _last[i] = term;
+                largest = Math.Max(largest, Math.Abs(term));
             }
 
             _reach[i] = (j - 1) * _step;
@@ -144,7 +150,7 @@ internal sealed class DoubleExponential
         return (distance, Math.PI / 2 * Math.Cosh(t) * distance);
     }
 
-    // The weighted value at t, or NaN where it isn't finite far out and farOutEnds allows that.
+    // The weighted value at t, or NaN where it isn't finite and farOutEnds allows that.
     private double Term(Half half, double t, bool farOutEnds)
     {
         var (distance, weight) = half.Node(t);
@@ -160,7 +166,7 @@ internal sealed class DoubleExponential
 
             return term;
         }
-        if (farOutEnds && t >= FarOut)
+        if (farOutEnds)
             return double.NaN;
 
         string what = double.IsNaN(value) ? "not a real number" : "infinite";

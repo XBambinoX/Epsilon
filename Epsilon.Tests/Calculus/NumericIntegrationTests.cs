@@ -155,11 +155,18 @@ public class NumericIntegrationTests
         Assert.Equal(0.01 / 1.0001, Integrate("cos(x)*exp(-x/100)", 0, Inf), 6e-9);
     }
 
+    // The last three threw: beyond 711 they are inf/inf or 0 * inf, but their terms are 0 from
+    // 355 or 745 on. Where the terms haven't died out, a value that isn't real still throws.
     [Fact]
     public void Under_and_overflow_far_out_cut_tails_short()
     {
         Assert.Equal(Math.Exp(-1), Integrate("exp(-1/x)/x^2", 0, 1), 1e-15);
         Assert.Equal(2, Integrate("x^2*exp(-x)", 0, Inf), 1e-14);
+        Assert.Equal(Math.PI / Math.Sqrt(2), Integrate("cosh(x)/cosh(2*x)", -Inf, Inf), 1e-14);
+        Assert.Equal(Math.PI / 4, Integrate("sinh(x)/sinh(2*x)", 0, Inf), 1e-15);
+        Assert.Equal(1, Integrate("x^100*exp(-x)", 0, Inf) / 9.332621544394415e157, 1e-14);
+
+        Assert.Equal("The integrand is not a real number at x = 1001.", Fails("sqrt(1000 - x)*exp(-x/10)", 0, Inf).Message);
     }
 
     // These came out finite: 38.01, 32.2, 7e-15, 2.3e12 and 2e14; tan(x) on [0, 2] was -4.31.
