@@ -7,6 +7,8 @@ public class NumericIntegrationTests
 {
     private const double Inf = double.PositiveInfinity;
     private const double SineIntegralOf1 = 0.946083070367183;
+    private const double SineIntegralOf2 = 1.6054129768026948;
+    private const double CosineIntegralOf1 = 0.33740392290096813;
 
     private static double Integrate(string integrand, double a, double b, double tolerance = 1e-10) =>
         ExprParser.Parse(integrand).Integrate(a, b, tolerance);
@@ -168,9 +170,81 @@ public class NumericIntegrationTests
         Fails("tan(x)", 0, 2, tolerance: 0.9);
     }
 
+    // These took up to 43 s and threw, or were reported divergent as sin(x)/x was.
     [Fact]
-    public void Oscillation_that_converges_only_conditionally_counts_as_divergent() =>
-        Fails("sin(x)/x", 0, Inf);
+    public void Oscillating_integrands_towards_an_infinity()
+    {
+        Assert.Equal(Math.PI / (2 * Math.E), Integrate("cos(x)/(1 + x^2)", 0, Inf), 1e-15);
+        Assert.Equal(Math.PI / Math.E, Integrate("cos(x)/(1 + x^2)", -Inf, Inf), 1e-15);
+        Assert.Equal(Math.PI / (2 * Math.E), Integrate("x*sin(x)/(1 + x^2)", 0, Inf), 1e-15);
+        Assert.Equal(Math.Sin(1) - CosineIntegralOf1, Integrate("sin(x)/x^2", 1, Inf), 1e-15);
+        Assert.Equal(2 + Math.Sin(1) - CosineIntegralOf1, Integrate("(2 + sin(x))/x^2", 1, Inf), 1e-14);
+        Assert.Equal(0.5, Integrate("cos(x)*exp(-x)", 0, Inf), 1e-15);
+        Assert.Equal(0.42443638350202229593, Integrate("sin(x)*exp(-x^2)", 0, Inf), 1e-15);
+    }
+
+    [Fact]
+    public void Integrals_that_converge_only_as_the_waves_cancel()
+    {
+        Assert.Equal(Math.PI / 2, Integrate("sin(x)/x", 0, Inf), 1e-15);
+        Assert.Equal(Math.PI / 2, Integrate("sin(x)/x", -Inf, 0), 1e-15);
+        Assert.Equal(Math.PI, Integrate("sin(x)/x", -Inf, Inf), 1e-15);
+        Assert.Equal(Math.PI / 2, Integrate("sin(pi*x)/x", 0, Inf), 1e-15);
+        Assert.Equal(Math.Sqrt(Math.PI / 2), Integrate("sin(x)/sqrt(x)", 0, Inf), 1e-15);
+        Assert.Equal(Math.Sqrt(Math.PI / 2), Integrate("cos(x)/sqrt(x)", 0, Inf), 1e-15);
+        Assert.Equal(Math.PI / 4, Integrate("sin(x)^3/x", 0, Inf), 1e-15);
+        Assert.Equal(0, Integrate("sin(x)*cos(2*x)/x", 0, Inf), 1e-15);
+        Assert.Equal(Math.PI / 2, Integrate("sin(x)*cos(2*x/3)/x", 0, Inf), 1e-15);
+    }
+
+    // The mean over a period and the parts of the rest by the harmonics: sin(x)^2 is
+    // 1/2 - cos(2x)/2, and exp(cos(x)) sin(x) has every harmonic, with Bessel's I_k(1) in them.
+    [Fact]
+    public void Integrands_with_a_mean_and_harmonics()
+    {
+        Assert.Equal(Math.PI / 2, Integrate("sin(x)^2/x^2", 0, Inf), 1e-15);
+        Assert.Equal(Math.Sin(1) * Math.Sin(1) + Math.PI / 2 - SineIntegralOf2, Integrate("sin(x)^2/x^2", 1, Inf), 1e-15);
+        Assert.Equal(500 - 0.0005 / 4.000001, Integrate("sin(x)^2*exp(-x/1000)", 0, Inf), 1e-12);
+        Assert.Equal(Math.PI / 2 * (1.2660658777520084 + 0.5651591039924850), Integrate("exp(cos(x))*sin(x)/x", 0, Inf), 1e-9);
+    }
+
+    // Far out x is rounded to more than the phase may be, so the phase is counted apart. The
+    // nodes of the first period next to 1e8 are rounded to 1.5e-8, which leaves about 1e-8 of
+    // the value, 4e-17. The exact values from the asymptotic series.
+    [Fact]
+    public void Oscillating_tails_far_from_0()
+    {
+        static double Tail(double x) =>
+            Math.Cos(x) / x * (1 - 2 / (x * x) + 24 / Math.Pow(x, 4)) + Math.Sin(x) / (x * x) * (1 - 6 / (x * x));
+
+        Assert.Equal(Tail(1e4), Integrate("sin(x)/x", 1e4, Inf), 1e-16);
+        Assert.Equal(Tail(1e8), Integrate("sin(x)/x", 1e8, Inf), 1e-16);
+    }
+
+    // Split ever further out, the last of these took 3 minutes and the first 7 before they threw;
+    // now they throw within a second. With a decaying exponential they converge all the same
+    // (the first value from Simpson's rule, the second 1/(2 sqrt(2))).
+    [Fact]
+    public void An_oscillation_that_is_not_taken_apart()
+    {
+        Assert.Equal(0.2705135801622141, Integrate("sin(x^2)*exp(-x)", 0, Inf), 1e-14);
+        Assert.Equal(Math.Sqrt(2) / 4, Integrate("sin(x)*sin(sqrt(2)*x)*exp(-x)", 0, Inf), 1e-15);
+
+        foreach (string integrand in new[] { "sin(x^2)/x^2", "sin(x)*sin(sqrt(2)*x)/x^2" })
+            Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet",
+                Fails(integrand, 1, Inf).Message);
+    }
+
+    [Theory]
+    [InlineData("sin(x)", 0)]
+    [InlineData("x*sin(x)", 0)]
+    [InlineData("cos(x)*ln(x)", 1)]
+    [InlineData("sin(x)*(1 + 100/x)", 1)]
+    [InlineData("sin(x)^2/x", 1)]
+    [InlineData("(0.5 + sin(x))/x", 1)]
+    public void Oscillating_integrals_that_diverge_throw(string integrand, double a) =>
+        Assert.Equal("The integral diverges at infinity, or converges there too slowly for double precision.",
+            Fails(integrand, a, Inf).Message);
 
     [Fact]
     public void An_integrand_that_is_not_real_throws()

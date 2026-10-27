@@ -67,8 +67,19 @@ is updated with it. The expressions have
 
 - **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, see
   [The tolerance](numeric-integration.md#the-tolerance).
-- **Integrals that converge only by cancellation are reported as divergent**, such as of
-  sin(x)/x on [0, infinity).
+- **Oscillation towards an infinity is taken apart only with linear phases and commensurate
+  periods**, see [Oscillating integrands](numeric-integration.md#oscillating-integrands).
+  Otherwise the integral is computed where the integrand also decays fast, and throws where it
+  doesn't: sin(x^2) on [0, infinity) converges to sqrt(pi/8), and sin(x^2)/x^2 and
+  sin(x)sin(sqrt(2) x)/x^2 on [1, infinity) converge too.
+
+  ```csharp
+  ExprParser.Parse("sin(x^2)*exp(-x)").Integrate(0, double.PositiveInfinity);   // 0.2705135801622119
+  ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity);           // InvalidOperationException
+  ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity);
+  // InvalidOperationException: The integrand oscillates towards an infinity in a way that isn't taken apart yet: ...
+  ```
+
 - **Very long finite intervals don't converge.** Integrate to infinity instead:
 
   ```csharp

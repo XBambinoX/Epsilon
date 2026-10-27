@@ -7,6 +7,7 @@ public static class NumericIntegrationExtensions
 {
     private const double DefaultTolerance = 1e-10;
     private const int MaxSplits = 30;
+    private const int MaxOscillatingSplits = 64;
 
     extension(Expr expr)
     {
@@ -43,14 +44,18 @@ public static class NumericIntegrationExtensions
         /// inverse functions, kinks of min and max, jumps of floor, ceiling and round of linear
         /// arguments, and peaks of exponentials, so that a normal density far from 0 is found.
         /// Each piece is integrated by the tanh-sinh rule, or exp-sinh to an infinity, with the
-        /// step halved until two estimates agree.
+        /// step halved until two estimates agree. Towards an infinity where the integrand
+        /// oscillates through sines and cosines of linear arguments with commensurate periods,
+        /// its mean over a period is integrated by exp-sinh and the waves left by their sums over
+        /// half periods, accelerated, so <c>sin(x)/x</c> from 0 to infinity is pi/2.
         /// </para>
         /// <para>
         /// Next to a singularity at a point that isn't a double, such as the zero of x^2 - 2, the
         /// accuracy is limited to about 1e-8. Another narrow feature far from 0 on an infinite
         /// interval, such as the peak of sech(10(x - 1000))^2, can be missed: split the interval there.
-        /// Integrals that converge only by cancellation to an infinity, such as of sin(x)/x, are
-        /// reported as divergent.
+        /// An oscillation towards an infinity with a phase that isn't linear, such as of sin(x^2),
+        /// or with periods that aren't commensurate isn't taken apart: its integral is computed
+        /// where the integrand also decays fast, as sin(x^2) exp(-x) does, and throws otherwise.
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentException">
@@ -59,7 +64,8 @@ public static class NumericIntegrationExtensions
         /// <exception cref="ArgumentOutOfRangeException">The tolerance is not between 0 and 1.</exception>
         /// <exception cref="InvalidOperationException">
         /// The integral diverges or converges too slowly for double precision, the integrand is not
-        /// a real number or is infinite somewhere inside, or the estimates didn't agree.
+        /// a real number or is infinite somewhere inside, oscillates towards an infinity in a way
+        /// that isn't taken apart, or the estimates didn't agree.
         /// </exception>
         public double Integrate(string variable, double a, double b, double tolerance = DefaultTolerance)
         {
@@ -92,6 +98,28 @@ public static class NumericIntegrationExtensions
         if (ends is [null, null])
             ends.Insert(1, new IntegrationPoint(0, 0));
 
+        // Towards an infinity where the integrand oscillates, the period next to the last end is
+        // a piece like the others, and the rest an oscillating tail. A half-line where it
+        // oscillates in a way that can't be taken apart is split a few times at most: split ever
+        // further out, sin(x^2)/x^2 from 1 took 7 minutes before it threw.
+        var tails = new List<OscillatoryTail>();
+        var untaken = new bool[2];
+        foreach (int direction in new[] { -1, 1 })
+        {
+            int infinite = direction < 0 ? 0 : ends.Count - 1, last = infinite - direction;
+            if (ends[infinite] is not null || ends[last] is not { } end)
+                continue;
+
+            if (Oscillation.Of(expr, variable, end.Value, direction, out bool oscillates) is { } oscillation)
+            {
+                double start = end.Value + direction * oscillation.Period;
+                ends[infinite] = new IntegrationPoint(start, new Constant(start));
+                tails.Add(new OscillatoryTail(oscillation, start, direction));
+            }
+            else
+                untaken[infinite == 0 ? 0 : 1] = oscillates;
+        }
+
         var integrand = new ShiftedIntegrand(expr, variable);
         var pieces = new List<(DoubleExponential Rule, IntegrationPoint? P, IntegrationPoint? Q)>();
         for (int i = 0; i + 1 < ends.Count; i++)
@@ -99,9 +127,15 @@ public static class NumericIntegrationExtensions
 
         // Each piece gets its share of tolerance * the integral of |f|, and at least an even share,
         // so a piece where the integrand is almost 0 isn't held to digits it doesn't have.
-        double scale = pieces.Sum(piece => piece.Rule.AbsoluteIntegral);
-        double reserve = scale;
-        return pieces.Sum(piece => Converge(integrand, piece.Rule, piece.P, piece.Q, tolerance / 2, scale / pieces.Count, ref reserve, 0));
+        double scale = pieces.Sum(piece => piece.Rule.AbsoluteIntegral) + tails.Sum(tail => tail.AbsoluteIntegral);
+        double floor = scale / (pieces.Count + tails.Count), reserve = scale, sum = 0;
+        foreach (var (rule, p, q) in pieces)
+        {
+            int splits = p is null && untaken[0] || q is null && untaken[1] ? MaxOscillatingSplits : int.MaxValue;
+            sum += Converge(integrand, rule, p, q, tolerance / 2, floor, ref reserve, ref splits, 0);
+        }
+
+        return sum + tails.Sum(tail => tail.Converge(tolerance / 2, floor));
     }
 
     private static IntegrationPoint? Limit(double limit) =>
@@ -129,7 +163,7 @@ public static class NumericIntegrationExtensions
     // reserve, as large as the floors together; its error can't be trusted, so all of it is charged.
     private static double Converge(
         ShiftedIntegrand integrand, DoubleExponential rule, IntegrationPoint? p, IntegrationPoint? q,
-        double tolerance, double floor, ref double reserve, int depth)
+        double tolerance, double floor, ref double reserve, ref int splits, int depth)
     {
         if (rule.TryConverge(tolerance, floor, out double estimate))
             return estimate;
@@ -144,9 +178,12 @@ public static class NumericIntegrationExtensions
         double low = p?.Value ?? double.NegativeInfinity, high = q?.Value ?? double.PositiveInfinity;
         if (depth == MaxSplits || !(low < split && split < high) || !double.IsFinite(split))
             throw rule.NotConverged();
+        if (--splits < 0)
+            throw new InvalidOperationException(
+                "The integrand oscillates towards an infinity in a way that isn't taken apart yet: with a phase that isn't linear, as sin(x^2) does, or with periods that aren't rational multiples of each other.");
 
         var middle = new IntegrationPoint(split, new Constant(split));
-        return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, ref reserve, depth + 1)
-            + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, ref reserve, depth + 1);
+        return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, ref reserve, ref splits, depth + 1)
+            + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, ref reserve, ref splits, depth + 1);
     }
 }

@@ -385,13 +385,23 @@ public class CalculusNumericIntegrationDocTests
     }
 
     [Fact]
+    public void Oscillating_integrands()
+    {
+        Shown.Equal(1.5707963267948968, Integrate("sin(x)/x", 0, Inf));
+        Shown.Equal(0.5778636748954608, Integrate("cos(x)/(1 + x^2)", 0, Inf));
+        Shown.Equal(1.5707963267948963, Integrate("sin(x)^2/x^2", 0, Inf));
+
+        Fails("sin(x)", 0, Inf);
+        Fails("sin(x)^2/x", 1, Inf);
+    }
+
+    [Fact]
     public void Divergent_integrals()
     {
         Assert.Equal("The integral diverges at x = 0, or converges there too slowly for double precision.", Fails("1/x", 0, 1));
         Assert.Equal("The integral diverges at infinity, or converges there too slowly for double precision.", Fails("1/x", 1, Inf));
         Assert.Equal("The integral diverges at x = 1.5707963267948966, or converges there too slowly for double precision.", Fails("tan(x)", 0, 2));
         Fails("x^(-0.999)", 0, 1);
-        Fails("sin(x)/x", 0, Inf);
     }
 
     [Fact]
@@ -643,7 +653,10 @@ public class CalculusLimitationsDocTests
         Assert.Equal(0, peak.Integrate(double.NegativeInfinity, double.PositiveInfinity));
         Shown.Equal(0.19999999999998613, peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity));
 
-        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity));
+        Shown.Equal(0.2705135801622119, ExprParser.Parse("sin(x^2)*exp(-x)").Integrate(0, double.PositiveInfinity));
+        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
+        Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity)).Message);
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300));
         Shown.Equal(0.8862269254527579, ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity));
     }

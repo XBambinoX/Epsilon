@@ -79,6 +79,30 @@ the end of a piece. The exact value of this one is 3139.59265425646:
 ExprParser.Parse("1/(x^2 + 1e-6)").Integrate(-1, 1);   // 3139.5926542564584
 ```
 
+## Oscillating integrands
+
+Towards an infinity, an integrand that oscillates through sines and cosines of linear arguments
+is taken apart: its mean over a period, which doesn't oscillate, and the waves left about it,
+summed over the steps where they keep their sign. So an integral that converges only because
+its waves cancel has a value too:
+
+```csharp
+ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity);           // 1.5707963267948968
+ExprParser.Parse("cos(x)/(1 + x^2)").Integrate(0, double.PositiveInfinity);   // 0.5778636748954608
+ExprParser.Parse("sin(x)^2/x^2").Integrate(0, double.PositiveInfinity);       // 1.5707963267948963
+```
+
+It diverges where the waves don't die out, or the mean doesn't: sin(x)^2/x is 1/(2x) on average.
+
+```csharp
+ExprParser.Parse("sin(x)").Integrate(0, double.PositiveInfinity);        // InvalidOperationException
+ExprParser.Parse("sin(x)^2/x").Integrate(1, double.PositiveInfinity);    // InvalidOperationException
+```
+
+The periods of the sines and cosines must be rational multiples of each other, as those of
+sin(x) and cos(2x/3) are; see [Known limitations](limitations.md#numeric-integration) for the
+others.
+
 ## Divergent integrals
 
 An integral that diverges throws, at any tolerance, where a sum cut off at some point would
@@ -93,13 +117,11 @@ ExprParser.Parse("tan(x)").Integrate(0, 2);
 // InvalidOperationException: The integral diverges at x = 1.5707963267948966, or converges there too slowly for double precision.
 ```
 
-Two kinds of convergent integrals get the same message. x^(-0.999) on [0, 1] converges to 1000,
-but most of that lies closer to 0 than the smallest double. sin(x)/x on [0, infinity)
-converges only because its waves cancel, and its terms never die out:
+A convergent integral can get the same message: x^(-0.999) on [0, 1] converges to 1000, but
+most of that lies closer to 0 than the smallest double:
 
 ```csharp
-ExprParser.Parse("x^(-0.999)").Integrate(0, 1);                         // InvalidOperationException
-ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity);     // InvalidOperationException
+ExprParser.Parse("x^(-0.999)").Integrate(0, 1);   // InvalidOperationException
 ```
 
 ## The tolerance
@@ -136,3 +158,12 @@ singular at an end, it is shifted there symbolically: next to 1, (1 - x)^(-1/2) 
 of the distance d, where 1 - x would be 0 for every d below 1e-16. The step is halved until two
 estimates agree. Before that, the last term towards each end must be negligible, since a
 divergent integral has terms that don't die out.
+
+Towards an infinity where the integrand oscillates, the period next to the last of those points
+is a piece like the others, and the rest is taken apart in the phase. With the arguments of the
+sines and cosines written in a variable of their own, the mean over a period comes out exactly at
+any x, even where x is rounded to more than the period, and exp-sinh integrates it. What is left
+is split into parts that change sign every half period, every quarter, every eighth and so on:
+the odd harmonics, those twice an odd number and so on. The integrals of a part over those steps
+alternate and die out, and Wynn's epsilon algorithm finds their sum from a few dozen of them. The
+waves far out must be negligible, or the integral diverges: summed, those of sin(x) would give 1.
