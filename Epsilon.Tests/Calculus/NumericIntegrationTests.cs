@@ -128,6 +128,17 @@ public class NumericIntegrationTests
         Assert.Equal(1000 * (Math.Atan(877) + Math.Atan(1123)), Integrate("1/((x - 0.123)^2 + 1e-6)", -1, 1), 1e-10);
     }
 
+    // Half-lines split again and again out to where the integrand is 1e-16 of the integral: the
+    // last piece got 2^-30 of the share of the tolerance, and these threw. The integrals of |f|
+    // are 50 and 64.
+    [Fact]
+    public void A_slowly_decaying_tail_is_split_until_it_is_negligible()
+    {
+        Assert.Equal(50 - 0.01 / 8.0002, Integrate("sin(x)^2*exp(-x/100)", 0, Inf), 5e-9);
+        Assert.Equal(50 - 0.01 / 8.0002, Integrate("sin(x)^2*exp(x/100)", -Inf, 0), 5e-9);
+        Assert.Equal(0.01 / 1.0001, Integrate("cos(x)*exp(-x/100)", 0, Inf), 6e-9);
+    }
+
     [Fact]
     public void Under_and_overflow_far_out_cut_tails_short()
     {

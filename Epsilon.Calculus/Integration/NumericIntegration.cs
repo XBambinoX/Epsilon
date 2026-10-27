@@ -100,7 +100,8 @@ public static class NumericIntegrationExtensions
         // Each piece gets its share of tolerance * the integral of |f|, and at least an even share,
         // so a piece where the integrand is almost 0 isn't held to digits it doesn't have.
         double scale = pieces.Sum(piece => piece.Rule.AbsoluteIntegral);
-        return pieces.Sum(piece => Converge(integrand, piece.Rule, piece.P, piece.Q, tolerance / 2, scale / pieces.Count, 0));
+        double reserve = scale;
+        return pieces.Sum(piece => Converge(integrand, piece.Rule, piece.P, piece.Q, tolerance / 2, scale / pieces.Count, ref reserve, 0));
     }
 
     private static IntegrationPoint? Limit(double limit) =>
@@ -121,13 +122,23 @@ public static class NumericIntegrationExtensions
 
     // A piece that doesn't converge, around a sharp peak say, is split in two, a finite one in
     // the middle and a half-line at its peak, so that the trouble ends up next to an end of a
-    // piece, where the nodes crowd.
+    // piece, where the nodes crowd. The halves share its floor, and split again and again, as a
+    // half-line out to a slowly decaying tail is, the last piece would have too little of it for
+    // any error: the tail of sin(x)^2 exp(-x/100) beyond 3600 is 1e-16 of the integral. So a
+    // piece that doesn't converge is taken as it is where all of its integral of |f| fits in the
+    // reserve, as large as the floors together; its error can't be trusted, so all of it is charged.
     private static double Converge(
         ShiftedIntegrand integrand, DoubleExponential rule, IntegrationPoint? p, IntegrationPoint? q,
-        double tolerance, double floor, int depth)
+        double tolerance, double floor, ref double reserve, int depth)
     {
         if (rule.TryConverge(tolerance, floor, out double estimate))
             return estimate;
+
+        if (rule.AbsoluteIntegral <= tolerance * reserve)
+        {
+            reserve -= rule.AbsoluteIntegral / tolerance;
+            return estimate;
+        }
 
         double split = p is { } from && q is { } to ? from.Value / 2 + to.Value / 2 : rule.Peak;
         double low = p?.Value ?? double.NegativeInfinity, high = q?.Value ?? double.PositiveInfinity;
@@ -135,7 +146,7 @@ public static class NumericIntegrationExtensions
             throw rule.NotConverged();
 
         var middle = new IntegrationPoint(split, new Constant(split));
-        return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, depth + 1)
-            + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, depth + 1);
+        return Converge(integrand, Piece(integrand, p, middle), p, middle, tolerance, floor / 2, ref reserve, depth + 1)
+            + Converge(integrand, Piece(integrand, middle, q), middle, q, tolerance, floor / 2, ref reserve, depth + 1);
     }
 }
