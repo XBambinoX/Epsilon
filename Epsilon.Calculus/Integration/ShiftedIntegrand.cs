@@ -19,7 +19,11 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
     {
         double at = end.Value;
         if (double.IsFinite(_plain(at)))
-            return new IntegrandEnd(d => _plain(at + direction * d), Unresolved(at, direction, halfWidth));
+        {
+            double unresolved = Unresolved(at, direction, halfWidth, out bool fast);
+            if (!fast)
+                return new IntegrandEnd(d => _plain(at + direction * d), unresolved);
+        }
 
         Expr distance = new Variable(variable);
         Expr shifted = expr.Substitute(variable, direction > 0 ? end.Exact + distance : end.Exact - distance)
@@ -39,30 +43,36 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
 
     // Next to a nonzero end x can't come closer than its rounding, so a singularity at a point
     // that isn't a double (tan at the double nearest pi/2) looks finite there. Where |f| grows
-    // like d^-alpha towards the end, the rounded x misses the integral up to a few roundings less
-    // the value it stalls at, alpha / (1 - alpha) of that value times the width; an alpha near 1
-    // or more means the integral diverges.
-    private double Unresolved(double at, int direction, double halfWidth)
+    // like d^-alpha towards the end, and is larger at the end than that gives a few roundings
+    // from it, the rounded x misses the integral up to there less the value it stalls at,
+    // alpha / (1 - alpha) of that value times the width; an alpha near 1 or more means the
+    // integral diverges. Where |f| levels off before, but halves within the farthest of those
+    // distances all the same, it is shifted to the end: the peak of 1/(1 + 1e10 (x - 1000)^2) is
+    // 1e-5 wide where x is rounded to 2e-13, which would cost its integral 3e-10, and its
+    // curvature looked like a singularity.
+    private double Unresolved(double at, int direction, double halfWidth, out bool fast)
     {
+        fast = false;
         double rounding = Math.Abs(at) * MachineEpsilon;
         double near = Math.ScaleB(rounding, 16), middle = Math.ScaleB(rounding, 24), far = Math.ScaleB(rounding, 32);
         if (rounding == 0 || far > halfWidth)
             return 0;
 
+        double atEnd = Math.Abs(_plain(at));
         double atNear = Math.Abs(_plain(at + direction * near));
         double atMiddle = Math.Abs(_plain(at + direction * middle));
         double atFar = Math.Abs(_plain(at + direction * far));
-        if (!(atNear > 0 && atMiddle > 0 && atFar > 0 && double.IsFinite(atNear)))
-            return 0;
+        if (atNear > 0 && atMiddle > 0 && atFar > 0 && double.IsFinite(atNear))
+        {
+            double alpha = Math.Min(Math.Log(atNear / atMiddle), Math.Log(atMiddle / atFar)) / Math.Log(256);
+            double reach = 16 * rounding;
+            double atReach = atNear * Math.Pow(near / reach, alpha);
+            if (alpha > 0 && atEnd > atReach)
+                return alpha >= 0.99 ? double.PositiveInfinity : atReach * reach * alpha / (1 - alpha);
+        }
 
-        double alpha = Math.Min(Math.Log(atNear / atMiddle), Math.Log(atMiddle / atFar)) / Math.Log(256);
-        if (alpha <= 0)
-            return 0;
-        if (alpha >= 0.99)
-            return double.PositiveInfinity;
-
-        double reach = 16 * rounding;
-        return atNear * reach * Math.Pow(reach / near, -alpha) * alpha / (1 - alpha);
+        fast = atEnd > 2 * atFar;
+        return 0;
     }
 
     private Expr ExpandVanishingSums(Expr e)

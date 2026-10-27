@@ -288,6 +288,19 @@ public class NumericIntegrationTests
         Assert.Equal(Math.PI / 2 + Math.Acosh(Math.Sqrt(2)), Integrate("1/sqrt(abs(x^2 - 2))", 0, 2, tolerance: 1e-6), 1e-7);
     }
 
+    // Next to 1000 x is rounded to 2e-13, and a peak 1e-5 wide there lost 3e-10 to it. The first
+    // threw as singular, the third as divergent, the fifth for an accuracy of 1.4e-5; the
+    // Gaussian lost 4e-10 silently.
+    [Fact]
+    public void A_narrow_peak_next_to_a_rounded_x_is_measured_from_the_end()
+    {
+        Assert.Equal(Math.PI / 1e5, Integrate("1/(1 + 1e10*(x - 1000)^2)", -Inf, Inf), 1e-19);
+        Assert.Equal(2 * Math.Atan(1e8) / 1e5, Integrate("1/(1 + 1e10*(x - 1000)^2)", 0, 2000), 1e-19);
+        Assert.Equal(Math.PI / 1e10, Integrate("1/(1 + 1e20*(x - 1000)^2)", -Inf, Inf), 1e-24);
+        Assert.Equal(Math.Sqrt(Math.PI / 1e10), Integrate("exp(-1e10*(x - 1000)^2)", -Inf, Inf), 1e-19);
+        Assert.Equal(Math.Log(1e-9 / 1.000000001), Integrate("1/(x - 1.000000001)", 0, 1), 1e-13);
+    }
+
     [Fact]
     public void A_region_too_irregular_to_converge_throws() =>
         Assert.StartsWith("The integral over [0, ", Fails("sin(1/x)", 0, 1).Message);
