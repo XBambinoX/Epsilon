@@ -199,12 +199,33 @@ public class TrigonometricIntegralsTests
         Assert.Equal("(1/2) * sqrt(x^2 - 2x) * x + (3/2) * ln(abs(x + sqrt(x^2 - 2x) - 1)) + (3/2) * sqrt(x^2 - 2x)", Integral("x^2/sqrt(x^2 - 2*x)"));
     }
 
-    // Where the sign stays in the integrand, each side of the gap is integrated apart and the two
-    // joined by sign(x - h), which the core can't differentiate: checked by difference quotients.
+    // Where the sides of the gap differ, Euler's t = x + sqrt(q/p) takes both at once. These were
+    // joined by sign(x - h), which the core can't differentiate.
+    [Theory]
+    [InlineData("1/(x*sqrt(x^2 - 2*x))")]
+    [InlineData("1/(x^2*sqrt(x^2 - 2*x))")]
+    [InlineData("sqrt(x^2 - 2*x)/x")]
+    [InlineData("1/((2*x + 1)*sqrt(x^2 - 2*x))")]
+    [InlineData("x/((x + 5)*sqrt(x^2 - 2*x))")]
+    [InlineData("1/(x*sqrt(2*x^2 - 4*x))")]
+    [InlineData("1/(x*sqrt(3*x^2 - 2*x))")]
+    public void Both_sides_of_the_gap_by_Euler_s_substitution(string integrand)
+    {
+        var f = ExprParser.Parse(integrand);
+        var antiderivative = f.Integrate("x");
+        Assert.DoesNotContain("sign", antiderivative.Print());
+
+        var derivative = antiderivative.Differentiate("x");
+        foreach (double x in new[] { -3.0, -1.7, 2.5, 4.0 })
+            Assert.Equal(f.Evaluate(("x", x)), derivative.Evaluate(("x", x)), 1e-12);
+    }
+
+    // With an irrational coefficient Euler's substitution leaves no partial fractions, and the
+    // sides are integrated apart and joined by sign(x - h): checked by difference quotients.
     [Fact]
     public void Both_sides_of_the_gap_apart()
     {
-        var f = ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))");
+        var f = ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 2*x))");
         var antiderivative = f.Integrate("x");
         Assert.Contains("sign(x - 1)", antiderivative.Print());
 

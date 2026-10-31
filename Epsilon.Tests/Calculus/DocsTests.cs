@@ -571,6 +571,8 @@ public class CalculusSymbolicIntegrationDocTests
 
         Assert.Equal("sqrt(x^2 - 1) / x", Integral("1/(x^2*sqrt(x^2 - 1))"));
         Assert.Equal("ln(abs(x + sqrt(x^2 - 1))) - sqrt(x^2 - 1) / x", Integral("sqrt(x^2 - 1)/x^2"));
+
+        Assert.Equal("-2 / (x + sqrt(x^2 - 2x))", Integral("1/(x*sqrt(x^2 - 2*x))"));
     }
 
     [Fact]
@@ -626,7 +628,7 @@ public class CalculusLimitationsDocTests
             "1/(x^5 - x - 1)", "1/(x^2 + a^2)", "1/(x^3 + pi)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
-        Assert.Contains("sign(x - 1)", ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))").Integrate("x").Print());
+        Assert.Contains("sign(x - 1)", ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 2*x))").Integrate("x").Print());
 
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^6 - x^4 + x^3 - 2*x - 2)").Integrate("x"));
         Assert.NotNull(ExprParser.Parse("1/((x^3 - x - 1)*(x^3 + 2))").Integrate("x"));

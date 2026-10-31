@@ -254,6 +254,13 @@ ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x").Print();   // sqrt(x^2 
 ExprParser.Parse("sqrt(x^2 - 1)/x^2").Integrate("x").Print();       // ln(abs(x + sqrt(x^2 - 1))) - sqrt(x^2 - 1) / x
 ```
 
+Where the two sides give different results, Euler's substitution t = x + sqrt(q/p) makes the
+integrand a rational function of t on both at once:
+
+```csharp
+ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))").Integrate("x").Print();   // -2 / (x + sqrt(x^2 - 2x))
+```
+
 ## Integration by parts
 
 The integral of u dv is u v less that of v du. For u the factor whose derivative is simpler is

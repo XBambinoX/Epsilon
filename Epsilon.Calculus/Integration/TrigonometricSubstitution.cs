@@ -29,15 +29,17 @@ internal sealed partial class IntegrationTable
                 : (h + sign * radius * new Cosh(a), scale * radius * new Sinh(a), sign / scale, w / (scale * radius), sign * shifted / radius,
                     sign * new Ln(new Abs((shifted + w / scale) / radius)));
 
+        bool gap = pSign > 0 && kSign < 0;
         if (Branch(sign) is { } integral)
             return Joined(integral.Substitute(sign.Name, 1).Simplify(), integral.Substitute(sign.Name, -1).Simplify())
+                ?? (gap ? ByEuler(r, w, q, h, k, scale) : null)
                 ?? integral.Substitute(sign.Name, new Sign(shifted)).Simplify();
 
         // With h in the sum x = h + s r cosh(a), s stays in the integrand: each branch apart.
-        if (pSign < 0 || kSign > 0 || Branch(1) is not { } right || Branch(-1) is not { } left)
+        if (!gap || Branch(1) is not { } right || Branch(-1) is not { } left)
             return null;
 
-        return Joined(right, left) ?? Shorter((right + left) / 2 + new Sign(shifted) * (right - left) / 2);
+        return Joined(right, left) ?? ByEuler(r, w, q, h, k, scale) ?? Shorter((right + left) / 2 + new Sign(shifted) * (right - left) / 2);
 
         // The same on both sides of the gap, without the sign.
         static Expr? Joined(Expr right, Expr left) => right.Equals(left) ? right : null;
@@ -52,6 +54,22 @@ internal sealed partial class IntegrationTable
             Expr result = WithoutSquares(Shorter(WithoutRootPowers(WithoutSquares(back.Simplify(), sign.Name), w, q)), sign.Name);
             return result.Substitute(w.Name, new Sqrt(q)).Simplify();
         }
+    }
+
+    // Where the sides of the gap differ, Euler's t = x + sqrt(q/p) takes both at once, with no
+    // sign: for q/p = (x - h)^2 + k, x = (t^2 - h^2 - k)/(2(t - h)) and sqrt(q) = sqrt(p)(t - x),
+    // so R(x, sqrt(q)) dx is a rational function of t, with rational coefficients where h and k are.
+    private Expr? ByEuler(Expr r, Variable w, Expr q, Expr h, Expr k, Expr scale)
+    {
+        var t = new Variable(FreshName(r + w));
+        Expr x = ((new Power(t, 2) - h * h - k) / (2 * (t - h))).Simplify();
+        Expr integrand = (r.Substitute(variable, x).Substitute(w.Name, scale * (t - x)) * x.Differentiate(t.Name)).Simplify();
+        if (RationalPolynomial.Fraction(integrand, t.Name) is var (n, d))
+            integrand = (n.ToExpr(t) / d.ToExpr(t)).Simplify();
+        if (new IntegrationTable(t.Name, depth + 1, parts).Integrate(integrand) is not { } integral)
+            return null;
+
+        return Shorter(integral.Substitute(t.Name, _x + new Sqrt(q) / scale).Simplify());
     }
 
     // w^n for w = sqrt(q) and |n| > 1 as a power of q, times w for an odd n.

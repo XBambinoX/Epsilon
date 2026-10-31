@@ -11,10 +11,10 @@ is updated with it. The expressions have
   by parts twice, as `exp(x)*cos(x)` does, but that is done only with an exponential; see
   [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
 - **Square roots of one quadratic at a time.** `sqrt(1 + x^3)` and `1/sqrt(x^4 + 1)` aren't
-  integrated, having no elementary antiderivative. And where a substitution by cosh leaves the
-  side of the gap inside a sum, the two sides are integrated apart and joined by a sign, whose
-  derivative the core doesn't have yet: `1/(x*sqrt(x^2 - 2*x))` gives an antiderivative with
-  sign(x - 1) in it.
+  integrated, having no elementary antiderivative. And where the two sides of the gap of a
+  square root differ and Euler's substitution leaves irrational coefficients, they are
+  integrated apart and joined by a sign, whose derivative the core doesn't have yet:
+  `1/((x - pi)*sqrt(x^2 - 2*x))` gives an antiderivative with sign(x - 1) in it.
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.
