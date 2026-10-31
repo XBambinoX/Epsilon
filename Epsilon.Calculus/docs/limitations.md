@@ -32,9 +32,11 @@ is updated with it. The expressions have
 - **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
   `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
   [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
-- **Complex numbers only as constant factors and terms.** The rules are those of real
-  functions, so `i*x` and `x + i` are integrated, but `1/(x + i)` throws
-  `NotSupportedException`: ln|x + i| isn't its antiderivative.
+- **Complex numbers only where the integrand splits into real and imaginary parts**, each
+  integrated by the rules of real functions; see
+  [The imaginary unit](symbolic-integration.md#the-imaginary-unit). `sqrt(x + i)` and
+  `atan(i*x)` throw `NotSupportedException`, and the results keep that form: `exp(i*x)` gives
+  sin(x) - i cos(x), not -i exp(i x).
 - **Results aren't always in their simplest form, and their derivatives even less.** All are
   right in value:
 

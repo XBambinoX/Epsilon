@@ -242,15 +242,47 @@ public class SymbolicIntegrationTests
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
-    // The rules are those of real functions: ln|x + i| isn't an antiderivative of 1/(x + i).
+    // Functions of a complex argument whose real and imaginary parts aren't written: sqrt, atan,
+    // and ln of an imaginary part that varies.
+    [Theory]
+    [InlineData("sqrt(x + i)")]
+    [InlineData("atan(i*x)")]
+    [InlineData("ln(x + i*x)")]
+    [InlineData("nthroot(x + i, 3)")]
+    public void The_imaginary_unit_elsewhere_throws(string integrand) =>
+        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
+
+    // With x real, the integrand is u + i v and each part is integrated by the rules of real
+    // functions; these threw, since the rules alone gave ln|x + i| for 1/(x + i).
     [Theory]
     [InlineData("1/(x + i)")]
     [InlineData("1/(x^2 + i)")]
     [InlineData("exp(i*x)")]
     [InlineData("x^i")]
-    public void The_imaginary_unit_elsewhere_throws(string integrand) =>
-        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only as a constant factor or term.",
-            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
+    [InlineData("x*exp(i*x)")]
+    [InlineData("exp((1 + 2*i)*x)")]
+    [InlineData("cos(x + i)")]
+    [InlineData("1/(x - 2*i)^2")]
+    [InlineData("(x + i)^3")]
+    [InlineData("ln(x + i)")]
+    [InlineData("abs(x + i)")]
+    [InlineData("1/(x^2 + 2*i*x + 2)")]
+    public void The_real_and_imaginary_parts_are_integrated_apart(string integrand)
+    {
+        var f = ExprParser.Parse(integrand);
+        var derivative = f.Integrate("x").Differentiate("x");
+
+        foreach (double x in new[] { 0.4, 1.3, 2.7, 4.1 })
+        {
+            var at = new Dictionary<string, ComplexNumber> { ["x"] = x };
+            ComplexNumber expected = f.EvaluateComplex(at);
+            Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
+        }
+
+        Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
+        Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
+    }
 
     [Fact]
     public void The_imaginary_unit_as_a_constant_factor_or_term()

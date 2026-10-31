@@ -12,7 +12,8 @@ public static class SymbolicIntegrationExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The expression doesn't have exactly one variable.</exception>
         /// <exception cref="NotSupportedException">
-        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term.
+        /// No antiderivative was found, or the imaginary unit is inside a function whose real and
+        /// imaginary parts aren't written.
         /// </exception>
         public Expr Integrate()
         {
@@ -57,11 +58,13 @@ public static class SymbolicIntegrationExtensions
         /// an inverse function of an algebraic argument, or a polynomial (x exp(x), x ln(x),
         /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)), and sec^n and csc^n by
         /// their reduction formulas. Where that fails too, products and powers of sin and cos are
-        /// written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2).
+        /// written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2). With the
+        /// imaginary unit inside a function, the real and imaginary parts of the integrand, for a
+        /// real variable, are integrated apart: 1/(x + i) is x/(x^2 + 1) - i/(x^2 + 1).
         /// </remarks>
         /// <exception cref="NotSupportedException">
-        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term:
-        /// the rules are those of real functions, and ln|x + i| isn't an antiderivative of 1/(x + i).
+        /// No antiderivative was found, or the imaginary unit is inside a function whose real and
+        /// imaginary parts aren't written, as in sqrt(x + i).
         /// </exception>
         public Expr Integrate(string variable)
         {
@@ -70,7 +73,11 @@ public static class SymbolicIntegrationExtensions
 
             Expr simplified = expr.Simplify();
             if (ImaginaryInside(simplified, variable))
-                throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only as a constant factor or term.");
+                return ComplexParts.Of(simplified) is var (re, im)
+                    && IntegrationTable.Antiderivative(re.Simplify(), variable) is { } u
+                    && IntegrationTable.Antiderivative(im.Simplify(), variable) is { } v
+                    ? (u + new ImaginaryUnit() * v).Simplify()
+                    : throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts.");
 
             return IntegrationTable.Antiderivative(simplified, variable)
                 ?? throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found.");
@@ -84,9 +91,7 @@ public static class SymbolicIntegrationExtensions
         Multiply product when !product.Left.DependsOn(variable) || !product.Right.DependsOn(variable) =>
             e.Children.Any(child => ImaginaryInside(child, variable)),
         Divide quotient when !quotient.Denominator.DependsOn(variable) => ImaginaryInside(quotient.Numerator, variable),
-        Divide quotient when !quotient.Numerator.DependsOn(variable) => HasImaginaryUnit(quotient.Denominator),
-        _ => HasImaginaryUnit(e),
+        Divide quotient when !quotient.Numerator.DependsOn(variable) => ComplexParts.HasImaginaryUnit(quotient.Denominator),
+        _ => ComplexParts.HasImaginaryUnit(e),
     };
-
-    private static bool HasImaginaryUnit(Expr e) => e is ImaginaryUnit || e.Children.Any(HasImaginaryUnit);
 }

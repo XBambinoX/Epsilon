@@ -309,6 +309,22 @@ apart:
 ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x").Print();   // (1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)
 ```
 
+## The imaginary unit
+
+As a constant factor or term, i is carried along: `i*x` gives `i * x^2 / 2`. Elsewhere, with x
+real, the integrand is split into its real and imaginary parts, and each is integrated as a real
+function:
+
+```csharp
+ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // (1/2) * ln(x^2 + 1) - atan(x) * i
+ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
+```
+
+The parts are those of sums, products, quotients and integer powers, of exp, sin, cos, sinh, cosh
+and abs, of a real number raised to a complex power, as x^i = cos(ln(x)) + i sin(ln(x)), and of
+ln(u + i b) for a constant b. Other functions of a complex argument, such as `sqrt(x + i)`,
+throw `NotSupportedException`.
+
 ## Checking a result
 
 The derivative of an antiderivative is the integrand:
