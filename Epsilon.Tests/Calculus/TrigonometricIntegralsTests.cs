@@ -103,12 +103,12 @@ public class TrigonometricIntegralsTests
     public void Odd_in_cos() =>
         Assert.Equal("(1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
 
-    // Even in both together: t = tan x, with atan(tan(x)) written as x.
+    // Even in both together: t = tan x, with atan(tan(x)/2) written as the angle that goes on.
     [Fact]
     public void Even_in_both()
     {
         Assert.Equal("(1/3) * tan(x)^3", Integral("sin(x)^2/cos(x)^4"));
-        Assert.Equal("(1/2) * atan(tan(x) / 2)", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("(1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
         Assert.Equal("(1/2) * x - tan(x) / (2tan(x)^2 + 2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
     }
 
@@ -130,21 +130,39 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void The_half_angle()
     {
-        Assert.Equal("2atan(tan(x / 2) / sqrt(3)) / sqrt(3)", Integral("1/(2 + cos(x))"));
-        Assert.Equal("(1/2) * atan(2tan(x / 2))", Integral("1/(5 - 3*cos(x))"));
+        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("(1/4) * x + (1/2) * atan(sin(x) / (-cos(x) + 3))", Integral("1/(5 - 3*cos(x))"));
         Assert.Equal("x + 2 / (tan(x / 2) + 1)", Integral("sin(x)/(1 + sin(x))"));
         Assert.Equal("ln(tan(x / 2)^2 + 1) + tan(x / 2)", Integral("(1 + sin(x))/(1 + cos(x))"));
     }
 
-    // tan(x/2) jumps at pi, and with it the antiderivative: F(2 pi) - F(0) isn't the integral.
-    [Fact]
-    public void The_antiderivative_jumps_with_the_half_angle()
+    // atan(p tan(u) + q) jumped by pi where tan u does, and F(2 pi) - F(0) of 1/(2 + cos(x)) was 0.
+    // Written as the angle that goes on, F(b) - F(a) is the integral across those points, also
+    // where q^2 > 4p, as for the third, and the denominator of the plain u + atan(N/D) vanishes.
+    [Theory]
+    [InlineData("1/(2 + cos(x))", 0, 2 * Math.PI)]
+    [InlineData("1/(1 + sin(x)^2)", -5, 12)]
+    [InlineData("1/(1 + 0.9*cos(x) + 0.4*sin(x))", -7, 9)]
+    [InlineData("1/(2 - sin(x))", 0, 20)]
+    [InlineData("1/(2 + cos(3*x + 1))", 0, 5)]
+    [InlineData("1/(2 + cos(x))^2", -4, 10)]
+    [InlineData("sin(x)^2/(1 + cos(x)^2)", 0, 10)]
+    [InlineData("1/(1 + sin(x)*cos(x))", -3, 8)]
+    [InlineData("1/(5 - 4*cos(x))", 0, 30)]
+    public void The_antiderivative_goes_on_where_tan_is_undefined(string integrand, double a, double b)
     {
-        var f = ExprParser.Parse("1/(2 + cos(x))");
+        var f = ExprParser.Parse(integrand);
         var antiderivative = f.Integrate("x");
 
-        Assert.Equal(0, antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0)), 1e-15);
-        Assert.Equal(3.627598728468432, f.Integrate(0, 2 * Math.PI));
+        Assert.Equal(f.Integrate(a, b), antiderivative.Evaluate(("x", b)) - antiderivative.Evaluate(("x", a)), 1e-12);
+    }
+
+    [Fact]
+    public void Over_a_period_the_antiderivative_gives_the_integral()
+    {
+        var antiderivative = ExprParser.Parse("1/(2 + cos(x))").Integrate("x");
+
+        Assert.Equal(2 * Math.PI / Math.Sqrt(3), antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0)), 1e-15);
     }
 
     [Fact]

@@ -10,11 +10,6 @@ is updated with it. The expressions have
 - **sinh and cosh times sin or cos aren't integrated**: `cosh(x)*cos(x)` comes back to itself
   by parts twice, as `exp(x)*cos(x)` does, but that is done only with an exponential; see
   [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
-- **Antiderivatives by t = tan x or t = tan(x/2) jump** where tan is undefined, even where the
-  integrand is continuous, as 1/(2 + cos(x)) is, so F(b) - F(a) across such a point isn't the
-  definite integral; see
-  [Trigonometric and hyperbolic functions](symbolic-integration.md#trigonometric-and-hyperbolic-functions).
-  The [numeric integral](numeric-integration.md) is right there.
 - **Square roots of one quadratic at a time.** `sqrt(1 + x^3)` and `1/sqrt(x^4 + 1)` aren't
   integrated, having no elementary antiderivative. And where a substitution by cosh leaves the
   side of the gap inside a sum, the two sides are integrated apart and joined by a sign, whose

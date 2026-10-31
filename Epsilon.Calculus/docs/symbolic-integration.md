@@ -198,26 +198,28 @@ rules apply, the shortest result is taken:
 ```csharp
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();    // cos(x) - 2atan(cos(x))
 ExprParser.Parse("cos(x)^5/sin(x)^2").Integrate("x").Print();          // (1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)
-ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * atan(tan(x) / 2)
+ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))
 ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(cos(x)^2 + 1)
 ```
 
 Where no rule applies, t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2):
 
 ```csharp
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();       // 2atan(tan(x / 2) / sqrt(3)) / sqrt(3)
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();       // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();  // x + 2 / (tan(x / 2) + 1)
 ```
 
-These are antiderivatives between the points where tan x or tan(x/2) is undefined, and jump at
-them, even where the integrand doesn't: F(b) - F(a) across such a point isn't the definite
-integral. Over a whole period of 1/(2 + cos x) it is 0, where the integral is 2 pi/sqrt(3):
+In t, 1/(2 + cos(x)) gives (2/sqrt(3)) atan(tan(x/2)/sqrt(3)), which jumps by pi where tan(x/2)
+is undefined, though the integrand doesn't. An arctangent atan(p tan(u) + q) is written instead
+as the angle that goes on through those points, u + atan(...) of sin(2u) and cos(2u) with a
+denominator that stays positive, so F(b) - F(a) is the definite integral across them too. Over a
+whole period of 1/(2 + cos x) it is 2 pi/sqrt(3):
 
 ```csharp
 var f = ExprParser.Parse("1/(2 + cos(x))");
 var antiderivative = f.Integrate("x");
 
-antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // -8.16431199431569E-17
+antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // 3.6275987284684357
 f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
 ```
 
@@ -313,8 +315,7 @@ integral.Differentiate("x").Print(); // atan(x)
 
 The simplifier doesn't always bring a derivative back to the form of the integrand, but the
 values agree. An antiderivative gives a definite integral as F(b) - F(a), here half the area
-of the unit disk. This holds when the integrand is defined on all of [a, b] and the
-antiderivative doesn't [jump](#trigonometric-and-hyperbolic-functions) in it, and the numeric
+of the unit disk. This holds when the integrand is defined on all of [a, b], and the numeric
 integral agrees:
 
 ```csharp

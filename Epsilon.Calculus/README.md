@@ -122,7 +122,7 @@ and cos by Bioche's rules or by t = tan(x/2):
 ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // (1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))
 ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();   // cos(x) - 2atan(cos(x))
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // 2atan(tan(x / 2) / sqrt(3)) / sqrt(3)
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ```
 
 Where no antiderivative is found, or none made of elementary functions exists, `Integrate`
@@ -149,9 +149,6 @@ ExprParser.Parse("1/x").Integrate(0, 1);
 - Names longer than one letter must be declared when parsing:
   `ExprParser.Parse("omega*sigma^2", "omega", "sigma")`. Otherwise `omega` is a product of
   letters, with `e` read as Euler's number and `i` as the imaginary unit.
-- Antiderivatives by t = tan x or t = tan(x/2) jump where tan is undefined, even where the
-  integrand is continuous, so F(b) - F(a) across such a point isn't the definite integral.
-  `Integrate(a, b)` is right there.
 - floor, ceiling, round, sign, min and max have no derivatives in the core yet, so gradients and
   Hessians of them throw. `Integrate(a, b)` takes all of them, and `Integrate("x")` sign, min
   and max.
