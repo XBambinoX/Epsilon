@@ -9,9 +9,10 @@ internal readonly record struct IntegrationPoint(double Value, Expr Exact);
 // smooth: the zeros of denominators, of the bases of fractional and negative powers and of the
 // arguments of roots, logarithms, abs and sign; the poles of tan, cot, sec and csc; the edges of
 // the domains of the inverse functions; the kinks of min and max; the jumps of floor, ceiling
-// and round of linear arguments; and the peaks and steps of exponentials, sech, cosh, tanh and
-// atan, where the argument or its slope vanishes: on an infinite piece the nodes far out are too
-// sparse to see exp(-(x - 200)^2) or sech(10(x - 1000))^2, and all their values there are 0.
+// and round of linear arguments; the peaks and steps of exponentials, sech, cosh, tanh and atan,
+// where the argument or its slope vanishes; and the turns of polynomials among those parts: on
+// an infinite piece the nodes far out are too sparse to see exp(-(x - 200)^2) or
+// sech(10(x - 1000))^2, and all their values there are 0.
 // Exact where the part that vanishes is linear, numeric otherwise.
 internal static class Breakpoints
 {
@@ -23,7 +24,11 @@ internal static class Breakpoints
     {
         var points = new List<IntegrationPoint>();
         foreach (Expr part in VanishingParts(expr, variable, a, b).Distinct())
+        {
             points.AddRange(Zeros(part, variable, a, b));
+            if (Turn(part, variable) is { } slope)
+                points.AddRange(Zeros(slope, variable, a, b));
+        }
 
         // A root found numerically is a double or two off the same one found exactly, which is kept.
         var merged = new List<IntegrationPoint>();
@@ -97,12 +102,22 @@ internal static class Breakpoints
 
     // exp(u) peaks where the slope of u vanishes, and is 1 where u is: there 1/(1 + exp(u)) steps.
     // sech(u) peaks, and tanh(u) and atan(u) step, where u vanishes, or where |u| is least.
+    // The turns of a polynomial u are found with its zeros.
     private static IEnumerable<Expr> Centers(Expr u, string variable)
     {
         yield return u;
-        if (Slope(u, variable) is { } slope)
+        if (RationalPolynomial.Of(u, variable) is null && Slope(u, variable) is { } slope)
             yield return slope;
     }
+
+    // A polynomial that comes close to 0 without vanishing peaks the integrand where it turns:
+    // 1/(1 + 1e10 (x - 1000)^2) is 1e-5 wide at 1000, which the nodes over [-1e300, 1e300]
+    // passed by, and FindRealRoots took 1000 for a root only where its grid happened to bracket
+    // it, on [-1e6, 1e6] but not on [0, 1e6].
+    private static Expr? Turn(Expr part, string variable) =>
+        RationalPolynomial.Of(part, variable) is { Degree: >= 2 } polynomial
+            ? polynomial.Derivative().ToExpr(new Variable(variable))
+            : null;
 
     // floor and ceiling jump where the argument is an integer, round where it is an integer plus 1/2.
     private static IEnumerable<Expr> Jumps(UnaryExpr step, string variable, double a, double b)
@@ -136,10 +151,24 @@ internal static class Breakpoints
         if (part is Sin or Cos && WaveZeros((UnaryExpr)part, variable, a, b) is { } zeros)
             return zeros.SelectMany(zero => Zeros(zero, variable, a, b));
 
-        var found = part.FindRealRoots(variable, null, a, b, ScanSteps(part, variable, a, b))
-            .Where(value => a < value && value < b)
-            .Select(value => new IntegrationPoint(value, new Constant(value)));
+        var (low, high) = RootRange(part, variable, a, b);
+        var found = low < high
+            ? part.FindRealRoots(variable, null, low, high, ScanSteps(part, variable, low, high))
+                .Where(value => a < value && value < b)
+                .Select(value => new IntegrationPoint(value, new Constant(value)))
+            : [];
         return [.. PolynomialRoots(part, variable, a, b), .. found];
+    }
+
+    // The roots of a polynomial are less than 1 + max |a_k / a_n| from 0 (Cauchy's bound): on
+    // [-1e300, 1e300] the grid had steps of 1e298 and overflowed.
+    private static (double Low, double High) RootRange(Expr part, string variable, double a, double b)
+    {
+        if (RationalPolynomial.Of(part, variable) is not { Degree: >= 1 } polynomial)
+            return (a, b);
+
+        double bound = 1 + Enumerable.Range(0, polynomial.Degree).Max(k => Math.Abs((polynomial[k] / polynomial.Leading).ToDouble()));
+        return double.IsFinite(bound) ? (Math.Max(a, -bound), Math.Min(b, bound)) : (a, b);
     }
 
     // Points that aren't doubles, found exactly, so that the integrand can be shifted to them:

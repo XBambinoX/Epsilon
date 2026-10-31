@@ -43,8 +43,9 @@ public static class NumericIntegrationExtensions
         /// smooth: zeros of denominators, of the bases of fractional and negative powers and of the
         /// arguments of roots, logarithms and abs, poles of tan, edges of the domains of the
         /// inverse functions, kinks of min and max, jumps of floor, ceiling and round of linear
-        /// arguments, and peaks and steps of exponentials, sech, cosh, tanh and atan, so that a
-        /// normal density far from 0 is found.
+        /// arguments, peaks and steps of exponentials, sech, cosh, tanh and atan, so that a
+        /// normal density far from 0 is found, and turns of the polynomials among these parts,
+        /// where 1/(1 + 1e10 (x - 1000)^2) peaks.
         /// Each piece is integrated by the tanh-sinh rule, or exp-sinh to an infinity, with the
         /// step halved until two estimates agree. Towards an infinity where the integrand
         /// oscillates through sines and cosines of linear arguments with commensurate periods,

@@ -384,9 +384,10 @@ public class CalculusNumericIntegrationDocTests
         Shown.Equal(4.500000000000001, Integrate("floor(x)", 0, 3.5));
         Shown.Equal(1.772453850905513, Integrate("exp(-(x - 200)^2)", -Inf, Inf));
         Shown.Equal(0.19999999999998613, Integrate("sech(10*(x - 1000))^2", -Inf, Inf));
+        Shown.Equal(3.1415926535897935E-05, Integrate("1/(1 + 1e10*(x - 1000)^2)", -1e300, 1e300));
 
-        Shown.Equal(3139.5926542564584, Integrate("1/(x^2 + 1e-6)", -1, 1));
-        Assert.Equal(3139.59265425646, 2000 * Math.Atan(1000), 1e-10);
+        Shown.Equal(3140.3068990234406, Integrate("1/(sin(x)^2 + 1e-6)", -1, 1));
+        Assert.Equal(3140.306899023443, 2 / Math.Sqrt(1e-6 * (1 + 1e-6)) * Math.Atan(Math.Sqrt((1 + 1e-6) / 1e-6) * Math.Tan(1)), 1e-10);
     }
 
     [Fact]

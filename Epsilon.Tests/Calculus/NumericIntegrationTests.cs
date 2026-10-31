@@ -362,6 +362,22 @@ public class NumericIntegrationTests
         Assert.Equal(Math.Log(1e-9 / 1.000000001), Integrate("1/(x - 1.000000001)", 0, 1), 1e-13);
     }
 
+    // The interval is split where a polynomial turns, here where 1/(1 + 1e10 (x - 1000)^2) peaks:
+    // on [-1e300, 1e300] the nodes passed by the peaks and gave 0, and on [0, 1e6] it was found
+    // only where the grid of FindRealRoots happened to bracket it. The turns of x^3 - 2 are looked
+    // for within Cauchy's bound. Its value from Gauss-Legendre over pieces down to 1e-13 wide
+    // around 2^(1/3), with (c + t)^3 - 2 = 3c^2 t + 3c t^2 + t^3.
+    [Fact]
+    public void A_narrow_peak_of_a_rational_function_is_found_on_an_interval_of_any_length()
+    {
+        Assert.Equal(Math.PI / 1e5, Integrate("1/(1 + 1e10*(x - 1000)^2)", -1e300, 1e300), 1e-19);
+        Assert.Equal((Math.PI / 2 + Math.Atan(1e8)) / 1e5, Integrate("1/(1 + 1e10*(x - 1000)^2)", 0, 1e300), 1e-19);
+        Assert.Equal((Math.Atan(1e5 * (1e6 - 1000)) + Math.Atan(1e8)) / 1e5, Integrate("1/(1 + 1e10*(x - 1000)^2)", 0, 1e6), 1e-19);
+        Assert.Equal(Math.PI, Integrate("1/(1 + x^2)", -1e300, 1e300), 1e-14);
+        Assert.Equal(Math.PI, Integrate("1/(1 + (x - 1000)^2)", -1e300, 1e300), 1e-13);
+        Assert.Equal(6.596943886463162e-06, Integrate("1/(1 + 1e10*(x^3 - 2)^2)", 0, 1e6), 1e-16);
+    }
+
     [Fact]
     public void A_region_too_irregular_to_converge_throws() =>
         Assert.StartsWith("The integral over [0, ", Fails("sin(1/x)", 0, 1).Message);
