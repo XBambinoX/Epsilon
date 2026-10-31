@@ -115,6 +115,22 @@ public class SymbolicIntegrationTests
         Assert.Equal("3nthroot(x, 3)^2 / 2", Integral("1/nthroot(x, 3)"));
     }
 
+    // The antiderivatives are continuous, so F(b) - F(a) holds across the jumps, which the core
+    // can't differentiate to check. The values are sums of the steps over [-3.7, 4.2].
+    [Theory]
+    [InlineData("floor(x)", -2)]
+    [InlineData("ceiling(x)", 5.9)]
+    [InlineData("round(x)", 2)]
+    [InlineData("round(-x)", -2)]
+    [InlineData("floor(2*x + 1)", 7.9)]
+    [InlineData("3*ceiling(x/2)", 14.7)]
+    public void Steps_of_a_linear_argument_have_continuous_antiderivatives(string integrand, double exact)
+    {
+        var antiderivative = ExprParser.Parse(integrand).Integrate("x");
+
+        Assert.Equal(exact, antiderivative.Evaluate(("x", 4.2)) - antiderivative.Evaluate(("x", -3.7)), 1e-13);
+    }
+
     [Fact]
     public void Elementary_functions_of_a_linear_argument()
     {
@@ -213,12 +229,12 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // Non-elementary, a denominator whose roots can't be written, a step, a quadratic whose sign
-    // isn't known, the double angle, and the root of a cubic.
+    // Non-elementary, a denominator whose roots can't be written, a step squared, a quadratic
+    // whose sign isn't known, the double angle, and the root of a cubic.
     [Theory]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^5 - x - 1)")]
-    [InlineData("floor(x)")]
+    [InlineData("floor(x)^2")]
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("exp(x)*cos(x)^2")]
     [InlineData("sqrt(1 + x^3)")]

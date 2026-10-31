@@ -93,9 +93,17 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             Atanh => u * new Atanh(u) + new Ln(1 - new Power(u, 2)) / 2,
             Abs => u * new Abs(u) / 2,
             Sign => new Abs(u),
+            Floor => Steps(u, new Floor(u), 1),
+            Ceiling => Steps(u, new Ceiling(u), -1),
+            Round => Steps(u + new Rational(1, 2), new Round(u), 1),
             _ => null,
         };
     }
+
+    // v n - n(n + 1)/2 for n = floor(v) is continuous: at an integer k both sides are k(k - 1)/2.
+    // For n = ceiling(v) it is v n - n(n - 1)/2, and round(u) is floor(u + 1/2) but at the
+    // halves, where the sides agree whichever way the tie goes.
+    private static Expr Steps(Expr v, Expr n, int k) => v * n - n * (n + k) / 2;
 
     private Expr? PowerOf(Expr b, Expr e)
     {

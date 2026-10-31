@@ -462,6 +462,7 @@ public class CalculusSymbolicIntegrationDocTests
     [InlineData("sec(x)", "ln(abs(sec(x) + tan(x)))")]
     [InlineData("atan(x)", "atan(x) * x - (1/2) * ln(x^2 + 1)")]
     [InlineData("abs(x)", "abs(x) * x / 2")]
+    [InlineData("floor(x)", "floor(x) * x - (1/2) * (floor(x) + 1) * floor(x)")]
     [InlineData("sin(x)^2", "(1/2) * x - (1/4) * sin(2x)")]
     [InlineData("sec(x)*tan(x)", "sec(x)")]
     [InlineData("sin(x)*cos(x)", "-cos(2x) / 4")]
@@ -638,7 +639,7 @@ public class CalculusLimitationsDocTests
         Assert.InRange(ExprParser.Parse("1/(x^4 + x + 1)").Integrate("x").Print().Length, 2500, 3500);
         Assert.NotNull(ExprParser.Parse("1/(x^2 + pi)").Integrate("x"));
 
-        foreach (string integrand in new[] { "floor(x)", "ceiling(x)", "round(x)" })
+        foreach (string integrand in new[] { "x*floor(x)", "floor(x)^2", "floor(x^2)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
         Shown.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
         Assert.Equal("abs(x)", ExprParser.Parse("sign(x)").Integrate("x").Print());

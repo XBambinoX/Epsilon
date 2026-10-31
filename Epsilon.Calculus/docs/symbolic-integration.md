@@ -47,6 +47,7 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | | `sec(x)` | `ln(abs(sec(x) + tan(x)))` |
 | Inverse functions | `atan(x)` | `atan(x) * x - (1/2) * ln(x^2 + 1)` |
 | abs and sign | `abs(x)` | `abs(x) * x / 2` |
+| floor, ceiling and round | `floor(x)` | `floor(x) * x - (1/2) * (floor(x) + 1) * floor(x)` |
 | Squares and products | `sin(x)^2` | `(1/2) * x - (1/4) * sin(2x)` |
 | | `sec(x)*tan(x)`, `sin(x)*cos(x)` | `sec(x)`, `-cos(2x) / 4` |
 | Polynomials | `x*(x + 1)` | `(1/3) * x^3 + (1/2) * x^2` |
@@ -58,7 +59,8 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | | `sqrt(1 - x^2)` | `(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)` |
 
 The arguments may be any linear expression a x + b: the exponential, logarithm, trigonometric,
-hyperbolic and inverse functions, abs and sign, and the squares, reciprocals and products of the
+hyperbolic and inverse functions, abs and sign, floor, ceiling and round, whose antiderivatives
+are continuous across their jumps, and the squares, reciprocals and products of the
 trigonometric and hyperbolic functions. The quadratics may have any numeric coefficients. Their
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
 of q. One with rational coefficients is left to [partial fractions](#rational-functions) when it
