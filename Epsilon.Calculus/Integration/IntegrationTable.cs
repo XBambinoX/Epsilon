@@ -63,7 +63,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             result = Integrate(expanded, expand: false);
 
-        return result ?? ByExponential(f) ?? ByParts(f);
+        return result ?? ByExponential(f) ?? ByParts(f) ?? ByLinearizing(f);
     }
 
     private static Expr? Elementary(UnaryExpr function)

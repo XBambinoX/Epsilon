@@ -594,6 +594,8 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("(2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)", Integral("exp(2*x)*cos(3*x)"));
         Assert.Equal("(sin(ln(x)) * x - cos(ln(x)) * x) / 2", Integral("sin(ln(x))"));
 
+        Assert.Equal("(1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)", Integral("exp(x)*cos(x)^2"));
+
         Assert.Equal("-(1/2) * x + (1/4) * exp(2x)", Integral("exp(x)*sinh(x)"));
         Assert.Equal("(1/2) * ln(abs(sec(x) + tan(x))) + (1/2) * sec(x) * tan(x)", Integral("sec(x)^3"));
         Assert.Equal("2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))", Integral("exp(sqrt(x))"));
@@ -602,7 +604,7 @@ public class CalculusSymbolicIntegrationDocTests
     [Theory]
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("exp(x)*cos(x)^2")]
+    [InlineData("cosh(x)*cos(x)")]
     [InlineData("exp(x^2)")]
     [InlineData("x*tan(x)")]
     [InlineData("sqrt(1 + x^3)")]
@@ -613,8 +615,8 @@ public class CalculusSymbolicIntegrationDocTests
     [Fact]
     public void The_message_and_the_numeric_integral()
     {
-        Assert.Equal("No antiderivative of exp(x) * cos(x)^2 by x was found.",
-            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x")).Message);
+        Assert.Equal("No antiderivative of cos(x) * cosh(x) by x was found.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cosh(x)*cos(x)").Integrate("x")).Message);
         Shown.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
 }
@@ -625,7 +627,7 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Symbolic_integration()
     {
-        foreach (string integrand in new[] { "exp(x)*cos(x)^2", "sqrt(1 + x^3)", "1/sqrt(x^4 + 1)",
+        foreach (string integrand in new[] { "cosh(x)*cos(x)", "sqrt(1 + x^3)", "1/sqrt(x^4 + 1)",
             "1/(x^5 - x - 1)", "1/(x^2 + a^2)", "1/(x^3 + pi)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 

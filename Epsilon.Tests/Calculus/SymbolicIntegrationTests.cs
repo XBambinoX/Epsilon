@@ -230,13 +230,13 @@ public class SymbolicIntegrationTests
     }
 
     // Non-elementary, a denominator whose roots can't be written, a step squared, a quadratic
-    // whose sign isn't known, the double angle, and the root of a cubic.
+    // whose sign isn't known, cosh times cos, and the root of a cubic.
     [Theory]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("floor(x)^2")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("exp(x)*cos(x)^2")]
+    [InlineData("cosh(x)*cos(x)")]
     [InlineData("sqrt(1 + x^3)")]
     public void What_no_rule_fits_throws(string integrand) =>
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",

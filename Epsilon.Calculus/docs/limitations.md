@@ -7,9 +7,8 @@ is updated with it. The expressions have
 
 ## Symbolic integration
 
-- **Identities are used only in rational functions of sin and cos.** There sin(k x) and
-  cos(k x) are written in sin x and cos x, but elsewhere the integrand is taken as it stands:
-  `exp(x)*cos(x)^2` waits for cos(x)^2 to be (1 + cos(2x))/2; see
+- **sinh and cosh times sin or cos aren't integrated**: `cosh(x)*cos(x)` comes back to itself
+  by parts twice, as `exp(x)*cos(x)` does, but that is done only with an exponential; see
   [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
 - **Antiderivatives by t = tan x or t = tan(x/2) jump** where tan is undefined, even where the
   integrand is continuous, as 1/(2 + cos(x)) is, so F(b) - F(a) across such a point isn't the

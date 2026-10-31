@@ -110,12 +110,12 @@ public class IntegrationByPartsTests
         Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
-    // Non-elementary, or needing what isn't there yet: cos^2 lowered first.
+    // Non-elementary, or needing what isn't there yet: cosh as the partner of cos.
     [Theory]
     [InlineData("x*tan(x)")]
     [InlineData("atan(x)^2")]
     [InlineData("exp(x)/x")]
-    [InlineData("exp(x)*cos(x)^2")]
+    [InlineData("cosh(x)*cos(x)")]
     [InlineData("x/(2 + cos(x))")]
     public void What_isnt_integrated_by_parts(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));

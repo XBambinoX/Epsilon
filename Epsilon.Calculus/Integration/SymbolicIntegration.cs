@@ -54,7 +54,8 @@ public static class SymbolicIntegrationExtensions
         /// t = exp(x). Last, it is integrated by parts, with u a logarithm or
         /// an inverse function of an algebraic argument, or a polynomial (x exp(x), x ln(x),
         /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)), and sec^n and csc^n by
-        /// their reduction formulas.
+        /// their reduction formulas. Where that fails too, products and powers of sin and cos are
+        /// written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2).
         /// </remarks>
         /// <exception cref="NotSupportedException">
         /// No antiderivative was found, or the imaginary unit is more than a constant factor or term:

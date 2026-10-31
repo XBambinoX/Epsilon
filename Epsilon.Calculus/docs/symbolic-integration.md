@@ -70,7 +70,8 @@ by [substitution](#substitution), by the substitutions for
 [square roots of quadratics](#square-roots-of-quadratics), and by partial fractions over the
 roots of factors of degree 3 and more. Then it is expanded once and tried again, which
 integrates products of polynomials; a rational function of exp, sinh and cosh becomes one of
-t = exp(x); and last it is integrated [by parts](#integration-by-parts).
+t = exp(x); then it is integrated [by parts](#integration-by-parts); and last a product or a
+power of sines and cosines is written as a sum of them.
 
 ## Rational functions
 
@@ -291,6 +292,14 @@ ExprParser.Parse("sec(x)^3").Integrate("x").Print();         // (1/2) * ln(abs(s
 ExprParser.Parse("exp(sqrt(x))").Integrate("x").Print();     // 2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))
 ```
 
+Where nothing else fits, a product or a power of sines and cosines is written first as a sum of
+them by the product-to-sum formulas, cos(x)^2 as (1 + cos(2x))/2, and each term is integrated
+apart:
+
+```csharp
+ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x").Print();   // (1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)
+```
+
 ## Checking a result
 
 The derivative of an antiderivative is the integrand:
@@ -321,13 +330,13 @@ Some integrands need what isn't there yet, others have no antiderivative made of
 functions at all. Both throw:
 
 ```csharp
-ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x");
-// NotSupportedException: No antiderivative of exp(x) * cos(x)^2 by x was found.
+ExprParser.Parse("cosh(x)*cos(x)").Integrate("x");
+// NotSupportedException: No antiderivative of cos(x) * cosh(x) by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `exp(x)*cos(x)^2` | rewriting first by the double angle, which is done only in rational functions of sin and cos |
+| `cosh(x)*cos(x)` | integration by parts twice with sinh or cosh, which is done only with an exponential |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
 | `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
