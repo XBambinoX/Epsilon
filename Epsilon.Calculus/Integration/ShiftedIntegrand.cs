@@ -22,7 +22,9 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
         {
             unresolved = Unresolved(at, direction, halfWidth, out bool fast);
             if (!fast && unresolved == 0)
-                return new IntegrandEnd(d => _plain(at + direction * d), 0);
+                return Rounded(at, halfWidth) && Binary(at) is { } exact
+                    ? Shifted(end with { Exact = exact }, direction)
+                    : new IntegrandEnd(d => _plain(at + direction * d), 0);
         }
 
         IntegrandEnd shifted = Shifted(end, direction);
@@ -38,6 +40,22 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
             return new IntegrandEnd(d => at + direction * d is var x && x != at ? _plain(x) : 0, missed);
 
         return shifted;
+    }
+
+    // On a piece far narrower than its distance from 0, x is rounded to more than 2^-32 of the
+    // width, and the integrand is measured from the end symbolically too, from the double
+    // itself: a normal density over [1e8 - 1/2, 1e8 + 1/2] lost 3e-10 to the rounding, and the
+    // one at 1e12 took 26 s.
+    private static bool Rounded(double at, double halfWidth) => Math.ScaleB(Math.Abs(at) * MachineEpsilon, 32) > halfWidth;
+
+    private static Constant? Binary(double value)
+    {
+        int exponent = Math.ILogB(value) - 52;
+        var mantissa = new System.Numerics.BigInteger(Math.ScaleB(value, -exponent));
+        Rational exact = exponent >= 0
+            ? new Rational(mantissa * System.Numerics.BigInteger.Pow(2, exponent))
+            : new Rational(mantissa, System.Numerics.BigInteger.Pow(2, -exponent));
+        return exact.ToDouble() == value ? new Constant(exact) : null;
     }
 
     private IntegrandEnd Shifted(IntegrationPoint end, int direction)

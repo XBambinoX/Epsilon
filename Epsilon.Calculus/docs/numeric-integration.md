@@ -176,7 +176,9 @@ or by exp-sinh towards an infinity. Their nodes crowd towards the ends of a piec
 exponentially, so a singularity there costs only a few more of them. The nodes are measured by
 their distance from an end, which is exact down to the smallest double. Where the integrand is
 singular at an end, it is shifted there symbolically: next to 1, (1 - x)^(-1/2) becomes d^(-1/2)
-of the distance d, where 1 - x would be 0 for every d below 1e-16. The step is halved until two
+of the distance d, where 1 - x would be 0 for every d below 1e-16. So it is on a piece far
+narrower than its distance from 0, where x would be rounded to more than 2^-32 of the width: over
+[1e8 - 1/2, 1e8], x - 1e8 becomes d - 1/2. The step is halved until two
 estimates agree. Before that, the last term towards each end must be negligible, since a
 divergent integral has terms that don't die out.
 

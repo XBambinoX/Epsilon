@@ -362,6 +362,16 @@ public class NumericIntegrationTests
         Assert.Equal(Math.Log(1e-9 / 1.000000001), Integrate("1/(x - 1.000000001)", 0, 1), 1e-13);
     }
 
+    [Fact]
+    public void A_short_piece_far_from_0_is_measured_from_its_ends()
+    {
+        const double OneSigma = 0.6826894921370859;
+        Assert.Equal(OneSigma, Integrate("exp(-(x - 1e8)^2/(2*0.25))/(0.5*sqrt(2*pi))", 1e8 - 0.5, 1e8 + 0.5), 1e-15);
+        Assert.Equal(OneSigma, Integrate("exp(-(x - 1e12)^2/2)/sqrt(2*pi)", 1e12 - 1, 1e12 + 1), 1e-15);
+        Assert.Equal(1.0 / 3, Integrate("(x - 1e8)^2", 1e8, 1e8 + 1), 1e-15);
+        Assert.Equal(Math.Sin(1), Integrate("cos(x - 1e8)", 1e8, 1e8 + 1), 1e-15);
+    }
+
     // The interval is split where a polynomial turns, here where 1/(1 + 1e10 (x - 1000)^2) peaks:
     // on [-1e300, 1e300] the nodes passed by the peaks and gave 0, and on [0, 1e6] it was found
     // only where the grid of FindRealRoots happened to bracket it. The turns of x^3 - 2 are looked
