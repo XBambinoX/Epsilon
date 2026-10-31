@@ -313,6 +313,24 @@ public class NumericIntegrationTests
             Fails("1/sqrt(abs(x^4 - 2))", 0, 2).Message);
     }
 
+    // sin(x) - 1/2 and x^3 - 2 are 0 at the doubles their roots are found at, which threw as
+    // infinite there and as not converging. The values from substitutions that leave no
+    // singularity, s^2 = t.
+    [Fact]
+    public void A_singularity_the_double_next_to_it_is_infinite_at_limits_the_accuracy()
+    {
+        Assert.StartsWith("The integrand is singular next to x = 0.5235987755982989, at a point that isn't a double",
+            Fails("1/sqrt(abs(sin(x) - 0.5))", 0, 1).Message);
+        Assert.StartsWith("The integrand is singular next to x = 1.2599210498948732, at a point that isn't a double",
+            Fails("1/sqrt(abs(x^3 - 2))", 0, 2).Message);
+
+        Assert.Equal(3.05086154427197, Integrate("1/sqrt(abs(sin(x) - 0.5))", 0, 1, tolerance: 1e-6), 1e-7);
+        Assert.Equal(1.9704294899050203, Integrate("1/sqrt(abs(x^3 - 2))", 0, 2, tolerance: 1e-6), 1e-7);
+        Assert.Equal(0.7081404903365391, Integrate("ln(abs(x^3 - 2))", 0, 2), 1e-13);
+        Assert.Equal("The integral diverges at x = 1.2599210498948732, or converges there too slowly for double precision.",
+            Fails("1/(x^3 - 2)", 0, 2).Message);
+    }
+
     // Zeros of sines and cosines of linear arguments and roots of quadratics are exact points,
     // and next to them the integrand is shifted symbolically, sin(pi + d) to -sin(d): these threw
     // as singular at points that aren't doubles. The values from substitutions that leave no

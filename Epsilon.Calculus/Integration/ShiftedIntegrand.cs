@@ -17,8 +17,8 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
 
     public IntegrandEnd Near(IntegrationPoint end, int direction, double halfWidth)
     {
-        double at = end.Value, unresolved = 0;
-        if (double.IsFinite(_plain(at)))
+        double at = end.Value, value = _plain(at), unresolved = 0;
+        if (double.IsFinite(value))
         {
             unresolved = Unresolved(at, direction, halfWidth, out bool fast);
             if (!fast && unresolved == 0)
@@ -30,9 +30,14 @@ internal sealed class ShiftedIntegrand(Expr expr, string variable)
         // Next to a singularity at a point that isn't a double, the shift removes the rounding
         // only where the point is exact, as sqrt(2) and pi are, and the integrand is singular at
         // 0. A limit such as Math.PI is kept to 15 digits, which are short of pi.
-        return unresolved > 0 && !double.IsInfinity(shifted.At(0))
-            ? new IntegrandEnd(d => _plain(at + direction * d), unresolved)
-            : shifted;
+        if (unresolved > 0 && !double.IsInfinity(shifted.At(0)))
+            return new IntegrandEnd(d => _plain(at + direction * d), unresolved);
+            
+        if (double.IsInfinity(value) && double.IsFinite(shifted.At(0))
+            && Unresolved(at, direction, halfWidth, out _) is > 0 and var missed)
+            return new IntegrandEnd(d => at + direction * d is var x && x != at ? _plain(x) : 0, missed);
+
+        return shifted;
     }
 
     private IntegrandEnd Shifted(IntegrationPoint end, int direction)
