@@ -60,11 +60,13 @@ public static class SymbolicIntegrationExtensions
         /// their reduction formulas. Where that fails too, products and powers of sin and cos are
         /// written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2). With the
         /// imaginary unit inside a function, the real and imaginary parts of the integrand, for a
-        /// real variable, are integrated apart: 1/(x + i) is x/(x^2 + 1) - i/(x^2 + 1).
+        /// real variable, are integrated apart: 1/(x + i) is x/(x^2 + 1) - i/(x^2 + 1); a power of
+        /// a linear expression that misses the negative real axis, as sqrt(x + i), by the power
+        /// rule; and where the whole is neither, each term.
         /// </remarks>
         /// <exception cref="NotSupportedException">
         /// No antiderivative was found, or the imaginary unit is inside a function whose real and
-        /// imaginary parts aren't written, as in sqrt(x + i).
+        /// imaginary parts aren't written, as in atan(x + i).
         /// </exception>
         public Expr Integrate(string variable)
         {
@@ -72,15 +74,41 @@ public static class SymbolicIntegrationExtensions
             ArgumentNullException.ThrowIfNull(variable);
 
             Expr simplified = expr.Simplify();
-            if (ImaginaryInside(simplified, variable))
-                return ComplexParts.Of(simplified) is var (re, im)
-                    && IntegrationTable.Antiderivative(re.Simplify(), variable) is { } u
-                    && IntegrationTable.Antiderivative(im.Simplify(), variable) is { } v
-                    ? (u + new ImaginaryUnit() * v).Simplify()
-                    : throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts.");
+            bool parted = true;
+            return (ImaginaryInside(simplified, variable) ? Complex(simplified, variable, ref parted) : IntegrationTable.Antiderivative(simplified, variable))
+                ?? throw new NotSupportedException(parted
+                    ? $"No antiderivative of {expr.Print()} by {variable} was found."
+                    : $"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts or is a power of a linear expression.");
+        }
+    }
 
-            return IntegrationTable.Antiderivative(simplified, variable)
-                ?? throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found.");
+    // With i inside a function: the real and imaginary parts apart, or a power of a complex linear
+    // expression by the power rule, and where the whole is neither, term by term. parted turns
+    // false where a term is neither, rather than one whose parts have no antiderivative.
+    private static Expr? Complex(Expr e, string variable, ref bool parted)
+    {
+        if (!ImaginaryInside(e, variable))
+            return IntegrationTable.Antiderivative(e, variable);
+
+        if (ComplexParts.Of(e) is var (re, im))
+            return IntegrationTable.Antiderivative(re.Simplify(), variable) is { } u && IntegrationTable.Antiderivative(im.Simplify(), variable) is { } v
+                ? (u + new ImaginaryUnit() * v).Simplify()
+                : null;
+
+        if (ComplexParts.LinearPower(e, variable) is { } power)
+            return power.Simplify();
+
+        switch (e)
+        {
+            case Add or Subtract:
+                return Complex(e.Children[0], variable, ref parted) is { } left && Complex(e.Children[1], variable, ref parted) is { } right
+                    ? (e is Add ? left + right : left - right).Simplify()
+                    : null;
+            case Negate negate:
+                return Complex(negate.Argument, variable, ref parted) is { } g ? (-g).Simplify() : null;
+            default:
+                parted = false;
+                return null;
         }
     }
 

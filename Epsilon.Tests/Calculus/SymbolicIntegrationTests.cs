@@ -230,7 +230,8 @@ public class SymbolicIntegrationTests
     }
 
     // Non-elementary, a denominator whose roots can't be written, a step squared, a quadratic
-    // whose sign isn't known, cosh times cos, and the root of a cubic.
+    // whose sign isn't known, cosh times cos, the root of a cubic, and real and imaginary parts
+    // without elementary antiderivatives.
     [Theory]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^5 - x - 1)")]
@@ -238,19 +239,21 @@ public class SymbolicIntegrationTests
     [InlineData("1/(x^2 + a^2)")]
     [InlineData("cosh(x)*cos(x)")]
     [InlineData("sqrt(1 + x^3)")]
+    [InlineData("exp(i*x^2)")]
     public void What_no_rule_fits_throws(string integrand) =>
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
-    // Functions of a complex argument whose real and imaginary parts aren't written: sqrt, atan,
-    // and ln of an imaginary part that varies.
+    // Functions of a complex argument whose real and imaginary parts aren't written: atan, ln of an
+    // imaginary part that varies, a real root, and powers of what isn't linear or meets the cut.
     [Theory]
-    [InlineData("sqrt(x + i)")]
     [InlineData("atan(i*x)")]
     [InlineData("ln(x + i*x)")]
     [InlineData("nthroot(x + i, 3)")]
+    [InlineData("sqrt(x^2 + i)")]
+    [InlineData("(i*x - 1)^(1/2)")]
     public void The_imaginary_unit_elsewhere_throws(string integrand) =>
-        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts.",
+        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts or is a power of a linear expression.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
     // With x real, the integrand is u + i v and each part is integrated by the rules of real
@@ -268,6 +271,11 @@ public class SymbolicIntegrationTests
     [InlineData("ln(x + i)")]
     [InlineData("abs(x + i)")]
     [InlineData("1/(x^2 + 2*i*x + 2)")]
+    [InlineData("sec(x + i)")]
+    [InlineData("csc(x - i)")]
+    [InlineData("tanh(x + i)")]
+    [InlineData("coth(x + i)")]
+    [InlineData("tanh(i*x)")]
     public void The_real_and_imaginary_parts_are_integrated_apart(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -282,6 +290,31 @@ public class SymbolicIntegrationTests
 
         Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
         Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
+    }
+
+    // On a line that misses the negative real axis, the cut of the principal power, the power rule
+    // holds all along it: sqrt(x + i) as (2/3)(x + i)^(3/2), on both sides of 0. Their real and
+    // imaginary parts would be nested roots.
+    [Theory]
+    [InlineData("sqrt(x + i)")]
+    [InlineData("(x + i)^(-3/2)")]
+    [InlineData("1/sqrt(2*x - 3*i)")]
+    [InlineData("(i*x + 1)^(1/3)")]
+    [InlineData("3*i*sqrt(x - i)")]
+    [InlineData("sqrt(x + i) + 1/(x + i)")]
+    public void Powers_of_a_complex_linear_expression(string integrand)
+    {
+        var f = ExprParser.Parse(integrand);
+        var derivative = f.Integrate("x").Differentiate("x");
+
+        foreach (double x in new[] { -3.1, -0.4, 0.7, 2.3 })
+        {
+            var at = new Dictionary<string, ComplexNumber> { ["x"] = x };
+            ComplexNumber expected = f.EvaluateComplex(at);
+            Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
+        }
+
+        Assert.Equal("2(x + i)^(3/2) / 3", Integral("sqrt(x + i)"));
     }
 
     [Fact]

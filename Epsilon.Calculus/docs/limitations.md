@@ -28,15 +28,17 @@ is updated with it. The expressions have
 - **Rational functions with symbols or irrational numbers in the denominator.** In
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
-  coefficients, as in 1/(x^2 + pi), is in the table.
+  coefficients, as in 1/(x^2 + pi), is in the table, but by t = tan(x/2) `1/(sqrt(2) + cos(x))`
+  leaves fractions that the core doesn't bring to a common denominator.
 - **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
   `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
   [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
 - **Complex numbers only where the integrand splits into real and imaginary parts**, each
   integrated by the rules of real functions; see
-  [The imaginary unit](symbolic-integration.md#the-imaginary-unit). `sqrt(x + i)` and
-  `atan(i*x)` throw `NotSupportedException`, and the results keep that form: `exp(i*x)` gives
-  sin(x) - i cos(x), not -i exp(i x).
+  [The imaginary unit](symbolic-integration.md#the-imaginary-unit). `atan(x + i)` and
+  `ln(x + i*x)` throw `NotSupportedException`, `tan(x + i)` splits into parts with cosh(2) next
+  to cos(2x) in a denominator, which aren't integrated, as above, and the results keep that form:
+  `exp(i*x)` gives sin(x) - i cos(x), not -i exp(i x).
 - **Results aren't always in their simplest form, and their derivatives even less.** All are
   right in value:
 

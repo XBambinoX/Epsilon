@@ -320,10 +320,17 @@ ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // (1/2) * ln(x^2 + 1) -
 ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
 ```
 
-The parts are those of sums, products, quotients and integer powers, of exp, sin, cos, sinh, cosh
-and abs, of a real number raised to a complex power, as x^i = cos(ln(x)) + i sin(ln(x)), and of
-ln(u + i b) for a constant b. Other functions of a complex argument, such as `sqrt(x + i)`,
-throw `NotSupportedException`.
+The parts are those of sums, products, quotients and integer powers, of the trigonometric and
+hyperbolic functions and abs, of a real number raised to a complex power, as
+x^i = cos(ln(x)) + i sin(ln(x)), and of ln(u + i b) for a constant b. A power of a linear
+expression whose values miss the cut of the principal power, the negative real axis, as x + i
+does, is integrated by the power rule instead, and where the whole integrand is neither, each
+term apart. Other functions of a complex argument, such as `atan(x + i)`, throw
+`NotSupportedException`:
+
+```csharp
+ExprParser.Parse("sqrt(x + i)").Integrate("x").Print();   // 2(x + i)^(3/2) / 3
+```
 
 ## Checking a result
 

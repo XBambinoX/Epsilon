@@ -604,7 +604,8 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("i * x^2 / 2", Integral("i*x"));
         Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
         Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
-        Assert.Throws<NotSupportedException>(() => Integral("sqrt(x + i)"));
+        Assert.Equal("2(x + i)^(3/2) / 3", Integral("sqrt(x + i)"));
+        Assert.Throws<NotSupportedException>(() => Integral("atan(x + i)"));
     }
 
     [Theory]
@@ -654,7 +655,7 @@ public class CalculusLimitationsDocTests
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
         Assert.Equal("(1/2) * x^2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());
         Assert.Equal("-cos(x) * i + sin(x)", ExprParser.Parse("exp(i*x)").Integrate("x").Print());
-        foreach (string integrand in new[] { "sqrt(x + i)", "atan(i*x)" })
+        foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "tan(x + i)", "1/(sqrt(2) + cos(x))" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
