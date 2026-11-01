@@ -230,14 +230,13 @@ public class SymbolicIntegrationTests
     }
 
     // Non-elementary, a denominator whose roots can't be written, a step squared, a quadratic
-    // whose sign isn't known, cosh times cos, the root of a cubic, and real and imaginary parts
-    // without elementary antiderivatives.
+    // whose sign isn't known, the root of a cubic, and real and imaginary parts without
+    // elementary antiderivatives.
     [Theory]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("floor(x)^2")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("cosh(x)*cos(x)")]
     [InlineData("sqrt(1 + x^3)")]
     [InlineData("exp(i*x^2)")]
     public void What_no_rule_fits_throws(string integrand) =>

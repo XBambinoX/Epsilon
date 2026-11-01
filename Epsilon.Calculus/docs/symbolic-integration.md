@@ -295,12 +295,13 @@ ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x 
 ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // (1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)
 ```
 
-An exponential times sin or cos, and sin or cos of a logarithm, come back to the integral I
-after two steps, as I = A + c I, which is solved for I:
+An exponential, sinh or cosh times sin or cos, and sin or cos of a logarithm, come back to the
+integral I after two steps, as I = A + c I, which is solved for I:
 
 ```csharp
 ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();       // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
 ExprParser.Parse("exp(2*x)*cos(3*x)").Integrate("x").Print();   // (2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)
+ExprParser.Parse("cosh(x)*cos(x)").Integrate("x").Print();      // (1/2) * cos(x) * sinh(x) + (1/2) * cosh(x) * sin(x)
 ExprParser.Parse("sin(ln(x))").Integrate("x").Print();          // (sin(ln(x)) * x - cos(ln(x)) * x) / 2
 ```
 
@@ -316,10 +317,13 @@ ExprParser.Parse("exp(sqrt(x))").Integrate("x").Print();     // 2exp(sqrt(x)) * 
 
 Where nothing else fits, a product or a power of sines and cosines is written first as a sum of
 them by the product-to-sum formulas, cos(x)^2 as (1 + cos(2x))/2, and each term is integrated
-apart:
+apart. sinh and cosh next to them, in a power or with another factor, are written in
+exponentials:
 
 ```csharp
 ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x").Print();   // (1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)
+ExprParser.Parse("cosh(x)^2*cos(x)").Integrate("x").Print();
+// (1/2) * sin(x) + (-1/10) * cos(x) * exp(-2x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x)
 ```
 
 ## The imaginary unit
@@ -376,14 +380,14 @@ Some integrands need what isn't there yet, others have no antiderivative made of
 functions at all. Both throw:
 
 ```csharp
-ExprParser.Parse("cosh(x)*cos(x)").Integrate("x");
-// NotSupportedException: No antiderivative of cos(x) * cosh(x) by x was found.
+ExprParser.Parse("1/(x^2 + a^2)").Integrate("x");
+// NotSupportedException: No antiderivative of 1 / (a^2 + x^2) by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `cosh(x)*cos(x)` | integration by parts twice with sinh or cosh, which is done only with an exponential |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
+| `1/(sqrt(2) + cos(x))^2` | fractions with irrational coefficients brought to a common denominator |
 | `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
 | `sqrt(1 + x^3)`, `1/sqrt(x^4 + 1)` | nothing either: these square roots of a cubic and a quartic give elliptic integrals |

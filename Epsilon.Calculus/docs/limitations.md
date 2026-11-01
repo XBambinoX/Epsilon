@@ -7,9 +7,6 @@ is updated with it. The expressions have
 
 ## Symbolic integration
 
-- **sinh and cosh times sin or cos aren't integrated**: `cosh(x)*cos(x)` comes back to itself
-  by parts twice, as `exp(x)*cos(x)` does, but that is done only with an exponential; see
-  [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
 - **Square roots of one quadratic at a time.** `sqrt(1 + x^3)` and `1/sqrt(x^4 + 1)` aren't
   integrated, having no elementary antiderivative. And where the two sides of the gap of a
   square root differ and Euler's substitution leaves irrational coefficients, they are

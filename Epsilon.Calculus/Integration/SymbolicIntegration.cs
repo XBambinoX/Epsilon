@@ -57,10 +57,11 @@ public static class SymbolicIntegrationExtensions
         /// x (x + 1) is integrated as x^2 + x. A rational function of exp, sinh and cosh is one of
         /// t = exp(x). Last, it is integrated by parts, with u a logarithm or
         /// an inverse function of an algebraic argument, or a polynomial (x exp(x), x ln(x),
-        /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)), and sec^n and csc^n by
-        /// their reduction formulas. Where that fails too, products and powers of sin and cos are
-        /// written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2). With the
-        /// imaginary unit inside a function, the real and imaginary parts of the integrand, for a
+        /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x), cosh(x) cos(x)), and
+        /// sec^n and csc^n by their reduction formulas. Where that fails too, products and powers of
+        /// sin and cos are written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2),
+        /// and sinh and cosh next to them in exponentials (cosh(x)^2 cos(x)). With the imaginary
+        /// unit inside a function, the real and imaginary parts of the integrand, for a
         /// real variable, are integrated apart: 1/(x + i) is x/(x^2 + 1) - i/(x^2 + 1); a power of
         /// a linear expression that misses the negative real axis, as sqrt(x + i), by the power
         /// rule; and where the whole is neither, each term.

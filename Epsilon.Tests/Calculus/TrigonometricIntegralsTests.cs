@@ -79,6 +79,13 @@ public class TrigonometricIntegralsTests
     [InlineData("exp(-x)*cos(3*x)*sin(x + 1)")]
     [InlineData("2^x*sin(x)^2")]
     [InlineData("x*exp(x)*cos(x)^2")]
+    [InlineData("cosh(x)*cos(x)^2")]
+    [InlineData("cosh(x)^2*cos(x)")]
+    [InlineData("cosh(x)^2*cos(x)^2")]
+    [InlineData("exp(x)*cosh(x)*cos(x)")]
+    [InlineData("exp(-x)*sinh(x)*sin(x)")]
+    [InlineData("sinh(x)*cosh(x)*cos(x)")]
+    [InlineData("sinh(x)^3*sin(2*x)")]
     [InlineData("1/(2 + cosh(x))")]
     [InlineData("1/(1 + sinh(x))")]
     [InlineData("1/(sinh(x)^2*cosh(x))")]
@@ -280,11 +287,10 @@ public class TrigonometricIntegralsTests
         Assert.Equal("x - coth(x)", Integral("cosh(x)^2/sinh(x)^2"));
     }
 
-    // x elsewhere than in sin and cos: non-elementary, or cosh as the partner of cos by parts.
+    // x elsewhere than in sin and cos, and roots of a cubic and a quartic: non-elementary.
     [Theory]
     [InlineData("x/(2 + cos(x))")]
     [InlineData("sin(x)/x")]
-    [InlineData("cosh(x)*cos(x)^2")]
     [InlineData("sqrt(1 + x^3)")]
     [InlineData("1/sqrt(x^4 + 1)")]
     public void What_isnt_integrated(string integrand) =>

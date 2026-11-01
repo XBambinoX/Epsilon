@@ -47,12 +47,12 @@ internal sealed partial class IntegrationTable
         bool cyclic = u is null;
         if (cyclic)
         {
-            u = factors.FirstOrDefault(factor => factor is Sin or Cos or Sinh or Cosh);
+            u = factors.FirstOrDefault(factor => factor is Sin or Cos) ?? factors.FirstOrDefault(factor => factor is Sinh or Cosh);
             var others = factors.Where(factor => factor.DependsOn(variable) && !ReferenceEquals(factor, u)).ToList();
             bool fits = u is not null && others.Count switch
             {
                 0 => HasLogarithm(((UnaryExpr)u).Argument),
-                1 => others[0] is Exp || others[0] is Power power && !power.Base.DependsOn(variable),
+                1 => others[0] is Exp || others[0] is Power power && !power.Base.DependsOn(variable) || u is Sin or Cos && others[0] is Sinh or Cosh,
                 _ => false,
             };
             if (!fits)
