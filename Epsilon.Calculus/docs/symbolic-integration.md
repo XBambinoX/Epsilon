@@ -42,6 +42,7 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 |---|---|---|
 | Powers of a linear expression | `(2*x + 1)^5` | `(2x + 1)^6 / 12` |
 | Exponentials | `exp(-3*x)`, `2^x` | `-exp(-3x) / 3`, `2^x / ln(2)` |
+| | `2^x*3^x` | `2^x * 3^x / ln(6)` |
 | Logarithms | `ln(x)` | `ln(x) * x - x` |
 | Trigonometric functions | `cos(3*x + 1)`, `tan(x)` | `sin(3x + 1) / 3`, `-ln(abs(cos(x)))` |
 | | `sec(x)` | `ln(abs(sec(x) + tan(x)))` |

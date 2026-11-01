@@ -53,7 +53,7 @@ internal sealed partial class IntegrationTable
             {
                 0 => HasLogarithm(((UnaryExpr)u).Argument),
                 1 => others[0] is Exp || others[0] is Power power && !power.Base.DependsOn(variable) || u is Sin or Cos && others[0] is Sinh or Cosh,
-                _ => false,
+                _ => others.All(other => Rate(other) is not null),
             };
             if (!fits)
                 return null;

@@ -451,6 +451,7 @@ public class CalculusSymbolicIntegrationDocTests
     [InlineData("(2*x + 1)^5", "(2x + 1)^6 / 12")]
     [InlineData("exp(-3*x)", "-exp(-3x) / 3")]
     [InlineData("2^x", "2^x / ln(2)")]
+    [InlineData("2^x*3^x", "2^x * 3^x / ln(6)")]
     [InlineData("ln(x)", "ln(x) * x - x")]
     [InlineData("cos(3*x + 1)", "sin(3x + 1) / 3")]
     [InlineData("tan(x)", "-ln(abs(cos(x)))")]
@@ -668,7 +669,7 @@ public class CalculusLimitationsDocTests
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
-        Assert.Equal("2atan(2x / sqrt(2)) / sqrt(2)", ExprParser.Parse("1/(x^2 + 1/2)").Integrate("x").Print());
+        Assert.Equal("2atan(sqrt(2) * x) / sqrt(2) + 2x / (2x^2 + 1)", ExprParser.Parse("1/(x^2 + 1/2)^2").Integrate("x").Print());
         Assert.Equal("x^2 + x + (x - 1) / abs(x - 1)^2 + 1", ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print());
     }
 

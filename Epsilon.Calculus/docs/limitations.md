@@ -43,8 +43,8 @@ is updated with it. The expressions have
   ```csharp
   ExprParser.Parse("min(x, 1)").Integrate("x").Print();
   // ((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2
-  ExprParser.Parse("1/(x^2 + 1/2)").Integrate("x").Print();
-  // 2atan(2x / sqrt(2)) / sqrt(2)
+  ExprParser.Parse("1/(x^2 + 1/2)^2").Integrate("x").Print();
+  // 2atan(sqrt(2) * x) / sqrt(2) + 2x / (2x^2 + 1)
   ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print();
   // x^2 + x + (x - 1) / abs(x - 1)^2 + 1
   ```

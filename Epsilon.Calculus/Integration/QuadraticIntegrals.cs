@@ -68,10 +68,27 @@ internal sealed class QuadraticIntegrals
 
     public Expr Reciprocal() => _kSign switch
     {
-        > 0 => new Atan(_cleared / new Sqrt(Cleared(_k))) / (_p * new Sqrt(_k)),
-        < 0 => new Ln(new Abs((_cleared - new Sqrt(Cleared(-_k))) / (_cleared + new Sqrt(Cleared(-_k))))) / (2 * _p * new Sqrt(-_k)),
+        > 0 => Over(new Atan(Over(_cleared, new Sqrt(Cleared(_k)))), _p * new Sqrt(_k)),
+        < 0 => Over(Logarithm(_cleared, new Sqrt(Cleared(-_k))), 2 * _p * new Sqrt((-_k).Simplify())),
         _ => -1 / (_p * _shifted),
     };
+
+    // ln|(t - r)/(t + r)|, with the denominator of r = n sqrt(d)/m cleared: (2x - sqrt(2))/(2x + sqrt(2)).
+    private static Expr Logarithm(Expr t, Expr r)
+    {
+        if (QuadraticSurd.Of(r) is { A.IsZero: true, B: var b } surd && !b.Denominator.IsOne)
+        {
+            var m = new Rational(b.Denominator);
+            (t, r) = ((m * t).Expand(), new QuadraticSurd(0, b * m, surd.D).ToExpr());
+        }
+
+        return new Ln(new Abs((t - r) / (t + r)));
+    }
+
+    // e/r for a constant r: times n sqrt(d) where 1/r is that for an integer n, sqrt(2) x for
+    // x/sqrt(1/2), else over r, x/sqrt(2).
+    private static Expr Over(Expr e, Expr r) =>
+        QuadraticSurd.Of(1 / r) is { A.IsZero: true, B: { IsInteger: true, IsZero: false } } inverse ? inverse.ToExpr() * e : e / r;
 
     // The reduction: that of 1/q^n is (t/q^(n-1) + (2n - 3) times that of 1/q^(n-1)) / (2(n - 1) k p), t = x - h.
     public Expr ReciprocalPower(int n) => n == 1 ? Reciprocal()
@@ -80,10 +97,10 @@ internal sealed class QuadraticIntegrals
 
     public Expr? InverseSqrt() => (_pSign, _kSign) switch
     {
-        (> 0, > 0) => new Asinh(_cleared / new Sqrt(Cleared(_k))) / new Sqrt(_p),
-        (> 0, < 0) => new Ln(new Abs(new Sqrt(_p) * _shifted + new Sqrt(_q))) / new Sqrt(_p),
-        (> 0, _) => new Sign(_shifted) * new Ln(new Abs(_shifted)) / new Sqrt(_p),
-        (< 0, < 0) => new Asin(_cleared / new Sqrt(Cleared(-_k))) / new Sqrt(-_p),
+        (> 0, > 0) => Over(new Asinh(Over(_cleared, new Sqrt(Cleared(_k)))), new Sqrt(_p)),
+        (> 0, < 0) => Over(new Ln(new Abs(new Sqrt(_p) * _shifted + new Sqrt(_q))), new Sqrt(_p)),
+        (> 0, _) => Over(new Sign(_shifted) * new Ln(new Abs(_shifted)), new Sqrt(_p)),
+        (< 0, < 0) => Over(new Asin(Over(_cleared, new Sqrt(Cleared(-_k)))), new Sqrt((-_p).Simplify())),
         _ => null,
     };
 
@@ -95,7 +112,7 @@ internal sealed class QuadraticIntegrals
     public Expr? LinearOverSqrt(Expr alpha, Expr beta) =>
         InverseSqrt() is { } inverse ? alpha / _p * new Sqrt(_q) + (beta + alpha * _h) * inverse : null;
 
-    private Expr Cleared(Expr k) => _m.IsOne ? k : _m * _m * k;
+    private Expr Cleared(Expr k) => (_m.IsOne ? k : _m * _m * k).Simplify();
 
     private static int? SignOf(Expr constant)
     {

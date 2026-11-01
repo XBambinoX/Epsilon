@@ -56,6 +56,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             _ => null,
         };
 
+        result ??= ExponentialProduct(f);
         result ??= PartialFractions(f, overRoots: false);
         result ??= BySubstitution(f);
         result ??= ByBioche(f);

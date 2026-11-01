@@ -30,8 +30,9 @@ public static class SymbolicIntegrationExtensions
         /// <remarks>
         /// The rules: sums and constant factors; powers of a linear expression, and real roots of
         /// one; the elementary functions, and floor, ceiling and round, of a linear argument, the
-        /// last three with continuous antiderivatives; squares and reciprocals of the
-        /// trigonometric and hyperbolic functions, sec u tan u and its kin, products of sin and cos;
+        /// last three with continuous antiderivatives; products of exponentials of linear arguments,
+        /// as 2^x 3^x; squares and reciprocals of the trigonometric and hyperbolic functions,
+        /// sec u tan u and its kin, products of sin and cos;
         /// linear over linear; 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
         /// quadratic q with numeric coefficients; and (p + q cos u + r sin u)/(a + b cos u + c sin u)
         /// with numeric coefficients, continuous wherever the integrand is. A rational function with

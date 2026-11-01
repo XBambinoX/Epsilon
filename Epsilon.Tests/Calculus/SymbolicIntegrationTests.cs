@@ -60,6 +60,17 @@ public class SymbolicIntegrationTests
     [InlineData("(x + 2)/sqrt(9 - x^2)")]
     [InlineData("1/sqrt(x^2 + 2*x + 2)")]
     [InlineData("1/sqrt(x^2 + 2*x + 1)")]
+    [InlineData("1/(x^2 + 1/2)")]
+    [InlineData("1/(x^2 - 1/2)")]
+    [InlineData("1/sqrt(1/2 - x^2)")]
+    [InlineData("1/(x^2/2 + 1)^(1/2)")]
+    [InlineData("2^x*3^x")]
+    [InlineData("2^(x + 1)*3^(2*x)")]
+    [InlineData("2^x/3^x")]
+    [InlineData("sqrt(2^x)*3^x")]
+    [InlineData("pi^x*2^x")]
+    [InlineData("x*2^x*3^x")]
+    [InlineData("exp(x)*2^x*sin(x)")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -147,6 +158,17 @@ public class SymbolicIntegrationTests
         Assert.Equal("abs(x)", Integral("sign(x)"));
     }
 
+    // Itself over the sum of the rates, the logarithms of rational bases taken together.
+    [Fact]
+    public void Products_of_exponentials()
+    {
+        Assert.Equal("2^x * 3^x / ln(6)", Integral("2^x*3^x"));
+        Assert.Equal("2^x / (ln(2/3) * 3^x)", Integral("2^x/3^x"));
+        Assert.Equal("exp(x) * 2^x / (ln(2) + 1)", Integral("2^x*exp(x)"));
+        Assert.Equal("2^x * 3^x * x / ln(6) - 2^x * 3^x / ln(6)^2", Integral("x*2^x*3^x"));
+        Assert.Throws<NotSupportedException>(() => Integral("(-2)^x*3^x"));
+    }
+
     [Fact]
     public void Squares_reciprocals_and_products_of_trigonometric_functions()
     {
@@ -177,6 +199,18 @@ public class SymbolicIntegrationTests
         Assert.Equal("ln(abs((2x - sqrt(5) + 1) / (2x + sqrt(5) + 1))) / sqrt(5)", Integral("1/(x^2 + x - 1)"));
         Assert.Equal("asinh((2x + 1) / sqrt(3))", Integral("1/sqrt(x^2 + x + 1)"));
         Assert.Equal("asin((2x + 1) / sqrt(5))", Integral("1/sqrt(1 - x - x^2)"));
+    }
+
+    // 1/sqrt(1/2) as sqrt(2) rather than 2/sqrt(2), and 1/sqrt(2) as a quotient.
+    [Fact]
+    public void Roots_of_fractions_in_quadratics()
+    {
+        Assert.Equal("atan(sqrt(2) * x) * sqrt(2)", Integral("1/(x^2 + 1/2)"));
+        Assert.Equal("atan(x / sqrt(2)) / sqrt(2)", Integral("1/(x^2 + 2)"));
+        Assert.Equal("atan(sqrt(2) * x) / sqrt(2)", Integral("1/(2*x^2 + 1)"));
+        Assert.Equal("ln(abs((2x - sqrt(2)) / (2x + sqrt(2)))) / sqrt(2)", Integral("1/(x^2 - 1/2)"));
+        Assert.Equal("asinh(sqrt(2) * x)", Integral("1/sqrt(x^2 + 1/2)"));
+        Assert.Equal("asin(sqrt(2) * x)", Integral("1/sqrt(1/2 - x^2)"));
     }
 
     [Fact]
