@@ -637,6 +637,91 @@ public class CalculusSymbolicIntegrationDocTests
     }
 }
 
+// Every example in Epsilon.Calculus/docs/series.md.
+public class CalculusSeriesDocTests
+{
+    private static string Printed(string expr, string point, int degree) =>
+        ExprParser.Parse(expr).Series("x", ExprParser.Parse(point), degree).Print();
+
+    [Fact]
+    public void Taylor_series()
+    {
+        Assert.Equal("1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)", ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print());
+        Assert.Equal("1 + x + (1/2) * x^2 + (1/6) * x^3 + (1/24) * x^4 + O(x^5)", ExprParser.Parse("exp(x)").Series("x", 0, 4).Print());
+        Assert.Equal("x + (1/3) * x^3 + (2/15) * x^5 + O(x^6)", ExprParser.Parse("tan(x)").Series("x", 0, 5).Print());
+
+        Assert.Equal("(x - 1) - (1/2) * (x - 1)^2 + (1/3) * (x - 1)^3 + O((x - 1)^4)", ExprParser.Parse("ln(x)").Series("x", 1, 3).Print());
+        Assert.Equal("1 - (1/2) * (x - (1/2) * π)^2 + O((x - (1/2) * π)^3)", Printed("sin(x)", "pi/2", 2));
+
+        Assert.Equal("15707963267949/10000000000000", ExprParser.Parse("tan(x)").Series("x", Math.PI / 2, 1).Point.Print());
+        Assert.Equal("t - (1/6) * t^3 + O(t^4)", ExprParser.Parse("sin(t)").Series(0, 3).Print());
+    }
+
+    [Fact]
+    public void The_terms()
+    {
+        var series = ExprParser.Parse("cos(x)").Series("x", 0, 4);
+
+        Assert.Equal("-1/2", series.Coefficient(2).Print());
+        Assert.Equal("0", series.Coefficient(3).Print());
+        Assert.Equal(new Rational(5), series.Order);
+        Assert.Equal(3, series.Terms.Count);
+        Assert.Equal("(1/24) * x^4 + (-1/2) * x^2 + 1", series.ToExpr().Print());
+        Assert.Equal(0.9950041666666667, series.ToExpr().Evaluate(("x", 0.1)));
+        Assert.Equal(0.9950041652780258, Math.Cos(0.1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => series.Coefficient(5));
+    }
+
+    [Fact]
+    public void Poles_Laurent_series()
+    {
+        Assert.Equal("x^-1 + (1/6) * x + (7/360) * x^3 + O(x^4)", Printed("1/sin(x)", "0", 3));
+        Assert.Equal("x^-1 - 1/2 + (1/12) * x - (1/720) * x^3 + O(x^4)", Printed("1/(exp(x) - 1)", "0", 3));
+        Assert.Equal("-(x - (1/2) * π)^-1 + (1/3) * (x - (1/2) * π) + O((x - (1/2) * π)^2)", Printed("tan(x)", "pi/2", 1));
+    }
+
+    [Fact]
+    public void Roots_Puiseux_series()
+    {
+        var root = ExprParser.Parse("sqrt(x + x^2)").Series("x", 0, 2);
+        Assert.Equal("x^(1/2) + (1/2) * x^(3/2) + O(x^(5/2))", root.Print());
+        Assert.Equal(new Rational(5, 2), root.Order);
+        Assert.True(root.RightSided);
+
+        Assert.Equal("x + O(x^3)", Printed("sqrt(x^2)", "0", 2));
+        Assert.True(ExprParser.Parse("sqrt(x^2)").Series("x", 0, 2).RightSided);
+        Assert.Equal("x + (1/3) * x^2 + O(x^3)", Printed("nthroot(x^3 + x^4, 3)", "0", 2));
+        Assert.False(ExprParser.Parse("nthroot(x^3 + x^4, 3)").Series("x", 0, 2).RightSided);
+
+        Assert.Equal("sqrt(2) * (x - 1)^(1/2) - (sqrt(2) / 12) * (x - 1)^(3/2) + O((x - 1)^(5/2))", Printed("acosh(x)", "1", 2));
+    }
+
+    [Fact]
+    public void Symbols()
+    {
+        Assert.Equal("1 + a * x + (1/2) * a^2 * x^2 + O(x^3)", Printed("exp(a*x)", "0", 2));
+        Assert.Equal("-1 / a - (1 / a^2) * x - (1 / a^3) * x^2 + O(x^3)", Printed("1/(x - a)", "0", 2));
+        Assert.Equal("sin(a) + cos(a) * (x - a) - (sin(a) / 2) * (x - a)^2 + O((x - a)^3)", Printed("sin(x)", "a", 2));
+        Assert.Throws<NotSupportedException>(() => Printed("abs(a*x)", "0", 2));
+    }
+
+    [Theory]
+    [InlineData("ln(x)", "0")]
+    [InlineData("x*ln(x)", "0")]
+    [InlineData("exp(1/x)", "0")]
+    [InlineData("sin(1/x)", "0")]
+    [InlineData("asin(x)", "1")]
+    [InlineData("sqrt(x - 2)", "0")]
+    [InlineData("floor(x)", "1")]
+    public void What_has_no_series(string expr, string point) =>
+        Assert.Throws<NotSupportedException>(() => Printed(expr, point, 3));
+
+    [Fact]
+    public void The_message() =>
+        Assert.Equal("ln(x) has a logarithm of x in its series at x = 0.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("ln(x)").Series("x", 0, 3)).Message);
+}
+
 // Every example in Epsilon.Calculus/docs/limitations.md.
 public class CalculusLimitationsDocTests
 {
@@ -683,6 +768,17 @@ public class CalculusLimitationsDocTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
         Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",
             Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity)).Message);
+    }
+
+    [Fact]
+    public void Series()
+    {
+        foreach (string expr in new[] { "ln(x)", "x*ln(x)", "exp(1/x)" })
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(expr).Series("x", 0, 3));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("asin(x)").Series("x", 1, 3));
+        Assert.StartsWith("sqrt(2) * (x - 1)^(1/2)", ExprParser.Parse("acosh(x)").Series("x", 1, 2).Print());
+        Assert.Equal("-1 / a", ExprParser.Parse("1/(x - a)").Series("x", 0, 2).Coefficient(0).Print());
+        Assert.Equal("tan(15707963267949/10000000000000)", ExprParser.Parse("tan(x)").Series("x", Math.PI / 2, 1).Coefficient(0).Print());
     }
 
     [Fact]

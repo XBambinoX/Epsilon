@@ -13,7 +13,8 @@ here.
 [Vector fields](#vector-fields) -
 [Hessians and critical points](#hessians-and-critical-points) -
 [Numeric integration](#numeric-integration) -
-[Symbolic integration](#symbolic-integration)
+[Symbolic integration](#symbolic-integration) -
+[Series](#series)
 
 The operations are extension members, called like members of `Expr` and `Vector<Expr>`:
 `f.Gradient("x", "y")`, `field.Curl("x", "y", "z")`. The variables of `Gradient`, `Hessian`,
@@ -86,3 +87,27 @@ What the signs of the eigenvalues of the Hessian say about a critical point.
 |---|---|
 | `Expr Integrate(string variable)` | An antiderivative by the variable from a table of integrals, by partial fractions, by substitutions, trigonometric ones among them, and by parts, simplified, without a constant; other variables are constants. Throws `NotSupportedException` where none is found, or where the imaginary unit is inside a function whose real and imaginary parts aren't written, as in atan(x + i). |
 | `Expr Integrate()` | The same by the expression's only variable. Throws `InvalidOperationException` if it doesn't have exactly one. |
+
+## Series
+
+### `SeriesExtensions` (static class)
+
+| Member | Description |
+|---|---|
+| `Series Series(string variable, Expr point, int degree)` | The series at the point, the terms up to (x - a)^degree with exact coefficients, from a negative power at a pole and with fractional powers at a root of something that vanishes there; other variables are constants. Throws `ArgumentException` if the point has the variable, `NotSupportedException` where there is no such series, as for ln(x) at 0. |
+| `Series Series(Expr point, int degree)` | The same by the expression's only variable. Throws `InvalidOperationException` if it doesn't have exactly one. |
+
+### `Series` (class)
+
+A series c (x - a)^q + ... + O((x - a)^Order) with rational exponents.
+
+| Member | Description |
+|---|---|
+| `string Variable` | The variable. |
+| `Expr Point` | The point a, simplified. |
+| `IReadOnlyList<(Rational Exponent, Expr Coefficient)> Terms` | The terms with a coefficient other than 0, by increasing exponent. |
+| `Rational Order` | The exponent of the remainder O((x - a)^Order). |
+| `bool RightSided` | Whether the series holds only for x > a, as for sqrt(x) at 0. |
+| `Expr Coefficient(Rational exponent)` | The coefficient of (x - a)^exponent, 0 where there is no term. Throws `ArgumentOutOfRangeException` for an exponent of `Order` or more. |
+| `Expr ToExpr()` | The sum of the terms as an expression in the variable. |
+| `string Print()` | The terms by increasing exponent and the remainder, as in `1 - (1/6) * x^2 + O(x^3)`; `ToString` is the same. |

@@ -77,6 +77,19 @@ is updated with it. The expressions have
 - **No symbols besides the variable.** Substitute values for them first, see
   [Definite integrals](numeric-integration.md#definite-integrals).
 
+## Series
+
+- **No logarithms of the variable and no essential singularities in a series**: `ln(x)` and
+  `x*ln(x)` at 0, whose expansions have ln(x) in them, and `exp(1/x)` at 0 throw
+  `NotSupportedException`. See [What has no series](series.md#what-has-no-series).
+- **Series at a branch point only on the right side**: `acosh(x)` at 1 is
+  sqrt(2) (x - 1)^(1/2) + ..., but `asin(x)` at 1, real only for x < 1, throws, though it is
+  pi/2 - sqrt(2) (1 - x)^(1/2) + ... there.
+- **A coefficient with a symbol in it is taken as other than 0**: `1/(x - a)` at 0 starts with
+  -1/a, which doesn't hold for a = 0.
+- **A point given as a double is its decimal**, as for the core's numbers: `tan(x)` at
+  `Math.PI / 2` is expanded at 15707963267949/10000000000000, without its pole.
+
 ## Derivatives
 
 - **floor, ceiling, round, sign, min and max have no derivatives** in the core yet, so
