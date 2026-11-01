@@ -32,17 +32,18 @@ public static class SymbolicIntegrationExtensions
         /// one; the elementary functions, and floor, ceiling and round, of a linear argument, the
         /// last three with continuous antiderivatives; squares and reciprocals of the
         /// trigonometric and hyperbolic functions, sec u tan u and its kin, products of sin and cos;
-        /// linear over linear; and 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q)
-        /// for a quadratic q with numeric coefficients. A rational function with rational
-        /// coefficients gets its rational part by Hermite's reduction, one fraction over the repeated
+        /// linear over linear; 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
+        /// quadratic q with numeric coefficients; and (p + q cos u + r sin u)/(a + b cos u + c sin u)
+        /// with numeric coefficients, continuous wherever the integrand is. A rational function with
+        /// rational coefficients gets its rational part by Hermite's reduction, one fraction over the repeated
         /// factors of the denominator, and the rest by partial fractions over its linear and
         /// quadratic factors with rational coefficients (1/(x^3 + 1), x/(x^4 - 1)), with the
         /// logarithms of coefficients of the same size merged into one. What is left is integrated
         /// by substitution: by u = g for a part g whose derivative divides the rest (2x cos(x^2),
         /// ln(x)/x), with the powers of x written in u for g = p x^k + q; by x in terms of u for a
         /// root of a linear expression (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by
-        /// their squares. A rational function of sin and cos is then one of t for t = cos x, sin x or
-        /// tan x by Bioche's rules, with sin(k x) and cos(k x) by the multiple-angle formulas, and of
+        /// their squares. Any other rational function of sin and cos is then one of t for t = cos x,
+        /// sin x or tan x by Bioche's rules, with sin(k x) and cos(k x) by the multiple-angle formulas, and of
         /// those that apply the shortest result is taken; where none does, t = tan(x/2). An
         /// arctangent atan(p tan u + q) in the result, which jumps where tan u does, is written as
         /// u + atan(...) of sin 2u and cos 2u, continuous. A rational function of x and sqrt(q) for a

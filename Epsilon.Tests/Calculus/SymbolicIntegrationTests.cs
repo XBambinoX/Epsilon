@@ -276,6 +276,9 @@ public class SymbolicIntegrationTests
     [InlineData("tanh(x + i)")]
     [InlineData("coth(x + i)")]
     [InlineData("tanh(i*x)")]
+    [InlineData("tan(x + i)")]
+    [InlineData("tan(2*x + i)")]
+    [InlineData("cot(x - 2*i)")]
     public void The_real_and_imaginary_parts_are_integrated_apart(string integrand)
     {
         var f = ExprParser.Parse(integrand);

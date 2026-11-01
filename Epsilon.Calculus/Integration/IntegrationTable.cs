@@ -42,6 +42,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             Divide { Numerator: Multiply { Right: var factor and not Constant } numerator } quotient when !factor.DependsOn(variable) =>
                 Integrate(numerator.Left / quotient.Denominator, expand) is { } g ? g * factor : null,
             Divide quotient when PowerOfRatio(quotient) is { } power => Integrate(power, expand),
+            Divide quotient when OverSinusoid(quotient.Numerator, quotient.Denominator) is { } g => g,
             Divide quotient when !quotient.Numerator.DependsOn(variable) =>
                 PowerOf(quotient.Denominator, -1) is { } g ? quotient.Numerator * g : null,
             Divide quotient => Quotient(quotient.Numerator, quotient.Denominator),

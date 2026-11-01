@@ -189,8 +189,32 @@ ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x)
 
 ## Trigonometric and hyperbolic functions
 
-A rational function of sin x and cos x, tan, cot, sec and csc among them, is one of t by
-Bioche's rules: t = cos x where the integrand is odd in sin x, t = sin x where it is odd in
+A quotient of p + q cos u + r sin u by D = a + b cos u + c sin u, for a linear u and any
+numbers, rational or not, is in the table. The numerator is alpha D + beta D' + gamma, and 1/D
+gives an arctangent with a denominator that stays positive for a^2 > b^2 + c^2, a logarithm for
+a^2 < b^2 + c^2 and a quotient between:
+
+```csharp
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("1/(sqrt(2) + cos(x))").Integrate("x").Print();  // x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))
+ExprParser.Parse("1/(3 + 5*sin(x))").Integrate("x").Print();      // (1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))
+ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();   // x + cos(x) / (sin(x) + 1)
+```
+
+The textbook (2/sqrt(3)) atan(tan(x/2)/sqrt(3)) for 1/(2 + cos(x)) jumps by pi where tan(x/2) is
+undefined, though the integrand isn't. This one goes on through those points, so F(b) - F(a) is
+the definite integral across them too. Over a whole period of 1/(2 + cos x) it is 2 pi/sqrt(3):
+
+```csharp
+var f = ExprParser.Parse("1/(2 + cos(x))");
+var antiderivative = f.Integrate("x");
+
+antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // 3.6275987284684357
+f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
+```
+
+Any other rational function of sin x and cos x, tan, cot, sec and csc among them, is one of t
+by Bioche's rules: t = cos x where the integrand is odd in sin x, t = sin x where it is odd in
 cos x, and t = tan x where it is unchanged when both change sign. sin(k x) and cos(k x) are
 written in sin x and cos x first, and the argument may be any linear expression. Where several
 rules apply, the shortest result is taken:
@@ -205,23 +229,12 @@ ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(co
 Where no rule applies, t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2):
 
 ```csharp
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();       // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
-ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();  // x + 2 / (tan(x / 2) + 1)
+ExprParser.Parse("1/(1 + sin(x))^2").Integrate("x").Print();   // -2 * (3tan(x / 2)^2 + 3tan(x / 2) + 2) / (3(tan(x / 2) + 1)^3)
 ```
 
-In t, 1/(2 + cos(x)) gives (2/sqrt(3)) atan(tan(x/2)/sqrt(3)), which jumps by pi where tan(x/2)
-is undefined, though the integrand doesn't. An arctangent atan(p tan(u) + q) is written instead
-as the angle that goes on through those points, u + atan(...) of sin(2u) and cos(2u) with a
-denominator that stays positive, so F(b) - F(a) is the definite integral across them too. Over a
-whole period of 1/(2 + cos x) it is 2 pi/sqrt(3):
-
-```csharp
-var f = ExprParser.Parse("1/(2 + cos(x))");
-var antiderivative = f.Integrate("x");
-
-antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // 3.6275987284684357
-f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
-```
+An arctangent atan(p tan(u) + q) from t = tan u or t = tan(u/2) jumps the same way, and is
+written as the angle that goes on, u + atan(...) of sin(2u) and cos(2u) with a denominator that
+stays positive, as for 1/(sin(x)^2 + 4cos(x)^2) above.
 
 A rational function of exp, sinh and cosh is one of t = exp(x), and quotients of equal powers of
 sin and cos, or sinh and cosh, are powers of tan, cot, tanh or coth:
@@ -318,6 +331,8 @@ function:
 ```csharp
 ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // (1/2) * ln(x^2 + 1) - atan(x) * i
 ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
+ExprParser.Parse("tan(x + i)").Integrate("x").Print();
+// (-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x + 2atan(-sin(2x) / (cos(2x) + exp(2)))) * i
 ```
 
 The parts are those of sums, products, quotients and integer powers, of the trigonometric and

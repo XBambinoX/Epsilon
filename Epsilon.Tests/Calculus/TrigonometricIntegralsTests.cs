@@ -39,6 +39,18 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(2 + cos(3*x + 1))")]
     [InlineData("1/(2 + cos(x))^2")]
     [InlineData("x/(1 + cos(x))")]
+    [InlineData("1/(sqrt(2) + cos(x))")]
+    [InlineData("1/(2 + sqrt(2)*cos(x))")]
+    [InlineData("1/(pi + cos(x) - sin(x))")]
+    [InlineData("1/(cos(x) + cosh(1))")]
+    [InlineData("1/(cos(x) - sqrt(5))")]
+    [InlineData("1/(sqrt(3) + cos(x/2))")]
+    [InlineData("1/(1 + 2*cos(x))")]
+    [InlineData("1/(1/2 + cos(x))")]
+    [InlineData("1/(sqrt(2) + sin(x) + cos(x))")]
+    [InlineData("(1 + sin(x))/(sqrt(2) + cos(x))")]
+    [InlineData("(2 - 3*cos(x))/(sqrt(7) + sin(x) + cos(x))")]
+    [InlineData("1/(1 + sin(x))^2")]
     [InlineData("x^2/sqrt(1 - x^2)")]
     [InlineData("sqrt(4 - x^2)/x^2")]
     [InlineData("(1 - x^2)^(3/2)")]
@@ -128,20 +140,39 @@ public class TrigonometricIntegralsTests
 
     // Neither odd nor even: t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2).
     [Fact]
-    public void The_half_angle()
+    public void The_half_angle() =>
+        Assert.Equal("-2 * (3tan(x / 2)^2 + 3tan(x / 2) + 2) / (3(tan(x / 2) + 1)^3)", Integral("1/(1 + sin(x))^2"));
+
+    // (p + q cos u + r sin u)/(a + b cos u + c sin u) with numbers, rational or not, from the table:
+    // alpha u + beta ln|D| and gamma times the integral of 1/D, which is an arctangent with a
+    // denominator that stays positive for a^2 > b^2 + c^2, a logarithm for a^2 < b^2 + c^2 and a
+    // quotient between.
+    [Fact]
+    public void Linear_in_cos_and_sin_over_linear_in_cos_and_sin()
     {
         Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
-        Assert.Equal("(1/4) * x + (1/2) * atan(sin(x) / (-cos(x) + 3))", Integral("1/(5 - 3*cos(x))"));
-        Assert.Equal("x + 2 / (tan(x / 2) + 1)", Integral("sin(x)/(1 + sin(x))"));
-        Assert.Equal("ln(tan(x / 2)^2 + 1) + tan(x / 2)", Integral("(1 + sin(x))/(1 + cos(x))"));
+        Assert.Equal("(1/4) * (x + 2atan(sin(x) / (-cos(x) + 3)))", Integral("1/(5 - 3*cos(x))"));
+        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
+        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + exp(1)))) / sinh(1)", Integral("1/(cos(x) + cosh(1))"));
+        Assert.Equal("10 * (x + 2atan((4cos(x) - 9sin(x)) / (4sin(x) + 9cos(x) + sqrt(3) + 10))) / sqrt(3)",
+            Integral("1/(1 + 0.9*cos(x) + 0.4*sin(x))"));
+
+        Assert.Equal("(1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))", Integral("1/(3 + 5*sin(x))"));
+        Assert.Equal("ln(abs((-cos(x) + sin(x) + sqrt(2)) / (cos(x) + sin(x)))) / sqrt(2)", Integral("1/(sin(x) + cos(x))"));
+
+        Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
+        Assert.Equal("sin(x) / (cos(x) + 1) - ln(abs(cos(x) + 1))", Integral("(1 + sin(x))/(1 + cos(x))"));
+        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1)) - ln(abs(cos(x) + sqrt(2)))", Integral("(1 + sin(x))/(sqrt(2) + cos(x))"));
     }
 
     // atan(p tan(u) + q) jumped by pi where tan u does, and F(2 pi) - F(0) of 1/(2 + cos(x)) was 0.
     // Written as the angle that goes on, F(b) - F(a) is the integral across those points, also
-    // where q^2 > 4p, as for the third, and the denominator of the plain u + atan(N/D) vanishes.
+    // where q^2 > 4p, as for sin^2 + 6 sin cos + 10 cos^2, and the denominator of the plain
+    // u + atan(N/D) vanishes; and so it is with the table's 1/(a + b cos u + c sin u).
     [Theory]
     [InlineData("1/(2 + cos(x))", 0, 2 * Math.PI)]
     [InlineData("1/(1 + sin(x)^2)", -5, 12)]
+    [InlineData("1/(sin(x)^2 + 6*sin(x)*cos(x) + 10*cos(x)^2)", -5, 9)]
     [InlineData("1/(1 + 0.9*cos(x) + 0.4*sin(x))", -7, 9)]
     [InlineData("1/(2 - sin(x))", 0, 20)]
     [InlineData("1/(2 + cos(3*x + 1))", 0, 5)]
@@ -149,6 +180,10 @@ public class TrigonometricIntegralsTests
     [InlineData("sin(x)^2/(1 + cos(x)^2)", 0, 10)]
     [InlineData("1/(1 + sin(x)*cos(x))", -3, 8)]
     [InlineData("1/(5 - 4*cos(x))", 0, 30)]
+    [InlineData("1/(sqrt(2) + cos(x))", -7, 20)]
+    [InlineData("1/(pi + cos(x) - sin(x))", -10, 10)]
+    [InlineData("1/(cos(x) + cosh(1))", 0, 40)]
+    [InlineData("(2 - 3*cos(x))/(sqrt(7) + sin(x) + cos(x))", -6, 13)]
     public void The_antiderivative_goes_on_where_tan_is_undefined(string integrand, double a, double b)
     {
         var f = ExprParser.Parse(integrand);

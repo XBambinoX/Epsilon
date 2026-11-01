@@ -84,8 +84,6 @@ internal sealed partial class IntegrationTable
         Expr angle = flat && level ? u : u + new Atan(ratio.Simplify());
         return sign < 0 ? -angle : angle;
 
-        static Expr Exact(Expr e) => QuadraticSurd.Of(e)?.ToExpr() ?? e.Simplify();
-
         // n/(k + wave) with the constant k positive: sin(2x)/(2sqrt(2) + 3 - cos(2x)).
         static Expr Over(Expr n, Expr k, Expr wave) => k.Evaluate() < 0 ? -n / ((-k).Simplify() - wave) : n / (k + wave);
     }
