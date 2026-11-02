@@ -4,8 +4,9 @@ namespace Epsilon.Calculus;
 
 // The series of an expression in t = x - a, built up from those of its parts: sums term by term,
 // products and quotients from the lowest terms of the factors, powers by the binomial series,
-// and other functions by their Taylor series at the constant term of the argument.
-internal sealed class SeriesExpander(string variable, Expr point)
+// and other functions by their Taylor series at the constant term of the argument. With
+// logarithm, ln(t) is that expression, as for limits, where t is exp(-x) and ln(t) is -x.
+internal sealed class SeriesExpander(string variable, Expr point, Expr? logarithm = null)
 {
     // How far past a lower bound the first nonzero term of a sum is looked for; beyond it the sum
     // is taken as 0, as sin(x)^2 + cos(x)^2 - 1 is.
@@ -199,15 +200,31 @@ internal sealed class SeriesExpander(string variable, Expr point)
         return Expansion.Constant(step.WithChildren([at]).Evaluate(), precision);
     }
 
-    // ln(c t^v (1 + u)) has ln(t) in it unless v is 0.
+    // ln(c t^v (1 + u)) = ln(c) + v ln(t) + ln(1 + u), which has ln(t) in it unless v is 0.
     private Expansion Logarithm(UnaryExpr ln, Rational precision)
     {
         if (Valuation(ln.Argument) is not { } v)
             throw new NotSupportedException($"{ln.Print()} is ln(0) next to {At}.");
-        if (v != 0)
+        if (v == 0)
+            return Analytic(ln, precision);
+        if (logarithm is null)
             throw new NotSupportedException($"{ln.Print()} has a logarithm of {variable} in its series at {At}.");
+        if (precision <= 0)
+            return Expansion.Zero(precision);
 
-        return Analytic(ln, precision);
+        Expansion expanded = Expand(ln.Argument, precision + v);
+        Expr lead = expanded.Leading;
+        if (lead.GetVariables().Count == 0 && !ComplexParts.HasImaginaryUnit(lead) && lead.Evaluate() < 0)
+            throw new NotSupportedException($"{ln.Argument.Print()} is negative next to {At}, where its logarithm isn't real.");
+
+        Expansion u = Relative(expanded, v), sum = Expansion.Zero(precision), power = Expansion.Constant(1, precision);
+        for (int j = 1; u.Valuation is { } step && j * step < precision; j++)
+        {
+            power = power.Times(u).Truncated(precision);
+            sum = sum.Plus(power.Scaled(new Rational(j % 2 == 1 ? 1 : -1, j)));
+        }
+
+        return sum.Plus((new Ln(lead) + v * logarithm).Simplify()).Truncated(u.Precision).OnRight(u.RightSided);
     }
 
     // f(s) = f(s0) + the integral of f'(s) s' for an inverse function f, whose derivative is

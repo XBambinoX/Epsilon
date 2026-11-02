@@ -14,7 +14,8 @@ here.
 [Hessians and critical points](#hessians-and-critical-points) -
 [Numeric integration](#numeric-integration) -
 [Symbolic integration](#symbolic-integration) -
-[Series](#series)
+[Series](#series) -
+[Limits](#limits)
 
 The operations are extension members, called like members of `Expr` and `Vector<Expr>`:
 `f.Gradient("x", "y")`, `field.Curl("x", "y", "z")`. The variables of `Gradient`, `Hessian`,
@@ -111,3 +112,40 @@ A series c (x - a)^q + ... + O((x - a)^Order) with rational exponents.
 | `Expr Coefficient(Rational exponent)` | The coefficient of (x - a)^exponent, 0 where there is no term. Throws `ArgumentOutOfRangeException` for an exponent of `Order` or more. |
 | `Expr ToExpr()` | The sum of the terms as an expression in the variable. |
 | `string Print()` | The terms by increasing exponent and the remainder, as in `1 - (1/6) * x^2 + O(x^3)`; `ToString` is the same. |
+
+## Limits
+
+### `LimitExtensions` (static class)
+
+| Member | Description |
+|---|---|
+| `Limit Limit(string variable, Expr point, LimitDirection direction = LimitDirection.Both)` | The exact limit as the variable tends to the point, from both sides or one; other variables are constants. Throws `ArgumentException` if the point has the variable, `InvalidOperationException` if the two sides differ or the expression isn't real on the side, `NotSupportedException` where the limit isn't found, as where a part oscillates. |
+| `Limit Limit(string variable, double point, LimitDirection direction = LimitDirection.Both)` | The same with the point a `double`: `double.PositiveInfinity` and `double.NegativeInfinity` are inf and -inf, and a finite one is its decimal. Throws `ArgumentException` for NaN or a side beyond an infinite point. |
+| `Limit Limit(Expr point, LimitDirection direction = LimitDirection.Both)` | The limit by the expression's only variable. Throws `InvalidOperationException` if it has more than one. |
+| `Limit Limit(double point, LimitDirection direction = LimitDirection.Both)` | The same with the point a `double`. |
+
+### `Limit` (class)
+
+A limit: an exact value, or inf or -inf.
+
+| Member | Description |
+|---|---|
+| `LimitKind Kind` | Whether it is a value or an infinity. |
+| `Expr Value` | The value of a finite limit. Throws `InvalidOperationException` for inf and -inf. |
+| `string Print()` | The value, or `inf` or `-inf`; `ToString` is the same. |
+
+### `LimitKind` (enum)
+
+| Value | Description |
+|---|---|
+| `Finite` | The expression tends to a value. |
+| `PositiveInfinity` | It grows without bound. |
+| `NegativeInfinity` | It falls without bound. |
+
+### `LimitDirection` (enum)
+
+| Value | Description |
+|---|---|
+| `Both` | From both sides: the limit exists where they agree. |
+| `Left` | From the left, x < a. |
+| `Right` | From the right, x > a. |

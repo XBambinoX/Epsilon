@@ -139,6 +139,9 @@ ExprParser.Parse("ln(x)").Series("x", 0, 3);
 | `sqrt(x - 2)` | 0 | not real there |
 | `floor(x)` | 1 | a jump |
 
+Their [limits](limits.md) are found all the same: x ln(x) at 0 is 0, and exp(1/x) at 0 is 0
+from the left and inf from the right.
+
 A point given as a `double` that isn't the exact point, as `Math.PI / 2` for tan(x), gives the
 series at that decimal, with coefficients such as tan(15707963267949/10000000000000).
 

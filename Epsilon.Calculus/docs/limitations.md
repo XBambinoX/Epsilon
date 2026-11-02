@@ -90,6 +90,22 @@ is updated with it. The expressions have
 - **A point given as a double is its decimal**, as for the core's numbers: `tan(x)` at
   `Math.PI / 2` is expanded at 15707963267949/10000000000000, without its pole.
 
+## Limits
+
+- **Oscillations are settled by a few rules only**, see [Oscillations](limits.md#oscillations):
+  `x/(2 + sin(x))` at inf, which is inf, throws `NotSupportedException`, and so does an
+  oscillation without a limit, `sin(1/x)` at 0, where `InvalidOperationException` would say
+  that there is none.
+- **Rates of growth at an irrational ratio in one sum**: `2^x - 3^x` and `x^pi - x^2` at inf
+  throw `NotSupportedException`. In one product or under one logarithm they are found:
+  2^x/3^x at inf is 0, and (2^x + 3^x)^(1/x) is 3.
+- **Real expressions only**: `exp((i - 1)*x)` at inf, which is 0, throws.
+- **A coefficient with a symbol is taken as other than 0**, as in series, and with symbols the
+  side an expression isn't real on isn't left out: `sqrt(x - a)` at x = a throws, though from
+  the right it is 0.
+- **A point given as a double is its decimal**: `tan(x)` at `Math.PI / 2` is
+  tan(15707963267949/10000000000000), a number, not a limit from two sides of a pole.
+
 ## Derivatives
 
 - **floor, ceiling, round, sign, min and max have no derivatives** in the core yet, so

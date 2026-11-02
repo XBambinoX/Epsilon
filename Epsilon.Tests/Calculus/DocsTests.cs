@@ -720,6 +720,123 @@ public class CalculusSeriesDocTests
     public void The_message() =>
         Assert.Equal("ln(x) has a logarithm of x in its series at x = 0.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse("ln(x)").Series("x", 0, 3)).Message);
+
+    [Fact]
+    public void Their_limits()
+    {
+        Assert.Equal("0", ExprParser.Parse("x*ln(x)").Limit("x", 0).Print());
+        Assert.Equal("0", ExprParser.Parse("exp(1/x)").Limit("x", 0, LimitDirection.Left).Print());
+        Assert.Equal("inf", ExprParser.Parse("exp(1/x)").Limit("x", 0, LimitDirection.Right).Print());
+    }
+}
+
+// Every example in Epsilon.Calculus/docs/limits.md.
+public class CalculusLimitsDocTests
+{
+    private const double Inf = double.PositiveInfinity;
+
+    [Fact]
+    public void Limits_at_a_point()
+    {
+        Assert.Equal("1", ExprParser.Parse("sin(x)/x").Limit("x", 0).Print());
+        Assert.Equal("1/2", ExprParser.Parse("(1 - cos(x))/x^2").Limit("x", 0).Print());
+        Assert.Equal("12", ExprParser.Parse("(x^3 - 8)/(x - 2)").Limit("x", 2).Print());
+        Assert.Equal("0", ExprParser.Parse("x*ln(x)").Limit("x", 0).Print());
+        Assert.Equal("exp(-1/2)", ExprParser.Parse("cos(x)^(1/x^2)").Limit("x", 0).Print());
+        Assert.Equal("inf", ExprParser.Parse("1/(x - 2)^2").Limit("x", 2).Print());
+
+        Assert.Equal("314159265358979/100000000000000", new Constant(Math.PI).Print());
+        Assert.Equal("-1", ExprParser.Parse("sin(x)/(x - pi)").Limit("x", ExprParser.Parse("pi")).Print());
+        Assert.Equal("-1", ExprParser.Parse("sin(x)/(x - pi)").Limit("x", new Pi()).Print());
+        Assert.Equal("1", ExprParser.Parse("sin(t)/t").Limit(0).Print());
+    }
+
+    [Fact]
+    public void At_infinity()
+    {
+        Assert.Equal("e", ExprParser.Parse("(1 + 1/x)^x").Limit("x", Inf).Print());
+        Assert.Equal("1/2", ExprParser.Parse("sqrt(x^2 + x) - x").Limit("x", Inf).Print());
+        Assert.Equal("0", ExprParser.Parse("x^7/exp(x)").Limit("x", Inf).Print());
+        Assert.Equal("0", ExprParser.Parse("ln(x)/x").Limit("x", Inf).Print());
+        Assert.Equal("3", ExprParser.Parse("(2^x + 3^x)^(1/x)").Limit("x", Inf).Print());
+        Assert.Equal("(-1/2) * π", ExprParser.Parse("atan(x)").Limit("x", double.NegativeInfinity).Print());
+        Assert.Equal("0", ExprParser.Parse("x*exp(x)").Limit("x", double.NegativeInfinity).Print());
+
+        Assert.Equal("-1", ExprParser.Parse("exp(x)*(exp(1/x - exp(-x)) - exp(1/x))").Limit("x", Inf).Print());
+    }
+
+    [Fact]
+    public void One_side()
+    {
+        var f = ExprParser.Parse("1/x");
+
+        Assert.Equal("inf", f.Limit("x", 0, LimitDirection.Right).Print());
+        Assert.Equal("-inf", f.Limit("x", 0, LimitDirection.Left).Print());
+        Assert.Equal("0", ExprParser.Parse("exp(-1/x)").Limit("x", 0, LimitDirection.Right).Print());
+        Assert.Equal("0", ExprParser.Parse("floor(x)").Limit("x", 1, LimitDirection.Left).Print());
+        Assert.Equal("inf", ExprParser.Parse("tan(x)").Limit("x", ExprParser.Parse("pi/2"), LimitDirection.Left).Print());
+
+        Assert.Throws<ArgumentException>(() => f.Limit("x", Inf, LimitDirection.Right));
+        Assert.Throws<ArgumentException>(() => f.Limit("x", double.NegativeInfinity, LimitDirection.Left));
+    }
+
+    [Fact]
+    public void Where_there_is_no_limit()
+    {
+        Assert.Equal("The limit of 1 / x at x = 0 doesn't exist: -inf from the left, inf from the right.",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/x").Limit("x", 0)).Message);
+
+        Assert.Equal("0", ExprParser.Parse("sqrt(x)").Limit("x", 0).Print());
+        Assert.Equal("-inf", ExprParser.Parse("ln(x)").Limit("x", 0).Print());
+        Assert.Equal("The limit of sqrt(x) at x = 0 from the left doesn't exist: sqrt(x) isn't real there.",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sqrt(x)").Limit("x", 0, LimitDirection.Left)).Message);
+    }
+
+    [Fact]
+    public void The_result()
+    {
+        Limit limit = ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity);
+
+        Assert.Equal(LimitKind.Finite, limit.Kind);
+        Assert.Equal(2.718281828459045, limit.Value.Evaluate());
+
+        Limit pole = ExprParser.Parse("1/x^2").Limit("x", 0);
+
+        Assert.Equal(LimitKind.PositiveInfinity, pole.Kind);
+        Assert.Equal("inf", pole.Print());
+        Assert.Equal("The limit is inf, not a value.", Assert.Throws<InvalidOperationException>(() => pole.Value).Message);
+    }
+
+    [Fact]
+    public void Symbols()
+    {
+        Assert.Equal("exp(a)", ExprParser.Parse("(1 + a/x)^x").Limit("x", Inf).Print());
+        Assert.Equal("2a", ExprParser.Parse("(x^2 - a^2)/(x - a)").Limit("x", ExprParser.Parse("a")).Print());
+        Assert.Equal("The limit of a * x as x -> inf depends on the sign of a.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("a*x").Limit("x", Inf)).Message);
+    }
+
+    [Fact]
+    public void Oscillations()
+    {
+        Assert.Equal("0", ExprParser.Parse("sin(x)/x").Limit("x", Inf).Print());
+        Assert.Equal("1", ExprParser.Parse("x/(x + sin(x))").Limit("x", Inf).Print());
+        Assert.Equal("0", ExprParser.Parse("exp(-x)*floor(x)").Limit("x", Inf).Print());
+        Assert.Equal("0", ExprParser.Parse("x*sin(1/x)").Limit("x", 0).Print());
+        Assert.Equal("The limit of sin(1 / x) at x = 0 isn't found: a part of it oscillates there.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sin(1/x)").Limit("x", 0)).Message);
+    }
+
+    [Theory]
+    [InlineData("sin(x)")]
+    [InlineData("x*sin(x)")]
+    [InlineData("x/(2 + sin(x))")]
+    [InlineData("2^x - 3^x")]
+    [InlineData("x^pi - x^2")]
+    [InlineData("exp((i - 1)*x)")]
+    [InlineData("x^a")]
+    public void What_isnt_found(string expr) =>
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse(expr).Limit("x", Inf));
 }
 
 // Every example in Epsilon.Calculus/docs/limitations.md.
@@ -779,6 +896,25 @@ public class CalculusLimitationsDocTests
         Assert.StartsWith("sqrt(2) * (x - 1)^(1/2)", ExprParser.Parse("acosh(x)").Series("x", 1, 2).Print());
         Assert.Equal("-1 / a", ExprParser.Parse("1/(x - a)").Series("x", 0, 2).Coefficient(0).Print());
         Assert.Equal("tan(15707963267949/10000000000000)", ExprParser.Parse("tan(x)").Series("x", Math.PI / 2, 1).Coefficient(0).Print());
+    }
+
+    [Fact]
+    public void Limits()
+    {
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x/(2 + sin(x))").Limit("x", double.PositiveInfinity));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sin(1/x)").Limit("x", 0));
+
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("2^x - 3^x").Limit("x", double.PositiveInfinity));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x^pi - x^2").Limit("x", double.PositiveInfinity));
+        Assert.Equal("0", ExprParser.Parse("2^x/3^x").Limit("x", double.PositiveInfinity).Print());
+        Assert.Equal("3", ExprParser.Parse("(2^x + 3^x)^(1/x)").Limit("x", double.PositiveInfinity).Print());
+
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp((i - 1)*x)").Limit("x", double.PositiveInfinity));
+
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sqrt(x - a)").Limit("x", ExprParser.Parse("a")));
+        Assert.Equal("0", ExprParser.Parse("sqrt(x - a)").Limit("x", ExprParser.Parse("a"), LimitDirection.Right).Print());
+
+        Assert.Equal("tan(15707963267949/10000000000000)", ExprParser.Parse("tan(x)").Limit("x", Math.PI / 2).Print());
     }
 
     [Fact]
