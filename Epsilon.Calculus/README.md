@@ -7,10 +7,12 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/XBambinoX/Epsilon/blob/main/LICENSE.txt)
 
-**Calculus for [Epsilon](https://www.nuget.org/packages/Epsilon).** Gradients, divergence and
-curl, Hessians, Laplacians and the second-derivative test for functions of several variables.
-Exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions
-and by the substitutions for trigonometric functions and square roots of quadratics. Numeric
+**Calculus for [Epsilon](https://www.nuget.org/packages/Epsilon).** Gradients, divergence, curl
+and potentials, Hessians, Laplacians and the second-derivative test for functions of several
+variables. Series with exact coefficients, and exact limits, at infinity too. Exact
+antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by
+the substitutions for trigonometric functions and square roots of quadratics, and exact definite
+integrals from them or from a table of classic integrals. Line integrals along curves. Numeric
 definite integrals over infinite intervals and through singularities, to all 16 digits as a
 rule, that throw for a divergent integral instead of returning a number.
 
@@ -19,7 +21,9 @@ var f = ExprParser.Parse("x^3 - 3*x + y^2");
 
 f.Gradient("x", "y").Print();                    // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));     // LocalMinimum
-ExprParser.Parse("x*exp(x)").Integrate("x").Print();   // exp(x) * x - exp(x)
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // exp(x) * x - exp(x)
+ExprParser.Parse("sin(x)/x").Limit("x", 0).Print();                 // 1
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // (1/4) * π
 ```
 
 ## Installation
@@ -49,7 +53,14 @@ f.Laplacian("x", "y").Print();    // 2y - sin(y)
 ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // (1/2) * ln(x) * x^2 - (1/4) * x^2
 ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // (1/2) * ln(abs((x - 1) / (x + 1)))
 
-// Definite integrals, numerically
+// Series and limits
+ExprParser.Parse("exp(x)").Series("x", 0, 3).Print();     // 1 + x + (1/2) * x^2 + (1/6) * x^3 + O(x^4)
+ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print();   // e
+
+// Definite integrals, exactly
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();   // (1/4) * π
+
+// and numerically
 ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);
 // 1.7724538509055159, the square root of pi
 ExprParser.Parse("ln(x)").Integrate(0, 1);   // -1, though ln(x) goes to -infinity at 0
@@ -128,20 +139,70 @@ ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(
 Where no antiderivative is found, or none made of elementary functions exists, `Integrate`
 throws `NotSupportedException`.
 
-### Definite integrals
+### Series and limits
+
+`Series` expands an expression at a point with exact coefficients, from a negative power at a
+pole, and `Limit` finds a limit exactly, from both sides or one and at inf and -inf, also where
+exponentials and logarithms compete:
+
+```csharp
+ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();    // 1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)
+ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print();    // x^-1 + (1/6) * x + O(x^2)
+
+ExprParser.Parse("x*ln(x)").Limit("x", 0).Print();                             // 0
+ExprParser.Parse("1/x").Limit("x", 0, LimitDirection.Right).Print();           // inf
+ExprParser.Parse("x^7/exp(x)").Limit("x", double.PositiveInfinity).Print();    // 0
+```
+
+### Exact definite integrals
+
+`IntegrateExact` takes F(b) - F(a) with the limits of the antiderivative where it is undefined
+and its jumps taken off, to inf and -inf too. Integrals without an elementary antiderivative,
+as the Gaussian and Dirichlet integrals, come from a table. A divergent integral throws:
+
+```csharp
+var inf = double.PositiveInfinity;
+
+ExprParser.Parse("ln(x)").IntegrateExact("x", 0, 1).Print();            // -1
+ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();    // (1/4) * π * sqrt(2)
+ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();   // sqrt(π)
+ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();       // π / 2
+
+ExprParser.Parse("1/x").IntegrateExact("x", -1, 1);
+// InvalidOperationException: The integral of 1 / x from -1 to 1 diverges at x = 0.
+```
+
+### Numeric definite integrals
 
 `Integrate(a, b)` computes a definite integral numerically, over finite and infinite
 intervals. The interval is split where the expression may be singular, has a kink or a jump, or
-has a peak or a step, and singular ends lose no accuracy. A divergent integral throws:
+has a peak or a step, singular ends lose no accuracy, and towards an infinity sines and cosines
+are taken apart. A divergent integral throws:
 
 ```csharp
 ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1);    // 3.141592653589763
 ExprParser.Parse("abs(x)^(-2/3)").Integrate(-1, 8);      // 8.999999999999998
 ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 1.772453850905513
+ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity);   // 1.5707963267948968
 ExprParser.Parse("exp(x^2)").Integrate(0, 1);            // 1.4626517459071819, with no antiderivative
 
 ExprParser.Parse("1/x").Integrate(0, 1);
 // InvalidOperationException: The integral diverges at x = 0, or converges there too slowly for double precision.
+```
+
+### Line integrals
+
+A `Curve` is a point whose entries are expressions of a parameter, or several such pieces, and
+`LineIntegral` and `LineIntegralExact` integrate an expression along it by arc length and a
+vector field along its direction. `Potential` finds a function whose gradient a field is:
+
+```csharp
+var t = new Variable("t");
+var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
+
+ExprParser.Parse("1").LineIntegralExact(circle, "x", "y").Print();           // 2 * π
+Vector<Expr>.Parse("[-y, x]").LineIntegralExact(circle, "x", "y").Print();   // 2 * π
+Vector<Expr>.Parse("[2*x*y, x^2]").Potential("x", "y").Print();              // x^2 * y
 ```
 
 ## Good to know
@@ -151,7 +212,10 @@ ExprParser.Parse("1/x").Integrate(0, 1);
   letters, with `e` read as Euler's number and `i` as the imaginary unit.
 - floor, ceiling, round, sign, min and max have no derivatives in the core yet, so gradients and
   Hessians of them throw. `Integrate(a, b)` takes all of them, and `Integrate("x")` sign, min
-  and max.
+  and max, and floor, ceiling and round of a linear argument.
+- `Integrate("x", 0, 1)` with numbers for the limits is the numeric integral, a `double`; the
+  exact one is `IntegrateExact`. A `double` limit or point is the decimal it prints as, so give
+  pi as `new Pi()`: `Math.PI` takes sin(x) from 0 to 314159265358979/100000000000000.
 - The last digit or two of a numeric integral can differ from one system to another, whose C
   libraries round sinh, cosh and tanh differently in the last bit.
 - Gradients are the `Vector<T>` of Epsilon.LinearAlgebra, which clashes with that of

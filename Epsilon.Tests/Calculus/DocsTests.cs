@@ -41,6 +41,8 @@ public class CalculusReadmeExamplesTests
         Assert.Equal("[3x^2 - 3, 2y]", f.Gradient("x", "y").Print());
         Assert.Equal(CriticalPointKind.LocalMinimum, f.ClassifyCriticalPoint(("x", 1), ("y", 0)));
         Assert.Equal("exp(x) * x - exp(x)", Integral("x*exp(x)"));
+        Assert.Equal("1", ExprParser.Parse("sin(x)/x").Limit("x", 0).Print());
+        Assert.Equal("(1/4) * π", ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print());
     }
 
     [Fact]
@@ -52,6 +54,11 @@ public class CalculusReadmeExamplesTests
 
         Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
         Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", Integral("1/(x^2 - 1)"));
+
+        Assert.Equal("1 + x + (1/2) * x^2 + (1/6) * x^3 + O(x^4)", ExprParser.Parse("exp(x)").Series("x", 0, 3).Print());
+        Assert.Equal("e", ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print());
+
+        Assert.Equal("(1/4) * π", ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print());
 
         Shown.Equal(1.7724538509055159, ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
         Shown.Equal(-1, ExprParser.Parse("ln(x)").Integrate(0, 1));
@@ -105,11 +112,47 @@ public class CalculusReadmeExamplesTests
     }
 
     [Fact]
-    public void Definite_integrals()
+    public void Series_and_limits()
+    {
+        Assert.Equal("1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)", ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print());
+        Assert.Equal("x^-1 + (1/6) * x + O(x^2)", ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print());
+
+        Assert.Equal("0", ExprParser.Parse("x*ln(x)").Limit("x", 0).Print());
+        Assert.Equal("inf", ExprParser.Parse("1/x").Limit("x", 0, LimitDirection.Right).Print());
+        Assert.Equal("0", ExprParser.Parse("x^7/exp(x)").Limit("x", double.PositiveInfinity).Print());
+    }
+
+    [Fact]
+    public void Exact_definite_integrals()
+    {
+        var inf = double.PositiveInfinity;
+
+        Assert.Equal("-1", ExprParser.Parse("ln(x)").IntegrateExact("x", 0, 1).Print());
+        Assert.Equal("(1/4) * π * sqrt(2)", ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print());
+        Assert.Equal("π / 2", ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("The integral of 1 / x from -1 to 1 diverges at x = 0.",
+            Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/x").IntegrateExact("x", -1, 1)).Message);
+    }
+
+    [Fact]
+    public void Line_integrals()
+    {
+        var t = new Variable("t");
+        var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
+
+        Assert.Equal("2 * π", ExprParser.Parse("1").LineIntegralExact(circle, "x", "y").Print());
+        Assert.Equal("2 * π", Vector<Expr>.Parse("[-y, x]").LineIntegralExact(circle, "x", "y").Print());
+        Assert.Equal("x^2 * y", Vector<Expr>.Parse("[2*x*y, x^2]").Potential("x", "y").Print());
+    }
+
+    [Fact]
+    public void Numeric_definite_integrals()
     {
         Shown.Equal(3.141592653589763, ExprParser.Parse("1/sqrt(1 - x^2)").Integrate(-1, 1));
         Shown.Equal(8.999999999999998, ExprParser.Parse("abs(x)^(-2/3)").Integrate(-1, 8));
         Shown.Equal(1.772453850905513, ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity));
+        Shown.Equal(1.5707963267948968, ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity));
         Shown.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
 
         Assert.Equal("The integral diverges at x = 0, or converges there too slowly for double precision.",
@@ -126,6 +169,11 @@ public class CalculusReadmeExamplesTests
         Shown.Equal(4.500000000000001, ExprParser.Parse("floor(x)").Integrate(0, 3.5));
         Assert.Equal("abs(x)", Integral("sign(x)"));
         Assert.NotNull(ExprParser.Parse("max(x, 0)").Integrate("x"));
+        Assert.Equal("floor(x) * x - (1/2) * (floor(x) + 1) * floor(x)", Integral("floor(x)"));
+
+        Assert.IsType<double>(ExprParser.Parse("x").Integrate("x", 0, 1));
+        Assert.Equal("-cos(314159265358979/100000000000000) + 1", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print());
+        Assert.Equal("2", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, new Pi()).Print());
     }
 }
 

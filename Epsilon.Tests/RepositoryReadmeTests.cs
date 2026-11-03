@@ -40,6 +40,8 @@ public class RepositoryReadmeExamplesTests
         Assert.Equal(CriticalPointKind.LocalMinimum, f.ClassifyCriticalPoint(("x", 1), ("y", 0)));
         Assert.Equal("exp(x) * x - exp(x)", ExprParser.Parse("x*exp(x)").Integrate("x").Print());
         Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print());
+        Assert.Equal("e", ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print());
+        Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity).Print());
         Assert.Equal(-4, ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1));
     }
 }
