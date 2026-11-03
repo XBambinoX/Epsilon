@@ -82,7 +82,9 @@ public static class ExactIntegrationExtensions
         /// The exact definite integral by <paramref name="variable"/> from <paramref name="a"/> to
         /// <paramref name="b"/>, either of which may be <see cref="double.PositiveInfinity"/> or
         /// <see cref="double.NegativeInfinity"/>: <c>exp(-x)</c> from 0 to inf is 1, the limit of
-        /// the antiderivative there. A finite limit is the decimal it prints as. See
+        /// the antiderivative there. Without an elementary antiderivative, the classic integrals
+        /// come from a table: <c>exp(-x^2)</c> over the line is sqrt(pi), and <c>sin(x)/x</c> from 0
+        /// to inf is pi/2. A finite limit is the decimal it prints as. See
         /// <see cref="IntegrateExact(Expr, string, Expr, Expr)"/>.
         /// </summary>
         /// <exception cref="ArgumentException">A limit is NaN.</exception>
@@ -207,7 +209,20 @@ public static class ExactIntegrationExtensions
             if (symmetric && Odd() && Bounded(low, high, numeric) && (!a.IsInfinite || Decays()))
                 return 0;
 
-            Expr antiderivative = f.Integrate(variable);
+            Expr antiderivative;
+            try
+            {
+                antiderivative = f.Integrate(variable);
+            }
+            catch (NotSupportedException)
+            {
+                if ((numeric ? Classic(low, high) : null) is { } value)
+                    return Tidied(sign * value);
+                if (Termwise() is { } total)
+                    return total;
+                throw;
+            }
+
             var parts = Parts(antiderivative);
             var symbols = parts.SelectMany(part => part.GetVariables()).Where(name => name != variable)
                 .Concat(numeric || parts.Count == 0 ? [] : new[] { a.Exact, b.Exact }.OfType<Expr>().SelectMany(end => end.GetVariables()))
@@ -234,6 +249,61 @@ public static class ExactIntegrationExtensions
             }
 
             return Tidied(sign * sum);
+        }
+
+        // The integrals without an elementary antiderivative that are known over the line, the
+        // half-line from 0, (-inf, 0] by x -> -x, [0, 1], [0, pi/2] and [0, pi], and an even
+        // integrand over the line as twice that over the half-line and back.
+        private Expr? Classic(Bound low, Bound high)
+        {
+            bool Zero(Bound end) => end.Exact is Constant { Value.IsZero: true };
+            bool At(Bound end, Expr point) => !end.IsInfinite && (end.Exact! - point).Simplify() is Constant { Value.IsZero: true };
+            Expr? HalfLine(Expr g) => ClassicIntegrals.HalfLine(g, variable) ?? (Even(g) && ClassicIntegrals.Line(g, variable) is { } line ? line / 2 : null);
+
+            try
+            {
+                if (low.IsInfinite && high.IsInfinite)
+                    return ClassicIntegrals.Line(f, variable) ?? (Even(f) && HalfLine(f) is { } half ? 2 * half : null);
+                if (Zero(low) && high.IsInfinite)
+                    return HalfLine(f);
+                if (low.IsInfinite && Zero(high))
+                    return HalfLine(Reflected(f.Substitute(variable, -new Variable(variable)).Simplify()).Simplify());
+                if (Zero(low) && At(high, 1))
+                    return ClassicIntegrals.Unit(f, variable);
+                if (Zero(low) && At(high, new Pi() / 2))
+                    return ClassicIntegrals.LogSine(f, variable, wholeTurn: false);
+                if (Zero(low) && At(high, new Pi()))
+                    return ClassicIntegrals.LogSine(f, variable, wholeTurn: true);
+                return null;
+            }
+            catch (Gruntz.UnknownSign e)
+            {
+                throw new NotSupportedException($"{Integral} isn't found: it depends on the sign of {e.Constant.Print()}.", e);
+            }
+        }
+
+        // A sum term by term, where each term converges.
+        private Expr? Termwise()
+        {
+            var terms = new List<Expr>();
+            Terms(f, false, terms);
+            if (terms.Count < 2)
+                return null;
+
+            try
+            {
+                return Tidied(terms.Aggregate((Expr)0, (sum, term) => sum + new Definite(term.Simplify(), variable, a, b).Value()));
+            }
+            catch (Exception e) when (e is InvalidOperationException or NotSupportedException)
+            {
+                return null;
+            }
+        }
+
+        private bool Even(Expr g)
+        {
+            Expr difference = Reflected(g.Substitute(variable, -new Variable(variable)).Simplify()) - g;
+            return difference.Simplify() is Constant { Value.IsZero: true } || difference.Expand().Simplify() is Constant { Value.IsZero: true };
         }
 
         private List<Expr> Parts(Expr e) =>

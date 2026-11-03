@@ -206,6 +206,81 @@ public class ExactIntegrationTests
         Assert.EndsWith($"diverges at {at}.", e.Message);
     }
 
+    // Integrands without an elementary antiderivative, over the intervals they are known on.
+    [Theory]
+    [InlineData("exp(-x^2)", "-inf", "inf", "sqrt(π)")]
+    [InlineData("exp(-x^2)", "0", "inf", "sqrt(π) / 2")]
+    [InlineData("exp(-x^2)", "-inf", "0", "sqrt(π) / 2")]
+    [InlineData("exp(-x^2)", "inf", "0", "-sqrt(π) / 2")]
+    [InlineData("exp(-x^2/2)/sqrt(2*pi)", "-inf", "inf", "1")]
+    [InlineData("x^2*exp(-x^2/2)/sqrt(2*pi)", "-inf", "inf", "1")]
+    [InlineData("x^2*exp(-x^2)", "-inf", "inf", "(1/2) * sqrt(π)")]
+    [InlineData("x^4*exp(-x^2)", "0", "inf", "3sqrt(π) / 8")]
+    [InlineData("(1 + x^2)*exp(-x^2)", "-inf", "inf", "(3/2) * sqrt(π)")]
+    [InlineData("exp(-(x-1)^2)", "-inf", "inf", "sqrt(π)")]
+    [InlineData("exp(-2*x^2 + 3*x + 1)", "-inf", "inf", "exp(17/8) * sqrt(π / 2)")]
+    [InlineData("x*exp(-2*x^2 + 3*x + 1)", "-inf", "inf", "(3/4) * exp(17/8) * sqrt(π / 2)")]
+    [InlineData("x^3*exp(-x^2 + x)", "-inf", "inf", "(7/8) * exp(1/4) * sqrt(π)")]
+    [InlineData("cos(x)*exp(-x^2)", "-inf", "inf", "exp(-1/4) * sqrt(π)")]
+    [InlineData("cos(x)*exp(-x^2)", "0", "inf", "exp(-1/4) * sqrt(π) / 2")]
+    [InlineData("cos(2*x)*exp(-x^2 + x)", "-inf", "inf", "cos(1) * exp(-3/4) * sqrt(π)")]
+    [InlineData("sin(2*x)*exp(-x^2 + x)", "-inf", "inf", "exp(-3/4) * sin(1) * sqrt(π)")]
+    [InlineData("sqrt(x)*exp(-x)", "0", "inf", "sqrt(π) / 2")]
+    [InlineData("exp(-x)/sqrt(x)", "0", "inf", "sqrt(π)")]
+    [InlineData("x^(3/2)*exp(-2*x)", "0", "inf", "3sqrt(π) / (16sqrt(2))")]
+    [InlineData("sin(x)/x", "0", "inf", "π / 2")]
+    [InlineData("sin(x)/x", "-inf", "inf", "π")]
+    [InlineData("sin(-2*x)/x", "0", "inf", "-π / 2")]
+    [InlineData("sin(x)^2/x^2", "0", "inf", "π / 2")]
+    [InlineData("sin(2*x)^2/x^2", "-inf", "inf", "2 * π")]
+    [InlineData("exp(-x)*sin(x)/x", "0", "inf", "π / 4")]
+    [InlineData("exp(-2*x)*sin(3*x)/x", "0", "inf", "atan(3/2)")]
+    [InlineData("sin(x^2)", "0", "inf", "sqrt(π / 2) / 2")]
+    [InlineData("cos(x^2)", "-inf", "inf", "sqrt(π / 2)")]
+    [InlineData("x/(exp(x) - 1)", "0", "inf", "(1/6) * π^2")]
+    [InlineData("x^3/(exp(x) - 1)", "0", "inf", "(1/15) * π^4")]
+    [InlineData("x^5/(exp(2*x) - 1)", "0", "inf", "π^6 / 504")]
+    [InlineData("x/(exp(x) + 1)", "0", "inf", "(1/12) * π^2")]
+    [InlineData("x^3/(exp(x) + 1)", "0", "inf", "(7/120) * π^4")]
+    [InlineData("ln(x)/(1 - x)", "0", "1", "(-1/6) * π^2")]
+    [InlineData("ln(x)/(x - 1)", "0", "1", "(1/6) * π^2")]
+    [InlineData("ln(x)/(1 + x)", "0", "1", "(-1/12) * π^2")]
+    [InlineData("ln(1 + x)/x", "0", "1", "(1/12) * π^2")]
+    [InlineData("ln(1 - x)/x", "0", "1", "(-1/6) * π^2")]
+    [InlineData("ln(sin(x))", "0", "pi/2", "-ln(2) * π / 2")]
+    [InlineData("ln(cos(x))", "0", "pi/2", "-ln(2) * π / 2")]
+    [InlineData("ln(sin(x))", "0", "pi", "-ln(2) * π")]
+    [InlineData("exp(-x^2) + exp(-x)", "0", "inf", "(1/2) * sqrt(π) + 1")]
+    public void Classic_integrals(string expr, string a, string b, string integral)
+    {
+        Expr value = Improper(expr, a, b);
+        Assert.Equal(integral, value.Print());
+
+        // The numeric integral doesn't take the oscillation of sin(x^2) apart.
+        if (!expr.Contains("(x^2)"))
+            Assert.Equal(ExprParser.Parse(expr).Integrate("x", Bound(a), Bound(b)), value.Evaluate(), 1e-9);
+    }
+
+    private static double Bound(string limit) => Infinity(limit) ?? ExprParser.Parse(limit).Evaluate();
+
+    // Gamma(1/3), zeta(3), erf(1) and Si(1) have no closed form here.
+    [Theory]
+    [InlineData("exp(-x^3)", "0", "inf")]
+    [InlineData("x^2/(exp(x) - 1)", "0", "inf")]
+    [InlineData("exp(-x^2)", "0", "1")]
+    [InlineData("sin(x)/x", "1", "inf")]
+    [InlineData("exp(x^2)", "-inf", "inf")]
+    [InlineData("exp(-x^2) + x^2", "0", "1")]
+    public void An_integral_without_an_antiderivative_or_a_rule_throws(string expr, string a, string b) =>
+        Assert.Throws<NotSupportedException>(() => Improper(expr, a, b));
+
+    [Fact]
+    public void A_classic_integral_with_a_symbol_depends_on_its_sign()
+    {
+        var e = Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-a*x^2)").IntegrateExact("x", -Inf, Inf));
+        Assert.EndsWith("isn't found: it depends on the sign of a.", e.Message);
+    }
+
     [Fact]
     public void An_antiderivative_that_oscillates_at_an_infinite_limit_isnt_taken()
     {

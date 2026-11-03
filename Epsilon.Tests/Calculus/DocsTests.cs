@@ -690,6 +690,25 @@ public class CalculusExactIntegrationDocTests
     }
 
     [Fact]
+    public void Classic_integrals()
+    {
+        var inf = double.PositiveInfinity;
+
+        Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print());
+        Assert.Equal("1", ExprParser.Parse("exp(-x^2/2)/sqrt(2*pi)").IntegrateExact("x", -inf, inf).Print());
+        Assert.Equal("π / 2", ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("sqrt(π) / 2", ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("(1/15) * π^4", ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("(-1/6) * π^2", ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print());
+        Assert.Equal("(1/2) * sqrt(π) + 1", ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print());
+
+        Assert.Equal("The integral of exp(-x^2 * a) from -inf to inf isn't found: it depends on the sign of a.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-a*x^2)").IntegrateExact("x", -inf, inf)).Message);
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-x^3)").IntegrateExact("x", 0, inf));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x^2/(exp(x) - 1)").IntegrateExact("x", 0, inf));
+    }
+
+    [Fact]
     public void Across_periods_and_jumps()
     {
         Assert.Equal("2 * π / sqrt(3)", Integral("1/(2 + cos(x))", 0, ExprParser.Parse("2*pi")));
@@ -737,10 +756,12 @@ public class CalculusExactIntegrationDocTests
     [InlineData("(1 - sin(x))/(x + cos(x))", -1, 0)]
     [InlineData("1/(1 + cos(x)^4)", 0, 10)]
     [InlineData("cos(1/x)/x^2", -1, 1)]
+    [InlineData("exp(-x^2)", 0, 1)]
     public void What_isnt_found(string expr, int a, int b) => Fails<NotSupportedException>(expr, a, b);
 
     [Theory]
-    [InlineData("exp(-x^2)", double.NegativeInfinity)]
+    [InlineData("exp(-x^3)", 0)]
+    [InlineData("x^2/(exp(x) - 1)", 0)]
     [InlineData("cos(x)", 0)]
     [InlineData("exp(-c*x)", 0)]
     public void What_isnt_found_to_inf(string expr, double a) =>
@@ -1005,8 +1026,10 @@ public class CalculusLimitationsDocTests
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(1 + cos(x)^4)").IntegrateExact("x", 0, 10));
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/x").IntegrateExact("x", 1, new Variable("c")));
 
-        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity));
-        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, double.PositiveInfinity));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-x^2)").IntegrateExact("x", 0, 1));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sin(x)/x").IntegrateExact("x", 1, double.PositiveInfinity));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-x^3)").IntegrateExact("x", 0, double.PositiveInfinity));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x^2/(exp(x) - 1)").IntegrateExact("x", 0, double.PositiveInfinity));
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cos(x)").IntegrateExact("x", 0, double.PositiveInfinity));
 
         Expr logistic = ExprParser.Parse("1/(1 + exp(x))").IntegrateExact("x", -1, 1);

@@ -4,8 +4,9 @@
 antiderivative F that [symbolic integration](symbolic-integration.md) finds, with the checks the
 formula needs. Where F isn't defined at a limit, its [limit](limits.md) there is taken, at inf
 and -inf as well, where it jumps between the limits while the integrand doesn't, the jumps are
-taken off, and where the integral diverges, it throws. The integral of an odd integrand over an interval symmetric about
-0 is 0, also where there is no antiderivative.
+taken off, and where the integral diverges, it throws. The integral of an odd integrand over an
+interval symmetric about 0 is 0, also where there is no antiderivative, and the classic
+integrals of integrands without one, as exp(-x^2) over the line, come from a table.
 
 `Integrate("x", 0, 1)` with numbers for the limits is the
 [numeric integral](numeric-integration.md), a `double`; the exact one has its own name.
@@ -14,6 +15,7 @@ taken off, and where the integral diverges, it throws. The integral of an odd in
 [Definite integrals](#definite-integrals) -
 [Singular limits and points inside](#singular-limits-and-points-inside) -
 [Infinite limits](#infinite-limits) -
+[Classic integrals](#classic-integrals) -
 [Across periods and jumps](#across-periods-and-jumps) -
 [Odd integrands](#odd-integrands) -
 [Divergent integrals](#divergent-integrals) -
@@ -88,6 +90,50 @@ ExprParser.Parse("1/x").IntegrateExact("x", 1, inf);
 
 1/(sqrt(x) (1 + x)) is infinite at 0 as well, where the limit of its antiderivative is taken
 from the right.
+
+## Classic integrals
+
+Some integrals have exact values though their integrands have no antiderivative made of
+elementary functions. Where `Integrate` finds none, they are taken from a table, over the
+intervals they are known on: the whole line, from 0 to inf, from -inf to 0 by x -> -x, and
+[0, 1], [0, pi/2] and [0, pi]. An even integrand over the line is twice that over the half-line,
+and back, and a sum is integrated term by term:
+
+```csharp
+var inf = double.PositiveInfinity;
+
+ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();               // sqrt(π)
+ExprParser.Parse("exp(-x^2/2)/sqrt(2*pi)").IntegrateExact("x", -inf, inf).Print();  // 1
+ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();                   // π / 2
+ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print();            // sqrt(π) / 2
+ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print();           // (1/15) * π^4
+ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print();                // (-1/6) * π^2
+ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print();        // (1/2) * sqrt(π) + 1
+```
+
+| Integrand | From, to | Value |
+|---|---|---|
+| `P(x)*exp(-a*x^2 + b*x + c)`, P a polynomial | -inf, inf | sqrt(pi/a) exp(c + b^2/(4a)) for P = 1, and by the moments of the normal distribution for others |
+| `cos(k*x + p)*exp(-a*x^2 + b*x + c)`, and with sin | -inf, inf | sqrt(pi/a) exp(c + (b^2 - k^2)/(4a)) cos(k b/(2a) + p), and sin of the same |
+| `x^s*exp(-a*x^p)` | 0, inf | Gamma((s + 1)/p) / (p a^((s + 1)/p)), where (s + 1)/p is an integer or an integer and a half |
+| `sin(k*x)/x`, `sin(k*x)^2/x^2` | 0, inf | sign(k) pi/2, and abs(k) pi/2 |
+| `exp(-a*x)*sin(k*x)/x` | 0, inf | atan(k/a) |
+| `sin(k*x^2)`, `cos(k*x^2)` | 0, inf | sqrt(pi/(2k))/2 for k > 0 |
+| `x^n/(exp(k*x) - 1)`, `x^n/(exp(k*x) + 1)` for an odd n | 0, inf | n! zeta(n + 1)/k^(n + 1), and that times 1 - 2^-n with + 1 |
+| `ln(x)/(1 - x)`, `ln(x)/(1 + x)`, `ln(1 + x)/x`, `ln(1 - x)/x` | 0, 1 | -pi^2/6, -pi^2/12, pi^2/12, -pi^2/6 |
+| `ln(sin(x))`, `ln(cos(x))` | 0, pi/2 | -pi ln(2)/2, and ln(sin(x)) over [0, pi] twice that |
+
+The coefficients a and k are numbers: with a symbol the value depends on its sign, and
+`IntegrateExact` throws `NotSupportedException`:
+
+```csharp
+ExprParser.Parse("exp(-a*x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity);
+// NotSupportedException: The integral of exp(-x^2 * a) from -inf to inf isn't found: it depends on the sign of a.
+```
+
+The values are written with Gamma at integers and halves and zeta at even numbers, which are
+rational multiples of powers of pi and its square root. exp(-x^3) from 0 to inf is Gamma(4/3)
+and x^2/(exp(x) - 1) is 2 zeta(3), which have no such form, and these throw.
 
 ## Across periods and jumps
 
@@ -175,8 +221,9 @@ Where the integral isn't found, `IntegrateExact` throws `NotSupportedException`:
 
 | Integrand | From, to | Why |
 |---|---|---|
-| `sin(x)/x` | 1, 2 | no antiderivative made of elementary functions; the [numeric integral](numeric-integration.md) gives the number |
-| `exp(-x^2)` | -inf, inf | no elementary antiderivative either, though the integral is sqrt(pi) |
+| `sin(x)/x` | 1, 2 | no antiderivative made of elementary functions, and the interval isn't one of the [classic integrals](#classic-integrals); the [numeric integral](numeric-integration.md) gives the number |
+| `exp(-x^2)` | 0, 1 | sqrt(pi) erf(1)/2, and erf isn't there |
+| `exp(-x^3)`, `x^2/(exp(x) - 1)` | 0, inf | Gamma(4/3) and 2 zeta(3) |
 | `cos(x)` | 0, inf | the antiderivative sin(x) oscillates at inf: the integral diverges, but an oscillation isn't told apart from a limit that isn't found, as for [limits](limits.md#oscillations) |
 | `exp(-c*x)` | 0, inf | it depends on the sign of c |
 | `1/(x + c)` | 0, 1 | whether the antiderivative ln(abs(x + c)) is undefined between the limits depends on c |
@@ -186,7 +233,9 @@ Where the integral isn't found, `IntegrateExact` throws `NotSupportedException`:
 
 ## How it works
 
-The antiderivative F is found as by `Integrate`. The points between the limits where F may be
+The antiderivative F is found as by `Integrate`; where there is none, the integrand is looked up
+in the table of classic integrals for the interval, and a sum is taken term by term. The points
+between the limits where F may be
 undefined or jump are where something in it vanishes: a denominator, the argument of a
 logarithm, a root or sign, the base of a fractional or negative power, the cosine under tan
 and sec, the sine under cot and csc, and where floor, ceiling and round step. They are found

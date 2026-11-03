@@ -79,9 +79,10 @@ is updated with it. The expressions have
 
 ## Exact definite integrals
 
-- **No elementary antiderivative, no exact integral**: `exp(-x^2)` over the whole line, which is
-  sqrt(pi), and `sin(x)/x` from 0 to inf, which is pi/2, throw `NotSupportedException`; the
-  [numeric integral](numeric-integration.md) gives them.
+- **Without an elementary antiderivative, only the [classic integrals](exact-integration.md#classic-integrals)**:
+  `exp(-x^2)` from 0 to 1, which is sqrt(pi) erf(1)/2, `sin(x)/x` from 1 to inf, `exp(-x^3)`
+  from 0 to inf, Gamma(4/3), and `x^2/(exp(x) - 1)`, 2 zeta(3), throw `NotSupportedException`;
+  the [numeric integral](numeric-integration.md) gives them.
 - **An antiderivative that oscillates at inf**: `cos(x)` from 0 to inf, which diverges, throws
   `NotSupportedException` rather than `InvalidOperationException`, since the limit of sin(x)
   there isn't found.

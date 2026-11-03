@@ -23,7 +23,7 @@ Every public member also has XML documentation, which your IDE shows as you type
 | [Limits](limits.md) | Limits at a point, from both sides or one, and at inf and -inf, exact, of exponentials and logarithms too, where there is none, oscillations |
 | [Series](series.md) | Taylor series at a point, Laurent series at poles and Puiseux series at roots, with exact coefficients, the terms and the order of the remainder |
 | [Symbolic integration](symbolic-integration.md) | Antiderivatives from a table of integrals, by partial fractions, by substitutions and by parts, of rational functions, trigonometric functions and square roots of quadratics: the forms, exact results, checking them |
-| [Exact definite integrals](exact-integration.md) | Definite integrals from antiderivatives, exact: singular and infinite limits, jumps of the antiderivative, odd integrands, divergent integrals |
+| [Exact definite integrals](exact-integration.md) | Definite integrals from antiderivatives, exact: singular and infinite limits, classic integrals without an antiderivative, jumps of the antiderivative, odd integrands, divergent integrals |
 
 ## Reference
 
