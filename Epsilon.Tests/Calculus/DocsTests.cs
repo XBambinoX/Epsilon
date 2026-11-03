@@ -521,6 +521,7 @@ public class CalculusSymbolicIntegrationDocTests
         var area = ExprParser.Parse("sqrt(1 - x^2)").Integrate("x");
         Assert.Equal(1.5707963267948966, area.Evaluate(("x", 1)) - area.Evaluate(("x", -1)));
         Shown.Equal(1.570796326794897, ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1));
+        Assert.Equal("(1/2) * π", ExprParser.Parse("sqrt(1 - x^2)").IntegrateExact("x", -1, 1).Print());
     }
 
     [Fact]
@@ -635,6 +636,90 @@ public class CalculusSymbolicIntegrationDocTests
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(x^2 + a^2)").Integrate("x")).Message);
         Shown.Equal(1.4626517459071819, ExprParser.Parse("exp(x^2)").Integrate(0, 1));
     }
+}
+
+// Every example in Epsilon.Calculus/docs/exact-integration.md.
+public class CalculusExactIntegrationDocTests
+{
+    private static string Integral(string expr, Expr a, Expr b) => ExprParser.Parse(expr).IntegrateExact("x", a, b).Print();
+
+    private static string Fails<T>(string expr, Expr a, Expr b) where T : Exception =>
+        Assert.Throws<T>(() => ExprParser.Parse(expr).IntegrateExact("x", a, b)).Message;
+
+    [Fact]
+    public void Definite_integrals()
+    {
+        Assert.Equal("1/3", Integral("x^2", 0, 1));
+        Assert.Equal("(1/4) * π", Integral("1/(1 + x^2)", 0, 1));
+        Assert.Equal("(1/2) * ln(3/2)", Integral("1/(x^2 - 1)", 2, 3));
+        Assert.Equal("π / (3sqrt(3)) + (1/3) * ln(2)", Integral("1/(x^3 + 1)", 0, 1));
+        Assert.Equal("-1/3", Integral("x^2", 1, 0));
+
+        Assert.Equal("2", Integral("sin(x)", 0, new Pi()));
+        Assert.Equal("1/2", Integral("exp(-x)", 0, ExprParser.Parse("ln(2)")));
+        Assert.Equal("2", ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print());
+        Assert.Equal("-cos(314159265358979/100000000000000) + 1", Integral("sin(x)", 0, Math.PI));
+    }
+
+    [Fact]
+    public void Singular_limits_and_points_inside()
+    {
+        Assert.Equal("-1", Integral("ln(x)", 0, 1));
+        Assert.Equal("4", Integral("1/sqrt(x)", 0, 4));
+        Assert.Equal("-1/4", Integral("x*ln(x)", 0, 1));
+        Assert.Equal("9/2", Integral("1/nthroot(x, 3)", -1, 8));
+
+        var f = ExprParser.Parse("1/(1 + tan(x))");
+        Assert.Equal("(1/2) * x + (-1/4) * ln(tan(x)^2 + 1) + (1/2) * ln(abs(tan(x) + 1))", f.Integrate("x").Print());
+        Assert.Equal("(1/4) * π", f.IntegrateExact("x", 0, ExprParser.Parse("pi/2")).Print());
+    }
+
+    [Fact]
+    public void Across_periods_and_jumps()
+    {
+        Assert.Equal("2 * π / sqrt(3)", Integral("1/(2 + cos(x))", 0, ExprParser.Parse("2*pi")));
+        Assert.Equal("-2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3", Integral("1/(1 + sin(x))^2", 0, 3));
+
+        var one = ExprParser.Parse("sec(x)^2/(1 + tan(x)^2)");
+        Assert.Equal("atan(tan(x))", one.Integrate("x").Print());
+        Assert.Equal("10", one.IntegrateExact("x", 0, 10).Print());
+    }
+
+    [Fact]
+    public void Odd_integrands()
+    {
+        Assert.Equal("0", Integral("x^3*cos(x)", -2, 2));
+        Assert.Equal("0", Integral("sin(x)/(1 + x^2)", -1, 1));
+        Assert.Equal("0", Integral("atan(1/x)", -1, 1));
+        Assert.Equal("The integral of 1 / x^3 from -1 to 1 diverges at x = 0.", Fails<InvalidOperationException>("1/x^3", -1, 1));
+    }
+
+    [Fact]
+    public void Divergent_integrals()
+    {
+        Assert.Equal("The integral of 1 / x from -1 to 1 diverges at x = 0.", Fails<InvalidOperationException>("1/x", -1, 1));
+        Assert.Equal("The integral of tan(x) from 0 to π diverges at x = (1/2) * π.", Fails<InvalidOperationException>("tan(x)", 0, new Pi()));
+        Assert.Equal("The integral of sqrt(x) from -1 to 1 doesn't exist: the integrand isn't real at x = -0.5.",
+            Fails<InvalidOperationException>("sqrt(x)", -1, 1));
+    }
+
+    [Fact]
+    public void Symbols()
+    {
+        Assert.Equal("exp(c) / c - 1 / c", Integral("exp(c*x)", 0, 1));
+        Assert.Equal("(1/3) * c^3", Integral("x^2", 0, new Variable("c")));
+        Assert.Equal("2 * i", Integral("exp(i*x)", 0, new Pi()));
+        Assert.Equal("The integral of 1 / x from 1 to c isn't found: whether its antiderivative ln(abs(x)) is undefined or jumps between the limits depends on c.",
+            Fails<NotSupportedException>("1/x", 1, new Variable("c")));
+    }
+
+    [Theory]
+    [InlineData("sin(x)/x", 1, 2)]
+    [InlineData("1/(x + c)", 0, 1)]
+    [InlineData("(1 - sin(x))/(x + cos(x))", -1, 0)]
+    [InlineData("1/(1 + cos(x)^4)", 0, 10)]
+    [InlineData("cos(1/x)/x^2", -1, 1)]
+    public void What_isnt_found(string expr, int a, int b) => Fails<NotSupportedException>(expr, a, b);
 }
 
 // Every example in Epsilon.Calculus/docs/series.md.
@@ -885,6 +970,19 @@ public class CalculusLimitationsDocTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity));
         Assert.StartsWith("The integrand oscillates towards an infinity in a way that isn't taken apart yet: ",
             Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity)).Message);
+    }
+
+    [Fact]
+    public void Exact_definite_integrals()
+    {
+        Assert.Contains("may be undefined at x = -0.739",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("(1 - sin(x))/(x + cos(x))").IntegrateExact("x", -1, 0)).Message);
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(1 + cos(x)^4)").IntegrateExact("x", 0, 10));
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/x").IntegrateExact("x", 1, new Variable("c")));
+
+        Expr logistic = ExprParser.Parse("1/(1 + exp(x))").IntegrateExact("x", -1, 1);
+        Assert.Equal("ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1))", logistic.Print());
+        Assert.Equal(1, logistic.Evaluate(), 1e-15);
     }
 
     [Fact]

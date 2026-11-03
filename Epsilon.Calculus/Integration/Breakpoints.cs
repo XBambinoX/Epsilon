@@ -2,8 +2,9 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-// An end of a piece of the interval: its value, and the exact point to shift the integrand to.
-internal readonly record struct IntegrationPoint(double Value, Expr Exact);
+// An end of a piece of the interval: its value, and the exact point to shift the integrand to,
+// which is only the decimal of the value where the point was found numerically.
+internal readonly record struct IntegrationPoint(double Value, Expr Exact, bool Approximate = false);
 
 // The points strictly between a and b where an integrand may be singular, undefined or not
 // smooth: the zeros of denominators, of the bases of fractional and negative powers and of the
@@ -23,27 +24,42 @@ internal static class Breakpoints
     public static List<IntegrationPoint> Find(Expr expr, string variable, double a, double b)
     {
         var points = new List<IntegrationPoint>();
-        foreach (Expr part in VanishingParts(expr, variable, a, b).Distinct())
+        foreach (Expr part in VanishingParts(expr, variable, a, b, singularOnly: false).Distinct())
         {
             points.AddRange(Zeros(part, variable, a, b));
             if (Turn(part, variable) is { } slope)
                 points.AddRange(Zeros(slope, variable, a, b));
         }
 
-        // A root found numerically is a double or two off the same one found exactly, which is kept.
+        return Merged(points);
+    }
+
+    // Only the points where the expression may jump or be undefined, without its kinks and peaks.
+    public static List<IntegrationPoint> Singular(Expr expr, string variable, double a, double b) =>
+        Merged([.. SingularParts(expr, variable, a, b).SelectMany(part => Factors(part, variable)).Distinct()
+            .SelectMany(part => WaveRoots(part, variable, a, b) ?? Zeros(part, variable, a, b))]);
+
+    // The parts whose zeros those are. Where a and b are NaN, the jumps of floor, ceiling and round
+    // aren't counted, and their argument stands for them.
+    public static IEnumerable<Expr> SingularParts(Expr expr, string variable, double a, double b) =>
+        VanishingParts(expr, variable, a, b, singularOnly: true);
+
+    // A root found numerically is a double or two off the same one found exactly, which is kept.
+    private static List<IntegrationPoint> Merged(List<IntegrationPoint> points)
+    {
         var merged = new List<IntegrationPoint>();
         foreach (IntegrationPoint point in points.OrderBy(point => point.Value))
         {
             if (merged.Count == 0 || point.Value - merged[^1].Value > 4 * (Math.BitIncrement(Math.Abs(point.Value)) - Math.Abs(point.Value)))
                 merged.Add(point);
-            else if (merged[^1].Exact is Constant)
+            else if (merged[^1].Approximate || merged[^1].Exact is Constant && !point.Approximate)
                 merged[^1] = point;
         }
 
         return merged;
     }
 
-    private static IEnumerable<Expr> VanishingParts(Expr expr, string variable, double a, double b)
+    private static IEnumerable<Expr> VanishingParts(Expr expr, string variable, double a, double b, bool singularOnly)
     {
         if (!expr.DependsOn(variable))
             yield break;
@@ -53,13 +69,14 @@ internal static class Breakpoints
             case Divide divide:
                 yield return divide.Denominator;
                 break;
-            case Exp or Sech or Cosh or Tanh or Atan:
+            case Exp or Sech or Cosh or Tanh or Atan when !singularOnly:
                 foreach (Expr part in Centers(((UnaryExpr)expr).Argument, variable))
                     yield return part;
                 break;
             case Power power when !power.Base.DependsOn(variable):
-                foreach (Expr part in Centers(power.Exponent, variable))
-                    yield return part;
+                if (!singularOnly)
+                    foreach (Expr part in Centers(power.Exponent, variable))
+                        yield return part;
                 break;
             case Power power when power.Exponent is not Constant { Value: { IsInteger: true, Sign: >= 0 } }:
                 yield return power.Base;
@@ -67,7 +84,8 @@ internal static class Breakpoints
             case NthRoot root:
                 yield return root.Argument;
                 break;
-            case Sqrt or Ln or Abs or Sign or Coth or Csch:
+            case Sqrt or Ln or Sign or Coth or Csch:
+            case Abs when !singularOnly:
                 yield return ((UnaryExpr)expr).Argument;
                 break;
             case Tan or Sec:
@@ -83,11 +101,14 @@ internal static class Breakpoints
             case Acosh acosh:
                 yield return acosh.Argument - 1;
                 break;
-            case Min min:
+            case Min min when !singularOnly:
                 yield return min.Left - min.Right;
                 break;
-            case Max max:
+            case Max max when !singularOnly:
                 yield return max.Left - max.Right;
+                break;
+            case Floor or Ceiling or Round when double.IsNaN(a):
+                yield return ((UnaryExpr)expr).Argument;
                 break;
             case Floor or Ceiling or Round:
                 foreach (Expr jump in Jumps((UnaryExpr)expr, variable, a, b))
@@ -96,7 +117,7 @@ internal static class Breakpoints
         }
 
         foreach (Expr child in expr.Children)
-            foreach (Expr part in VanishingParts(child, variable, a, b))
+            foreach (Expr part in VanishingParts(child, variable, a, b, singularOnly))
                 yield return part;
     }
 
@@ -155,7 +176,7 @@ internal static class Breakpoints
         var found = low < high
             ? part.FindRealRoots(variable, null, low, high, ScanSteps(part, variable, low, high))
                 .Where(value => a < value && value < b)
-                .Select(value => new IntegrationPoint(value, new Constant(value)))
+                .Select(value => new IntegrationPoint(value, new Constant(value), Approximate: true))
             : [];
         return [.. PolynomialRoots(part, variable, a, b), .. found];
     }
@@ -197,6 +218,13 @@ internal static class Breakpoints
         if (RationalPolynomial.Of(part, variable) is not { Degree: >= 2 } polynomial)
             yield break;
 
+        foreach (Expr root in RealRoots(polynomial))
+            if (root.Evaluate() is var value && a < value && value < b)
+                yield return new IntegrationPoint(value, root);
+    }
+
+    private static IEnumerable<Expr> RealRoots(RationalPolynomial polynomial)
+    {
         foreach (var (factor, _) in polynomial.Factor())
         {
             Rational discriminant = factor[1] * factor[1] - 4 * factor[0] * factor[2];
@@ -212,10 +240,75 @@ internal static class Breakpoints
             };
 
             foreach (Expr root in roots)
-                if (root.Evaluate() is var value && a < value && value < b)
-                    yield return new IntegrationPoint(value, root);
+                yield return root;
         }
     }
+
+    // abs(u) and u^2 touch 0 where u crosses it, which the grid finds more surely.
+    private static IEnumerable<Expr> Factors(Expr part, string variable) => part switch
+    {
+        Abs abs => Factors(abs.Argument, variable),
+        Negate negate => Factors(negate.Argument, variable),
+        Multiply product => Factors(product.Left, variable).Concat(Factors(product.Right, variable)),
+        Divide quotient => Factors(quotient.Numerator, variable),
+        Power { Exponent: Constant { Value.Sign: > 0 } } power => Factors(power.Base, variable),
+        _ => part.DependsOn(variable) ? [part] : [],
+    };
+
+    // The zeros of a polynomial in tan, sin or cos of a linear argument u, exact: the
+    // antiderivatives by t = tan(x/2) have tan(x/2) + 1 in denominators, which vanishes at 3 pi/2.
+    private static List<IntegrationPoint>? WaveRoots(Expr part, string variable, double a, double b)
+    {
+        if (!double.IsFinite(a) || !double.IsFinite(b) || Wave(part, variable) is not { } wave
+            || Slope(wave.Argument, variable) is not { } slope || slope.DependsOn(variable) || slope.Evaluate() == 0)
+            return null;
+
+        var t = new Variable("t'");
+        Expr replaced = Replaced(part, wave, t);
+        if (replaced.DependsOn(variable) || RationalPolynomial.Of(replaced, t.Name) is not { Degree: >= 1 } polynomial)
+            return null;
+
+        Expr argument = wave.Argument, start = argument.Substitute(variable, 0).Simplify();
+        double atA = argument.Evaluate((variable, a)), atB = argument.Evaluate((variable, b));
+        Expr period = wave is Tan ? new Pi() : 2 * new Pi();
+        var points = new List<IntegrationPoint>();
+        foreach (Expr root in RealRoots(polynomial))
+        {
+            Expr[] angles = wave switch
+            {
+                Tan => [new Atan(root)],
+                Sin when Math.Abs(root.Evaluate()) <= 1 => [new Asin(root), new Pi() - new Asin(root)],
+                Cos when Math.Abs(root.Evaluate()) <= 1 => [new Acos(root), -new Acos(root)],
+                _ => [],
+            };
+
+            foreach (Expr angle in angles)
+            {
+                double low = Math.Ceiling((Math.Min(atA, atB) - angle.Evaluate()) / period.Evaluate());
+                double high = Math.Floor((Math.Max(atA, atB) - angle.Evaluate()) / period.Evaluate());
+                if (!(high - low < MaxJumps))
+                    return null;
+
+                for (double k = low; k <= high; k++)
+                {
+                    Expr x = ((angle + (long)k * period - start) / slope).Simplify();
+                    if (x.Evaluate() is var value && a < value && value < b)
+                        points.Add(new IntegrationPoint(value, x));
+                }
+            }
+        }
+
+        return points;
+    }
+
+    private static UnaryExpr? Wave(Expr e, string variable) => e switch
+    {
+        Tan or Sin or Cos when e.DependsOn(variable) => (UnaryExpr)e,
+        _ => e.Children.Select(child => Wave(child, variable)).FirstOrDefault(wave => wave is not null),
+    };
+
+    private static Expr Replaced(Expr e, Expr target, Expr by) =>
+        e.Equals(target) ? by : e.Children.Length == 0 ? e : e.WithChildren([.. e.Children.Select(child => Replaced(child, target, by))]);
 
     // The roots are looked for on a grid, which misses two of them in one of its steps: on
     // [0, 1000] the 200 steps FindRealRoots takes by default found 82 of the 318 zeros of sin(x).

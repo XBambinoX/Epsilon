@@ -375,6 +375,13 @@ area.Evaluate(("x", 1)) - area.Evaluate(("x", -1));          // 1.57079632679489
 ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.570796326794897
 ```
 
+[Exact definite integrals](exact-integration.md) take F(b) - F(a) with the checks it needs,
+where F is undefined or jumps between the limits too:
+
+```csharp
+ExprParser.Parse("sqrt(1 - x^2)").IntegrateExact("x", -1, 1).Print();   // (1/2) * π
+```
+
 ## What isn't integrated yet
 
 Some integrands need what isn't there yet, others have no antiderivative made of elementary

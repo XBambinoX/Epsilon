@@ -1,0 +1,187 @@
+using Epsilon.Calculus;
+using Epsilon.Core;
+
+namespace Epsilon.Tests.Calculus;
+
+public class ExactIntegrationTests
+{
+    private static Expr Integral(string expr, string a, string b) =>
+        ExprParser.Parse(expr).IntegrateExact("x", ExprParser.Parse(a), ExprParser.Parse(b));
+
+    [Theory]
+    [InlineData("x^2", "0", "1", "1/3")]
+    [InlineData("x^2", "1", "0", "-1/3")]
+    [InlineData("1/(1 + x^2)", "0", "1", "(1/4) * π")]
+    [InlineData("sin(x)", "0", "pi", "2")]
+    [InlineData("1/x", "1", "e", "1")]
+    [InlineData("1/x", "-e", "-1", "-1")]
+    [InlineData("exp(-x)", "0", "ln(2)", "1/2")]
+    [InlineData("x*exp(-x)", "0", "1", "-2exp(-1) + 1")]
+    [InlineData("atan(x)", "0", "1", "(-1/2) * ln(2) + (1/4) * π")]
+    [InlineData("asin(x)", "0", "1", "(1/2) * π - 1")]
+    [InlineData("acos(x)", "-1", "1", "π")]
+    [InlineData("1/(x^2 - 1)", "2", "3", "(1/2) * ln(3/2)")]
+    [InlineData("1/(4 - x^2)", "-1", "1", "(1/2) * ln(3)")]
+    [InlineData("1/(x^2 - 2)", "0", "1", "ln(-2sqrt(2) + 3) / (2sqrt(2))")]
+    [InlineData("x/(x^4 - 1)", "2", "3", "(1/4) * ln(4/3)")]
+    [InlineData("1/(x^3 + 1)", "0", "1", "π / (3sqrt(3)) + (1/3) * ln(2)")]
+    [InlineData("1/(x^2 + 4)", "-2", "2*sqrt(3)", "(7/24) * π")]
+    [InlineData("1/(x*sqrt(x^2 - 2*x))", "2", "4", "sqrt(2) / 2")]
+    [InlineData("1/(x*sqrt(x^2 - 1))", "1", "2", "(1/3) * π")]
+    [InlineData("1/sqrt(x^2 - 1)", "1", "2", "ln(sqrt(3) + 2)")]
+    [InlineData("sqrt(1 - x^2)", "-1", "1", "(1/2) * π")]
+    [InlineData("ln(x)/x", "1", "e", "1/2")]
+    [InlineData("1/(x*ln(x))", "e", "e^2", "ln(2)")]
+    [InlineData("1/cosh(x)", "-1", "1", "2atan(sinh(1))")]
+    [InlineData("x*sin(x)", "-pi", "pi", "2 * π")]
+    public void Newton_Leibniz(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    // A period of tan(x/2) and the other forms Bioche's rules and the table give is crossed whole.
+    [Theory]
+    [InlineData("1/(2 + cos(x))", "0", "2*pi", "2 * π / sqrt(3)")]
+    [InlineData("1/(1 + cos(x)^2)", "0", "pi", "π / sqrt(2)")]
+    [InlineData("1/(cos(x) + 2*sin(x) + 3)", "0", "2*pi", "π")]
+    public void Over_a_period(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    [Theory]
+    [InlineData("ln(x)", "0", "1", "-1")]
+    [InlineData("ln(x)^2", "0", "1", "2")]
+    [InlineData("x*ln(x)", "0", "1", "-1/4")]
+    [InlineData("sqrt(x)", "0", "1", "2/3")]
+    [InlineData("1/sqrt(x)", "0", "4", "4")]
+    [InlineData("x/sqrt(4 - x^2)", "0", "2", "2")]
+    [InlineData("1/nthroot(x, 3)", "-1", "8", "9/2")]
+    [InlineData("1/(1 + tan(x))", "0", "pi/2", "(1/4) * π")]
+    [InlineData("x*atan(1/x)", "-1", "1", "1")]
+    public void Where_the_antiderivative_is_undefined_its_limit_is_taken(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    [Theory]
+    [InlineData("sign(x)", "-1", "2", "1")]
+    [InlineData("abs(x)", "-1", "2", "5/2")]
+    [InlineData("floor(x)", "0", "5/2", "2")]
+    [InlineData("ceiling(x)", "-3/2", "7/3", "7/2")]
+    [InlineData("round(x)", "0", "3", "9/2")]
+    public void Steps_and_kinks(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    // sec(x)^2/(1 + tan(x)^2) is 1 wherever it is defined, and by u = tan(x) its antiderivative
+    // is atan(tan(x)), which falls by pi at each pole of tan.
+    [Theory]
+    [InlineData("sec(x)^2/(1 + tan(x)^2)", "0", "10", "10")]
+    [InlineData("sec(x)^2/(4 + tan(x)^2)", "0", "10", "(1/2) * atan(tan(10) / 2) + (3/2) * π")]
+    public void The_jumps_of_the_antiderivative_are_taken_off(string expr, string a, string b, string integral)
+    {
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+        Assert.Equal(ExprParser.Parse(expr).Integrate("x", 0, 10), Integral(expr, a, b).Evaluate(), 1e-12);
+    }
+
+    [Theory]
+    [InlineData("x^3*cos(x)", "-2", "2")]
+    [InlineData("sin(x)^3", "-pi", "pi")]
+    [InlineData("x*exp(x^4)", "-3", "3")]
+    [InlineData("sign(x)*x^2", "-1", "1")]
+    [InlineData("sin(x)/(1 + x^2)", "-1", "1")]
+    [InlineData("atan(1/x)", "-1", "1")]
+    [InlineData("x^3", "-c", "c")]
+    public void An_odd_integrand_over_a_symmetric_interval_gives_0(string expr, string a, string b) =>
+        Assert.Equal("0", Integral(expr, a, b).Print());
+
+    [Theory]
+    [InlineData("1/(2 + sin(x))", 0, 10)]
+    [InlineData("1/(3 + sin(x))^2", 0, 10)]
+    [InlineData("1/(2 + cos(x))^2", 0, 10)]
+    [InlineData("sin(x)^2/(2 + cos(x))", 0, 10)]
+    [InlineData("1/(5 + 4*cos(x))", -7, 9)]
+    [InlineData("1/(1 + sin(x)^2)^2", 0, 10)]
+    [InlineData("1/(2 - cos(x))^3", 0, 10)]
+    [InlineData("1/(2 + tan(x)^2)", 0, 10)]
+    [InlineData("1/(sin(x)^4 + cos(x)^4)", 0, 10)]
+    [InlineData("1/(sin(x) + cos(x) + 2)", 0, 10)]
+    [InlineData("sin(x)/(1 + sin(x)^2)", 0, 10)]
+    [InlineData("1/(1 + sin(x))", 0, 4)]
+    [InlineData("1/(2 + cos(x))", 0, 1000)]
+    [InlineData("exp(x)*cos(x)^2", 0, 3)]
+    [InlineData("1/(x^4 + 1)", -1, 2)]
+    [InlineData("1/(x^2 + x + 1)^2", -3, 3)]
+    public void Agrees_with_the_numeric_integral(string expr, double a, double b)
+    {
+        Expr f = ExprParser.Parse(expr);
+        double numeric = f.Integrate("x", a, b);
+        Assert.Equal(numeric, f.IntegrateExact("x", a, b).Evaluate(), 1e-10 * Math.Max(1, Math.Abs(numeric)));
+    }
+
+    [Theory]
+    [InlineData("1/x", "-1", "1", "0")]
+    [InlineData("1/x^2", "-1", "1", "0")]
+    [InlineData("1/x^3", "-1", "1", "0")]
+    [InlineData("exp(1/x)/x^2", "-1", "1", "0")]
+    [InlineData("tan(x)", "0", "pi", "(1/2) * π")]
+    [InlineData("cos(x)/(sin(x) - 1/2)", "0", "1", "(1/6) * π")]
+    [InlineData("1/(1 + sin(x))^2", "0", "2*pi", "3 * π / 2")]
+    [InlineData("1/(x - 1)", "1", "2", "1")]
+    public void Diverges(string expr, string a, string b, string at)
+    {
+        var e = Assert.Throws<InvalidOperationException>(() => Integral(expr, a, b));
+        Assert.EndsWith($"diverges at x = {at}.", e.Message);
+    }
+
+    [Fact]
+    public void An_integrand_that_isnt_real_on_a_part_of_the_interval_throws()
+    {
+        var e = Assert.Throws<InvalidOperationException>(() => Integral("sqrt(x)", "-1", "1"));
+        Assert.Equal("The integral of sqrt(x) from -1 to 1 doesn't exist: the integrand isn't real at x = -0.5.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("exp(c*x)", "0", "1", "exp(c) / c - 1 / c")]
+    [InlineData("c/(1 + x^2)", "0", "1", "(1/4) * π * c")]
+    [InlineData("x^2", "0", "c", "(1/3) * c^3")]
+    [InlineData("x^2 + c", "-1", "1", "2c + 2/3")]
+    public void Other_variables_are_constants(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    [Theory]
+    [InlineData("1/(x + c)", "0", "1", "c")]
+    [InlineData("1/x", "1", "c", "c")]
+    public void Where_the_antiderivative_is_undefined_depends_on_another_variable_throws(string expr, string a, string b, string symbol)
+    {
+        var e = Assert.Throws<NotSupportedException>(() => Integral(expr, a, b));
+        Assert.EndsWith($"is undefined or jumps between the limits depends on {symbol}.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("exp(i*x)", "0", "pi", "2 * i")]
+    [InlineData("1/(x + i)", "-1", "1", "(-1/2) * i * π")]
+    public void The_imaginary_unit(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Integral(expr, a, b).Print());
+
+    [Fact]
+    public void A_point_where_the_antiderivative_may_be_undefined_that_isnt_found_exactly_throws()
+    {
+        var e = Assert.Throws<NotSupportedException>(() => Integral("(1 - sin(x))/(x + cos(x))", "-1", "0"));
+        Assert.Contains("may be undefined at x = -0.739085133215", e.Message);
+    }
+
+    [Fact]
+    public void Without_an_antiderivative_throws() =>
+        Assert.Throws<NotSupportedException>(() => Integral("sin(x)/x", "1", "2"));
+
+    [Fact]
+    public void Equal_limits_give_0() => Assert.Equal("0", Integral("1/x", "0", "0").Print());
+
+    [Fact]
+    public void The_only_variable_is_taken() => Assert.Equal("2", ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print());
+
+    [Fact]
+    public void Limits_with_the_variable_or_that_arent_real_throw()
+    {
+        Expr f = ExprParser.Parse("x^2");
+        Assert.Throws<ArgumentException>(() => f.IntegrateExact("x", 0, new Variable("x")));
+        Assert.Throws<ArgumentException>(() => f.IntegrateExact("x", 0, new ImaginaryUnit()));
+        Assert.Throws<ArgumentException>(() => f.IntegrateExact("x", 0, ExprParser.Parse("sqrt(-1)")));
+        Assert.Throws<ArgumentNullException>(() => f.IntegrateExact("x", null!, 1));
+    }
+}

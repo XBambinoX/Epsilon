@@ -77,6 +77,21 @@ is updated with it. The expressions have
 - **No symbols besides the variable.** Substitute values for them first, see
   [Definite integrals](numeric-integration.md#definite-integrals).
 
+## Exact definite integrals
+
+- **Finite limits only**: an integral to inf or -inf is [numeric](numeric-integration.md#infinite-limits)
+  for now.
+- **A point found only numerically**: where the antiderivative may be undefined at a root that
+  isn't found exactly, as ln(abs(x + cos(x))) at -0.739..., `IntegrateExact` throws
+  `NotSupportedException`: a limit at a decimal next to a pole is finite.
+- **Constants that cancel aren't always seen to**: `1/(1 + cos(x)^4)` from 0 to 10 throws, since
+  at pi/2 the coefficients of the logarithms in its antiderivative add up to 0 without the
+  simplifier showing it.
+- **Symbols in the limits only where the antiderivative is continuous everywhere**: `1/x` from
+  1 to c, which is ln(c) for c > 0, throws.
+- **Results aren't always in their simplest form**: `1/(1 + exp(x))` from -1 to 1 is
+  ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1)), which is 1.
+
 ## Series
 
 - **No logarithms of the variable and no essential singularities in a series**: `ln(x)` and
