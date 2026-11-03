@@ -208,6 +208,15 @@ public class NumericIntegrationTests
         Assert.Equal($"The integral diverges at {where}, or converges there too slowly for double precision.",
             Fails(integrand, a, b).Message);
 
+    // These are 0 far out, where a power of x overflows, and came out as 355.5, 355.5 and 237.4.
+    [Theory]
+    [InlineData("1/sqrt(x^2 + 1)", 0, Inf, "infinity")]
+    [InlineData("1/sqrt(x^2 + 1)", -Inf, 0, "-infinity")]
+    [InlineData("1/nthroot(x^3 + 1, 3)", 0, Inf, "infinity")]
+    public void A_divergent_integrand_that_rounds_to_0_far_out_throws(string integrand, double a, double b, string where) =>
+        Assert.Equal($"The integral diverges at {where}, or converges there too slowly for double precision.",
+            Fails(integrand, a, b).Message);
+
     [Fact]
     public void Divergence_is_found_at_any_tolerance()
     {

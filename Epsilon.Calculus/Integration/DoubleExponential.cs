@@ -51,7 +51,11 @@ internal sealed class DoubleExponential
 
                 _sum += term;
                 _absoluteSum += Math.Abs(term);
-                _last[i] = term;
+
+                // An integrand that rounds to 0 towards an infinity hasn't died out: 1/sqrt(x^2 + 1)
+                // is 0 from x = 1.3e154 on, where x^2 overflows, and its integral looked like 355.5.
+                if (term != 0 || !double.IsInfinity(_halves[i].End))
+                    _last[i] = term;
                 largest = Math.Max(largest, Math.Abs(term));
             }
 
