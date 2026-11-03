@@ -341,6 +341,10 @@ internal sealed class Gruntz(string variable)
             case Multiply or Divide:
                 List<Expr> factors = [], divisors = [];
                 Split(e, factors, divisors);
+                Expr c = (Product(factors.Where(factor => !factor.DependsOn(variable))) / Product(divisors.Where(factor => !factor.DependsOn(variable)))).Simplify();
+                if (c is not Constant { Value.IsOne: true })
+                    return Scaled(c, Product(factors.Where(factor => factor.DependsOn(variable))) / Product(divisors.Where(factor => factor.DependsOn(variable))));
+
                 if (factors.Any(Oscillating))
                 {
                     Expr rest = Product(factors.Where(factor => !Oscillating(factor))) / Product(divisors);
@@ -356,6 +360,17 @@ internal sealed class Gruntz(string variable)
         }
 
         return null;
+    }
+
+    // c f for a constant c, where f is squeezed: (1/5)(exp(-x) sin(2x) - cos(2x) exp(-x)/2).
+    private Limit? Scaled(Expr c, Expr f)
+    {
+        Limit limit = AtInfinity(f.Simplify());
+        if (limit.Kind == LimitKind.Finite)
+            return Limit.Finite(SeriesExpander.Tidy(c * limit.Value));
+
+        int sign = ConstantSign(c);
+        return sign == 0 ? null : Limit.Infinite(limit.Kind == LimitKind.PositiveInfinity ? sign : -sign);
     }
 
     // The part a factor is as large as, its ratio to it tending to 1: x for x + sin(x), where

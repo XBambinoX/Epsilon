@@ -17,11 +17,43 @@ public static class ExactIntegrationExtensions
         /// as for the overload with the variable.
         /// </exception>
         /// <exception cref="NotSupportedException">The integral isn't found.</exception>
-        public Expr IntegrateExact(Expr a, Expr b)
-        {
-            ArgumentNullException.ThrowIfNull(expr);
-            return expr.IntegrateExact(expr.GetVariables().Count == 0 ? "x" : expr.GetSingleVariable(), a, b);
-        }
+        public Expr IntegrateExact(Expr a, Expr b) => expr.IntegrateExact(OnlyVariable(expr), a, b);
+
+        /// <summary>
+        /// The exact definite integral by the expression's only variable from <paramref name="a"/>
+        /// to <paramref name="b"/>, either of which may be infinite. See
+        /// <see cref="IntegrateExact(Expr, string, double, double)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A limit is NaN.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The expression has more than one variable, or the integral diverges or doesn't exist.
+        /// </exception>
+        /// <exception cref="NotSupportedException">The integral isn't found.</exception>
+        public Expr IntegrateExact(double a, double b) => expr.IntegrateExact(OnlyVariable(expr), a, b);
+
+        /// <summary>
+        /// The exact definite integral by the expression's only variable from <paramref name="a"/>
+        /// to <paramref name="b"/>, which may be infinite. See
+        /// <see cref="IntegrateExact(Expr, string, Expr, double)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A limit isn't a real number.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The expression has more than one variable, or the integral diverges or doesn't exist.
+        /// </exception>
+        /// <exception cref="NotSupportedException">The integral isn't found.</exception>
+        public Expr IntegrateExact(Expr a, double b) => expr.IntegrateExact(OnlyVariable(expr), a, b);
+
+        /// <summary>
+        /// The exact definite integral by the expression's only variable from <paramref name="a"/>,
+        /// which may be infinite, to <paramref name="b"/>. See
+        /// <see cref="IntegrateExact(Expr, string, double, Expr)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A limit isn't a real number.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The expression has more than one variable, or the integral diverges or doesn't exist.
+        /// </exception>
+        /// <exception cref="NotSupportedException">The integral isn't found.</exception>
+        public Expr IntegrateExact(double a, Expr b) => expr.IntegrateExact(OnlyVariable(expr), a, b);
 
         /// <summary>
         /// The definite integral by <paramref name="variable"/> from <paramref name="a"/> to
@@ -44,20 +76,109 @@ public static class ExactIntegrationExtensions
         /// No antiderivative was found, the limit of the antiderivative at a point where it is
         /// undefined isn't found, or where it is undefined depends on another variable.
         /// </exception>
-        public Expr IntegrateExact(string variable, Expr a, Expr b)
-        {
-            ArgumentNullException.ThrowIfNull(expr);
-            ArgumentNullException.ThrowIfNull(variable);
-            ArgumentNullException.ThrowIfNull(a);
-            ArgumentNullException.ThrowIfNull(b);
-            if (a.DependsOn(variable) || b.DependsOn(variable))
-                throw new ArgumentException($"A limit of integration depends on {variable}.");
+        public Expr IntegrateExact(string variable, Expr a, Expr b) => Integral(expr, variable, Finite(a, variable), Finite(b, variable));
 
-            return new Definite(expr.Simplify(), variable, a.Simplify(), b.Simplify()).Value();
-        }
+        /// <summary>
+        /// The exact definite integral by <paramref name="variable"/> from <paramref name="a"/> to
+        /// <paramref name="b"/>, either of which may be <see cref="double.PositiveInfinity"/> or
+        /// <see cref="double.NegativeInfinity"/>: <c>exp(-x)</c> from 0 to inf is 1, the limit of
+        /// the antiderivative there. A finite limit is the decimal it prints as. See
+        /// <see cref="IntegrateExact(Expr, string, Expr, Expr)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">A limit is NaN.</exception>
+        /// <exception cref="InvalidOperationException">
+        /// The integral diverges, as 1/x from 1 to inf does, or the integrand isn't real on a part
+        /// of the interval.
+        /// </exception>
+        /// <exception cref="NotSupportedException">
+        /// No antiderivative or limit of it is found, as where it oscillates at an infinite limit,
+        /// or where it is undefined depends on another variable.
+        /// </exception>
+        public Expr IntegrateExact(string variable, double a, double b) => Integral(expr, variable, Infinite(a), Infinite(b));
+
+        /// <summary>
+        /// The exact definite integral by <paramref name="variable"/> from <paramref name="a"/> to
+        /// <paramref name="b"/>, which may be <see cref="double.PositiveInfinity"/> or
+        /// <see cref="double.NegativeInfinity"/>. See
+        /// <see cref="IntegrateExact(Expr, string, double, double)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// A limit depends on <paramref name="variable"/>, isn't a real number or is NaN.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The integral diverges, or the integrand isn't real on a part of the interval.
+        /// </exception>
+        /// <exception cref="NotSupportedException">The integral isn't found.</exception>
+        public Expr IntegrateExact(string variable, Expr a, double b) => Integral(expr, variable, Finite(a, variable), Infinite(b));
+
+        /// <summary>
+        /// The exact definite integral by <paramref name="variable"/> from <paramref name="a"/>,
+        /// which may be <see cref="double.PositiveInfinity"/> or
+        /// <see cref="double.NegativeInfinity"/>, to <paramref name="b"/>. See
+        /// <see cref="IntegrateExact(Expr, string, double, double)"/>.
+        /// </summary>
+        /// <exception cref="ArgumentException">
+        /// A limit depends on <paramref name="variable"/>, isn't a real number or is NaN.
+        /// </exception>
+        /// <exception cref="InvalidOperationException">
+        /// The integral diverges, or the integrand isn't real on a part of the interval.
+        /// </exception>
+        /// <exception cref="NotSupportedException">The integral isn't found.</exception>
+        public Expr IntegrateExact(string variable, double a, Expr b) => Integral(expr, variable, Infinite(a), Finite(b, variable));
     }
 
-    private sealed class Definite(Expr f, string variable, Expr a, Expr b)
+    private static string OnlyVariable(Expr expr)
+    {
+        ArgumentNullException.ThrowIfNull(expr);
+        return expr.GetVariables().Count == 0 ? "x" : expr.GetSingleVariable();
+    }
+
+    private static Expr Integral(Expr expr, string variable, Bound a, Bound b)
+    {
+        ArgumentNullException.ThrowIfNull(expr);
+        ArgumentNullException.ThrowIfNull(variable);
+        return new Definite(expr.Simplify(), variable, a, b).Value();
+    }
+
+    private static Bound Finite(Expr limit, string variable)
+    {
+        ArgumentNullException.ThrowIfNull(limit);
+        if (limit.DependsOn(variable))
+            throw new ArgumentException($"The limit of integration {limit.Print()} depends on {variable}.");
+
+        Expr simplified = limit.Simplify();
+        if (simplified.GetVariables().Count > 0)
+            return new Bound(simplified, double.NaN);
+
+        double value;
+        try
+        {
+            value = simplified.Evaluate();
+        }
+        catch (InvalidOperationException)
+        {
+            value = double.NaN;
+        }
+
+        return double.IsFinite(value)
+            ? new Bound(simplified, value)
+            : throw new ArgumentException($"The limit of integration {limit.Print()} isn't a real number.");
+    }
+
+    private static Bound Infinite(double limit) => double.IsNaN(limit)
+        ? throw new ArgumentException("A limit of integration is NaN.")
+        : double.IsFinite(limit) ? new Bound(new Constant(limit), new Constant(limit).Evaluate()) : new Bound(null, limit);
+
+    // A limit of integration: exact, with its value where it has no symbols (NaN where it has), or
+    // inf or -inf.
+    private readonly record struct Bound(Expr? Exact, double Value)
+    {
+        public bool IsInfinite => Exact is null;
+
+        public string Print() => Exact?.Print() ?? (Value > 0 ? "inf" : "-inf");
+    }
+
+    private sealed class Definite(Expr f, string variable, Bound a, Bound b)
     {
         private const int MaxLogarithmPower = 16;
 
@@ -65,47 +186,49 @@ public static class ExactIntegrationExtensions
 
         public Expr Value()
         {
-            if ((b - a).Simplify() is Constant { Value.IsZero: true })
+            if (a.IsInfinite || b.IsInfinite ? a == b : (b.Exact! - a.Exact!).Simplify() is Constant { Value.IsZero: true })
                 return 0;
 
-            bool numeric = a.GetVariables().Count == 0 && b.GetVariables().Count == 0;
-            (Expr Exact, double Value) low = default, high = default;
+            bool numeric = !double.IsNaN(a.Value) && !double.IsNaN(b.Value);
+            Bound low = a, high = b;
             int sign = 1;
             if (numeric)
             {
-                low = (a, Real(a));
-                high = (b, Real(b));
                 if (low.Value > high.Value)
                     (low, high, sign) = (high, low, -1);
 
                 if (f.GetVariables().All(name => name == variable) && !ComplexParts.HasImaginaryUnit(f))
-                    CheckReal(low.Value, high.Value);
+                    CheckReal(low, high);
             }
 
-            if ((a + b).Simplify() is Constant { Value.IsZero: true } && Odd() && Bounded(low, high, numeric))
+            bool symmetric = a.IsInfinite || b.IsInfinite
+                ? a.Value == -b.Value
+                : (a.Exact! + b.Exact!).Simplify() is Constant { Value.IsZero: true };
+            if (symmetric && Odd() && Bounded(low, high, numeric) && (!a.IsInfinite || Decays()))
                 return 0;
 
             Expr antiderivative = f.Integrate(variable);
             var parts = Parts(antiderivative);
             var symbols = parts.SelectMany(part => part.GetVariables()).Where(name => name != variable)
-                .Concat(numeric || parts.Count == 0 ? [] : a.GetVariables().Concat(b.GetVariables()))
+                .Concat(numeric || parts.Count == 0 ? [] : new[] { a.Exact, b.Exact }.OfType<Expr>().SelectMany(end => end.GetVariables()))
                 .Distinct().ToList();
             if (symbols.Count > 0)
                 throw new NotSupportedException(
                     $"{Integral} isn't found: whether its antiderivative {antiderivative.Print()} is undefined or jumps between the limits depends on {string.Join(", ", symbols)}.");
 
             if (!numeric)
-                return Tidied(antiderivative.Substitute(variable, b) - antiderivative.Substitute(variable, a));
+                return Tidied(At(antiderivative, b) - At(antiderivative, a));
 
             Expr sum = End(antiderivative, high, -1) - End(antiderivative, low, 1);
-            foreach (IntegrationPoint point in Inside(antiderivative, low.Value, high.Value))
+            foreach (IntegrationPoint point in Inside(antiderivative, low, high))
             {
                 // At a decimal next to a pole the antiderivative is finite.
                 if (point.Approximate)
                     throw new NotSupportedException(FormattableString.Invariant(
                         $"{Integral} isn't found: its antiderivative {antiderivative.Print()} may be undefined at {variable} = {point.Value}, a point that isn't found exactly."));
 
-                Expr left = OneSided(antiderivative, point.Exact, -1), right = OneSided(antiderivative, point.Exact, 1);
+                var at = new Bound(point.Exact, point.Value);
+                Expr left = OneSided(antiderivative, at, -1), right = OneSided(antiderivative, at, 1);
                 if (Tidied(left - right) is var jump && !Negligible(jump, left))
                     sum += jump;
             }
@@ -116,28 +239,17 @@ public static class ExactIntegrationExtensions
         private List<Expr> Parts(Expr e) =>
             [.. Breakpoints.SingularParts(e, variable, double.NaN, double.NaN).Where(part => part.DependsOn(variable))];
 
-        private static double Real(Expr limit)
-        {
-            double value;
-            try
-            {
-                value = limit.Evaluate();
-            }
-            catch (InvalidOperationException)
-            {
-                value = double.NaN;
-            }
-
-            return double.IsFinite(value) ? value : throw new ArgumentException($"The limit of integration {limit.Print()} isn't a real number.");
-        }
-
         // The integrand is real or not all the way between the points where it is undefined.
-        private void CheckReal(double low, double high)
+        private void CheckReal(Bound low, Bound high)
         {
-            double[] ends = [low, .. Inside(f, low, high).Select(point => point.Value), high];
+            double[] ends = [low.Value, .. Inside(f, low, high).Select(point => point.Value), high.Value];
             for (int i = 0; i + 1 < ends.Length; i++)
             {
-                double middle = ends[i] / 2 + ends[i + 1] / 2;
+                double p = ends[i], q = ends[i + 1];
+                double middle = double.IsInfinity(p) && double.IsInfinity(q) ? 0
+                    : double.IsInfinity(p) ? q - Math.Max(1, Math.Abs(q))
+                    : double.IsInfinity(q) ? p + Math.Max(1, Math.Abs(p))
+                    : p / 2 + q / 2;
                 if (double.IsNaN(f.Evaluate((variable, middle))))
                     throw new InvalidOperationException(FormattableString.Invariant(
                         $"{Integral} doesn't exist: the integrand isn't real at {variable} = {middle}."));
@@ -152,7 +264,7 @@ public static class ExactIntegrationExtensions
 
         // Where the integrand has a finite limit from inside the interval at each point it may be
         // undefined at, it is bounded there.
-        private bool Bounded((Expr Exact, double Value) low, (Expr Exact, double Value) high, bool numeric)
+        private bool Bounded(Bound low, Bound high, bool numeric)
         {
             var parts = Parts(f);
             if (parts.Count == 0)
@@ -160,15 +272,15 @@ public static class ExactIntegrationExtensions
             if (!numeric || parts.Any(part => part.GetVariables().Any(name => name != variable)))
                 return false;
 
-            var inside = Inside(f, low.Value, high.Value);
+            var inside = Inside(f, low, high);
             if (inside.Any(point => point.Approximate))
                 return false;
 
             var sides = inside.SelectMany(point => new[] { (point.Exact, -1), (point.Exact, 1) }).ToList();
-            if (VanishesAt(f, low))
-                sides.Add((low.Exact, 1));
-            if (VanishesAt(f, high))
-                sides.Add((high.Exact, -1));
+            if (!low.IsInfinite && VanishesAt(f, low))
+                sides.Add((low.Exact!, 1));
+            if (!high.IsInfinite && VanishesAt(f, high))
+                sides.Add((high.Exact!, -1));
 
             try
             {
@@ -180,58 +292,83 @@ public static class ExactIntegrationExtensions
             }
         }
 
-        private Expr End(Expr antiderivative, (Expr Exact, double Value) end, int side)
+        // |f| <= c / x^(3/2) for x large enough, so its integral to inf converges, and that to
+        // -inf as well where f is odd.
+        private bool Decays()
         {
-            if (!VanishesAt(antiderivative, end))
+            try
+            {
+                return (new Power(new Variable(variable), new Constant(new Rational(3, 2))) * f)
+                    .Limit(variable, double.PositiveInfinity).Kind == LimitKind.Finite;
+            }
+            catch (Exception e) when (e is InvalidOperationException or NotSupportedException)
+            {
+                return false;
+            }
+        }
+
+        // The antiderivative at a limit that may have symbols, where it is continuous everywhere.
+        private Expr At(Expr antiderivative, Bound end) =>
+            end.IsInfinite ? OneSided(antiderivative, end, 0) : antiderivative.Substitute(variable, end.Exact!);
+
+        private Expr End(Expr antiderivative, Bound end, int side)
+        {
+            if (!end.IsInfinite && !VanishesAt(antiderivative, end))
             {
                 try
                 {
-                    return antiderivative.Substitute(variable, end.Exact).Simplify();
+                    return antiderivative.Substitute(variable, end.Exact!).Simplify();
                 }
                 catch (ArithmeticException)
                 {
                 }
             }
 
-            return OneSided(antiderivative, end.Exact, side);
+            return OneSided(antiderivative, end, side);
         }
 
-        private Expr OneSided(Expr antiderivative, Expr point, int side)
+        private Expr OneSided(Expr antiderivative, Bound point, int side)
         {
-            string at = $"{variable} = {point.Print()}", from = side < 0 ? "left" : "right";
+            string at = point.IsInfinite ? $"as {variable} -> {point.Print()}" : $"at {variable} = {point.Print()} from the {(side < 0 ? "left" : "right")}";
             Limit limit;
             try
             {
-                limit = antiderivative.Limit(variable, point, side < 0 ? LimitDirection.Left : LimitDirection.Right);
+                limit = point.IsInfinite
+                    ? antiderivative.Limit(variable, point.Value)
+                    : antiderivative.Limit(variable, point.Exact!, side < 0 ? LimitDirection.Left : LimitDirection.Right);
             }
             catch (InvalidOperationException e)
             {
-                throw new InvalidOperationException($"{Integral} doesn't exist: its antiderivative {antiderivative.Print()} isn't real on the {from} of {at}.", e);
+                throw new InvalidOperationException($"{Integral} doesn't exist: its antiderivative {antiderivative.Print()} isn't real {at}.", e);
+            }
+            catch (NotSupportedException e) when (e.InnerException is Gruntz.UnknownSign unknown)
+            {
+                throw new NotSupportedException($"{Integral} isn't found: it depends on the sign of {unknown.Constant.Print()}.", e);
             }
             catch (NotSupportedException e)
             {
-                throw new NotSupportedException($"{Integral} isn't found: the limit of its antiderivative {antiderivative.Print()} at {at} from the {from} isn't found.", e);
+                throw new NotSupportedException($"{Integral} isn't found: the limit of its antiderivative {antiderivative.Print()} {at} isn't found.", e);
             }
 
             return limit.Kind == LimitKind.Finite
                 ? limit.Value
-                : throw new InvalidOperationException($"{Integral} diverges at {variable} = {point.Print()}.");
+                : throw new InvalidOperationException($"{Integral} diverges {(point.IsInfinite ? $"at {point.Print()}" : $"at {variable} = {point.Print()}")}.");
         }
 
         // A root found numerically next to a limit is that limit.
-        private List<IntegrationPoint> Inside(Expr e, double low, double high) =>
-            [.. Breakpoints.Singular(e, variable, low, high).Where(point => !Near(point.Value, low) && !Near(point.Value, high))];
+        private List<IntegrationPoint> Inside(Expr e, Bound low, Bound high) =>
+            [.. Breakpoints.Singular(e, variable, low.Value, high.Value).Where(point => !Near(point.Value, low.Value) && !Near(point.Value, high.Value))];
 
         private static bool Near(double x, double y) =>
             Math.Abs(x - y) <= 4 * (Math.BitIncrement(Math.Max(Math.Abs(x), Math.Abs(y))) - Math.Max(Math.Abs(x), Math.Abs(y)));
 
-        private bool VanishesAt(Expr e, (Expr Exact, double Value) end)
+        private bool VanishesAt(Expr e, Bound end)
         {
             foreach (Expr part in Breakpoints.SingularParts(e, variable, end.Value, end.Value).Where(part => part.DependsOn(variable)))
             {
                 try
                 {
-                    if (part.Substitute(variable, end.Exact).Simplify() is var value
+                    if (part.Substitute(variable, end.Exact!).Simplify() is var value
                         && (value is Constant { Value.IsZero: true } || !(Math.Abs(value.Evaluate()) > 1e-12)))
                         return true;
                 }
@@ -247,7 +384,63 @@ public static class ExactIntegrationExtensions
         private static Expr Tidied(Expr e)
         {
             Expr tidy = MergedLogarithms(SeriesExpander.Tidy(Reflected(e)));
-            return QuadraticSurd.Of(tidy) is { } surd ? surd.ToExpr() : tidy;
+            if (QuadraticSurd.Of(tidy) is { } surd)
+                return surd.ToExpr();
+
+            Expr collected = Collected(tidy);
+            return collected.Print().Length < tidy.Print().Length ? collected : tidy;
+        }
+
+        // Terms that differ by a factor a + b sqrt(d) only, added up: (1/6) pi sqrt(3) + pi/(6 sqrt(3))
+        // is 2 sqrt(3) pi/9.
+        private static Expr Collected(Expr e)
+        {
+            var terms = new List<Expr>();
+            Terms(e, false, terms);
+            var groups = new List<(Expr Part, QuadraticSurd Coefficient)>();
+            foreach (Expr term in terms)
+            {
+                List<Expr> factors = [], divisors = [];
+                Factors(term, factors, divisors);
+                bool Numeric(Expr factor) => factor.GetVariables().Count == 0 && QuadraticSurd.Of(factor) is not null;
+                Expr Product(IEnumerable<Expr> part) => part.Aggregate((Expr)1, (product, factor) => product * factor);
+
+                Expr rest = (Product(factors.Where(factor => !Numeric(factor))) / Product(divisors.Where(factor => !Numeric(factor)))).Simplify();
+                if (QuadraticSurd.Of(Product(factors.Where(Numeric)) / Product(divisors.Where(Numeric))) is not { } coefficient)
+                    return e;
+
+                int i = groups.FindIndex(group => group.Part.Equals(rest) && (group.Coefficient + coefficient) is not null);
+                if (i < 0)
+                    groups.Add((rest, coefficient));
+                else
+                    groups[i] = (rest, (groups[i].Coefficient + coefficient)!.Value);
+            }
+
+            return groups.Count == terms.Count
+                ? e
+                : groups.Aggregate((Expr)0, (sum, group) => sum + group.Coefficient.ToExpr() * group.Part).Simplify();
+        }
+
+        private static void Factors(Expr e, List<Expr> factors, List<Expr> divisors)
+        {
+            switch (e)
+            {
+                case Multiply product:
+                    Factors(product.Left, factors, divisors);
+                    Factors(product.Right, factors, divisors);
+                    break;
+                case Divide quotient:
+                    Factors(quotient.Numerator, factors, divisors);
+                    Factors(quotient.Denominator, divisors, factors);
+                    break;
+                case Negate negate:
+                    factors.Add(-1);
+                    Factors(negate.Argument, factors, divisors);
+                    break;
+                default:
+                    factors.Add(e);
+                    break;
+            }
         }
 
         // sin(-u) = -sin(u), cos(-u) = cos(u), (-u)^3 = -u^3, exp(c ln(u)) = u^c and atan(tan(c)) =

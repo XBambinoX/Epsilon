@@ -170,6 +170,9 @@ public class LimitTests
     [InlineData("floor(x)/x", "1")]
     [InlineData("exp(-x)*floor(x)", "0")]
     [InlineData("floor(x)", "inf")]
+    [InlineData("(1/5)*(exp(-x)*sin(2*x) - cos(2*x)*exp(-x)/2)", "0")]
+    [InlineData("-(x + sin(x))/3", "-inf")]
+    [InlineData("(x + 2*atan(-sin(x)/(cos(x) + sqrt(3) + 2)))/sqrt(3)", "inf")]
     public void Oscillations_that_are_squeezed(string expr, string limit) => Assert.Equal(limit, At(expr, Inf));
 
     [Fact]

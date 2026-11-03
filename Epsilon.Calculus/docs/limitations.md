@@ -79,8 +79,12 @@ is updated with it. The expressions have
 
 ## Exact definite integrals
 
-- **Finite limits only**: an integral to inf or -inf is [numeric](numeric-integration.md#infinite-limits)
-  for now.
+- **No elementary antiderivative, no exact integral**: `exp(-x^2)` over the whole line, which is
+  sqrt(pi), and `sin(x)/x` from 0 to inf, which is pi/2, throw `NotSupportedException`; the
+  [numeric integral](numeric-integration.md) gives them.
+- **An antiderivative that oscillates at inf**: `cos(x)` from 0 to inf, which diverges, throws
+  `NotSupportedException` rather than `InvalidOperationException`, since the limit of sin(x)
+  there isn't found.
 - **A point found only numerically**: where the antiderivative may be undefined at a root that
   isn't found exactly, as ln(abs(x + cos(x))) at -0.739..., `IntegrateExact` throws
   `NotSupportedException`: a limit at a decimal next to a pole is finite.

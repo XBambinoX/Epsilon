@@ -97,7 +97,9 @@ What the signs of the eigenvalues of the Hessian say about a critical point.
 | Member | Description |
 |---|---|
 | `Expr IntegrateExact(string variable, Expr a, Expr b)` | The definite integral from a to b, exact, from the antiderivative: its limits where it is undefined, its jumps taken off, and 0 for a bounded odd integrand over a symmetric interval; other variables are constants. Throws `ArgumentException` if a limit has the variable or isn't real, `InvalidOperationException` if the integral diverges or the integrand isn't real on a part of the interval, `NotSupportedException` where no antiderivative or limit of it is found, or where it is undefined depends on another variable. |
-| `Expr IntegrateExact(Expr a, Expr b)` | The same by the expression's only variable. Throws `InvalidOperationException` if it has more than one. |
+| `Expr IntegrateExact(string variable, double a, double b)` | The same with the limits `double`s: `double.PositiveInfinity` and `double.NegativeInfinity` are inf and -inf, and a finite one is its decimal. Throws `ArgumentException` for NaN. |
+| `Expr IntegrateExact(string variable, Expr a, double b)`, `Expr IntegrateExact(string variable, double a, Expr b)` | The same with one limit an `Expr` and the other a `double`, so that an exact limit goes with an infinite one. |
+| `Expr IntegrateExact(Expr a, Expr b)`, `Expr IntegrateExact(double a, double b)`, `Expr IntegrateExact(Expr a, double b)`, `Expr IntegrateExact(double a, Expr b)` | The same by the expression's only variable. Throw `InvalidOperationException` if it has more than one. |
 
 ## Series
 

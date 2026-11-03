@@ -5,8 +5,31 @@ namespace Epsilon.Tests.Calculus;
 
 public class ExactIntegrationTests
 {
+    private const double Inf = double.PositiveInfinity;
+
     private static Expr Integral(string expr, string a, string b) =>
         ExprParser.Parse(expr).IntegrateExact("x", ExprParser.Parse(a), ExprParser.Parse(b));
+
+    // "inf" and "-inf" as doubles, anything else as an expression, through the overload for the mix.
+    private static Expr Improper(string expr, string a, string b)
+    {
+        Expr f = ExprParser.Parse(expr);
+        double? x = Infinity(a), y = Infinity(b);
+        return (x, y) switch
+        {
+            ({ } p, { } q) => f.IntegrateExact("x", p, q),
+            ({ } p, null) => f.IntegrateExact("x", p, ExprParser.Parse(b)),
+            (null, { } q) => f.IntegrateExact("x", ExprParser.Parse(a), q),
+            _ => f.IntegrateExact("x", ExprParser.Parse(a), ExprParser.Parse(b)),
+        };
+    }
+
+    private static double? Infinity(string limit) => limit switch
+    {
+        "inf" => double.PositiveInfinity,
+        "-inf" => double.NegativeInfinity,
+        _ => null,
+    };
 
     [Theory]
     [InlineData("x^2", "0", "1", "1/3")]
@@ -126,6 +149,87 @@ public class ExactIntegrationTests
     {
         var e = Assert.Throws<InvalidOperationException>(() => Integral(expr, a, b));
         Assert.EndsWith($"diverges at x = {at}.", e.Message);
+    }
+
+    [Theory]
+    [InlineData("exp(-x)", "0", "inf", "1")]
+    [InlineData("exp(-x)", "inf", "0", "-1")]
+    [InlineData("exp(-x)", "pi", "inf", "exp(-π)")]
+    [InlineData("1/(1 + x^2)", "-inf", "inf", "π")]
+    [InlineData("1/(1 + x^2)", "sqrt(3)", "inf", "(1/6) * π")]
+    [InlineData("1/(1 + x^2)", "-inf", "1", "(3/4) * π")]
+    [InlineData("1/x^2", "1", "inf", "1")]
+    [InlineData("x^3*exp(-x)", "0", "inf", "6")]
+    [InlineData("x*exp(x)", "-inf", "0", "-1")]
+    [InlineData("exp(-x)*sin(x)", "0", "inf", "1/2")]
+    [InlineData("exp(-2*x)*cos(3*x)", "0", "inf", "2/13")]
+    [InlineData("exp(-x)*cos(x)^2", "0", "inf", "3/5")]
+    [InlineData("1/(x^4 + 1)", "0", "inf", "(1/4) * π * sqrt(2)")]
+    [InlineData("1/(x^3 + 1)", "0", "inf", "(2/9) * π * sqrt(3)")]
+    [InlineData("1/(1 + x^2)^2", "-inf", "inf", "(1/2) * π")]
+    [InlineData("1/((x + 1)*(x + 2))", "0", "inf", "ln(2)")]
+    [InlineData("1/(x^2 - 1)", "2", "inf", "(1/2) * ln(3)")]
+    [InlineData("ln(x)/x^2", "1", "inf", "1")]
+    [InlineData("1/(x*ln(x)^2)", "e", "inf", "1")]
+    [InlineData("1/(1 + exp(x))", "0", "inf", "ln(2)")]
+    [InlineData("1/cosh(x)", "-inf", "inf", "π")]
+    [InlineData("atan(x)/(1 + x^2)", "0", "inf", "(1/8) * π^2")]
+    [InlineData("1/(sqrt(x)*(1 + x))", "0", "inf", "π")]
+    [InlineData("exp(-sqrt(x))/sqrt(x)", "0", "inf", "2")]
+    [InlineData("1/(x*sqrt(x^2 - 1))", "-inf", "-1", "(-1/2) * π")]
+    [InlineData("exp(x)", "-inf", "c", "exp(c)")]
+    [InlineData("exp(-x)", "inf", "inf", "0")]
+    public void Infinite_limits(string expr, string a, string b, string integral) =>
+        Assert.Equal(integral, Improper(expr, a, b).Print());
+
+    // |f| <= c/x^(3/2) far out: sin(x)/(1 + x^2) has no elementary antiderivative.
+    [Theory]
+    [InlineData("x/(x^4 + 1)")]
+    [InlineData("x^3/(1 + x^6)")]
+    [InlineData("x*exp(-x^2)")]
+    [InlineData("sin(x)/(1 + x^2)")]
+    public void An_odd_integrand_that_decays_fast_over_the_line_gives_0(string expr) =>
+        Assert.Equal("0", ExprParser.Parse(expr).IntegrateExact("x", -Inf, Inf).Print());
+
+    [Theory]
+    [InlineData("1/x", "1", "inf", "inf")]
+    [InlineData("1/sqrt(x)", "0", "inf", "inf")]
+    [InlineData("1", "0", "inf", "inf")]
+    [InlineData("x", "-inf", "inf", "inf")]
+    [InlineData("x/(1 + x^2)", "-inf", "inf", "inf")]
+    [InlineData("x^2*exp(-x)", "-inf", "0", "-inf")]
+    [InlineData("1/(2 + cos(x))", "0", "inf", "inf")]
+    [InlineData("1/(x^2 - 1)", "0", "inf", "x = 1")]
+    public void Diverges_over_an_infinite_interval(string expr, string a, string b, string at)
+    {
+        var e = Assert.Throws<InvalidOperationException>(() => Improper(expr, a, b));
+        Assert.EndsWith($"diverges at {at}.", e.Message);
+    }
+
+    [Fact]
+    public void An_antiderivative_that_oscillates_at_an_infinite_limit_isnt_taken()
+    {
+        var e = Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cos(x)").IntegrateExact("x", 0, Inf));
+        Assert.Equal("The integral of cos(x) from 0 to inf isn't found: the limit of its antiderivative sin(x) as x -> inf isn't found.", e.Message);
+    }
+
+    [Fact]
+    public void Where_the_integral_depends_on_the_sign_of_another_variable_throws()
+    {
+        var e = Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-c*x)").IntegrateExact("x", 0, Inf));
+        Assert.Equal("The integral of exp(-c * x) from 0 to inf isn't found: it depends on the sign of -c.", e.Message);
+    }
+
+    [Fact]
+    public void Every_mix_of_infinite_and_exact_limits_has_an_overload()
+    {
+        Expr f = ExprParser.Parse("exp(-t)");
+        Assert.Equal("1", f.IntegrateExact(0, Inf).Print());
+        Assert.Equal("exp(-π)", f.IntegrateExact(new Pi(), Inf).Print());
+        Assert.Equal("-exp(-π)", f.IntegrateExact(Inf, new Pi()).Print());
+        Assert.Equal("-exp(-1) + 1", f.IntegrateExact(new Constant(0), new Constant(1)).Print());
+        Assert.Equal("1/2", ExprParser.Parse("x").IntegrateExact("x", 0, 1).Print());
+        Assert.Throws<ArgumentException>(() => f.IntegrateExact(0, double.NaN));
     }
 
     [Fact]
