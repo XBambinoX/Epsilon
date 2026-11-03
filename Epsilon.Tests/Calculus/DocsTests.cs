@@ -256,6 +256,93 @@ public class CalculusVectorFieldsDocTests
             Assert.Throws<ArgumentException>(() => Vector<Expr>.Parse("[x, y]").Curl("x", "y")).Message);
         Assert.StartsWith("Variable 'x' is listed twice.", Assert.Throws<ArgumentException>(() => field.Curl("x", "y", "x")).Message);
     }
+
+    [Fact]
+    public void Potentials() =>
+        Assert.Equal("x * y * z", Vector<Expr>.Parse("[y*z, x*z, x*y]").Potential("x", "y", "z").Print());
+}
+
+// Every example in Epsilon.Calculus/docs/line-integrals.md.
+public class CalculusLineIntegralsDocTests
+{
+    private static readonly Variable T = new("t");
+    private static readonly Curve Circle = new("t", [new Cos(T), new Sin(T)], 0, 2 * new Pi());
+    private static readonly Curve Helix = new("t", Vector<Expr>.Parse("[cos(t), sin(t), t]"), 0, 2 * new Pi());
+    private static readonly Curve Segment = Curve.Segment([0, 0], [1, 2]);
+    private static readonly Curve Triangle = Curve.Polygon([[0, 0], [1, 0], [0, 1]], closed: true);
+
+    [Fact]
+    public void Curves()
+    {
+        var there = Curve.Join(Segment, Curve.Segment([1, 2], [3, 2]));
+
+        Assert.Equal("[1, 0]", Circle.Start.Print());
+        Assert.Equal("[3, 2]", there.End.Print());
+        Assert.Equal(3, Helix.Dimension);
+        Assert.Equal("[1, 0]", Circle.Reversed().End.Print());
+    }
+
+    [Fact]
+    public void By_arc_length()
+    {
+        Assert.Equal("2 * π", ExprParser.Parse("1").LineIntegralExact(Circle, "x", "y").Print());
+        Assert.Equal("2 * π * sqrt(2)", ExprParser.Parse("1").LineIntegralExact(Helix, "x", "y", "z").Print());
+        Assert.Equal("sqrt(2) + 2", ExprParser.Parse("1").LineIntegralExact(Triangle, "x", "y").Print());
+        Assert.Equal("2 * π", ExprParser.Parse("x^2 + y^2").LineIntegralExact(Circle, "x", "y").Print());
+
+        var graph = new Curve("x", Vector<Expr>.Parse("[x, x^2]"), 0, 1);
+        Assert.Equal("(1/12) * (5sqrt(5) - 1)", ExprParser.Parse("x").LineIntegralExact(graph, "x", "y").Print());
+
+        var catenary = new Curve("t", Vector<Expr>.Parse("[t, cosh(t)]"), 0, 1);
+        Assert.Equal("sinh(1)", ExprParser.Parse("1").LineIntegralExact(catenary, "x", "y").Print());
+
+        var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * new Pi());
+        Assert.Equal("2abs(R) * π", ExprParser.Parse("1").LineIntegralExact(circleOfRadius, "x", "y").Print());
+    }
+
+    [Fact]
+    public void Along_a_vector_field()
+    {
+        var swirl = Vector<Expr>.Parse("[-y, x]");
+        var square = Curve.Polygon([[0, 0], [1, 0], [1, 1], [0, 1]], closed: true);
+
+        Assert.Equal("2 * π", swirl.LineIntegralExact(Circle, "x", "y").Print());
+        Assert.Equal("-2 * π", swirl.LineIntegralExact(Circle.Reversed(), "x", "y").Print());
+        Assert.Equal("2", swirl.LineIntegralExact(square, "x", "y").Print());
+        Assert.Equal("2 * π + 2π^2", Vector<Expr>.Parse("[-y, x, z]").LineIntegralExact(Helix, "x", "y", "z").Print());
+    }
+
+    [Fact]
+    public void Potentials()
+    {
+        var field = Vector<Expr>.Parse("[2*x*y, x^2]");
+
+        Assert.Equal("x^2 * y", field.Potential("x", "y").Print());
+        Assert.Equal("2", field.LineIntegralExact(Segment, "x", "y").Print());
+        Assert.Equal("x * y * z", Vector<Expr>.Parse("[y*z, x*z, x*y]").Potential("x", "y", "z").Print());
+        Assert.Equal("The field [-y, x] isn't a gradient: the derivative of -y by y isn't that of x by x.",
+            Assert.Throws<InvalidOperationException>(() => Vector<Expr>.Parse("[-y, x]").Potential("x", "y")).Message);
+
+        Assert.Equal("2 * π", Vector<Expr>.Parse("[-y/(x^2 + y^2), x/(x^2 + y^2)]").LineIntegralExact(Circle, "x", "y").Print());
+    }
+
+    [Fact]
+    public void Numeric_and_exact()
+    {
+        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * new Pi());
+
+        Shown.Equal(9.688448220547672, ExprParser.Parse("1").LineIntegral(ellipse, "x", "y"));
+        Assert.Equal("The line integral isn't found: the integral of sqrt(3sin(t)^2 + 1) by t from 0 to 2 * π isn't found.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1").LineIntegralExact(ellipse, "x", "y")).Message);
+        Assert.Throws<ArgumentException>(() => ExprParser.Parse("a").LineIntegral(Circle, "x", "y"));
+    }
+
+    [Fact]
+    public void What_isnt_found()
+    {
+        Assert.Throws<NotSupportedException>(() => Vector<Expr>.Parse("[-y/(x^2 + y^2), x/(x^2 + y^2)]").Potential("x", "y"));
+        Assert.Throws<NotSupportedException>(() => Vector<Expr>.Parse("[a*y, x]").Potential("x", "y"));
+    }
 }
 
 // Every example in Epsilon.Calculus/docs/hessians.md.
@@ -1035,6 +1122,16 @@ public class CalculusLimitationsDocTests
         Expr logistic = ExprParser.Parse("1/(1 + exp(x))").IntegrateExact("x", -1, 1);
         Assert.Equal("ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1))", logistic.Print());
         Assert.Equal(1, logistic.Evaluate(), 1e-15);
+    }
+
+    [Fact]
+    public void Line_integrals()
+    {
+        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * new Pi());
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1").LineIntegralExact(ellipse, "x", "y"));
+        Assert.Throws<NotSupportedException>(() => Vector<Expr>.Parse("[a*y, x]").Potential("x", "y"));
+        Assert.Equal("2 * π", Vector<Expr>.Parse("[-y/(x^2 + y^2), x/(x^2 + y^2)]").LineIntegralExact(
+            new Curve("t", Vector<Expr>.Parse("[cos(t), sin(t)]"), 0, 2 * new Pi()), "x", "y").Print());
     }
 
     [Fact]

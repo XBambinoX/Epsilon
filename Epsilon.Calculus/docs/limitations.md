@@ -97,6 +97,17 @@ is updated with it. The expressions have
 - **Results aren't always in their simplest form**: `1/(1 + exp(x))` from -1 to 1 is
   ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1)), which is 1.
 
+## Line integrals
+
+- **Exact arc lengths that are elliptic aren't found**: the length of the ellipse
+  [2 cos(t), sin(t)] throws `NotSupportedException` exactly; `LineIntegral` gives it as a number.
+- **The limits of a curve's parameter are taken as increasing**: with symbols in them, as from 0
+  to a, a is taken to be at least 0.
+- **A potential holds where the field is defined**: [-y, x]/(x^2 + y^2) has equal derivatives
+  and no potential around 0, and with a symbol, as [a*y, x], whether a field is a gradient isn't
+  decided and `Potential` throws `NotSupportedException`.
+- **Only curves**: integrals over surfaces and solids aren't there yet.
+
 ## Series
 
 - **No logarithms of the variable and no essential singularities in a series**: `ln(x)` and

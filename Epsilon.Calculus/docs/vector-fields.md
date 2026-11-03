@@ -52,6 +52,17 @@ shows only in value, up to rounding:
 var curl = ExprParser.Parse("atan(y/z)").Gradient("x", "y", "z").Curl("x", "y", "z");
 curl.Evaluate(("x", 1), ("y", 2), ("z", 3));   // [6.938893903907228E-18, 0, 0]
 ```
+## Potentials
+
+A field whose curl is 0, or in any dimension whose entries have equal derivatives by each
+other's variables, is a gradient, and `Potential` finds a function it is the gradient of:
+
+```csharp
+Vector<Expr>.Parse("[y*z, x*z, x*y]").Potential("x", "y", "z").Print();   // x * y * z
+```
+
+Its use is in [line integrals](line-integrals.md#potentials): the work of a gradient along a
+curve is the difference of its potential between the ends.
 
 ## Errors
 

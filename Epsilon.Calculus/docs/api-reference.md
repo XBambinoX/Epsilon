@@ -15,6 +15,7 @@ here.
 [Numeric integration](#numeric-integration) -
 [Symbolic integration](#symbolic-integration) -
 [Exact definite integrals](#exact-definite-integrals) -
+[Line integrals](#line-integrals) -
 [Series](#series) -
 [Limits](#limits)
 
@@ -47,6 +48,7 @@ Extension members of `Vector<Expr>`, whose entry i is the component along the i-
 |---|---|
 | `Expr Divergence(params IReadOnlyList<string> variables)` | The sum of the derivatives of entry i by variable i. Throws `ArgumentException` if the lengths differ. |
 | `Vector<Expr> Curl(params IReadOnlyList<string> variables)` | The curl of a field of 3 entries by 3 variables; a plane field is [P, Q, 0]. Throws `ArgumentException` for other lengths. |
+| `Expr Potential(params IReadOnlyList<string> variables)` | A function whose gradient is the field, without a constant. Throws `ArgumentException` if the lengths differ, `InvalidOperationException` if the field isn't a gradient, `NotSupportedException` where an antiderivative isn't found or whether it is a gradient isn't decided. |
 
 ## Hessians and critical points
 
@@ -100,6 +102,33 @@ What the signs of the eigenvalues of the Hessian say about a critical point.
 | `Expr IntegrateExact(string variable, double a, double b)` | The same with the limits `double`s: `double.PositiveInfinity` and `double.NegativeInfinity` are inf and -inf, and a finite one is its decimal. Throws `ArgumentException` for NaN. |
 | `Expr IntegrateExact(string variable, Expr a, double b)`, `Expr IntegrateExact(string variable, double a, Expr b)` | The same with one limit an `Expr` and the other a `double`, so that an exact limit goes with an infinite one. |
 | `Expr IntegrateExact(Expr a, Expr b)`, `Expr IntegrateExact(double a, double b)`, `Expr IntegrateExact(Expr a, double b)`, `Expr IntegrateExact(double a, Expr b)` | The same by the expression's only variable. Throw `InvalidOperationException` if it has more than one. |
+
+## Line integrals
+
+### `Curve` (class)
+
+A curve of one or more pieces, each a point whose entries are expressions of a parameter, for the parameter from one value to another.
+
+| Member | Description |
+|---|---|
+| `Curve(string parameter, Vector<Expr> point, Expr from, Expr to)` | The point for the parameter from `from` to `to`, in increasing order. Throws `ArgumentException` for a point without entries, a limit with the parameter, or `from` greater than `to`. |
+| `static Curve Segment(Vector<Expr> from, Vector<Expr> to)` | The straight segment between two points. |
+| `static Curve Polygon(IReadOnlyList<Vector<Expr>> points, bool closed = false)` | The segments through the points, and back to the first with `closed`. Throws `ArgumentException` for fewer than 2 points. |
+| `static Curve Join(params IReadOnlyList<Curve> curves)` | The curves one after another. Throws `ArgumentException` for none or different dimensions. |
+| `Curve Reversed()` | The same curve traversed the other way. |
+| `int Dimension` | The number of entries of its points. |
+| `Vector<Expr> Start`, `Vector<Expr> End` | The points it starts and ends at. |
+
+### `LineIntegralExtensions` (static class)
+
+Extension methods of `Expr` and `Vector<Expr>`; the variables name the entries of the curve's points.
+
+| Member | Description |
+|---|---|
+| `double LineIntegral(this Expr f, Curve curve, params IReadOnlyList<string> variables)` | The integral of f by arc length along the curve, numerically. Throws `ArgumentException` if the numbers of variables and entries differ, the points have one of the variables, or a limit or the integrand has another variable; `InvalidOperationException` as numeric integrals do. |
+| `Expr LineIntegralExact(this Expr f, Curve curve, params IReadOnlyList<string> variables)` | The same, exact. Throws `NotSupportedException` where the integral isn't found, as the length of an ellipse. |
+| `double LineIntegral(this Vector<Expr> field, Curve curve, params IReadOnlyList<string> variables)` | The integral of the field along the curve, F . dr, numerically: its work, and its circulation around a closed curve. |
+| `Expr LineIntegralExact(this Vector<Expr> field, Curve curve, params IReadOnlyList<string> variables)` | The same, exact. |
 
 ## Series
 
