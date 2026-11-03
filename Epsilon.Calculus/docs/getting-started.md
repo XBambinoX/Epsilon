@@ -53,5 +53,6 @@ ExprParser.Parse("ln(x)").Integrate(0, 1);   // -1, though ln(x) goes to -infini
 - [Gradients](gradients.md) and [vector fields](vector-fields.md) for first derivatives,
   [Hessians and critical points](hessians.md) for second ones.
 - [Numeric integration](numeric-integration.md) for definite integrals, singular and over
-  infinite intervals too, and [symbolic integration](symbolic-integration.md) for
-  antiderivatives.
+  infinite intervals too, [symbolic integration](symbolic-integration.md) for
+  antiderivatives, and [exact definite integrals](exact-integration.md) from them.
+- [Line integrals](line-integrals.md) along curves, by arc length and along vector fields.

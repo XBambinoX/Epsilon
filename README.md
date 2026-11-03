@@ -16,7 +16,7 @@ dependencies beyond the .NET base library.
 |---|---|---|
 | [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular value decompositions and least squares for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
-| [Epsilon.Calculus](Epsilon.Calculus/README.md) | Gradients, divergence and curl, Hessians, Laplacians and the second-derivative test; exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by the substitutions for trigonometric functions and square roots of quadratics; numeric definite integrals over infinite intervals and through singularities, with divergent integrals detected | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Calculus)](https://www.nuget.org/packages/Epsilon.Calculus) |
+| [Epsilon.Calculus](Epsilon.Calculus/README.md) | Gradients, divergence, curl and potentials, Hessians, Laplacians and the second-derivative test; series and exact limits; exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by the substitutions for trigonometric functions and square roots of quadratics; exact definite integrals, improper ones and classic integrals without an antiderivative included; line integrals; numeric definite integrals over infinite intervals and through singularities, with divergent integrals detected | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Calculus)](https://www.nuget.org/packages/Epsilon.Calculus) |
 
 Every package targets .NET 10, and the packages built on the core bring it with them:
 
@@ -71,6 +71,8 @@ f.Gradient("x", "y").Print();                                // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));                 // LocalMinimum
 ExprParser.Parse("x*exp(x)").Integrate("x").Print();         // exp(x) * x - exp(x)
 ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();      // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print();   // e
+ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity).Print();   // sqrt(π)
 ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1);             // -4
 ```
 
@@ -97,9 +99,10 @@ The areas built on the core as separate packages, in this order:
    symbolic matrices compiled to fast delegates or C# source since 1.4, and least squares
    with QR, Cholesky, eigenvalue and singular value decompositions since 1.5.
 2. **Calculus** - available as `Epsilon.Calculus`: gradients, vector fields, Hessians and
-   Laplacians, symbolic and numeric integration (improper integrals included). Planned next, as far as time and energy allow: limits (including multivariable limits in
-   2D and 3D), double and triple integrals, surface and contour integrals, Lebesgue
-   integration and more.
+   Laplacians, symbolic and numeric integration (improper integrals included), and since 1.1
+   series, limits, exact definite integrals and line integrals. Planned next, as far as time
+   and energy allow: multivariable limits in 2D and 3D, double and triple integrals, surface
+   integrals, residues and contour integrals, Lebesgue integration and more.
 3. **Transforms** - Fourier, wavelets and more.
 4. **Probability theory** - under consideration.
 5. Further areas as the library grows.

@@ -2,6 +2,8 @@
 
 `Integrate(a, b)` computes a definite integral numerically: to about 10 digits by default,
 usually to all 16, or it throws. It doesn't return a number for an integral that diverges.
+An exact value from the antiderivative is `IntegrateExact`, see
+[Exact definite integrals](exact-integration.md).
 The last digit or two of the results shown here can differ on another system: the nodes of the
 rules come from sinh, cosh and tanh, which C libraries round differently in the last bit.
 
@@ -36,6 +38,14 @@ ExprParser.Parse("exp(-x)").Integrate(0, double.PositiveInfinity);              
 ExprParser.Parse("1/(1 + x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 3.1415926535897927
 ```
 
+A finite interval may be as long. Where its integral has the weight next to an end, a piece that
+doesn't converge is split not in the middle but at the geometric mean of the weight's distance
+from that end and the width, here at 1e150, 1e75 and so on:
+
+```csharp
+ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300);   // 0.8862269254527574
+```
+
 ## Singularities
 
 The integrand may be infinite at the limits or inside the interval, as long as the integral
@@ -56,28 +66,64 @@ ExprParser.Parse("sin(x)/x").Integrate(-1, 1);             // 1.8921661407343664
 The points inside are found in the expression. The interval is split at the zeros of
 denominators, of the bases of fractional and negative powers and of the arguments of roots,
 logarithms and abs, at the poles of tan, cot, sec and csc, and at the edges of the domains of
-the inverse functions. These zeros are exact where the part that vanishes is linear, and are
-found numerically otherwise.
+the inverse functions. These zeros are exact where the part that vanishes is linear, a sine or
+cosine of a linear argument, or a polynomial with linear and quadratic factors, and are found
+numerically otherwise. At an exact zero the integrand is shifted there symbolically: next to pi,
+sin(x) is -sin(d) of the distance d, and next to sqrt(2), x^2 - 2 is 2 sqrt(2) d + d^2, with
+nothing rounded:
+
+```csharp
+ExprParser.Parse("1/sqrt(abs(sin(x)))").Integrate(0, 4);     // 7.120606397869798
+ExprParser.Parse("1/sqrt(abs(x^2 - 2))").Integrate(0, 2);    // 2.45216991381447
+```
 
 ## Kinks, jumps and peaks
 
 The interval is also split at kinks and jumps (abs, sign, min and max, and floor, ceiling and
-round of linear arguments), and at the peaks of exponentials, so a normal density far from 0 is
-found:
+round of linear arguments), at the peaks and steps of exponentials, sech, cosh, tanh and atan,
+so a normal density far from 0 is found, and where the polynomials among the parts above turn,
+as the denominator of a narrow peak of a rational function does. Far out the nodes are too
+sparse to land on a peak this narrow, and every value they would see is 0:
 
 ```csharp
 ExprParser.Parse("abs(x)").Integrate(-1, 2);                    // 2.499999999999999
 ExprParser.Parse("min(x, 1 - x)").Integrate(0, 1);             // 0.24999999999999992
 ExprParser.Parse("floor(x)").Integrate(0, 3.5);                 // 4.500000000000001
 ExprParser.Parse("exp(-(x - 200)^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 1.772453850905513
+ExprParser.Parse("sech(10*(x - 1000))^2").Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 0.19999999999998613
+ExprParser.Parse("1/(1 + 1e10*(x - 1000)^2)").Integrate(-1e300, 1e300);   // 3.1415926535897935E-05
 ```
 
 A piece that doesn't converge, around a sharp peak, is split in two until the peak is next to
-the end of a piece. The exact value of this one is 3139.59265425646:
+the end of a piece. The exact value of this one is 3140.306899023443:
 
 ```csharp
-ExprParser.Parse("1/(x^2 + 1e-6)").Integrate(-1, 1);   // 3139.5926542564584
+ExprParser.Parse("1/(sin(x)^2 + 1e-6)").Integrate(-1, 1);   // 3140.3068990234406
 ```
+
+## Oscillating integrands
+
+Towards an infinity, an integrand that oscillates through sines and cosines of linear arguments
+is taken apart: its mean over a period, which doesn't oscillate, and the waves left about it,
+summed over the steps where they keep their sign. So an integral that converges only because
+its waves cancel has a value too:
+
+```csharp
+ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity);           // 1.5707963267948968
+ExprParser.Parse("cos(x)/(1 + x^2)").Integrate(0, double.PositiveInfinity);   // 0.5778636748954608
+ExprParser.Parse("sin(x)^2/x^2").Integrate(0, double.PositiveInfinity);       // 1.5707963267948963
+```
+
+It diverges where the waves don't die out, or the mean doesn't: sin(x)^2/x is 1/(2x) on average.
+
+```csharp
+ExprParser.Parse("sin(x)").Integrate(0, double.PositiveInfinity);        // InvalidOperationException
+ExprParser.Parse("sin(x)^2/x").Integrate(1, double.PositiveInfinity);    // InvalidOperationException
+```
+
+The periods of the sines and cosines must be rational multiples of each other, as those of
+sin(x) and cos(2x/3) are; see [Known limitations](limitations.md#numeric-integration) for the
+others.
 
 ## Divergent integrals
 
@@ -93,21 +139,20 @@ ExprParser.Parse("tan(x)").Integrate(0, 2);
 // InvalidOperationException: The integral diverges at x = 1.5707963267948966, or converges there too slowly for double precision.
 ```
 
-Two kinds of convergent integrals get the same message. x^(-0.999) on [0, 1] converges to 1000,
-but most of that lies closer to 0 than the smallest double. sin(x)/x on [0, infinity)
-converges only because its waves cancel, and its terms never die out:
+A convergent integral can get the same message: x^(-0.999) on [0, 1] converges to 1000, but
+most of that lies closer to 0 than the smallest double:
 
 ```csharp
-ExprParser.Parse("x^(-0.999)").Integrate(0, 1);                         // InvalidOperationException
-ExprParser.Parse("sin(x)/x").Integrate(0, double.PositiveInfinity);     // InvalidOperationException
+ExprParser.Parse("x^(-0.999)").Integrate(0, 1);   // InvalidOperationException
 ```
 
 ## The tolerance
 
 The last argument is the accuracy asked for, relative to the integral of the absolute value of
-the integrand; by default 1e-10. Next to a singularity at a point that isn't a double, such as
-pi, x can't come closer to it than its rounding, which limits the accuracy to about 1e-8. Asked
-for more, `Integrate` says so; asked for less, it gives the result:
+the integrand; by default 1e-10. Next to a singularity at a point that isn't a double and isn't
+found exactly, such as pi as a limit, x can't come closer to it than its rounding, which limits
+the accuracy to about 1e-8. Asked for more, `Integrate` says so; asked for less, it gives the
+result:
 
 ```csharp
 ExprParser.Parse("1/sqrt(sin(x))").Integrate(0, Math.PI);
@@ -133,6 +178,17 @@ or by exp-sinh towards an infinity. Their nodes crowd towards the ends of a piec
 exponentially, so a singularity there costs only a few more of them. The nodes are measured by
 their distance from an end, which is exact down to the smallest double. Where the integrand is
 singular at an end, it is shifted there symbolically: next to 1, (1 - x)^(-1/2) becomes d^(-1/2)
-of the distance d, where 1 - x would be 0 for every d below 1e-16. The step is halved until two
+of the distance d, where 1 - x would be 0 for every d below 1e-16. So it is on a piece far
+narrower than its distance from 0, where x would be rounded to more than 2^-32 of the width: over
+[1e8 - 1/2, 1e8], x - 1e8 becomes d - 1/2. The step is halved until two
 estimates agree. Before that, the last term towards each end must be negligible, since a
 divergent integral has terms that don't die out.
+
+Towards an infinity where the integrand oscillates, the period next to the last of those points
+is a piece like the others, and the rest is taken apart in the phase. With the arguments of the
+sines and cosines written in a variable of their own, the mean over a period comes out exactly at
+any x, even where x is rounded to more than the period, and exp-sinh integrates it. What is left
+is split into parts that change sign every half period, every quarter, every eighth and so on:
+the odd harmonics, those twice an odd number and so on. The integrals of a part over those steps
+alternate and die out, and Wynn's epsilon algorithm finds their sum from a few dozen of them. The
+waves far out must be negligible, or the integral diverges: summed, those of sin(x) would give 1.

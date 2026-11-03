@@ -60,6 +60,17 @@ public class SymbolicIntegrationTests
     [InlineData("(x + 2)/sqrt(9 - x^2)")]
     [InlineData("1/sqrt(x^2 + 2*x + 2)")]
     [InlineData("1/sqrt(x^2 + 2*x + 1)")]
+    [InlineData("1/(x^2 + 1/2)")]
+    [InlineData("1/(x^2 - 1/2)")]
+    [InlineData("1/sqrt(1/2 - x^2)")]
+    [InlineData("1/(x^2/2 + 1)^(1/2)")]
+    [InlineData("2^x*3^x")]
+    [InlineData("2^(x + 1)*3^(2*x)")]
+    [InlineData("2^x/3^x")]
+    [InlineData("sqrt(2^x)*3^x")]
+    [InlineData("pi^x*2^x")]
+    [InlineData("x*2^x*3^x")]
+    [InlineData("exp(x)*2^x*sin(x)")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -115,6 +126,22 @@ public class SymbolicIntegrationTests
         Assert.Equal("3nthroot(x, 3)^2 / 2", Integral("1/nthroot(x, 3)"));
     }
 
+    // The antiderivatives are continuous, so F(b) - F(a) holds across the jumps, which the core
+    // can't differentiate to check. The values are sums of the steps over [-3.7, 4.2].
+    [Theory]
+    [InlineData("floor(x)", -2)]
+    [InlineData("ceiling(x)", 5.9)]
+    [InlineData("round(x)", 2)]
+    [InlineData("round(-x)", -2)]
+    [InlineData("floor(2*x + 1)", 7.9)]
+    [InlineData("3*ceiling(x/2)", 14.7)]
+    public void Steps_of_a_linear_argument_have_continuous_antiderivatives(string integrand, double exact)
+    {
+        var antiderivative = ExprParser.Parse(integrand).Integrate("x");
+
+        Assert.Equal(exact, antiderivative.Evaluate(("x", 4.2)) - antiderivative.Evaluate(("x", -3.7)), 1e-13);
+    }
+
     [Fact]
     public void Elementary_functions_of_a_linear_argument()
     {
@@ -129,6 +156,17 @@ public class SymbolicIntegrationTests
         Assert.Equal("asin(x) * x + sqrt(-x^2 + 1)", Integral("asin(x)"));
         Assert.Equal("abs(x) * x / 2", Integral("abs(x)"));
         Assert.Equal("abs(x)", Integral("sign(x)"));
+    }
+
+    // Itself over the sum of the rates, the logarithms of rational bases taken together.
+    [Fact]
+    public void Products_of_exponentials()
+    {
+        Assert.Equal("2^x * 3^x / ln(6)", Integral("2^x*3^x"));
+        Assert.Equal("2^x / (ln(2/3) * 3^x)", Integral("2^x/3^x"));
+        Assert.Equal("exp(x) * 2^x / (ln(2) + 1)", Integral("2^x*exp(x)"));
+        Assert.Equal("2^x * 3^x * x / ln(6) - 2^x * 3^x / ln(6)^2", Integral("x*2^x*3^x"));
+        Assert.Throws<NotSupportedException>(() => Integral("(-2)^x*3^x"));
     }
 
     [Fact]
@@ -161,6 +199,18 @@ public class SymbolicIntegrationTests
         Assert.Equal("ln(abs((2x - sqrt(5) + 1) / (2x + sqrt(5) + 1))) / sqrt(5)", Integral("1/(x^2 + x - 1)"));
         Assert.Equal("asinh((2x + 1) / sqrt(3))", Integral("1/sqrt(x^2 + x + 1)"));
         Assert.Equal("asin((2x + 1) / sqrt(5))", Integral("1/sqrt(1 - x - x^2)"));
+    }
+
+    // 1/sqrt(1/2) as sqrt(2) rather than 2/sqrt(2), and 1/sqrt(2) as a quotient.
+    [Fact]
+    public void Roots_of_fractions_in_quadratics()
+    {
+        Assert.Equal("atan(sqrt(2) * x) * sqrt(2)", Integral("1/(x^2 + 1/2)"));
+        Assert.Equal("atan(x / sqrt(2)) / sqrt(2)", Integral("1/(x^2 + 2)"));
+        Assert.Equal("atan(sqrt(2) * x) / sqrt(2)", Integral("1/(2*x^2 + 1)"));
+        Assert.Equal("ln(abs((2x - sqrt(2)) / (2x + sqrt(2)))) / sqrt(2)", Integral("1/(x^2 - 1/2)"));
+        Assert.Equal("asinh(sqrt(2) * x)", Integral("1/sqrt(x^2 + 1/2)"));
+        Assert.Equal("asin(sqrt(2) * x)", Integral("1/sqrt(1/2 - x^2)"));
     }
 
     [Fact]
@@ -213,28 +263,95 @@ public class SymbolicIntegrationTests
         Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("5").Integrate());
     }
 
-    // Non-elementary, a denominator whose roots can't be written, a step, a quadratic whose sign
-    // isn't known, the double angle, and the root of a cubic.
+    // Non-elementary, a denominator whose roots can't be written, a step squared, a quadratic
+    // whose sign isn't known, the root of a cubic, and real and imaginary parts without
+    // elementary antiderivatives.
     [Theory]
     [InlineData("exp(x^2)")]
     [InlineData("1/(x^5 - x - 1)")]
-    [InlineData("floor(x)")]
+    [InlineData("floor(x)^2")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("exp(x)*cos(x)^2")]
     [InlineData("sqrt(1 + x^3)")]
+    [InlineData("exp(i*x^2)")]
     public void What_no_rule_fits_throws(string integrand) =>
         Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found.",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
 
-    // The rules are those of real functions: ln|x + i| isn't an antiderivative of 1/(x + i).
+    // Functions of a complex argument whose real and imaginary parts aren't written: atan, ln of an
+    // imaginary part that varies, a real root, and powers of what isn't linear or meets the cut.
+    [Theory]
+    [InlineData("atan(i*x)")]
+    [InlineData("ln(x + i*x)")]
+    [InlineData("nthroot(x + i, 3)")]
+    [InlineData("sqrt(x^2 + i)")]
+    [InlineData("(i*x - 1)^(1/2)")]
+    public void The_imaginary_unit_elsewhere_throws(string integrand) =>
+        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts or is a power of a linear expression.",
+            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
+
+    // With x real, the integrand is u + i v and each part is integrated by the rules of real
+    // functions; these threw, since the rules alone gave ln|x + i| for 1/(x + i).
     [Theory]
     [InlineData("1/(x + i)")]
     [InlineData("1/(x^2 + i)")]
     [InlineData("exp(i*x)")]
     [InlineData("x^i")]
-    public void The_imaginary_unit_elsewhere_throws(string integrand) =>
-        Assert.Equal($"No antiderivative of {ExprParser.Parse(integrand).Print()} by x was found: the imaginary unit is integrated only as a constant factor or term.",
-            Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x")).Message);
+    [InlineData("x*exp(i*x)")]
+    [InlineData("exp((1 + 2*i)*x)")]
+    [InlineData("cos(x + i)")]
+    [InlineData("1/(x - 2*i)^2")]
+    [InlineData("(x + i)^3")]
+    [InlineData("ln(x + i)")]
+    [InlineData("abs(x + i)")]
+    [InlineData("1/(x^2 + 2*i*x + 2)")]
+    [InlineData("sec(x + i)")]
+    [InlineData("csc(x - i)")]
+    [InlineData("tanh(x + i)")]
+    [InlineData("coth(x + i)")]
+    [InlineData("tanh(i*x)")]
+    [InlineData("tan(x + i)")]
+    [InlineData("tan(2*x + i)")]
+    [InlineData("cot(x - 2*i)")]
+    public void The_real_and_imaginary_parts_are_integrated_apart(string integrand)
+    {
+        var f = ExprParser.Parse(integrand);
+        var derivative = f.Integrate("x").Differentiate("x");
+
+        foreach (double x in new[] { 0.4, 1.3, 2.7, 4.1 })
+        {
+            var at = new Dictionary<string, ComplexNumber> { ["x"] = x };
+            ComplexNumber expected = f.EvaluateComplex(at);
+            Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
+        }
+
+        Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
+        Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
+    }
+
+    // On a line that misses the negative real axis, the cut of the principal power, the power rule
+    // holds all along it: sqrt(x + i) as (2/3)(x + i)^(3/2), on both sides of 0. Their real and
+    // imaginary parts would be nested roots.
+    [Theory]
+    [InlineData("sqrt(x + i)")]
+    [InlineData("(x + i)^(-3/2)")]
+    [InlineData("1/sqrt(2*x - 3*i)")]
+    [InlineData("(i*x + 1)^(1/3)")]
+    [InlineData("3*i*sqrt(x - i)")]
+    [InlineData("sqrt(x + i) + 1/(x + i)")]
+    public void Powers_of_a_complex_linear_expression(string integrand)
+    {
+        var f = ExprParser.Parse(integrand);
+        var derivative = f.Integrate("x").Differentiate("x");
+
+        foreach (double x in new[] { -3.1, -0.4, 0.7, 2.3 })
+        {
+            var at = new Dictionary<string, ComplexNumber> { ["x"] = x };
+            ComplexNumber expected = f.EvaluateComplex(at);
+            Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
+        }
+
+        Assert.Equal("2(x + i)^(3/2) / 3", Integral("sqrt(x + i)"));
+    }
 
     [Fact]
     public void The_imaginary_unit_as_a_constant_factor_or_term()

@@ -42,11 +42,13 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 |---|---|---|
 | Powers of a linear expression | `(2*x + 1)^5` | `(2x + 1)^6 / 12` |
 | Exponentials | `exp(-3*x)`, `2^x` | `-exp(-3x) / 3`, `2^x / ln(2)` |
+| | `2^x*3^x` | `2^x * 3^x / ln(6)` |
 | Logarithms | `ln(x)` | `ln(x) * x - x` |
 | Trigonometric functions | `cos(3*x + 1)`, `tan(x)` | `sin(3x + 1) / 3`, `-ln(abs(cos(x)))` |
 | | `sec(x)` | `ln(abs(sec(x) + tan(x)))` |
 | Inverse functions | `atan(x)` | `atan(x) * x - (1/2) * ln(x^2 + 1)` |
 | abs and sign | `abs(x)` | `abs(x) * x / 2` |
+| floor, ceiling and round | `floor(x)` | `floor(x) * x - (1/2) * (floor(x) + 1) * floor(x)` |
 | Squares and products | `sin(x)^2` | `(1/2) * x - (1/4) * sin(2x)` |
 | | `sec(x)*tan(x)`, `sin(x)*cos(x)` | `sec(x)`, `-cos(2x) / 4` |
 | Polynomials | `x*(x + 1)` | `(1/3) * x^3 + (1/2) * x^2` |
@@ -58,7 +60,8 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | | `sqrt(1 - x^2)` | `(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)` |
 
 The arguments may be any linear expression a x + b: the exponential, logarithm, trigonometric,
-hyperbolic and inverse functions, abs and sign, and the squares, reciprocals and products of the
+hyperbolic and inverse functions, abs and sign, floor, ceiling and round, whose antiderivatives
+are continuous across their jumps, and the squares, reciprocals and products of the
 trigonometric and hyperbolic functions. The quadratics may have any numeric coefficients. Their
 forms are 1/q, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q), written around the vertex
 of q. One with rational coefficients is left to [partial fractions](#rational-functions) when it
@@ -68,7 +71,8 @@ by [substitution](#substitution), by the substitutions for
 [square roots of quadratics](#square-roots-of-quadratics), and by partial fractions over the
 roots of factors of degree 3 and more. Then it is expanded once and tried again, which
 integrates products of polynomials; a rational function of exp, sinh and cosh becomes one of
-t = exp(x); and last it is integrated [by parts](#integration-by-parts).
+t = exp(x); then it is integrated [by parts](#integration-by-parts); and last a product or a
+power of sines and cosines is written as a sum of them.
 
 ## Rational functions
 
@@ -186,8 +190,32 @@ ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x)
 
 ## Trigonometric and hyperbolic functions
 
-A rational function of sin x and cos x, tan, cot, sec and csc among them, is one of t by
-Bioche's rules: t = cos x where the integrand is odd in sin x, t = sin x where it is odd in
+A quotient of p + q cos u + r sin u by D = a + b cos u + c sin u, for a linear u and any
+numbers, rational or not, is in the table. The numerator is alpha D + beta D' + gamma, and 1/D
+gives an arctangent with a denominator that stays positive for a^2 > b^2 + c^2, a logarithm for
+a^2 < b^2 + c^2 and a quotient between:
+
+```csharp
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("1/(sqrt(2) + cos(x))").Integrate("x").Print();  // x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))
+ExprParser.Parse("1/(3 + 5*sin(x))").Integrate("x").Print();      // (1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))
+ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();   // x + cos(x) / (sin(x) + 1)
+```
+
+The textbook (2/sqrt(3)) atan(tan(x/2)/sqrt(3)) for 1/(2 + cos(x)) jumps by pi where tan(x/2) is
+undefined, though the integrand isn't. This one goes on through those points, so F(b) - F(a) is
+the definite integral across them too. Over a whole period of 1/(2 + cos x) it is 2 pi/sqrt(3):
+
+```csharp
+var f = ExprParser.Parse("1/(2 + cos(x))");
+var antiderivative = f.Integrate("x");
+
+antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // 3.6275987284684357
+f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
+```
+
+Any other rational function of sin x and cos x, tan, cot, sec and csc among them, is one of t
+by Bioche's rules: t = cos x where the integrand is odd in sin x, t = sin x where it is odd in
 cos x, and t = tan x where it is unchanged when both change sign. sin(k x) and cos(k x) are
 written in sin x and cos x first, and the argument may be any linear expression. Where several
 rules apply, the shortest result is taken:
@@ -195,28 +223,19 @@ rules apply, the shortest result is taken:
 ```csharp
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();    // cos(x) - 2atan(cos(x))
 ExprParser.Parse("cos(x)^5/sin(x)^2").Integrate("x").Print();          // (1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)
-ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * atan(tan(x) / 2)
+ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))
 ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(cos(x)^2 + 1)
 ```
 
 Where no rule applies, t = tan(x/2), with sin x = 2t/(1 + t^2) and cos x = (1 - t^2)/(1 + t^2):
 
 ```csharp
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();       // 2atan(tan(x / 2) / sqrt(3)) / sqrt(3)
-ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();  // x + 2 / (tan(x / 2) + 1)
+ExprParser.Parse("1/(1 + sin(x))^2").Integrate("x").Print();   // -2 * (3tan(x / 2)^2 + 3tan(x / 2) + 2) / (3(tan(x / 2) + 1)^3)
 ```
 
-These are antiderivatives between the points where tan x or tan(x/2) is undefined, and jump at
-them, even where the integrand doesn't: F(b) - F(a) across such a point isn't the definite
-integral. Over a whole period of 1/(2 + cos x) it is 0, where the integral is 2 pi/sqrt(3):
-
-```csharp
-var f = ExprParser.Parse("1/(2 + cos(x))");
-var antiderivative = f.Integrate("x");
-
-antiderivative.Evaluate(("x", 2 * Math.PI)) - antiderivative.Evaluate(("x", 0));   // -8.16431199431569E-17
-f.Integrate(0, 2 * Math.PI);                                                         // 3.627598728468432
-```
+An arctangent atan(p tan(u) + q) from t = tan u or t = tan(u/2) jumps the same way, and is
+written as the angle that goes on, u + atan(...) of sin(2u) and cos(2u) with a denominator that
+stays positive, as for 1/(sin(x)^2 + 4cos(x)^2) above.
 
 A rational function of exp, sinh and cosh is one of t = exp(x), and quotients of equal powers of
 sin and cos, or sinh and cosh, are powers of tan, cot, tanh or coth:
@@ -249,6 +268,13 @@ ExprParser.Parse("1/(x^2*sqrt(x^2 - 1))").Integrate("x").Print();   // sqrt(x^2 
 ExprParser.Parse("sqrt(x^2 - 1)/x^2").Integrate("x").Print();       // ln(abs(x + sqrt(x^2 - 1))) - sqrt(x^2 - 1) / x
 ```
 
+Where the two sides give different results, Euler's substitution t = x + sqrt(q/p) makes the
+integrand a rational function of t on both at once:
+
+```csharp
+ExprParser.Parse("1/(x*sqrt(x^2 - 2*x))").Integrate("x").Print();   // -2 / (x + sqrt(x^2 - 2x))
+```
+
 ## Integration by parts
 
 The integral of u dv is u v less that of v du. For u the factor whose derivative is simpler is
@@ -270,12 +296,13 @@ ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x 
 ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // (1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)
 ```
 
-An exponential times sin or cos, and sin or cos of a logarithm, come back to the integral I
-after two steps, as I = A + c I, which is solved for I:
+An exponential, sinh or cosh times sin or cos, and sin or cos of a logarithm, come back to the
+integral I after two steps, as I = A + c I, which is solved for I:
 
 ```csharp
 ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();       // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
 ExprParser.Parse("exp(2*x)*cos(3*x)").Integrate("x").Print();   // (2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)
+ExprParser.Parse("cosh(x)*cos(x)").Integrate("x").Print();      // (1/2) * cos(x) * sinh(x) + (1/2) * cosh(x) * sin(x)
 ExprParser.Parse("sin(ln(x))").Integrate("x").Print();          // (sin(ln(x)) * x - cos(ln(x)) * x) / 2
 ```
 
@@ -287,6 +314,42 @@ which come from integration by parts too, and a substitution and integration by 
 ExprParser.Parse("exp(x)*sinh(x)").Integrate("x").Print();   // -(1/2) * x + (1/4) * exp(2x)
 ExprParser.Parse("sec(x)^3").Integrate("x").Print();         // (1/2) * ln(abs(sec(x) + tan(x))) + (1/2) * sec(x) * tan(x)
 ExprParser.Parse("exp(sqrt(x))").Integrate("x").Print();     // 2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))
+```
+
+Where nothing else fits, a product or a power of sines and cosines is written first as a sum of
+them by the product-to-sum formulas, cos(x)^2 as (1 + cos(2x))/2, and each term is integrated
+apart. sinh and cosh next to them, in a power or with another factor, are written in
+exponentials:
+
+```csharp
+ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x").Print();   // (1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)
+ExprParser.Parse("cosh(x)^2*cos(x)").Integrate("x").Print();
+// (1/2) * sin(x) + (-1/10) * cos(x) * exp(-2x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x)
+```
+
+## The imaginary unit
+
+As a constant factor or term, i is carried along: `i*x` gives `i * x^2 / 2`. Elsewhere, with x
+real, the integrand is split into its real and imaginary parts, and each is integrated as a real
+function:
+
+```csharp
+ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // (1/2) * ln(x^2 + 1) - atan(x) * i
+ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
+ExprParser.Parse("tan(x + i)").Integrate("x").Print();
+// (-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x + 2atan(-sin(2x) / (cos(2x) + exp(2)))) * i
+```
+
+The parts are those of sums, products, quotients and integer powers, of the trigonometric and
+hyperbolic functions and abs, of a real number raised to a complex power, as
+x^i = cos(ln(x)) + i sin(ln(x)), and of ln(u + i b) for a constant b. A power of a linear
+expression whose values miss the cut of the principal power, the negative real axis, as x + i
+does, is integrated by the power rule instead, and where the whole integrand is neither, each
+term apart. Other functions of a complex argument, such as `atan(x + i)`, throw
+`NotSupportedException`:
+
+```csharp
+ExprParser.Parse("sqrt(x + i)").Integrate("x").Print();   // 2(x + i)^(3/2) / 3
 ```
 
 ## Checking a result
@@ -302,8 +365,7 @@ integral.Differentiate("x").Print(); // atan(x)
 
 The simplifier doesn't always bring a derivative back to the form of the integrand, but the
 values agree. An antiderivative gives a definite integral as F(b) - F(a), here half the area
-of the unit disk. This holds when the integrand is defined on all of [a, b] and the
-antiderivative doesn't [jump](#trigonometric-and-hyperbolic-functions) in it, and the numeric
+of the unit disk. This holds when the integrand is defined on all of [a, b], and the numeric
 integral agrees:
 
 ```csharp
@@ -313,20 +375,27 @@ area.Evaluate(("x", 1)) - area.Evaluate(("x", -1));          // 1.57079632679489
 ExprParser.Parse("sqrt(1 - x^2)").Integrate(-1, 1);           // 1.570796326794897
 ```
 
+[Exact definite integrals](exact-integration.md) take F(b) - F(a) with the checks it needs,
+where F is undefined or jumps between the limits too:
+
+```csharp
+ExprParser.Parse("sqrt(1 - x^2)").IntegrateExact("x", -1, 1).Print();   // (1/2) * π
+```
+
 ## What isn't integrated yet
 
 Some integrands need what isn't there yet, others have no antiderivative made of elementary
 functions at all. Both throw:
 
 ```csharp
-ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x");
-// NotSupportedException: No antiderivative of exp(x) * cos(x)^2 by x was found.
+ExprParser.Parse("1/(x^2 + a^2)").Integrate("x");
+// NotSupportedException: No antiderivative of 1 / (a^2 + x^2) by x was found.
 ```
 
 | Integrand | Needs |
 |---|---|
-| `exp(x)*cos(x)^2` | rewriting first by the double angle, which is done only in rational functions of sin and cos |
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
+| `1/(sqrt(2) + cos(x))^2` | fractions with irrational coefficients brought to a common denominator |
 | `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
 | `sqrt(1 + x^3)`, `1/sqrt(x^4 + 1)` | nothing either: these square roots of a cubic and a quartic give elliptic integrals |

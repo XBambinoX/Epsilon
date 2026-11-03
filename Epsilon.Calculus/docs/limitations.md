@@ -1,26 +1,17 @@
 # Known limitations
 
-What version 1.0.0 of `Epsilon.Calculus` doesn't do yet. Each example is checked
+What version 1.1.0 of `Epsilon.Calculus` doesn't do yet. Each example is checked
 by a test (in `Epsilon.Tests/Calculus/DocsTests.cs`), so when a limitation is lifted this page
 is updated with it. The expressions have
 [limitations of their own](../../Epsilon.Core/docs/limitations.md).
 
 ## Symbolic integration
 
-- **Identities are used only in rational functions of sin and cos.** There sin(k x) and
-  cos(k x) are written in sin x and cos x, but elsewhere the integrand is taken as it stands:
-  `exp(x)*cos(x)^2` waits for cos(x)^2 to be (1 + cos(2x))/2; see
-  [What isn't integrated yet](symbolic-integration.md#what-isnt-integrated-yet).
-- **Antiderivatives by t = tan x or t = tan(x/2) jump** where tan is undefined, even where the
-  integrand is continuous, as 1/(2 + cos(x)) is, so F(b) - F(a) across such a point isn't the
-  definite integral; see
-  [Trigonometric and hyperbolic functions](symbolic-integration.md#trigonometric-and-hyperbolic-functions).
-  The [numeric integral](numeric-integration.md) is right there.
 - **Square roots of one quadratic at a time.** `sqrt(1 + x^3)` and `1/sqrt(x^4 + 1)` aren't
-  integrated, having no elementary antiderivative. And where a substitution by cosh leaves the
-  side of the gap inside a sum, the two sides are integrated apart and joined by a sign, whose
-  derivative the core doesn't have yet: `1/(x*sqrt(x^2 - 2*x))` gives an antiderivative with
-  sign(x - 1) in it.
+  integrated, having no elementary antiderivative. And where the two sides of the gap of a
+  square root differ and Euler's substitution leaves irrational coefficients, they are
+  integrated apart and joined by a sign, whose derivative the core doesn't have yet:
+  `1/((x - pi)*sqrt(x^2 - 2*x))` gives an antiderivative with sign(x - 1) in it.
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.
@@ -34,50 +25,117 @@ is updated with it. The expressions have
 - **Rational functions with symbols or irrational numbers in the denominator.** In
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
-  coefficients, as in 1/(x^2 + pi), is in the table.
-- **floor, ceiling and round have no antiderivatives** yet. Their definite integrals are
-  [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same, and sign, min and max
-  are integrated through abs.
-- **Complex numbers only as constant factors and terms.** The rules are those of real
-  functions, so `i*x` and `x + i` are integrated, but `1/(x + i)` throws
-  `NotSupportedException`: ln|x + i| isn't its antiderivative.
+  coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)), but Bioche's
+  rules and t = tan(x/2) leave fractions with irrational coefficients that the core doesn't bring
+  to a common denominator: `1/(sqrt(2) + cos(x))^2` and `1/(pi + cos(x)^2)` aren't integrated.
+- **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
+  `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
+  [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
+- **Complex numbers only where the integrand splits into real and imaginary parts**, each
+  integrated by the rules of real functions; see
+  [The imaginary unit](symbolic-integration.md#the-imaginary-unit). `atan(x + i)` and
+  `ln(x + i*x)` throw `NotSupportedException`, `sech(x + i)` splits into parts with cos(2) next
+  to cosh(2x) in a denominator, which aren't integrated, as above, and the results keep that form:
+  `exp(i*x)` gives sin(x) - i cos(x), not -i exp(i x).
 - **Results aren't always in their simplest form, and their derivatives even less.** All are
   right in value:
 
   ```csharp
   ExprParser.Parse("min(x, 1)").Integrate("x").Print();
   // ((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2
-  ExprParser.Parse("1/(x^2 + 1/2)").Integrate("x").Print();
-  // 2atan(2x / sqrt(2)) / sqrt(2)
+  ExprParser.Parse("1/(x^2 + 1/2)^2").Integrate("x").Print();
+  // 2atan(sqrt(2) * x) / sqrt(2) + 2x / (2x^2 + 1)
   ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print();
   // x^2 + x + (x - 1) / abs(x - 1)^2 + 1
   ```
 
 ## Numeric integration
 
-- **A narrow feature far from 0 on an infinite interval can be missed.** The interval is split
-  at the peaks of exponentials, but not of other functions. Far out the nodes are too sparse to
-  land on a peak this narrow, and every value they see is 0. Split the interval at the peak:
+- **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, at the
+  limits, as Math.PI does for pi, and inside the interval unless the points are found exactly:
+  the zeros of sines and cosines of linear arguments and the roots of quadratics are, the root
+  of x^4 - 2 isn't. See [The tolerance](numeric-integration.md#the-tolerance).
 
   ```csharp
-  var peak = ExprParser.Parse("sech(10*(x - 1000))^2");
-  peak.Integrate(double.NegativeInfinity, double.PositiveInfinity);   // 0, but the integral is 0.2
-  peak.Integrate(double.NegativeInfinity, 1000) + peak.Integrate(1000, double.PositiveInfinity);   // 0.19999999999998613
+  ExprParser.Parse("1/sqrt(abs(x^4 - 2))").Integrate(0, 2);
+  // InvalidOperationException: The integrand is singular next to x = 1.189207115002721, at a point that isn't a double, which limits the accuracy to about 2.5E-08.
   ```
 
-- **Singularities at points that aren't doubles limit the accuracy to about 1e-8**, see
-  [The tolerance](numeric-integration.md#the-tolerance).
-- **Integrals that converge only by cancellation are reported as divergent**, such as of
-  sin(x)/x on [0, infinity).
-- **Very long finite intervals don't converge.** Integrate to infinity instead:
+- **Oscillation towards an infinity is taken apart only with linear phases and commensurate
+  periods**, see [Oscillating integrands](numeric-integration.md#oscillating-integrands).
+  Otherwise the integral is computed where the integrand also decays fast, and throws where it
+  doesn't: sin(x^2) on [0, infinity) converges to sqrt(pi/8), and sin(x^2)/x^2 and
+  sin(x)sin(sqrt(2) x)/x^2 on [1, infinity) converge too.
 
   ```csharp
-  ExprParser.Parse("exp(-x^2)").Integrate(0, 1e300);   // InvalidOperationException
-  ExprParser.Parse("exp(-x^2)").Integrate(0, double.PositiveInfinity);   // 0.8862269254527579
+  ExprParser.Parse("sin(x^2)*exp(-x)").Integrate(0, double.PositiveInfinity);   // 0.2705135801622119
+  ExprParser.Parse("sin(x^2)").Integrate(0, double.PositiveInfinity);           // InvalidOperationException
+  ExprParser.Parse("sin(x^2)/x^2").Integrate(1, double.PositiveInfinity);
+  // InvalidOperationException: The integrand oscillates towards an infinity in a way that isn't taken apart yet: ...
   ```
 
 - **No symbols besides the variable.** Substitute values for them first, see
   [Definite integrals](numeric-integration.md#definite-integrals).
+
+## Exact definite integrals
+
+- **Without an elementary antiderivative, only the [classic integrals](exact-integration.md#classic-integrals)**:
+  `exp(-x^2)` from 0 to 1, which is sqrt(pi) erf(1)/2, `sin(x)/x` from 1 to inf, `exp(-x^3)`
+  from 0 to inf, Gamma(4/3), and `x^2/(exp(x) - 1)`, 2 zeta(3), throw `NotSupportedException`;
+  the [numeric integral](numeric-integration.md) gives them.
+- **An antiderivative that oscillates at inf**: `cos(x)` from 0 to inf, which diverges, throws
+  `NotSupportedException` rather than `InvalidOperationException`, since the limit of sin(x)
+  there isn't found.
+- **A point found only numerically**: where the antiderivative may be undefined at a root that
+  isn't found exactly, as ln(abs(x + cos(x))) at -0.739..., `IntegrateExact` throws
+  `NotSupportedException`: a limit at a decimal next to a pole is finite.
+- **Constants that cancel aren't always seen to**: `1/(1 + cos(x)^4)` from 0 to 10 throws, since
+  at pi/2 the coefficients of the logarithms in its antiderivative add up to 0 without the
+  simplifier showing it.
+- **Symbols in the limits only where the antiderivative is continuous everywhere**: `1/x` from
+  1 to c, which is ln(c) for c > 0, throws.
+- **Results aren't always in their simplest form**: `1/(1 + exp(x))` from -1 to 1 is
+  ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1)), which is 1.
+
+## Line integrals
+
+- **Exact arc lengths that are elliptic aren't found**: the length of the ellipse
+  [2 cos(t), sin(t)] throws `NotSupportedException` exactly; `LineIntegral` gives it as a number.
+- **The limits of a curve's parameter are taken as increasing**: with symbols in them, as from 0
+  to a, a is taken to be at least 0.
+- **A potential holds where the field is defined**: [-y, x]/(x^2 + y^2) has equal derivatives
+  and no potential around 0, and with a symbol, as [a*y, x], whether a field is a gradient isn't
+  decided and `Potential` throws `NotSupportedException`.
+- **Only curves**: integrals over surfaces and solids aren't there yet.
+
+## Series
+
+- **No logarithms of the variable and no essential singularities in a series**: `ln(x)` and
+  `x*ln(x)` at 0, whose expansions have ln(x) in them, and `exp(1/x)` at 0 throw
+  `NotSupportedException`. See [What has no series](series.md#what-has-no-series).
+- **Series at a branch point only on the right side**: `acosh(x)` at 1 is
+  sqrt(2) (x - 1)^(1/2) + ..., but `asin(x)` at 1, real only for x < 1, throws, though it is
+  pi/2 - sqrt(2) (1 - x)^(1/2) + ... there.
+- **A coefficient with a symbol in it is taken as other than 0**: `1/(x - a)` at 0 starts with
+  -1/a, which doesn't hold for a = 0.
+- **A point given as a double is its decimal**, as for the core's numbers: `tan(x)` at
+  `Math.PI / 2` is expanded at 15707963267949/10000000000000, without its pole.
+
+## Limits
+
+- **Oscillations are settled by a few rules only**, see [Oscillations](limits.md#oscillations):
+  `x/(2 + sin(x))` at inf, which is inf, throws `NotSupportedException`, and so does an
+  oscillation without a limit, `sin(1/x)` at 0, where `InvalidOperationException` would say
+  that there is none.
+- **Rates of growth at an irrational ratio in one sum**: `2^x - 3^x` and `x^pi - x^2` at inf
+  throw `NotSupportedException`. In one product or under one logarithm they are found:
+  2^x/3^x at inf is 0, and (2^x + 3^x)^(1/x) is 3.
+- **Real expressions only**: `exp((i - 1)*x)` at inf, which is 0, throws.
+- **A coefficient with a symbol is taken as other than 0**, as in series, and with symbols the
+  side an expression isn't real on isn't left out: `sqrt(x - a)` at x = a throws, though from
+  the right it is 0.
+- **A point given as a double is its decimal**: `tan(x)` at `Math.PI / 2` is
+  tan(15707963267949/10000000000000), a number, not a limit from two sides of a pole.
 
 ## Derivatives
 

@@ -30,6 +30,10 @@ public class IntegrationByPartsTests
     [InlineData("exp(-x)*sin(x)")]
     [InlineData("cos(ln(x))")]
     [InlineData("2^x*cos(x)")]
+    [InlineData("cosh(x)*cos(x)")]
+    [InlineData("sinh(2*x)*sin(x)")]
+    [InlineData("cosh(x)*sin(3*x + 1)")]
+    [InlineData("x*cosh(x)*cos(x)")]
     [InlineData("sec(x)^5")]
     [InlineData("sech(x)^3")]
     [InlineData("csch(x)^3")]
@@ -82,6 +86,15 @@ public class IntegrationByPartsTests
         Assert.Equal("(sin(ln(x)) * x - cos(ln(x)) * x) / 2", Integral("sin(ln(x))"));
     }
 
+    // sinh and cosh as the partner of sin and cos, which is u in both steps.
+    [Fact]
+    public void Sinh_and_cosh_times_sin_and_cos()
+    {
+        Assert.Equal("(1/2) * cos(x) * sinh(x) + (1/2) * cosh(x) * sin(x)", Integral("cosh(x)*cos(x)"));
+        Assert.Equal("(cosh(x) * sin(x) - cos(x) * sinh(x)) / 2", Integral("sinh(x)*sin(x)"));
+        Assert.Equal("(2/13) * sin(3x) * sinh(2x) - (3/13) * cos(3x) * cosh(2x)", Integral("cosh(2*x)*sin(3*x)"));
+    }
+
     // With the same rate the two steps give I = A + I, so sinh is written in exponentials instead.
     [Fact]
     public void An_exponential_times_sinh() =>
@@ -110,12 +123,11 @@ public class IntegrationByPartsTests
         Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
-    // Non-elementary, or needing what isn't there yet: cos^2 lowered first.
+    // Non-elementary.
     [Theory]
     [InlineData("x*tan(x)")]
     [InlineData("atan(x)^2")]
     [InlineData("exp(x)/x")]
-    [InlineData("exp(x)*cos(x)^2")]
     [InlineData("x/(2 + cos(x))")]
     public void What_isnt_integrated_by_parts(string integrand) =>
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));

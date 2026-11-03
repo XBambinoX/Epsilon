@@ -12,7 +12,8 @@ public static class SymbolicIntegrationExtensions
         /// </summary>
         /// <exception cref="InvalidOperationException">The expression doesn't have exactly one variable.</exception>
         /// <exception cref="NotSupportedException">
-        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term.
+        /// No antiderivative was found, or the imaginary unit is inside a function whose real and
+        /// imaginary parts aren't written.
         /// </exception>
         public Expr Integrate()
         {
@@ -28,36 +29,47 @@ public static class SymbolicIntegrationExtensions
         /// </summary>
         /// <remarks>
         /// The rules: sums and constant factors; powers of a linear expression, and real roots of
-        /// one; the elementary functions of a linear argument; squares and reciprocals of the
-        /// trigonometric and hyperbolic functions, sec u tan u and its kin, products of sin and cos;
-        /// linear over linear; and 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q)
-        /// for a quadratic q with numeric coefficients. A rational function with rational
-        /// coefficients gets its rational part by Hermite's reduction, one fraction over the repeated
+        /// one; the elementary functions, and floor, ceiling and round, of a linear argument, the
+        /// last three with continuous antiderivatives; products of exponentials of linear arguments,
+        /// as 2^x 3^x; squares and reciprocals of the trigonometric and hyperbolic functions,
+        /// sec u tan u and its kin, products of sin and cos;
+        /// linear over linear; 1/q, 1/q^n, (a x + b)/q, sqrt(q), 1/sqrt(q) and (a x + b)/sqrt(q) for a
+        /// quadratic q with numeric coefficients; and (p + q cos u + r sin u)/(a + b cos u + c sin u)
+        /// with numeric coefficients, continuous wherever the integrand is. A rational function with
+        /// rational coefficients gets its rational part by Hermite's reduction, one fraction over the repeated
         /// factors of the denominator, and the rest by partial fractions over its linear and
         /// quadratic factors with rational coefficients (1/(x^3 + 1), x/(x^4 - 1)), with the
         /// logarithms of coefficients of the same size merged into one. What is left is integrated
         /// by substitution: by u = g for a part g whose derivative divides the rest (2x cos(x^2),
         /// ln(x)/x), with the powers of x written in u for g = p x^k + q; by x in terms of u for a
         /// root of a linear expression (x sqrt(x + 1)); and powers of sin and cos, sinh and cosh by
-        /// their squares. A rational function of sin and cos is then one of t for t = cos x, sin x or
-        /// tan x by Bioche's rules, with sin(k x) and cos(k x) by the multiple-angle formulas, and of
-        /// those that apply the shortest result is taken; where none does, t = tan(x/2), whose
-        /// antiderivatives jump where tan(x/2) does. A rational function of x and sqrt(q) for a
+        /// their squares. Any other rational function of sin and cos is then one of t for t = cos x,
+        /// sin x or tan x by Bioche's rules, with sin(k x) and cos(k x) by the multiple-angle formulas, and of
+        /// those that apply the shortest result is taken; where none does, t = tan(x/2). An
+        /// arctangent atan(p tan u + q) in the result, which jumps where tan u does, is written as
+        /// u + atan(...) of sin 2u and cos 2u, continuous. A rational function of x and sqrt(q) for a
         /// quadratic q = p((x - h)^2 + k) is one of sin and cos, or sinh and cosh, by x - h = r sin(a)
         /// for p, k &lt; 0, r sinh(a) for p, k &gt; 0 and r cosh(a) on each side of the gap for
-        /// p &gt; 0 &gt; k, with r = sqrt(|k|). After it, a factor of the denominator of
+        /// p &gt; 0 &gt; k, with r = sqrt(|k|); where the sides differ, by Euler's t = x + sqrt(q/p)
+        /// on both at once. After it, a factor of the denominator of
         /// degree 3 or more that divides some x^n - a, as x^3 - 2 and x^4 + 1, is split over the
         /// roots of that binomial, and any other of degree 3 or 4 over its roots in radicals, by
         /// Cardano's and Ferrari's formulas. Then the integrand is expanded once and tried again, so
         /// x (x + 1) is integrated as x^2 + x. A rational function of exp, sinh and cosh is one of
         /// t = exp(x). Last, it is integrated by parts, with u a logarithm or
         /// an inverse function of an algebraic argument, or a polynomial (x exp(x), x ln(x),
-        /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x)), and sec^n and csc^n by
-        /// their reduction formulas.
+        /// ln(x)^2), solved for where it comes back to itself (exp(x) sin(x), cosh(x) cos(x)), and
+        /// sec^n and csc^n by their reduction formulas. Where that fails too, products and powers of
+        /// sin and cos are written as sums of them by the product-to-sum formulas (exp(x) cos(x)^2),
+        /// and sinh and cosh next to them in exponentials (cosh(x)^2 cos(x)). With the imaginary
+        /// unit inside a function, the real and imaginary parts of the integrand, for a
+        /// real variable, are integrated apart: 1/(x + i) is x/(x^2 + 1) - i/(x^2 + 1); a power of
+        /// a linear expression that misses the negative real axis, as sqrt(x + i), by the power
+        /// rule; and where the whole is neither, each term.
         /// </remarks>
         /// <exception cref="NotSupportedException">
-        /// No antiderivative was found, or the imaginary unit is more than a constant factor or term:
-        /// the rules are those of real functions, and ln|x + i| isn't an antiderivative of 1/(x + i).
+        /// No antiderivative was found, or the imaginary unit is inside a function whose real and
+        /// imaginary parts aren't written, as in atan(x + i).
         /// </exception>
         public Expr Integrate(string variable)
         {
@@ -65,11 +77,41 @@ public static class SymbolicIntegrationExtensions
             ArgumentNullException.ThrowIfNull(variable);
 
             Expr simplified = expr.Simplify();
-            if (ImaginaryInside(simplified, variable))
-                throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only as a constant factor or term.");
+            bool parted = true;
+            return (ImaginaryInside(simplified, variable) ? Complex(simplified, variable, ref parted) : IntegrationTable.Antiderivative(simplified, variable))
+                ?? throw new NotSupportedException(parted
+                    ? $"No antiderivative of {expr.Print()} by {variable} was found."
+                    : $"No antiderivative of {expr.Print()} by {variable} was found: the imaginary unit is integrated only where the integrand splits into real and imaginary parts or is a power of a linear expression.");
+        }
+    }
 
-            return IntegrationTable.Antiderivative(simplified, variable)
-                ?? throw new NotSupportedException($"No antiderivative of {expr.Print()} by {variable} was found.");
+    // With i inside a function: the real and imaginary parts apart, or a power of a complex linear
+    // expression by the power rule, and where the whole is neither, term by term. parted turns
+    // false where a term is neither, rather than one whose parts have no antiderivative.
+    private static Expr? Complex(Expr e, string variable, ref bool parted)
+    {
+        if (!ImaginaryInside(e, variable))
+            return IntegrationTable.Antiderivative(e, variable);
+
+        if (ComplexParts.Of(e) is var (re, im))
+            return IntegrationTable.Antiderivative(re.Simplify(), variable) is { } u && IntegrationTable.Antiderivative(im.Simplify(), variable) is { } v
+                ? (u + new ImaginaryUnit() * v).Simplify()
+                : null;
+
+        if (ComplexParts.LinearPower(e, variable) is { } power)
+            return power.Simplify();
+
+        switch (e)
+        {
+            case Add or Subtract:
+                return Complex(e.Children[0], variable, ref parted) is { } left && Complex(e.Children[1], variable, ref parted) is { } right
+                    ? (e is Add ? left + right : left - right).Simplify()
+                    : null;
+            case Negate negate:
+                return Complex(negate.Argument, variable, ref parted) is { } g ? (-g).Simplify() : null;
+            default:
+                parted = false;
+                return null;
         }
     }
 
@@ -80,9 +122,7 @@ public static class SymbolicIntegrationExtensions
         Multiply product when !product.Left.DependsOn(variable) || !product.Right.DependsOn(variable) =>
             e.Children.Any(child => ImaginaryInside(child, variable)),
         Divide quotient when !quotient.Denominator.DependsOn(variable) => ImaginaryInside(quotient.Numerator, variable),
-        Divide quotient when !quotient.Numerator.DependsOn(variable) => HasImaginaryUnit(quotient.Denominator),
-        _ => HasImaginaryUnit(e),
+        Divide quotient when !quotient.Numerator.DependsOn(variable) => ComplexParts.HasImaginaryUnit(quotient.Denominator),
+        _ => ComplexParts.HasImaginaryUnit(e),
     };
-
-    private static bool HasImaginaryUnit(Expr e) => e is ImaginaryUnit || e.Children.Any(HasImaginaryUnit);
 }

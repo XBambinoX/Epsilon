@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.Calculus` package, version 1.0.0.
+Every public type and member of the `Epsilon.Calculus` package, version 1.1.0.
 All types are in the namespace `Epsilon.Calculus`. Each entry has a one-line description; the
 [guides](README.md) explain the details, and your IDE shows the full XML documentation for every
 member.
@@ -13,7 +13,11 @@ here.
 [Vector fields](#vector-fields) -
 [Hessians and critical points](#hessians-and-critical-points) -
 [Numeric integration](#numeric-integration) -
-[Symbolic integration](#symbolic-integration)
+[Symbolic integration](#symbolic-integration) -
+[Exact definite integrals](#exact-definite-integrals) -
+[Line integrals](#line-integrals) -
+[Series](#series) -
+[Limits](#limits)
 
 The operations are extension members, called like members of `Expr` and `Vector<Expr>`:
 `f.Gradient("x", "y")`, `field.Curl("x", "y", "z")`. The variables of `Gradient`, `Hessian`,
@@ -44,6 +48,7 @@ Extension members of `Vector<Expr>`, whose entry i is the component along the i-
 |---|---|
 | `Expr Divergence(params IReadOnlyList<string> variables)` | The sum of the derivatives of entry i by variable i. Throws `ArgumentException` if the lengths differ. |
 | `Vector<Expr> Curl(params IReadOnlyList<string> variables)` | The curl of a field of 3 entries by 3 variables; a plane field is [P, Q, 0]. Throws `ArgumentException` for other lengths. |
+| `Expr Potential(params IReadOnlyList<string> variables)` | A function whose gradient is the field, without a constant. Throws `ArgumentException` if the lengths differ, `InvalidOperationException` if the field isn't a gradient, `NotSupportedException` where an antiderivative isn't found or whether it is a gradient isn't decided. |
 
 ## Hessians and critical points
 
@@ -84,5 +89,104 @@ What the signs of the eigenvalues of the Hessian say about a critical point.
 
 | Member | Description |
 |---|---|
-| `Expr Integrate(string variable)` | An antiderivative by the variable from a table of integrals, by partial fractions, by substitutions, trigonometric ones among them, and by parts, simplified, without a constant; other variables are constants. Throws `NotSupportedException` where none is found, or where the imaginary unit is more than a constant factor or term. |
+| `Expr Integrate(string variable)` | An antiderivative by the variable from a table of integrals, by partial fractions, by substitutions, trigonometric ones among them, and by parts, simplified, without a constant; other variables are constants. Throws `NotSupportedException` where none is found, or where the imaginary unit is inside a function whose real and imaginary parts aren't written, as in atan(x + i). |
 | `Expr Integrate()` | The same by the expression's only variable. Throws `InvalidOperationException` if it doesn't have exactly one. |
+
+## Exact definite integrals
+
+### `ExactIntegrationExtensions` (static class)
+
+| Member | Description |
+|---|---|
+| `Expr IntegrateExact(string variable, Expr a, Expr b)` | The definite integral from a to b, exact, from the antiderivative: its limits where it is undefined, its jumps taken off, and 0 for a bounded odd integrand over a symmetric interval; without an antiderivative, the classic integrals from a table, as exp(-x^2) over the line; other variables are constants. Throws `ArgumentException` if a limit has the variable or isn't real, `InvalidOperationException` if the integral diverges or the integrand isn't real on a part of the interval, `NotSupportedException` where no antiderivative or limit of it is found, or where it is undefined depends on another variable. |
+| `Expr IntegrateExact(string variable, double a, double b)` | The same with the limits `double`s: `double.PositiveInfinity` and `double.NegativeInfinity` are inf and -inf, and a finite one is its decimal. Throws `ArgumentException` for NaN. |
+| `Expr IntegrateExact(string variable, Expr a, double b)`, `Expr IntegrateExact(string variable, double a, Expr b)` | The same with one limit an `Expr` and the other a `double`, so that an exact limit goes with an infinite one. |
+| `Expr IntegrateExact(Expr a, Expr b)`, `Expr IntegrateExact(double a, double b)`, `Expr IntegrateExact(Expr a, double b)`, `Expr IntegrateExact(double a, Expr b)` | The same by the expression's only variable. Throw `InvalidOperationException` if it has more than one. |
+
+## Line integrals
+
+### `Curve` (class)
+
+A curve of one or more pieces, each a point whose entries are expressions of a parameter, for the parameter from one value to another.
+
+| Member | Description |
+|---|---|
+| `Curve(string parameter, Vector<Expr> point, Expr from, Expr to)` | The point for the parameter from `from` to `to`, in increasing order. Throws `ArgumentException` for a point without entries, a limit with the parameter, or `from` greater than `to`. |
+| `static Curve Segment(Vector<Expr> from, Vector<Expr> to)` | The straight segment between two points. |
+| `static Curve Polygon(IReadOnlyList<Vector<Expr>> points, bool closed = false)` | The segments through the points, and back to the first with `closed`. Throws `ArgumentException` for fewer than 2 points. |
+| `static Curve Join(params IReadOnlyList<Curve> curves)` | The curves one after another. Throws `ArgumentException` for none or different dimensions. |
+| `Curve Reversed()` | The same curve traversed the other way. |
+| `int Dimension` | The number of entries of its points. |
+| `Vector<Expr> Start`, `Vector<Expr> End` | The points it starts and ends at. |
+
+### `LineIntegralExtensions` (static class)
+
+Extension methods of `Expr` and `Vector<Expr>`; the variables name the entries of the curve's points.
+
+| Member | Description |
+|---|---|
+| `double LineIntegral(this Expr f, Curve curve, params IReadOnlyList<string> variables)` | The integral of f by arc length along the curve, numerically. Throws `ArgumentException` if the numbers of variables and entries differ, the points have one of the variables, or a limit or the integrand has another variable; `InvalidOperationException` as numeric integrals do. |
+| `Expr LineIntegralExact(this Expr f, Curve curve, params IReadOnlyList<string> variables)` | The same, exact. Throws `NotSupportedException` where the integral isn't found, as the length of an ellipse. |
+| `double LineIntegral(this Vector<Expr> field, Curve curve, params IReadOnlyList<string> variables)` | The integral of the field along the curve, F . dr, numerically: its work, and its circulation around a closed curve. |
+| `Expr LineIntegralExact(this Vector<Expr> field, Curve curve, params IReadOnlyList<string> variables)` | The same, exact. |
+
+## Series
+
+### `SeriesExtensions` (static class)
+
+| Member | Description |
+|---|---|
+| `Series Series(string variable, Expr point, int degree)` | The series at the point, the terms up to (x - a)^degree with exact coefficients, from a negative power at a pole and with fractional powers at a root of something that vanishes there; other variables are constants. Throws `ArgumentException` if the point has the variable, `NotSupportedException` where there is no such series, as for ln(x) at 0. |
+| `Series Series(Expr point, int degree)` | The same by the expression's only variable. Throws `InvalidOperationException` if it doesn't have exactly one. |
+
+### `Series` (class)
+
+A series c (x - a)^q + ... + O((x - a)^Order) with rational exponents.
+
+| Member | Description |
+|---|---|
+| `string Variable` | The variable. |
+| `Expr Point` | The point a, simplified. |
+| `IReadOnlyList<(Rational Exponent, Expr Coefficient)> Terms` | The terms with a coefficient other than 0, by increasing exponent. |
+| `Rational Order` | The exponent of the remainder O((x - a)^Order). |
+| `bool RightSided` | Whether the series holds only for x > a, as for sqrt(x) at 0. |
+| `Expr Coefficient(Rational exponent)` | The coefficient of (x - a)^exponent, 0 where there is no term. Throws `ArgumentOutOfRangeException` for an exponent of `Order` or more. |
+| `Expr ToExpr()` | The sum of the terms as an expression in the variable. |
+| `string Print()` | The terms by increasing exponent and the remainder, as in `1 - (1/6) * x^2 + O(x^3)`; `ToString` is the same. |
+
+## Limits
+
+### `LimitExtensions` (static class)
+
+| Member | Description |
+|---|---|
+| `Limit Limit(string variable, Expr point, LimitDirection direction = LimitDirection.Both)` | The exact limit as the variable tends to the point, from both sides or one; other variables are constants. Throws `ArgumentException` if the point has the variable, `InvalidOperationException` if the two sides differ or the expression isn't real on the side, `NotSupportedException` where the limit isn't found, as where a part oscillates. |
+| `Limit Limit(string variable, double point, LimitDirection direction = LimitDirection.Both)` | The same with the point a `double`: `double.PositiveInfinity` and `double.NegativeInfinity` are inf and -inf, and a finite one is its decimal. Throws `ArgumentException` for NaN or a side beyond an infinite point. |
+| `Limit Limit(Expr point, LimitDirection direction = LimitDirection.Both)` | The limit by the expression's only variable. Throws `InvalidOperationException` if it has more than one. |
+| `Limit Limit(double point, LimitDirection direction = LimitDirection.Both)` | The same with the point a `double`. |
+
+### `Limit` (class)
+
+A limit: an exact value, or inf or -inf.
+
+| Member | Description |
+|---|---|
+| `LimitKind Kind` | Whether it is a value or an infinity. |
+| `Expr Value` | The value of a finite limit. Throws `InvalidOperationException` for inf and -inf. |
+| `string Print()` | The value, or `inf` or `-inf`; `ToString` is the same. |
+
+### `LimitKind` (enum)
+
+| Value | Description |
+|---|---|
+| `Finite` | The expression tends to a value. |
+| `PositiveInfinity` | It grows without bound. |
+| `NegativeInfinity` | It falls without bound. |
+
+### `LimitDirection` (enum)
+
+| Value | Description |
+|---|---|
+| `Both` | From both sides: the limit exists where they agree. |
+| `Left` | From the left, x < a. |
+| `Right` | From the right, x > a. |

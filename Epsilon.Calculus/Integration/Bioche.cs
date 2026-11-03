@@ -34,17 +34,65 @@ internal sealed partial class IntegrationTable
         return rules
             .Select(rule => Back((rule.H / a).Simplify(), t, rule.G))
             .OfType<Expr>()
-            .Select(integral => Shorter(WithoutAtanOfTan(integral.Simplify())))
+            .Select(integral => Shorter(Continuous(integral.Simplify())))
             .MinBy(integral => integral.Print().Length);
     }
 
-    // atan(tan(u)) is u less a constant on each interval where tan u is defined.
-    private static Expr WithoutAtanOfTan(Expr e) => e switch
+    // The terms atan(p tan(u) + q) of an antiderivative jump by pi where tan u does, and are
+    // replaced by the angle that goes on; elsewhere than in a sum or a constant multiple, a
+    // constant on each interval would change the derivative.
+    private Expr Continuous(Expr e) => e switch
     {
-        Atan { Argument: Tan tan } => tan.Argument,
-        _ when e.Children.Length > 0 => e.WithChildren([.. e.Children.Select(WithoutAtanOfTan)]),
+        Add or Subtract or Negate => e.WithChildren([.. e.Children.Select(Continuous)]),
+        Multiply product when !product.Left.DependsOn(variable) => e.WithChildren([product.Left, Continuous(product.Right)]),
+        Multiply product when !product.Right.DependsOn(variable) => e.WithChildren([Continuous(product.Left), product.Right]),
+        Divide quotient when !quotient.Denominator.DependsOn(variable) => e.WithChildren([Continuous(quotient.Numerator), quotient.Denominator]),
+        Atan atan when Unwound(atan.Argument) is { } angle => angle,
         _ => e,
     };
+
+    // atan(p tan u + q) for p > 0 is the angle of (cos u, q cos u + p sin u), the image of
+    // (cos u, sin u) under M = [[1, 0], [q, p]]. M is a rotation times a positive definite matrix,
+    // which turns (cos u, sin u) by less than pi/2, so less a constant on each interval the angle
+    // is u + atan((b cos 2u - a sin 2u)/(1 + a cos 2u + b sin 2u)) with
+    // a + ib = (1 + q^2 - p^2 + 2pq i)/((1 + p)^2 + q^2) inside the unit circle: the denominator
+    // stays positive. atan is odd for p < 0, and atan(tan u) is u.
+    private Expr? Unwound(Expr argument)
+    {
+        if (Tangents(argument).Distinct().ToList() is not [Tan { Argument: var u } tan] || Slope(u) is null)
+            return null;
+
+        var t = new Variable(FreshName(argument));
+        Expr linear = Replace(argument, tan, t);
+        if (linear.DependsOn(variable))
+            return null;
+
+        Expr p = linear.Differentiate(t.Name).Simplify(), q = linear.Substitute(t.Name, 0).Simplify();
+        if (p.GetVariables().Count > 0 || q.GetVariables().Count > 0 || p.Evaluate() is var slope && (slope == 0 || !double.IsFinite(slope)))
+            return null;
+
+        int sign = slope < 0 ? -1 : 1;
+        p = (sign * p).Simplify();
+        q = (sign * q).Simplify();
+        Expr r = new Power(1 + p, 2) + new Power(q, 2);
+        Expr a = Exact((1 + new Power(q, 2) - new Power(p, 2)) / r), b = Exact(2 * p * q / r);
+        bool flat = a is Constant { Value.IsZero: true }, level = b is Constant { Value.IsZero: true };
+        Expr w = (2 * u).Simplify();
+        Expr ratio = level ? Over(-new Sin(w), Exact(1 / a), new Cos(w))
+            : flat ? Over(new Cos(w), Exact(1 / b), new Sin(w))
+            : (b * new Cos(w) - a * new Sin(w)) / (1 + a * new Cos(w) + b * new Sin(w));
+        Expr angle = flat && level ? u : u + new Atan(ratio.Simplify());
+        return sign < 0 ? -angle : angle;
+
+        // n/(k + wave) with the constant k positive: sin(2x)/(2sqrt(2) + 3 - cos(2x)).
+        static Expr Over(Expr n, Expr k, Expr wave) => k.Evaluate() < 0 ? -n / ((-k).Simplify() - wave) : n / (k + wave);
+    }
+
+    private IEnumerable<Expr> Tangents(Expr e) =>
+        e is Tan && e.DependsOn(variable) ? [e] : e.Children.SelectMany(Tangents);
+
+    private static Expr Replace(Expr e, Expr part, Expr replacement) =>
+        e.Equals(part) ? replacement : e.Children.Length == 0 ? e : e.WithChildren([.. e.Children.Select(child => Replace(child, part, replacement))]);
 
     // f as R(s, c) for s = sin u, c = cos u and a linear u, tan, cot, sec and csc written with
     // them, and those of k u by the multiple-angle formulas.

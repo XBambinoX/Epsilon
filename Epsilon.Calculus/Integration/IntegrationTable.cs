@@ -42,6 +42,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             Divide { Numerator: Multiply { Right: var factor and not Constant } numerator } quotient when !factor.DependsOn(variable) =>
                 Integrate(numerator.Left / quotient.Denominator, expand) is { } g ? g * factor : null,
             Divide quotient when PowerOfRatio(quotient) is { } power => Integrate(power, expand),
+            Divide quotient when OverSinusoid(quotient.Numerator, quotient.Denominator) is { } g => g,
             Divide quotient when !quotient.Numerator.DependsOn(variable) =>
                 PowerOf(quotient.Denominator, -1) is { } g ? quotient.Numerator * g : null,
             Divide quotient => Quotient(quotient.Numerator, quotient.Denominator),
@@ -55,6 +56,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             _ => null,
         };
 
+        result ??= ExponentialProduct(f);
         result ??= PartialFractions(f, overRoots: false);
         result ??= BySubstitution(f);
         result ??= ByBioche(f);
@@ -63,7 +65,7 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         if (result is null && expand && f.Expand() is var expanded && !expanded.Equals(f))
             result = Integrate(expanded, expand: false);
 
-        return result ?? ByExponential(f) ?? ByParts(f);
+        return result ?? ByExponential(f) ?? ByParts(f) ?? ByLinearizing(f);
     }
 
     private static Expr? Elementary(UnaryExpr function)
@@ -93,9 +95,17 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             Atanh => u * new Atanh(u) + new Ln(1 - new Power(u, 2)) / 2,
             Abs => u * new Abs(u) / 2,
             Sign => new Abs(u),
+            Floor => Steps(u, new Floor(u), 1),
+            Ceiling => Steps(u, new Ceiling(u), -1),
+            Round => Steps(u + new Rational(1, 2), new Round(u), 1),
             _ => null,
         };
     }
+
+    // v n - n(n + 1)/2 for n = floor(v) is continuous: at an integer k both sides are k(k - 1)/2.
+    // For n = ceiling(v) it is v n - n(n - 1)/2, and round(u) is floor(u + 1/2) but at the
+    // halves, where the sides agree whichever way the tie goes.
+    private static Expr Steps(Expr v, Expr n, int k) => v * n - n * (n + k) / 2;
 
     private Expr? PowerOf(Expr b, Expr e)
     {
