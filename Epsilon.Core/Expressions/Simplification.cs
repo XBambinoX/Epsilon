@@ -183,17 +183,23 @@ public static class Simplifier
             case Power(ImaginaryUnit, Constant e) when e.Value.IsInteger:
                 return ImaginaryUnitPower(e.Value.Numerator);
 
-            // Root exponent (+-1/n): exact result only if b is a perfect n-th power.
+            // Exponent p/q: exact result only if b is a perfect q-th power, 8^(2/3) = 4.
             // NOT approximated via Math.Pow - an inexact root stays symbolic rather than
             // silently becoming a "precise-looking" but wrong Rational. Negative bases are
             // left alone too: Power is the principal value, unlike the real-valued NthRoot.
             case Power(Constant b, Constant e)
-                when System.Numerics.BigInteger.Abs(e.Value.Numerator) == 1 &&
-                     !(b.Value.IsZero && e.Value.Sign < 0) &&
+                when !(b.Value.IsZero && e.Value.Sign < 0) &&
+                     System.Numerics.BigInteger.Abs(e.Value.Numerator) <= MaxExactRootPower &&
                      TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
-                return e.Value.Numerator.Sign > 0
-                    ? new Constant(rootValue)
-                    : new Constant(Rational.One / rootValue);
+                return new Constant(rootValue.Pow((int)e.Value.Numerator));
+
+            // b^(p/2) = b^((p-1)/2) * sqrt(b), for ExactValues to work out: 2^(3/2) = 2sqrt(2).
+            case Power(Constant b, Constant e)
+                when b.Value.Sign > 0 && e.Value.Denominator == 2 &&
+                     System.Numerics.BigInteger.Abs(e.Value.Numerator) <= MaxExactRootPower:
+                return new Multiply(
+                    new Constant(b.Value.Pow((int)((e.Value.Numerator - 1) / 2))),
+                    new Sqrt(b));
 
             case Power(var b, var e) when e.Equals(new Constant(0)):
                 return new Constant(1);

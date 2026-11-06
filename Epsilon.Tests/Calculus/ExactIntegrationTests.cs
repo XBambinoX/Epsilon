@@ -225,7 +225,7 @@ public class ExactIntegrationTests
     [InlineData("cos(x)*exp(-x^2)", "0", "inf", "exp(-1/4) * sqrt(π) / 2")]
     [InlineData("cos(2*x)*exp(-x^2 + x)", "-inf", "inf", "cos(1) * exp(-3/4) * sqrt(π)")]
     [InlineData("sin(2*x)*exp(-x^2 + x)", "-inf", "inf", "exp(-3/4) * sin(1) * sqrt(π)")]
-    [InlineData("sqrt(x)*exp(-x)", "0", "inf", "sqrt(π) / 2")]
+    [InlineData("sqrt(x)*exp(-x)", "0", "inf", "(1/2) * sqrt(π)")]
     [InlineData("exp(-x)/sqrt(x)", "0", "inf", "sqrt(π)")]
     [InlineData("x^(3/2)*exp(-2*x)", "0", "inf", "3sqrt(π) / (16sqrt(2))")]
     [InlineData("sin(x)/x", "0", "inf", "π / 2")]

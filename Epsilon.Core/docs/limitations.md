@@ -32,12 +32,12 @@ ExprParser.Parse("x^2 - y^2").TryFactorReal("x").Success;   // false: other vari
 `Simplify` knows the trigonometric functions at multiples of pi/6 and pi/4, their inverses at
 the matching values, and square roots of rational numbers
 ([details](simplification.md#what-it-does)). Other angles, logarithms of other numbers and
-roots written as powers are left as they are:
+roots of numbers that aren't exact, other than square roots, are left as they are:
 
 ```csharp
 ExprParser.Parse("sin(pi/12)").Simplify().Print();   // sin(π / 12)   (not (sqrt(6) - sqrt(2)) / 4)
 ExprParser.Parse("ln(8)").Simplify().Print();        // ln(8)         (not 3ln(2))
-ExprParser.Parse("8^(3/2)").Simplify().Print();      // 8^(3/2)       (not 16sqrt(2))
+ExprParser.Parse("16^(1/3)").Simplify().Print();     // 16^(1/3)      (not 2 * 2^(1/3))
 ```
 
 `Evaluate` still gives the numeric values.

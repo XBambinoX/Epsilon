@@ -105,7 +105,7 @@ var inf = double.PositiveInfinity;
 ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();               // sqrt(π)
 ExprParser.Parse("exp(-x^2/2)/sqrt(2*pi)").IntegrateExact("x", -inf, inf).Print();  // 1
 ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();                   // π / 2
-ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print();            // sqrt(π) / 2
+ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print();            // (1/2) * sqrt(π)
 ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print();           // (1/15) * π^4
 ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print();                // (-1/6) * π^2
 ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print();        // (1/2) * sqrt(π) + 1

@@ -832,7 +832,7 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print());
         Assert.Equal("1", ExprParser.Parse("exp(-x^2/2)/sqrt(2*pi)").IntegrateExact("x", -inf, inf).Print());
         Assert.Equal("π / 2", ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print());
-        Assert.Equal("sqrt(π) / 2", ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print());
+        Assert.Equal("(1/2) * sqrt(π)", ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print());
         Assert.Equal("(1/15) * π^4", ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print());
         Assert.Equal("(-1/6) * π^2", ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print());
         Assert.Equal("(1/2) * sqrt(π) + 1", ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print());

@@ -30,6 +30,7 @@ result is exact:
 ExprParser.Parse("1/3 + 1/6").Simplify().Print();    // 1/2
 ExprParser.Parse("2^-2").Simplify().Print();         // 1/4
 ExprParser.Parse("sqrt(9/4)").Simplify().Print();    // 3/2
+ExprParser.Parse("8^(-2/3)").Simplify().Print();     // 1/4
 ExprParser.Parse("nthroot(-8, 3)").Simplify().Print(); // -2
 ExprParser.Parse("round(5/2)").Simplify().Print();   // 3
 ```
@@ -92,6 +93,7 @@ ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ExprParser.Parse("acos(-1/2)").Simplify().Print();   // 2 * π / 3
 ExprParser.Parse("sqrt(8)").Simplify().Print();      // 2sqrt(2)
 ExprParser.Parse("1/sqrt(2)").Simplify().Print();    // sqrt(2) / 2
+ExprParser.Parse("12^(3/2)").Simplify().Print();     // 24sqrt(3)
 ExprParser.Parse("2sin(pi/3)").Simplify().Print();   // sqrt(3)
 ExprParser.Parse("ln(e^2)").Simplify().Print();      // 2
 ```

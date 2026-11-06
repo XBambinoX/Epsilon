@@ -2696,6 +2696,32 @@ public class SquareRootAsPowerTests
     }
 }
 
+public class RationalPowerTests
+{
+    [Theory]
+    [InlineData("1^(-3/2)", "1")]
+    [InlineData("4^(-3/2)", "1/8")]
+    [InlineData("8^(2/3)", "4")]
+    [InlineData("16^(3/4)", "8")]
+    [InlineData("(9/4)^(3/2)", "27/8")]
+    [InlineData("(1/8)^(-1/3)", "2")]
+    [InlineData("2^(3/2)", "2sqrt(2)")]
+    [InlineData("2^(-3/2)", "sqrt(2) / 4")]
+    [InlineData("12^(3/2)", "24sqrt(3)")]
+    [InlineData("(3/4)^(-1/2)", "2sqrt(3) / 3")]
+    [InlineData("(3/4)^(3/2)", "3sqrt(3) / 8")]
+    [InlineData("2^(4/3)", "2^(4/3)")]           // not a perfect cube, not a square root
+    [InlineData("(-4)^(3/2)", "(-4)^(3/2)")]     // the principal value is complex
+    [InlineData("0^(-3/2)", "0^(-3/2)")]
+    [InlineData("2^(2049/2)", "2^(2049/2)")]     // too large to write out
+    public void A_rational_power_of_a_number_is_worked_out_where_it_is_exact(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

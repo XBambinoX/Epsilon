@@ -20,7 +20,7 @@ public class LimitationsDocTests
     {
         Assert.Equal("sin(π / 12)", ExprParser.Parse("sin(pi/12)").Simplify().Print());
         Assert.Equal("ln(8)", ExprParser.Parse("ln(8)").Simplify().Print());
-        Assert.Equal("8^(3/2)", ExprParser.Parse("8^(3/2)").Simplify().Print());
+        Assert.Equal("16^(1/3)", ExprParser.Parse("16^(1/3)").Simplify().Print());
     }
 
     [Fact]
@@ -309,6 +309,7 @@ public class SimplificationDocTests
     [InlineData("1/3 + 1/6", "1/2")]
     [InlineData("2^-2", "1/4")]
     [InlineData("sqrt(9/4)", "3/2")]
+    [InlineData("8^(-2/3)", "1/4")]
     [InlineData("nthroot(-8, 3)", "-2")]
     [InlineData("round(5/2)", "3")]
     [InlineData("2x + 3x", "5x")]
@@ -339,6 +340,7 @@ public class SimplificationDocTests
     [InlineData("acos(-1/2)", "2 * π / 3")]
     [InlineData("sqrt(8)", "2sqrt(2)")]
     [InlineData("1/sqrt(2)", "sqrt(2) / 2")]
+    [InlineData("12^(3/2)", "24sqrt(3)")]
     [InlineData("2sin(pi/3)", "sqrt(3)")]
     [InlineData("ln(e^2)", "2")]
     [InlineData("tan(pi/2)", "tan(π / 2)")]
