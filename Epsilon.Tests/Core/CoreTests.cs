@@ -2935,6 +2935,36 @@ public class PythagoreanWithFactorsTests
     }
 }
 
+public class SquaresOutOfRootsTests
+{
+    [Theory]
+    [InlineData("sqrt(4*cosh(t)^2)", "2cosh(t)")]
+    [InlineData("sqrt(4*sinh(t)^2)", "2abs(sinh(t))")]
+    [InlineData("sqrt(x^2*y^2)", "abs(x) * abs(y)")]
+    [InlineData("sqrt(9*x^6)", "3abs(x)^3")]
+    [InlineData("sqrt(x^4)", "x^2")]
+    [InlineData("sqrt(x^-2)", "abs(x)^-1")]
+    [InlineData("sqrt(pi*x^2)", "abs(x) * sqrt(π)")]
+    [InlineData("sqrt(x^2*y)", "sqrt(x^2 * y)")]     // y may be negative: sqrt(y) undefined at x = 0
+    [InlineData("sqrt(-2*x^2)", "sqrt(-2x^2)")]      // defined at x = 0 only
+    [InlineData("abs(cosh(t))", "cosh(t)")]
+    [InlineData("abs(sech(t))", "sech(t)")]
+    [InlineData("sign(cosh(t))", "1")]
+    public void Even_powers_leave_square_roots_where_the_rest_is_non_negative(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void A_factor_known_to_be_non_negative_stays_under_the_root()
+    {
+        var positive = Assumptions.None.AssumePositive("y");
+        Assert.Equal("abs(x) * sqrt(y)", ExprParser.Parse("sqrt(x^2*y)").Simplify(positive).Print());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

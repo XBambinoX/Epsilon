@@ -338,6 +338,11 @@ public static class Simplifier
                     ? b
                     : new Abs(b);
 
+            // sqrt(4cosh(t)^2) = 2cosh(t), sqrt(x^4) = x^2: even powers leave the root where the
+            // rest is known to be >= 0. Otherwise sqrt(-2x^2), defined at x = 0, would not be.
+            case Sqrt(var a) when TryTakeSquaresOut(a, assumptions, out Expr? taken):
+                return taken!;
+
             // Exact real n-th root; anything inexact stays symbolic (falls through).
             case NthRoot(Constant c, Constant n) when TryExactRealRoot(c.Value, n.Value, out Rational nthRootValue):
                 return new Constant(nthRootValue);
@@ -1192,6 +1197,36 @@ public static class Simplifier
 
         Expr rest = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
         return (rest.Canonicalize(), negative ? -c : c, radicand);
+    }
+
+    private static bool TryTakeSquaresOut(Expr radicand, Assumptions assumptions, out Expr? result)
+    {
+        result = null;
+        if (radicand is not (Multiply or Power))
+            return false;
+
+        var factors = new List<Expr>();
+        Rational coefficient = Rational.One;
+        FlattenProduct(radicand, factors, ref coefficient);
+
+        var outside = new List<Expr>();
+        Expr rest = new Constant(coefficient);
+        foreach (Expr factor in factors)
+        {
+            if (factor is Power(var b, Constant { Value: { IsInteger: true } k }) && k.Numerator.IsEven && !k.IsZero)
+            {
+                var half = new Constant(k / 2);
+                outside.Add(k.Numerator / 2 % 2 == 0 ? new Power(b, half) : new Power(new Abs(b), half));
+            }
+            else
+                rest = new Multiply(rest, factor);
+        }
+
+        if (outside.Count == 0 || !rest.IsProvablyNonNegative(assumptions))
+            return false;
+
+        result = outside.Aggregate(new Sqrt(rest) as Expr, (product, factor) => new Multiply(product, factor));
+        return true;
     }
 
     // Higher powers aren't looked for in ln(r^k), nor merged into one logarithm.

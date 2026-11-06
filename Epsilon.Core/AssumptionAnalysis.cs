@@ -39,6 +39,8 @@ public static class AssumptionAnalysis
         Pi => true,
         EulerNumber => true,
         Exp(_) => true,
+        Cosh(_) => true,
+        Sech(_) => true,
         Negate(var a) => a.IsProvablyNegative(assumptions),
         Abs(var a) => a.IsProvablyNonZero(assumptions),
         Add(var l, var r) =>
