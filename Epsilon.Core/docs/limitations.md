@@ -45,8 +45,8 @@ ExprParser.Parse("ln(6)").Simplify().Print();        // ln(6)         (not ln(2)
 
 ### Few identities
 
-`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1` and the `sec`/`tan`,
-`csc`/`cot` forms), `sin/cos = tan` and similar quotients, and inverse pairs such as
+`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1`, the `sec`/`tan` and
+`csc`/`cot` forms and the hyperbolic ones), `sin/cos = tan` and similar quotients, and inverse pairs such as
 `ln(exp(x)) = x`. It does not apply double-angle formulas or logarithm rules:
 
 ```csharp

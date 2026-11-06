@@ -676,7 +676,7 @@ public class CalculusSymbolicIntegrationDocTests
 
         Assert.Equal("(1/3) * cos(x)^3 - cos(x)", Integral("sin(x)^3"));
         Assert.Equal("(1/8) * x - (1/32) * sin(4x)", Integral("sin(x)^2*cos(x)^2"));
-        Assert.Equal("ln(abs(cos(x))) + (1/2) * sec(x)^2", Integral("tan(x)^3"));
+        Assert.Equal("ln(abs(cos(x))) + (1/2) * tan(x)^2", Integral("tan(x)^3"));
     }
 
     [Fact]
@@ -738,7 +738,7 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))", Integral("exp(sqrt(x))"));
 
         Assert.Equal("(1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)", Integral("exp(x)*cos(x)^2"));
-        Assert.Equal("(1/2) * sin(x) + (-1/10) * cos(x) * exp(-2x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x)",
+        Assert.Equal("(1/2) * sin(x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x) - (1/10) * cos(x) * exp(-2x)",
             Integral("cosh(x)^2*cos(x)"));
     }
 
@@ -805,7 +805,7 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("9/2", Integral("1/nthroot(x, 3)", -1, 8));
 
         var f = ExprParser.Parse("1/(1 + tan(x))");
-        Assert.Equal("(1/2) * x + (-1/4) * ln(tan(x)^2 + 1) + (1/2) * ln(abs(tan(x) + 1))", f.Integrate("x").Print());
+        Assert.Equal("(1/2) * x + (-1/4) * ln(sec(x)^2) + (1/2) * ln(abs(tan(x) + 1))", f.Integrate("x").Print());
         Assert.Equal("(1/4) * π", f.IntegrateExact("x", 0, ExprParser.Parse("pi/2")).Print());
     }
 
@@ -849,9 +849,9 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("2 * π / sqrt(3)", Integral("1/(2 + cos(x))", 0, ExprParser.Parse("2*pi")));
         Assert.Equal("-2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3", Integral("1/(1 + sin(x))^2", 0, 3));
 
-        var one = ExprParser.Parse("sec(x)^2/(1 + tan(x)^2)");
-        Assert.Equal("atan(tan(x))", one.Integrate("x").Print());
-        Assert.Equal("10", one.IntegrateExact("x", 0, 10).Print());
+        var f = ExprParser.Parse("sec(x)^2/(4 + tan(x)^2)");
+        Assert.Equal("atan(tan(x) / 2) / 2", f.Integrate("x").Print());
+        Assert.Equal("(1/2) * atan(tan(10) / 2) + (3/2) * π", f.IntegrateExact("x", 0, 10).Print());
     }
 
     [Fact]

@@ -760,6 +760,8 @@ public static class Simplifier
         Negate(var t) when ExtractCoefficient(t) is var (c, inner) => (-c, inner),
         Multiply(Constant c, var t) => (c.Value, t),
         Multiply(var t, Constant c) => (c.Value, t),
+        // (2 * sin(t)^2) * R, the chain that Canonicalize builds: the 2 is deeper on the left.
+        Multiply(Multiply l, var r) when ExtractCoefficient(l) is ({ IsOne: false } c, var inner) => (c, new Multiply(inner, r)),
         Divide(var t, Constant c) when !c.Value.IsZero => (Rational.One / c.Value, t),
         _ => (Rational.One, expr)
     };
@@ -817,89 +819,161 @@ public static class Simplifier
 
     private static Expr Square(Expr expr) => new Power(expr, new Constant(2));
 
-    // For sin(x)^2, sec(x)^2 or csc(x)^2: the other square q^2 of its Pythagorean identity, the
-    // sign s in p^2 = 1 + s*q^2, and the function that must not be 0 for both to be defined
-    // (null for sin and cos, defined everywhere).
-    private static bool TryGetPythagoreanPartner(Expr term, out Expr partner, out int sign, out Expr? nonZero)
+    // The identities p^2 = 1 + s*q^2: sin^2 = 1 - cos^2, sec^2 = 1 + tan^2, csc^2 = 1 + cot^2,
+    // cosh^2 = 1 + sinh^2, sech^2 = 1 - tanh^2, coth^2 = 1 + csch^2. For a square of one of
+    // these functions: whether it is p, the other square, s, and the function that must not be 0
+    // for both to be defined (null where they are defined everywhere).
+    private static bool TryGetPythagoreanIdentity(Expr square, out bool isP, out Expr other, out int sign, out Expr? nonZero)
     {
-        if (IsSquareOf<Sin>(term, out Expr x))
-            (partner, sign, nonZero) = (Square(new Cos(x)), -1, null);
-        else if (IsSquareOf<Sec>(term, out x))
-            (partner, sign, nonZero) = (Square(new Tan(x)), 1, new Cos(x));
-        else if (IsSquareOf<Csc>(term, out x))
-            (partner, sign, nonZero) = (Square(new Cot(x)), 1, new Sin(x));
-        else
+        (bool, Expr?, int, Expr?) identity = square is Power(UnaryExpr f, Constant { Value: var e }) && e == 2 ? f switch
         {
-            (partner, sign, nonZero) = (null!, 0, null);
-            return false;
-        }
-
-        return true;
+            Sin(var x) => (true, Square(new Cos(x)), -1, null),
+            Cos(var x) => (false, Square(new Sin(x)), -1, null),
+            Sec(var x) => (true, Square(new Tan(x)), 1, new Cos(x)),
+            Tan(var x) => (false, Square(new Sec(x)), 1, new Cos(x)),
+            Csc(var x) => (true, Square(new Cot(x)), 1, new Sin(x)),
+            Cot(var x) => (false, Square(new Csc(x)), 1, new Sin(x)),
+            Cosh(var x) => (true, Square(new Sinh(x)), 1, null),
+            Sinh(var x) => (false, Square(new Cosh(x)), 1, null),
+            Sech(var x) => (true, Square(new Tanh(x)), -1, null),
+            Tanh(var x) => (false, Square(new Sech(x)), -1, null),
+            Coth(var x) => (true, Square(new Csch(x)), 1, new Sinh(x)),
+            Csch(var x) => (false, Square(new Coth(x)), 1, new Sinh(x)),
+            _ => default,
+        } : default;
+        (isP, other, sign, nonZero) = (identity.Item1, identity.Item2!, identity.Item3, identity.Item4);
+        return sign != 0;
     }
 
-    // sin^2 + cos^2 = 1, sec^2 - tan^2 = 1 and csc^2 - cot^2 = 1 (same argument), applied to the
-    // whole flattened sum rather than to a fixed two-node shape, so they work with other terms
-    // in between, any coefficients and any order: sin^2 + cos^2 + 1 -> 2, 2sin^2 + 3cos^2 ->
-    // 2 + cos^2, 1 - sin^2 -> cos^2, 2sec^2 - tan^2 -> sec^2 + 1.
+    // A term as F * p^2 for every factor p^2 of it that is in an identity: R^2 cos(t)^2 is
+    // (R^2, cos(t)^2), and a bare square has F = 1.
+    private static IEnumerable<(Expr F, Expr Square)> PythagoreanSquares(Expr term)
+    {
+        if (TryGetPythagoreanIdentity(term, out _, out _, out _, out _))
+        {
+            yield return (new Constant(1), term);
+            yield break;
+        }
+        if (term is not Multiply)
+            yield break;
+
+        var factors = new List<Expr>();
+        Rational ignored = Rational.One;
+        FlattenProduct(term, factors, ref ignored);
+        for (int i = 0; i < factors.Count; i++)
+        {
+            if (!TryGetPythagoreanIdentity(factors[i], out _, out _, out _, out _))
+                continue;
+            var rest = factors.Where((_, k) => k != i).ToList();
+            Expr f = rest.Count == 1 ? rest[0] : rest.Aggregate((product, factor) => new Multiply(product, factor)).Canonicalize();
+            yield return (f, factors[i]);
+        }
+    }
+
+    private static bool HasPythagoreanFunction(Expr e) =>
+        e is Sin or Cos or Tan or Cot or Sec or Csc or Sinh or Cosh or Tanh or Coth or Sech or Csch
+        || e.Children.Any(HasPythagoreanFunction);
+
+    private static Expr Times(Expr f, Expr square) => f is Constant { Value.IsOne: true } ? square : new Multiply(f, square).Canonicalize();
+
+    // The identities above applied to the whole flattened sum rather than to a fixed two-node
+    // shape, so they work with other terms in between, any coefficients, a common factor F and
+    // any order: sin^2 + cos^2 + 1 -> 2, 2sin^2 + 3cos^2 -> 2 + cos^2, 1 - sin^2 -> cos^2,
+    // 2sec^2 - tan^2 -> sec^2 + 1, R^2 cos^2 + R^2 sin^2 -> R^2, 1 + sinh^2 -> cosh^2.
     private static void ApplyPythagoreanIdentities(
         List<(Rational Coefficient, Expr Term)> terms, Dictionary<Expr, int> termIndex, ref Rational constant,
         Assumptions assumptions, SimplifyMode mode)
     {
-        // Step 1: where both squares p^2 and q^2 of an identity p^2 = 1 + s*q^2 occur, the one
-        // with the smaller coefficient is rewritten in terms of the other (on a tie, q is kept):
-        //   a*p^2 + b*q^2 = a + (s*a + b)*q^2 = -s*b + (a + s*b)*p^2.
-        // For sin/cos the square that is kept gets a positive coefficient. If both cancel
-        // (sec^2 - tan^2 = 1), the left side was undefined where cos(x) = 0 (sin(x) = 0 for
-        // csc/cot) and the right side isn't, so Strict mode needs that excluded by the assumptions.
-        for (int i = 0; i < terms.Count; i++)
+        var squares = new Dictionary<(Expr F, Expr Square), int>();
+        void Register(int i)
         {
-            var (a, pTerm) = terms[i];
-            if (a.IsZero || !TryGetPythagoreanPartner(pTerm, out Expr qTerm, out int s, out Expr? nonZero))
-                continue;
+            foreach (var key in PythagoreanSquares(terms[i].Term))
+                squares.TryAdd(key, i);
+        }
+        for (int i = 0; i < terms.Count; i++)
+            Register(i);
+        if (squares.Count == 0)
+            return;
 
-            if (!termIndex.TryGetValue(qTerm, out int j) || terms[j].Coefficient.IsZero)
-                continue;
-
-            Rational b = terms[j].Coefficient;
-            Rational sa = s > 0 ? a : -a, sb = s > 0 ? b : -b;
-
-            bool keepP = b < a;
-            Rational keptCoefficient = keepP ? a + sb : sa + b;
-            if (keptCoefficient.IsZero && nonZero is not null && !NonZeroForDomain(nonZero, assumptions, mode))
-                continue;
-
-            if (keepP)
-            {
-                constant -= sb;
-                terms[i] = (keptCoefficient, pTerm);
-                terms[j] = (Rational.Zero, qTerm);
-            }
+        // c F, which is the constant for F = 1.
+        Rational partCoefficient(Expr f, Rational c) =>
+            f is Constant { Value.IsOne: true } ? c : termIndex.TryGetValue(f, out int k) ? terms[k].Coefficient : Rational.Zero;
+        void AddPart(Expr f, Rational c, ref Rational constantSum)
+        {
+            if (f is Constant { Value.IsOne: true })
+                constantSum += c;
+            else if (termIndex.TryGetValue(f, out int k))
+                terms[k] = (terms[k].Coefficient + c, terms[k].Term);
             else
             {
-                constant += a;
-                terms[i] = (Rational.Zero, pTerm);
-                terms[j] = (keptCoefficient, qTerm);
+                termIndex[f] = terms.Count;
+                terms.Add((c, f));
+                Register(terms.Count - 1);
             }
         }
 
-        // Step 2: c - c*sin^2 = c*cos^2 and c - c*cos^2 = c*sin^2. Runs after step 1, so
-        // at most one of sin^2/cos^2 is left per argument and this can't undo step 1.
-        for (int i = 0; i < terms.Count && !constant.IsZero; i++)
+        // Step 1: where both F p^2 and F q^2 occur, the one with the smaller coefficient is
+        // rewritten in terms of the other (on a tie, q is kept):
+        //   a*p^2 + b*q^2 = a + (s*a + b)*q^2 = -s*b + (a + s*b)*p^2.
+        // For sin/cos the square that is kept gets a positive coefficient. If both cancel
+        // (sec^2 - tan^2 = 1), the left side was undefined where cos(x) = 0 (sin(x) = 0 for
+        // csc/cot, x = 0 for coth/csch) and the right side isn't, so Strict mode needs that
+        // excluded by the assumptions.
+        for (int i = 0; i < terms.Count; i++)
         {
-            var (coef, term) = terms[i];
-            if (coef != -constant)
-                continue;
+            foreach (var (f, pSquare) in PythagoreanSquares(terms[i].Term).ToList())
+            {
+                Rational a = terms[i].Coefficient;
+                if (a.IsZero || !TryGetPythagoreanIdentity(pSquare, out bool isP, out Expr qSquare, out int s, out Expr? nonZero) || !isP)
+                    continue;
+                if (!squares.TryGetValue((f, qSquare), out int j) || j == i || terms[j].Coefficient.IsZero)
+                    continue;
 
-            Expr? swapped =
-                IsSquareOf<Sin>(term, out Expr sinArg) ? Square(new Cos(sinArg)) :
-                IsSquareOf<Cos>(term, out Expr cosArg) ? Square(new Sin(cosArg)) :
-                null;
+                Rational b = terms[j].Coefficient;
+                Rational sa = s > 0 ? a : -a, sb = s > 0 ? b : -b;
 
-            if (swapped is null)
-                continue;
+                bool keepP = b < a;
+                Rational keptCoefficient = keepP ? a + sb : sa + b;
+                if (keptCoefficient.IsZero && nonZero is not null && !NonZeroForDomain(nonZero, assumptions, mode))
+                    continue;
 
-            terms[i] = (constant, swapped);
-            constant = Rational.Zero;
+                if (keepP)
+                {
+                    terms[i] = (keptCoefficient, terms[i].Term);
+                    terms[j] = (Rational.Zero, terms[j].Term);
+                    AddPart(f, -sb, ref constant);
+                }
+                else
+                {
+                    terms[i] = (Rational.Zero, terms[i].Term);
+                    terms[j] = (keptCoefficient, terms[j].Term);
+                    AddPart(f, a, ref constant);
+                }
+            }
+        }
+
+        // Step 2: c F + s c F q^2 = c F p^2 and c F - c F p^2 = -s c F q^2: 1 - sin^2 = cos^2,
+        // 1 + sinh^2 = cosh^2, cosh^2 - 1 = sinh^2. Runs after step 1, so at most one of p^2
+        // and q^2 is left for each F and argument, and this can't undo step 1. Both sides are
+        // defined at the same points. An F with these functions in it is left alone, or the
+        // expansion sin - sin cos^2 of (1 - cos^2) sin would fold back into sin^3.
+        for (int i = 0; i < terms.Count; i++)
+        {
+            foreach (var (f, square) in PythagoreanSquares(terms[i].Term).ToList())
+            {
+                if (HasPythagoreanFunction(f))
+                    continue;
+                Rational coefficient = terms[i].Coefficient;
+                Rational c = partCoefficient(f, constant);
+                if (coefficient.IsZero || c.IsZero || !TryGetPythagoreanIdentity(square, out bool isP, out Expr other, out int s, out _))
+                    continue;
+                if (coefficient != (isP ? -c : s * c))
+                    continue;
+
+                terms[i] = (isP ? -s * c : c, Times(f, other));
+                AddPart(f, -c, ref constant);
+                break;
+            }
         }
     }
 

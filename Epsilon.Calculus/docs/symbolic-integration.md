@@ -185,7 +185,7 @@ tan^2 = sec^2 - 1, and those of sinh and cosh the same way as those of sin and c
 ```csharp
 ExprParser.Parse("sin(x)^3").Integrate("x").Print();            // (1/3) * cos(x)^3 - cos(x)
 ExprParser.Parse("sin(x)^2*cos(x)^2").Integrate("x").Print();   // (1/8) * x - (1/32) * sin(4x)
-ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x))) + (1/2) * sec(x)^2
+ExprParser.Parse("tan(x)^3").Integrate("x").Print();            // ln(abs(cos(x))) + (1/2) * tan(x)^2
 ```
 
 ## Trigonometric and hyperbolic functions
@@ -324,7 +324,7 @@ exponentials:
 ```csharp
 ExprParser.Parse("exp(x)*cos(x)^2").Integrate("x").Print();   // (1/2) * exp(x) + (1/10) * cos(2x) * exp(x) + (1/5) * exp(x) * sin(2x)
 ExprParser.Parse("cosh(x)^2*cos(x)").Integrate("x").Print();
-// (1/2) * sin(x) + (-1/10) * cos(x) * exp(-2x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x)
+// (1/2) * sin(x) + (1/20) * exp(-2x) * sin(x) + (1/20) * exp(2x) * sin(x) + (1/10) * cos(x) * exp(2x) - (1/10) * cos(x) * exp(-2x)
 ```
 
 ## The imaginary unit

@@ -2902,6 +2902,39 @@ public class NumericMultipleTests
     }
 }
 
+public class PythagoreanWithFactorsTests
+{
+    [Theory]
+    [InlineData("R^2*cos(t)^2 + R^2*sin(t)^2", "R^2", "R^2")]
+    [InlineData("x*y*sin(t)^2 + y*x*cos(t)^2", "x * y", "x * y")]
+    [InlineData("2*R*sin(t)^2 + 3*R*cos(t)^2", "2R + cos(t)^2 * R", "2R + cos(t)^2 * R")]
+    [InlineData("sin(t)^2*cos(u)^2 + cos(t)^2*cos(u)^2", "cos(u)^2", "cos(u)^2")]
+    [InlineData("R^2 - R^2*sin(t)^2", "cos(t)^2 * R^2", "cos(t)^2 * R^2")]
+    [InlineData("cosh(t)^2 - sinh(t)^2", "1", "1")]
+    [InlineData("1 + sinh(t)^2", "cosh(t)^2", "cosh(t)^2")]
+    [InlineData("cosh(t)^2 - 1", "sinh(t)^2", "sinh(t)^2")]
+    [InlineData("1 - tanh(t)^2", "sech(t)^2", "sech(t)^2")]
+    [InlineData("sech(t)^2 + tanh(t)^2", "1", "1")]
+    [InlineData("coth(t)^2 - csch(t)^2", "1", "coth(t)^2 - csch(t)^2")]   // undefined at t = 0
+    [InlineData("1 + tan(x)^2", "sec(x)^2", "sec(x)^2")]
+    [InlineData("sec(x)^2 - 1", "tan(x)^2", "tan(x)^2")]
+    [InlineData("a*sin(t)^2 + b*cos(t)^2", "cos(t)^2 * b + sin(t)^2 * a", "cos(t)^2 * b + sin(t)^2 * a")]
+    [InlineData("sin(x)^2 + cos(y)^2", "cos(y)^2 + sin(x)^2", "cos(y)^2 + sin(x)^2")]
+    public void Pythagorean_identities_work_with_a_common_factor_and_for_hyperbolic_functions(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void An_expansion_with_the_functions_in_the_common_factor_is_not_folded_back()
+    {
+        // sin - sin cos^2 is (1 - cos^2) sin multiplied out; folding it would undo Expand.
+        Assert.Equal("sin(x) - cos(x)^2 * sin(x)", ExprParser.Parse("sin(x) - sin(x)*cos(x)^2").Simplify().Print());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

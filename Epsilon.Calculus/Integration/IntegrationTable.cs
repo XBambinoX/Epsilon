@@ -171,14 +171,24 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
         Expr u = function.Argument;
         if (n.IsInteger && n > 2 && function is Tan or Cot or Tanh or Coth)
         {
-            Expr square = function switch
+            // tan^n = tan^(n-2) sec^2 - tan^(n-2), each part on its own: as one sum, Simplify
+            // writes sec^2 - 1 back as tan^2.
+            Expr lower = n == 3 ? function : new Power(function, n - 2);
+            Expr square = new Power(function switch
             {
-                Tan => new Power(new Sec(u), 2) - 1,
-                Cot => new Power(new Csc(u), 2) - 1,
-                Tanh => 1 - new Power(new Sech(u), 2),
-                _ => 1 + new Power(new Csch(u), 2),
+                Tan => new Sec(u),
+                Cot => new Csc(u),
+                Tanh => new Sech(u),
+                _ => new Csch(u),
+            }, 2);
+            if (Integrate(lower * square) is not { } withSquare || Integrate(lower) is not { } rest)
+                return null;
+            return function switch
+            {
+                Tan or Cot => withSquare - rest,
+                Tanh => rest - withSquare,
+                _ => rest + withSquare,
             };
-            return Integrate((new Power(function, n - 2) * square).Expand());
         }
 
         // The reductions by parts: sec^n is sec^(n-2) tan / (n - 1) and (n - 2)/(n - 1) of sec^(n-2).

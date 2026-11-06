@@ -128,7 +128,7 @@ public class TrigonometricIntegralsTests
     {
         Assert.Equal("(1/3) * tan(x)^3", Integral("sin(x)^2/cos(x)^4"));
         Assert.Equal("(1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
-        Assert.Equal("(1/2) * x - tan(x) / (2tan(x)^2 + 2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
+        Assert.Equal("(1/2) * x - tan(x) / (2sec(x)^2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
     }
 
     // Where several rules apply, the shortest result: t = tan x here.

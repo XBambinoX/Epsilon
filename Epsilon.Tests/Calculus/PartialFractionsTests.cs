@@ -172,15 +172,15 @@ public class PartialFractionsTests
         Assert.Equal("(1/6) * (atan(2x + sqrt(3)) + atan(2x - sqrt(3))) + (1/3) * atan(x) + (1/12) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) * sqrt(3)",
             Integral("1/(x^6 + 1)"));
         Assert.Equal("(-1/12) * ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) * nthroot(2, 3) + (1/6) * ln(abs(x - nthroot(2, 3))) * nthroot(2, 3)"
-            + " + (-1/6) * atan(2sqrt(3) * x / (3nthroot(2, 3)) + (1/3) * sqrt(3)) * nthroot(2, 3) * sqrt(3)", Integral("1/(x^3 - 2)"));
+            + " - (1/6) * atan(2sqrt(3) * x / (3nthroot(2, 3)) + (1/3) * sqrt(3)) * nthroot(2, 3) * sqrt(3)", Integral("1/(x^3 - 2)"));
     }
 
     // Angles without a known value stay exact.
     [Fact]
     public void Roots_of_unity() =>
-        Assert.Equal("(1/5) * ln(abs(x - 1)) + (-2/5) * atan(csc((1/5) * π) * x + cot((1/5) * π)) * sin((1/5) * π)"
-            + " + (-2/5) * atan(csc((2/5) * π) * x - cot((2/5) * π)) * sin((2/5) * π) + (-1/5) * cos((1/5) * π) * ln(x^2 + 2cos((1/5) * π) * x + 1)"
-            + " + (1/5) * cos((2/5) * π) * ln(x^2 - 2cos((2/5) * π) * x + 1)", Integral("1/(x^5 - 1)"));
+        Assert.Equal("(1/5) * ln(abs(x - 1)) + (1/5) * cos((2/5) * π) * ln(x^2 - 2cos((2/5) * π) * x + 1)"
+            + " - (2/5) * atan(csc((1/5) * π) * x + cot((1/5) * π)) * sin((1/5) * π) - (2/5) * atan(csc((2/5) * π) * x - cot((2/5) * π)) * sin((2/5) * π)"
+            + " - (1/5) * cos((1/5) * π) * ln(x^2 + 2cos((1/5) * π) * x + 1)", Integral("1/(x^5 - 1)"));
 
     // c/p' is a constant modulo p: one logarithm of p, whatever its roots.
     [Fact]

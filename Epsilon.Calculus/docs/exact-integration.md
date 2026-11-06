@@ -65,7 +65,7 @@ The integrand 1/(1 + tan(x)) is 0 at pi/2, but its antiderivative has tan(x) in 
 var f = ExprParser.Parse("1/(1 + tan(x))");
 
 f.Integrate("x").Print();
-// (1/2) * x + (-1/4) * ln(tan(x)^2 + 1) + (1/2) * ln(abs(tan(x) + 1))
+// (1/2) * x + (-1/4) * ln(sec(x)^2) + (1/2) * ln(abs(tan(x) + 1))
 f.IntegrateExact("x", 0, ExprParser.Parse("pi/2")).Print();   // (1/4) * π
 ```
 
@@ -149,15 +149,15 @@ ExprParser.Parse("1/(1 + sin(x))^2").IntegrateExact("x", 0, 3).Print();
 // -2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3
 ```
 
-Where an antiderivative jumps while the integrand doesn't, the jumps are taken off.
-sec(x)^2/(1 + tan(x)^2) is 1 wherever it is defined, and by u = tan(x) its antiderivative is
-atan(tan(x)), which falls by pi at each pole of tan:
+Where an antiderivative jumps while the integrand doesn't, the jumps are taken off. By
+u = tan(x), the antiderivative of sec(x)^2/(4 + tan(x)^2) is atan(tan(x)/2)/2, which falls by
+pi/2 at each pole of tan:
 
 ```csharp
-var one = ExprParser.Parse("sec(x)^2/(1 + tan(x)^2)");
+var f = ExprParser.Parse("sec(x)^2/(4 + tan(x)^2)");
 
-one.Integrate("x").Print();                 // atan(tan(x))
-one.IntegrateExact("x", 0, 10).Print();     // 10
+f.Integrate("x").Print();                 // atan(tan(x) / 2) / 2
+f.IntegrateExact("x", 0, 10).Print();     // (1/2) * atan(tan(10) / 2) + (3/2) * π
 ```
 
 ## Odd integrands

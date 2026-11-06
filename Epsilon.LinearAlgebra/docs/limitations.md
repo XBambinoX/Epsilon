@@ -33,16 +33,12 @@ when a limitation is lifted this page is updated with it. The expressions have
   // a * d + t^2 - b * c + (-a - d) * t
   ```
 
-- **The simplifier knows few trigonometric identities.** It knows sin^2 + cos^2 = 1, but not
-  when the two terms share a symbolic factor, and it doesn't know the addition formulas such as
-  cos(a) cos(b) - sin(a) sin(b) = cos(a + b). So products of rotations stay expanded, and the
-  determinant of the Jacobian of polar coordinates is longer than `r`. The values are right,
-  and compiled code computes each sine and cosine once:
+- **The simplifier knows few trigonometric identities.** It knows sin^2 + cos^2 = 1, also with
+  a common factor, but not the addition formulas such as cos(a) cos(b) - sin(a) sin(b) =
+  cos(a + b). So products of rotations stay expanded. The values are right, and compiled code
+  computes each sine and cosine once:
 
   ```csharp
-  var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
-  polar.Jacobian(["r", "t"]).Determinant().Print();   // cos(t)^2 * r + sin(t)^2 * r
-
   (Matrix<Expr>.Rotation(new Variable("a")) * Matrix<Expr>.Rotation(new Variable("b")))[0, 0].Print();
   // cos(a) * cos(b) - sin(a) * sin(b)
   ```

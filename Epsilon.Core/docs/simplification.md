@@ -76,8 +76,9 @@ ExprParser.Parse("x/(-2)").Simplify().Print();          // -x / 2
 ```
 
 **Identities.** The Pythagorean identities (`sin^2 + cos^2 = 1`, `sec^2 - tan^2 = 1`,
-`csc^2 - cot^2 = 1`) work across a whole sum, with any coefficients and other terms in
-between:
+`csc^2 - cot^2 = 1`) and their hyperbolic forms (`cosh^2 - sinh^2 = 1`, `sech^2 + tanh^2 = 1`,
+`coth^2 - csch^2 = 1`) work across a whole sum, with any coefficients, a common factor and
+other terms in between:
 
 ```csharp
 ExprParser.Parse("2sin(x)^2 + 2cos(x)^2 + 1").Simplify().Print();   // 3
@@ -85,6 +86,9 @@ ExprParser.Parse("1 - sin(x)^2").Simplify().Print();                // cos(x)^2
 ExprParser.Parse("sec(x)^2 - tan(x)^2").Simplify().Print();         // 1
 ExprParser.Parse("y - csc(x)^2 + cot(x)^2").Simplify().Print();     // y - 1
 ExprParser.Parse("2sec(x)^2 - tan(x)^2").Simplify().Print();        // sec(x)^2 + 1
+ExprParser.Parse("1 + tan(x)^2").Simplify().Print();                // sec(x)^2
+ExprParser.Parse("r^2*cos(t)^2 + r^2*sin(t)^2").Simplify().Print(); // r^2
+ExprParser.Parse("1 + sinh(t)^2").Simplify().Print();               // cosh(t)^2
 ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 ```
 

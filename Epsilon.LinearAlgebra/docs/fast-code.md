@@ -199,4 +199,4 @@ the arm is stretched out and the Jacobian nearly singular, and the limit of half
 keeps the joints from spinning around. Another arm changes only the first lines: more links,
 or a 3D arm with `RotationX`, `RotationY`, `RotationZ` and translations by three entries. For
 an engine without Epsilon, `ToCSharp` writes `position` and `jacobian` as two methods of 15
-and 29 lines.
+and 30 lines.

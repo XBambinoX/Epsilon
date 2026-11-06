@@ -109,7 +109,7 @@ public class SubstitutionTests
         Assert.Equal("(1/8) * x - (1/32) * sin(4x)", Integral("sin(x)^2*cos(x)^2"));
         Assert.Equal("(3/8) * x + (1/32) * sin(4x) - (1/4) * sin(2x)", Integral("sin(x)^4"));
         Assert.Equal("(1/3) * cosh(x)^3 - cosh(x)", Integral("sinh(x)^3"));
-        Assert.Equal("ln(abs(cos(x))) + (1/2) * sec(x)^2", Integral("tan(x)^3"));
+        Assert.Equal("ln(abs(cos(x))) + (1/2) * tan(x)^2", Integral("tan(x)^3"));
     }
 
     // x * sqrt(x) used to stay a product, which Simplify doesn't merge.
