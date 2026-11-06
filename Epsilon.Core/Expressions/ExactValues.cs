@@ -267,7 +267,7 @@ internal static class ExactValues
     }
 
     // m = outside^n * rest, with the n-th powers of primes up to MaxTrialDivisor moved to Outside.
-    private static (BigInteger Outside, BigInteger Remainder) ExtractPowers(BigInteger m, int n)
+    internal static (BigInteger Outside, BigInteger Remainder) ExtractPowers(BigInteger m, int n)
     {
         BigInteger outside = BigInteger.One;
 

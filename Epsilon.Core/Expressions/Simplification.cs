@@ -346,8 +346,16 @@ public static class Simplifier
             case var _ when ExactValues.TryEvaluate(expr, out Expr? exact):
                 return exact;
 
+            // 1/(sqrt(3) + 2) = 2 - sqrt(3): a number over a + b sqrt(d) times the conjugate.
+            case Divide(var n, var d)
+                when QuadraticSurd.Of(n) is { } top && QuadraticSurd.Of(d) is { B.IsZero: false } bottom && top / bottom is { } quotient:
+                return quotient.ToExpr();
+
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
+
+            case Abs(var a) when QuadraticSurd.Of(a) is { B.IsZero: false } surd:
+                return surd.Abs.ToExpr();
 
             case Abs(var a) when a is Abs:
                 return a;
@@ -360,6 +368,9 @@ public static class Simplifier
 
             case Sign(Constant c):
                 return new Constant(c.Value.Sign);
+
+            case Sign(var a) when QuadraticSurd.Of(a) is { B.IsZero: false } surd:
+                return new Constant(surd.Sign);
 
             case Sign(var a) when a.IsProvablyPositive(assumptions):
                 return new Constant(1);
@@ -923,9 +934,24 @@ public static class Simplifier
 
         combined.RemoveAll(t => t.Coefficient.IsZero);
         Expr result = BuildSum(combined, constantSum);
+        if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
+            return folded;
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // A sum of numbers a + b sqrt(d) as one, term by term: (sqrt(2) - 2)/2 + 1 = sqrt(2)/2.
+    private static QuadraticSurd? SurdSum(List<(Rational Coefficient, Expr Term)> terms, Rational constant)
+    {
+        QuadraticSurd? total = new QuadraticSurd(constant, 0, 1);
+        foreach (var (coefficient, term) in terms)
+        {
+            if (total is not { } sum || term.GetVariables().Count > 0 || QuadraticSurd.Of(term) is not { } value)
+                return null;
+            total = sum + value.Times(coefficient);
+        }
+        return total;
     }
 
     // Builds c1*t1 + c2*t2 + ... + constant in the given order, writing negative coefficients as

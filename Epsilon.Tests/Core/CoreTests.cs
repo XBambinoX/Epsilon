@@ -2779,6 +2779,33 @@ public class ExpOfLogarithmTests
     }
 }
 
+public class QuadraticSurdTests
+{
+    [Theory]
+    [InlineData("1/(sqrt(3) + 2)", "-sqrt(3) + 2")]
+    [InlineData("(1 + sqrt(2))/(1 - sqrt(2))", "-2sqrt(2) - 3")]
+    [InlineData("1/(1 + 2*sqrt(3))", "(2sqrt(3) - 1) / 11")]
+    [InlineData("1/(1 + sqrt(2))^2", "-2sqrt(2) + 3")]
+    [InlineData("3/(sqrt(8) + sqrt(2))", "sqrt(2) / 2")]
+    [InlineData("-2/(2*sqrt(2) + 4) + 1", "sqrt(2) / 2")]
+    [InlineData("1/(1 + sqrt(2)) + 1/(1 - sqrt(2))", "-2")]
+    [InlineData("abs(1 - sqrt(2))", "sqrt(2) - 1")]
+    [InlineData("abs(3 - 2*sqrt(2))", "-2sqrt(2) + 3")]
+    [InlineData("sign(1 - sqrt(2))", "-1")]
+    [InlineData("sign(7 - 5*sqrt(2))", "-1")]                     // 49 < 50
+    [InlineData("sign(sqrt(50) - 7)", "1")]
+    [InlineData("1/(sqrt(2) + sqrt(3))", "1 / (sqrt(2) + sqrt(3))")] // two radicands
+    [InlineData("x/(sqrt(3) + 2)", "x / (sqrt(3) + 2)")]             // only numbers
+    public void Square_roots_leave_denominators_and_signs_are_exact(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+        if (!input.Contains('x'))
+            Assert.Equal(expr.Evaluate(), expr.Simplify().Evaluate(), 1e-12);
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

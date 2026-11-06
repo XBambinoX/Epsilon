@@ -110,6 +110,17 @@ ExprParser.Parse("2sin(pi/3)").Simplify().Print();   // sqrt(3)
 ExprParser.Parse("ln(e^2)").Simplify().Print();      // 2
 ```
 
+A number divided by a sum with a square root, such as `sqrt(3) + 2`, is multiplied by the
+conjugate, so no root is left in the denominator, and the sign of such a number is known
+exactly. Roots of two different numbers are left as they are:
+
+```csharp
+ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print();          // -sqrt(3) + 2
+ExprParser.Parse("-2/(2*sqrt(2) + 4) + 1").Simplify().Print();   // sqrt(2) / 2
+ExprParser.Parse("abs(1 - sqrt(2))").Simplify().Print();         // sqrt(2) - 1
+ExprParser.Parse("1/(sqrt(2) + sqrt(3))").Simplify().Print();    // 1 / (sqrt(2) + sqrt(3))
+```
+
 Where a function is undefined it stays as it is: `tan(pi/2)` and `csc(0)` are not folded.
 
 What `Simplify` *doesn't* know yet (double-angle formulas, logarithm rules, exact values at
