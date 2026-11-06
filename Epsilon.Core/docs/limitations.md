@@ -37,7 +37,7 @@ roots written as powers are left as they are:
 ```csharp
 ExprParser.Parse("sin(pi/12)").Simplify().Print();   // sin(π / 12)   (not (sqrt(6) - sqrt(2)) / 4)
 ExprParser.Parse("ln(8)").Simplify().Print();        // ln(8)         (not 3ln(2))
-ExprParser.Parse("8^(1/2)").Simplify().Print();      // 8^(1/2)       (not 2sqrt(2))
+ExprParser.Parse("8^(3/2)").Simplify().Print();      // 8^(3/2)       (not 16sqrt(2))
 ```
 
 `Evaluate` still gives the numeric values.

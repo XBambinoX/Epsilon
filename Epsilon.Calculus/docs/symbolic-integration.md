@@ -174,7 +174,7 @@ For a root of a linear expression, x itself is written in u: for u = sqrt(x + 1)
 so the integral is one of a polynomial in u:
 
 ```csharp
-ExprParser.Parse("x*sqrt(x + 1)").Integrate("x").Print();    // (2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3
+ExprParser.Parse("x*sqrt(x + 1)").Integrate("x").Print();    // (2/5) * (x + 1)^(5/2) - (2/3) * (x + 1)^(3/2)
 ExprParser.Parse("sqrt(x)/(1 + x)").Integrate("x").Print();  // -2atan(sqrt(x)) + 2sqrt(x)
 ```
 
@@ -292,7 +292,7 @@ A logarithm or an inverse function alone, or a power of one, is u with dv = dx:
 ```csharp
 ExprParser.Parse("ln(x)^2").Integrate("x").Print();       // 2x + ln(x)^2 * x - 2ln(x) * x
 ExprParser.Parse("ln(x^2 + 1)").Integrate("x").Print();   // ln(x^2 + 1) * x - 2x + 2atan(x)
-ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)
+ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)
 ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // (1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)
 ```
 

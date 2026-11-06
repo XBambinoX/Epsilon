@@ -74,7 +74,7 @@ public class IntegrationByPartsTests
         Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
         Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
         Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
-        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)", Integral("asin(x)^2"));
+        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)", Integral("asin(x)^2"));
     }
 
     // Two steps come back to the integral, which is solved for.
@@ -120,7 +120,7 @@ public class IntegrationByPartsTests
     public void Substitution_keeps_its_forms()
     {
         Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
     // Non-elementary.

@@ -20,7 +20,7 @@ public class LimitationsDocTests
     {
         Assert.Equal("sin(π / 12)", ExprParser.Parse("sin(pi/12)").Simplify().Print());
         Assert.Equal("ln(8)", ExprParser.Parse("ln(8)").Simplify().Print());
-        Assert.Equal("8^(1/2)", ExprParser.Parse("8^(1/2)").Simplify().Print());
+        Assert.Equal("8^(3/2)", ExprParser.Parse("8^(3/2)").Simplify().Print());
     }
 
     [Fact]
@@ -304,7 +304,7 @@ public class SimplificationDocTests
 {
     [Theory]
     [InlineData("sqrt(x^2)", "abs(x)")]
-    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^(1/3)", "(x^2)^(1/3)")]
     [InlineData("(x^2)^3", "x^6")]
     [InlineData("1/3 + 1/6", "1/2")]
     [InlineData("2^-2", "1/4")]
@@ -316,6 +316,9 @@ public class SimplificationDocTests
     [InlineData("2*x*3*x", "6x^2")]
     [InlineData("x*(-y)*x", "-x^2 * y")]
     [InlineData("(x + 1) - 1", "x")]
+    [InlineData("x^(1/2)", "sqrt(x)")]
+    [InlineData("x*sqrt(x)", "x^(3/2)")]
+    [InlineData("sqrt(y) - y^(1/2)", "0")]
     [InlineData("(2x)/(4x)", "1/2")]
     [InlineData("(x^2*y)/(x*y)", "x")]
     [InlineData("x^3/x", "x^2")]

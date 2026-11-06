@@ -17,7 +17,7 @@ is left alone: a missed simplification is always safer than a wrong one.
 
 ```csharp
 ExprParser.Parse("sqrt(x^2)").Simplify().Print();     // abs(x)
-ExprParser.Parse("(x^2)^(1/2)").Simplify().Print();   // (x^2)^(1/2)
+ExprParser.Parse("(x^2)^(1/3)").Simplify().Print();   // (x^2)^(1/3)   (x^(2/3) is undefined for x < 0)
 ExprParser.Parse("(x^2)^3").Simplify().Print();       // x^6
 ```
 
@@ -43,6 +43,15 @@ ExprParser.Parse("x*y*x*y").Simplify().Print();       // x^2 * y^2
 ExprParser.Parse("2*x*3*x").Simplify().Print();       // 6x^2
 ExprParser.Parse("x*(-y)*x").Simplify().Print();      // -x^2 * y
 ExprParser.Parse("(x + 1) - 1").Simplify().Print();   // x
+```
+
+A power 1/2 is written as a square root, and a square root counts as the power 1/2 among the
+other factors:
+
+```csharp
+ExprParser.Parse("x^(1/2)").Simplify().Print();             // sqrt(x)
+ExprParser.Parse("x*sqrt(x)").Simplify().Print();           // x^(3/2)
+ExprParser.Parse("sqrt(y) - y^(1/2)").Simplify().Print();   // 0
 ```
 
 **Common factors cancel** in quotients, and the numbers in them reduce like a fraction:

@@ -1308,7 +1308,7 @@ public class AdvancedSimplifierTests
 
     [Theory]
     [InlineData("sqrt(x^2)", "abs(x)")]   // x = -1: both sides defined, x would give the wrong value
-    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)")] // same reason, must not collapse to x
+    [InlineData("(x^2)^(1/2)", "abs(x)")]      // same reason, must not collapse to x
     [InlineData("0 / 0", "0 / 0")]        // undefined everywhere, never folded
     public void Generic_mode_never_changes_a_defined_value(string input, string expected)
     {
@@ -2652,7 +2652,7 @@ public class PowerOfPowerTests
     // Defined at x = 0 after combining, but not before.
     [InlineData("(x^-2)^-1", "x^2", "(x^-2)^-1")]
     // A non-integer outer exponent: (x^2)^(1/2) is |x|, and x^(2y) is undefined for x < 0.
-    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^(1/2)", "abs(x)", "abs(x)")]
     [InlineData("(x^2)^y", "(x^2)^y", "(x^2)^y")]
     public void Combines_two_integer_exponents(string input, string generic, string strict)
     {
@@ -2667,6 +2667,32 @@ public class PowerOfPowerTests
     {
         Expr expr = ExprParser.Parse("(x^2)^3");
         Assert.Equal(expr.Expand(), expr.Simplify());
+    }
+}
+
+public class SquareRootAsPowerTests
+{
+    // sqrt(u) and u^(1/2) are one expression; Strict keeps refusing what enlarges the domain.
+    [Theory]
+    [InlineData("sqrt(y) - y^(1/2)", "0", "0")]
+    [InlineData("(x^2 + 1)^(1/2) - sqrt(x^2 + 1)", "0", "0")]
+    [InlineData("1/x^(1/2)", "1 / sqrt(x)", "1 / sqrt(x)")]
+    [InlineData("x*sqrt(x)", "x^(3/2)", "x^(3/2)")]
+    [InlineData("sqrt(x)*x^(1/3)", "x^(5/6)", "x^(5/6)")]
+    [InlineData("sqrt(x)^3", "x^(3/2)", "sqrt(x)^3")]
+    [InlineData("x/sqrt(x)", "sqrt(x)", "x / sqrt(x)")]
+    [InlineData("sqrt(x)/x", "x^(-1/2)", "sqrt(x) / x")]
+    [InlineData("x^(3/2)/sqrt(x)", "x", "x^(3/2) / sqrt(x)")]
+    [InlineData("sqrt(x)*sqrt(x)", "x", "sqrt(x)^2")]
+    [InlineData("8^(1/2)", "2sqrt(2)", "2sqrt(2)")]
+    [InlineData("sqrt(2)*2^(1/2)", "2", "2")]
+    [InlineData("sqrt(2)^3", "2sqrt(2)", "2sqrt(2)")]
+    [InlineData("sqrt(2)/2", "sqrt(2) / 2", "sqrt(2) / 2")]
+    public void A_power_one_half_is_a_square_root(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
     }
 }
 
@@ -3240,7 +3266,7 @@ public class ProductSimplificationAfterCleanupTests
     {
         Expr simplified = ExprParser.Parse("x^(1/2) * x^(1/2)").Simplify(SimplifyMode.Strict);
 
-        Assert.Equal(new Power(new Power(new Variable("x"), new Constant(new Rational(1, 2))), new Constant(2)), simplified);
+        Assert.Equal(new Power(new Sqrt(new Variable("x")), new Constant(2)), simplified);
     }
 }
 
@@ -3785,7 +3811,7 @@ public class ExpandTests
     [InlineData("(sqrt(x) + 1)^2", "x + 2sqrt(x) + 1", "2sqrt(x) + sqrt(x)^2 + 1")]
     [InlineData("(x + 1/x)^2", "x^2 + 1 / x^2 + 2", "x^2 + 1 / x^2 + 2x / x")]
     // Merging the powers gives (x + 1)^2, which is multiplied out in turn.
-    [InlineData("(x + 1)^(1/2) * (x + 1)^(3/2)", "x^2 + 2x + 1", "(x + 1)^(1/2) * (x + 1)^(3/2)")]
+    [InlineData("(x + 1)^(1/2) * (x + 1)^(3/2)", "x^2 + 2x + 1", "(x + 1)^(3/2) * sqrt(x + 1)")]
     public void Simplifies_in_the_given_mode(string input, string generic, string strict)
     {
         Expr expr = ExprParser.Parse(input);

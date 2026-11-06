@@ -671,7 +671,7 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("atan(exp(x))", Integral("exp(x)/(1 + exp(2*x))"));
         Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
 
-        Assert.Equal("(2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3", Integral("x*sqrt(x + 1)"));
+        Assert.Equal("(2/5) * (x + 1)^(5/2) - (2/3) * (x + 1)^(3/2)", Integral("x*sqrt(x + 1)"));
         Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
 
         Assert.Equal("(1/3) * cos(x)^3 - cos(x)", Integral("sin(x)^3"));
@@ -725,7 +725,7 @@ public class CalculusSymbolicIntegrationDocTests
 
         Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
         Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
-        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * (-x^2 + 1)^(1/2)", Integral("asin(x)^2"));
+        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)", Integral("asin(x)^2"));
         Assert.Equal("(1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)", Integral("x*asin(x)"));
 
         Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));

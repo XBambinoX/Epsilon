@@ -204,39 +204,20 @@ public static class Simplifier
             case Power(var b, var e) when b.Equals(new Constant(0)) && e.IsProvablyPositive(assumptions):
                 return new Constant(0);
 
+            // u^(1/2) is written sqrt(u), so that one value has one form: sqrt(y) - y^(1/2) = 0.
+            case Power(var b, Constant e) when e.Value == Half:
+                return new Sqrt(b);
+
             // sqrt(a)^2 = a; the left side is undefined for a < 0, so this enlarges the domain.
             case Power(Sqrt(var a), Constant e) when e.Value == 2 && NonNegativeForDomain(a, assumptions, mode):
                 return a;
 
             case Power(Power(var b, var e1), var e2):
-                // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
-                // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
-                // Additionally, (x^-1)^-1 = x would become defined at x = 0, so a negative inner
-                // exponent needs either a nonzero base or a positive outer exponent.
-                Expr combined = new Power(b, new Multiply(e1, e2));
-                bool zeroBaseSafe = NonZeroForDomain(b, assumptions, mode) ||
-                                    e1.IsProvablyPositive(assumptions) ||
-                                    e2.IsProvablyPositive(assumptions);
-                if (!zeroBaseSafe)
-                    return expr;
-                // Integer powers compose for any base: (x^2)^3 = x^6, (x^-1)^2 = x^-2.
-                bool innerIsInteger = e1 is Constant ce1 && ce1.Value.IsInteger;
-                bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
-                if (innerIsInteger && outerIsInteger)
-                    return combined;
-                // Power is the principal value: a non-integer exponent of a negative base is
-                // undefined over the reals. So (x^3)^(1/3) is undefined for x < 0 while x is not -
-                // an odd inner exponent with a non-integer outer one only enlarges the domain.
-                if (e1 is Constant ce1Odd && IsOddInteger(ce1Odd.Value) && mode == SimplifyMode.Generic)
-                    return combined;
-                // A non-integer inner exponent (x^(1/2), x^(1/3)) is undefined for b < 0, so
-                // collapsing only enlarges the domain - fine in Generic mode. An even integer
-                // inner exponent is different: (x^2)^(1/2) = |x|, not x, so no shortcut.
-                bool innerUndefinedForNegativeBase = e1 is Constant ce1NonInt && !ce1NonInt.Value.IsInteger;
-                return b.IsProvablyNonNegative(assumptions) ||
-                       (mode == SimplifyMode.Generic && innerUndefinedForNegativeBase)
-                    ? combined
-                    : expr;
+                return CollapsedPower(expr, b, e1, e2, assumptions, mode);
+
+            // sqrt(x)^3 = x^(3/2), on the same terms as (x^(1/2))^3.
+            case Power(Sqrt(var b), var e2) when b is not Constant:
+                return CollapsedPower(expr, b, new Constant(Half), e2, assumptions, mode);
 
             // Still reachable: when CombineProductFactors may not add the exponents (Strict mode,
             // x^(1/2) * x^(1/2) would gain x < 0), the equal factors are squared as a whole instead.
@@ -259,29 +240,30 @@ public static class Simplifier
             case Divide(var a, Divide(var b, var c)) when NonZeroForDomain(c, assumptions, mode):
                 return new Divide(new Multiply(a, c), b);
 
-            // x^n / x^m = x^(n-m)
-            case Divide(Power(var b1, var e1), Power(var b2, var e2))
-                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+            // x^n / x^m = x^(n-m); here and below sqrt(x) counts as x^(1/2).
+            case Divide(var n, var d)
+                when IsPower(n, out Expr b1, out Expr e1) && IsPower(d, out Expr b2, out Expr e2) &&
+                     b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(e1, e2));
 
             // x^n / x = x^(n-1)
-            case Divide(Power(var b1, var e1), var b2)
-                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+            case Divide(var n, var b2)
+                when IsPower(n, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(e1, new Constant(1)));
 
             // (x^n * c) / x = c * x^(n-1)
-            case Divide(Multiply(Power(var b1, var e1), var c), var b2)
-                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+            case Divide(Multiply(var p, var c), var b2)
+                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // (c * x^n) / x = c * x^(n-1)
-            case Divide(Multiply(var c, Power(var b1, var e1)), var b2)
-                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+            case Divide(Multiply(var c, var p), var b2)
+                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // x / x^n = x^(1-n)
-            case Divide(var b1, Power(var b2, var e2))
-                when b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+            case Divide(var b1, var d)
+                when IsPower(d, out Expr b2, out Expr e2) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
             // sin(x)^2 + cos(x)^2 = 1, sec(x)^2 - tan(x)^2 = 1, csc(x)^2 - cot(x)^2 = 1 and their
@@ -426,6 +408,61 @@ public static class Simplifier
             2 => new Constant(-1),
             _ => new Negate(new ImaginaryUnit())
         };
+
+    private static readonly Rational Half = new(1, 2);
+
+    // b^e, with sqrt(b) taken as b^(1/2). The root of a number stays a factor of its own, for
+    // ExactValues: sqrt(2)/2 is not 2^(-1/2).
+    private static bool IsPower(Expr expr, out Expr baseExpr, out Expr exponent)
+    {
+        (baseExpr, exponent) = expr switch
+        {
+            Power(var b, var e) => (b, e),
+            Sqrt(var b) when b is not Constant => (b, new Constant(Half)),
+            _ => (expr, new Constant(1))
+        };
+        return expr is Power || expr is Sqrt(not Constant);
+    }
+
+    // Any factor as a base and an exponent: x^2 -> (x, 2), sqrt(x) -> (x, 1/2), y -> (y, 1).
+    private static (Expr Base, Expr Exponent) AsPower(Expr factor)
+    {
+        IsPower(factor, out Expr b, out Expr e);
+        return (b, e);
+    }
+
+    // (b^e1)^e2 = b^(e1*e2) where both sides agree; otherwise the expression is returned unchanged.
+    private static Expr CollapsedPower(Expr expr, Expr b, Expr e1, Expr e2, Assumptions assumptions, SimplifyMode mode)
+    {
+        // Safe to collapse unconditionally only when e1 is an odd integer (sign-preserving:
+        // x -> x^e1 never erases the sign of b, so composing exponents afterward can't lose it).
+        // Additionally, (x^-1)^-1 = x would become defined at x = 0, so a negative inner
+        // exponent needs either a nonzero base or a positive outer exponent.
+        Expr combined = new Power(b, new Multiply(e1, e2));
+        bool zeroBaseSafe = NonZeroForDomain(b, assumptions, mode) ||
+                            e1.IsProvablyPositive(assumptions) ||
+                            e2.IsProvablyPositive(assumptions);
+        if (!zeroBaseSafe)
+            return expr;
+        // Integer powers compose for any base: (x^2)^3 = x^6, (x^-1)^2 = x^-2.
+        bool innerIsInteger = e1 is Constant ce1 && ce1.Value.IsInteger;
+        bool outerIsInteger = e2 is Constant ce2 && ce2.Value.IsInteger;
+        if (innerIsInteger && outerIsInteger)
+            return combined;
+        // Power is the principal value: a non-integer exponent of a negative base is
+        // undefined over the reals. So (x^3)^(1/3) is undefined for x < 0 while x is not -
+        // an odd inner exponent with a non-integer outer one only enlarges the domain.
+        if (e1 is Constant ce1Odd && IsOddInteger(ce1Odd.Value) && mode == SimplifyMode.Generic)
+            return combined;
+        // A non-integer inner exponent (x^(1/2), x^(1/3)) is undefined for b < 0, so
+        // collapsing only enlarges the domain - fine in Generic mode. An even integer
+        // inner exponent is different: (x^2)^(1/2) = |x|, not x, so no shortcut.
+        bool innerUndefinedForNegativeBase = e1 is Constant ce1NonInt && !ce1NonInt.Value.IsInteger;
+        return b.IsProvablyNonNegative(assumptions) ||
+               (mode == SimplifyMode.Generic && innerUndefinedForNegativeBase)
+            ? combined
+            : expr;
+    }
 
     // BigInteger.IsEven instead of a (long) cast, which overflows for huge integers.
     private static bool IsOddInteger(Rational value) =>
@@ -719,7 +756,7 @@ public static class Simplifier
                 continue;
             }
 
-            var (baseExpr, exponent) = factor is Power(var b, var e) ? (b, e) : (factor, new Constant(1));
+            var (baseExpr, exponent) = AsPower(factor);
 
             // Merge into the first group with the same base that allows it; otherwise start
             // a new group (e.g. x and x^-1 stay apart in Strict mode unless x != 0 is known).
@@ -741,7 +778,9 @@ public static class Simplifier
         Expr? result = coefficient.IsOne || negate ? null : new Constant(coefficient);
         foreach (var (baseExpr, exponent) in groups)
         {
-            Expr term = exponent is Constant e && e.Value.IsOne ? baseExpr : new Power(baseExpr, exponent);
+            Expr term = exponent is Constant e && (e.Value.IsOne || e.Value == Half)
+                ? e.Value.IsOne ? baseExpr : new Sqrt(baseExpr)
+                : new Power(baseExpr, exponent);
             result = result is null ? term : new Multiply(result, term);
         }
 

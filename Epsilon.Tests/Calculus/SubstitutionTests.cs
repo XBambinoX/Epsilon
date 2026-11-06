@@ -90,14 +90,14 @@ public class SubstitutionTests
     public void The_rest_written_in_the_part()
     {
         Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
     // x = u^2 - 1 for u = sqrt(x + 1), x = u^3 - 1 for u = nthroot(x + 1, 3).
     [Fact]
     public void x_written_in_a_root()
     {
-        Assert.Equal("(2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3", Integral("x*sqrt(x + 1)"));
+        Assert.Equal("(2/5) * (x + 1)^(5/2) - (2/3) * (x + 1)^(3/2)", Integral("x*sqrt(x + 1)"));
         Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
         Assert.Equal("(3/7) * nthroot(x + 1, 3)^7 - (3/4) * nthroot(x + 1, 3)^4", Integral("x*nthroot(x + 1, 3)"));
     }
@@ -125,5 +125,5 @@ public class SubstitutionTests
     // g(0) of a part that is singular at 0 used to reach the core's Simplify, which throws for 0^(-1/2).
     [Fact]
     public void A_part_singular_at_0() =>
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
 }
