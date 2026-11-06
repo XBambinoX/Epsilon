@@ -343,6 +343,15 @@ public static class Simplifier
             case Sqrt(var a) when TryTakeSquaresOut(a, assumptions, out Expr? taken):
                 return taken!;
 
+            // sqrt(pi/4) = sqrt(pi)/2, sqrt(8x) = 2sqrt(2x): the square factors of the number
+            // leave the root; a denominator isn't moved into it, so sqrt(pi/2) stays.
+            case Sqrt(var a) when a is not Constant && ExtractCoefficient(a) is var (c, rest) && SquareFactor(c) is { } square:
+                Rational left = c / (square * square);
+                Expr inside = left.Numerator.IsOne ? rest : new Multiply(new Constant(new Rational(left.Numerator)), rest);
+                Expr root = new Sqrt(left.Denominator.IsOne ? inside : new Divide(inside, new Constant(new Rational(left.Denominator))));
+                Expr scaled = square.Numerator.IsOne ? root : new Multiply(new Constant(new Rational(square.Numerator)), root);
+                return square.Denominator.IsOne ? scaled : new Divide(scaled, new Constant(new Rational(square.Denominator)));
+
             // Exact real n-th root; anything inexact stays symbolic (falls through).
             case NthRoot(Constant c, Constant n) when TryExactRealRoot(c.Value, n.Value, out Rational nthRootValue):
                 return new Constant(nthRootValue);
@@ -1197,6 +1206,16 @@ public static class Simplifier
 
         Expr rest = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
         return (rest.Canonicalize(), negative ? -c : c, radicand);
+    }
+
+    // s with c = s^2 r, from the square factors of the numerator and the denominator; null if 1.
+    private static Rational? SquareFactor(Rational c)
+    {
+        if (c.IsZero)
+            return null;
+        var (top, _) = ExactValues.ExtractPowers(System.Numerics.BigInteger.Abs(c.Numerator), 2);
+        var (bottom, _) = ExactValues.ExtractPowers(c.Denominator, 2);
+        return top.IsOne && bottom.IsOne ? null : new Rational(top, bottom);
     }
 
     private static bool TryTakeSquaresOut(Expr radicand, Assumptions assumptions, out Expr? result)

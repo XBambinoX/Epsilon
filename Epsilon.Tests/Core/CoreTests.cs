@@ -2947,6 +2947,14 @@ public class SquaresOutOfRootsTests
     [InlineData("sqrt(pi*x^2)", "abs(x) * sqrt(π)")]
     [InlineData("sqrt(x^2*y)", "sqrt(x^2 * y)")]     // y may be negative: sqrt(y) undefined at x = 0
     [InlineData("sqrt(-2*x^2)", "sqrt(-2x^2)")]      // defined at x = 0 only
+    [InlineData("sqrt(pi/4)", "sqrt(π) / 2")]
+    [InlineData("sqrt(x/9)", "sqrt(x) / 3")]
+    [InlineData("sqrt(8*x)", "2sqrt(2x)")]
+    [InlineData("sqrt(x/8)", "sqrt(x / 2) / 2")]
+    [InlineData("sqrt(3*pi/4)", "sqrt(3 * π) / 2")]
+    [InlineData("sqrt(-4*x)", "2sqrt(-x)")]
+    [InlineData("sqrt(pi/2)", "sqrt(π / 2)")]          // the denominator isn't moved into the root
+    [InlineData("sqrt(2*x)", "sqrt(2x)")]
     [InlineData("abs(cosh(t))", "cosh(t)")]
     [InlineData("abs(sech(t))", "sech(t)")]
     [InlineData("sign(cosh(t))", "1")]

@@ -347,6 +347,8 @@ public class SimplificationDocTests
     [InlineData("sqrt(2*x^2)", "abs(x) * sqrt(2)")]
     [InlineData("sqrt(x^4)", "x^2")]
     [InlineData("sqrt(x^2*y)", "sqrt(x^2 * y)")]
+    [InlineData("sqrt(pi/4)", "sqrt(π) / 2")]
+    [InlineData("sqrt(8*x)", "2sqrt(2x)")]
     [InlineData("tan(atan(x))", "x")]
     [InlineData("atan(tan(10))", "10 - 3 * π")]
     [InlineData("acos(cos(10))", "4 * π - 10")]

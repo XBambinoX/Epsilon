@@ -96,13 +96,16 @@ Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `exp(2ln(x)) = x^2`, `sqrt(x)^2 = x`,
 `tan(x) * cot(x) = 1`, `abs` of a non-negative expression, and more.
 
 **Even powers leave a square root** where the rest under it is known to be non-negative, and
-`abs` of an expression known to be positive, such as `cosh` or `exp`, is the expression:
+so do the square factors of a number in it. `abs` of an expression known to be positive, such
+as `cosh` or `exp`, is the expression:
 
 ```csharp
 ExprParser.Parse("sqrt(4*cosh(t)^2)").Simplify().Print();   // 2cosh(t)
 ExprParser.Parse("sqrt(2*x^2)").Simplify().Print();         // abs(x) * sqrt(2)
 ExprParser.Parse("sqrt(x^4)").Simplify().Print();           // x^2
 ExprParser.Parse("sqrt(x^2*y)").Simplify().Print();         // sqrt(x^2 * y)
+ExprParser.Parse("sqrt(pi/4)").Simplify().Print();          // sqrt(π) / 2
+ExprParser.Parse("sqrt(8*x)").Simplify().Print();           // 2sqrt(2x)
 ```
 
 **An inverse function after its function** gives the argument back: `tan(atan(x)) = x`,
