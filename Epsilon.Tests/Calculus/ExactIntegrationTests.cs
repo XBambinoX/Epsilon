@@ -47,7 +47,7 @@ public class ExactIntegrationTests
     [InlineData("1/(4 - x^2)", "-1", "1", "(1/2) * ln(3)")]
     [InlineData("1/(x^2 - 2)", "0", "1", "ln(-2sqrt(2) + 3) / (2sqrt(2))")]
     [InlineData("x/(x^4 - 1)", "2", "3", "(1/4) * ln(4/3)")]
-    [InlineData("1/(x^3 + 1)", "0", "1", "π / (3sqrt(3)) + (1/3) * ln(2)")]
+    [InlineData("1/(x^3 + 1)", "0", "1", "(1/3) * ln(2) + (1/9) * π * sqrt(3)")]
     [InlineData("1/(x^2 + 4)", "-2", "2*sqrt(3)", "(7/24) * π")]
     [InlineData("1/(x*sqrt(x^2 - 2*x))", "2", "4", "sqrt(2) / 2")]
     [InlineData("1/(x*sqrt(x^2 - 1))", "1", "2", "(1/3) * π")]

@@ -787,7 +787,7 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("1/3", Integral("x^2", 0, 1));
         Assert.Equal("(1/4) * π", Integral("1/(1 + x^2)", 0, 1));
         Assert.Equal("(1/2) * ln(3/2)", Integral("1/(x^2 - 1)", 2, 3));
-        Assert.Equal("π / (3sqrt(3)) + (1/3) * ln(2)", Integral("1/(x^3 + 1)", 0, 1));
+        Assert.Equal("(1/3) * ln(2) + (1/9) * π * sqrt(3)", Integral("1/(x^3 + 1)", 0, 1));
         Assert.Equal("-1/3", Integral("x^2", 1, 0));
 
         Assert.Equal("2", Integral("sin(x)", 0, new Pi()));

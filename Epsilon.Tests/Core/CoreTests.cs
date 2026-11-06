@@ -2872,6 +2872,36 @@ public class InverseCompositionTests
     }
 }
 
+public class NumericMultipleTests
+{
+    [Theory]
+    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "(2/9) * π * sqrt(3)")]
+    [InlineData("x*sqrt(2) + x/sqrt(2)", "3sqrt(2) * x / 2")]
+    [InlineData("sqrt(2)*x/y + x/(y*sqrt(2))", "3sqrt(2) * x / (2y)")]
+    [InlineData("x/(2*y) + x/(3*y)", "5x / (6y)")]
+    [InlineData("x/y + x/(2*y)", "3x / (2y)")]
+    [InlineData("sin(x)/(2*sqrt(3)) - sqrt(3)*sin(x)/6", "0")]
+    [InlineData("2*sqrt(2)*x - sqrt(8)*x", "0")]
+    [InlineData("pi + sqrt(2)*pi", "π * sqrt(2) + π")]             // different roots
+    [InlineData("sqrt(2)*pi + sqrt(3)*pi", "π * sqrt(2) + π * sqrt(3)")]
+    [InlineData("pi/sqrt(3)", "π / sqrt(3)")]                      // no partner, no change
+    public void Terms_that_differ_by_a_number_add_up(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Adding_up_keeps_the_domain_of_the_terms()
+    {
+        // Both terms are undefined at y = 0, and so is their sum.
+        Expr sum = ExprParser.Parse("x/(2*y) + x/(3*y)").Simplify(SimplifyMode.Strict);
+        Assert.Equal("5x / (6y)", sum.Print());
+        Assert.True(double.IsInfinity(sum.Evaluate(("x", 1.0), ("y", 0.0))));
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

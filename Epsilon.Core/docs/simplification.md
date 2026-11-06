@@ -46,6 +46,16 @@ ExprParser.Parse("x*(-y)*x").Simplify().Print();      // -x^2 * y
 ExprParser.Parse("(x + 1) - 1").Simplify().Print();   // x
 ```
 
+A number anywhere in a term counts as its coefficient, square roots of numbers included, so
+terms that differ only by one add up. A term without such a partner keeps its form:
+
+```csharp
+ExprParser.Parse("x/(2*y) + x/(3*y)").Simplify().Print();               // 5x / (6y)
+ExprParser.Parse("x*sqrt(2) + x/sqrt(2)").Simplify().Print();           // 3sqrt(2) * x / 2
+ExprParser.Parse("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))").Simplify().Print(); // (2/9) * π * sqrt(3)
+ExprParser.Parse("x/sqrt(3)").Simplify().Print();                       // x / sqrt(3)
+```
+
 A power 1/2 is written as a square root, and a square root counts as the power 1/2 among the
 other factors:
 

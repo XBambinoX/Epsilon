@@ -29,7 +29,7 @@ integrals of integrands without one, as exp(-x^2) over the line, come from a tab
 ExprParser.Parse("x^2").IntegrateExact("x", 0, 1).Print();            // 1/3
 ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();    // (1/4) * π
 ExprParser.Parse("1/(x^2 - 1)").IntegrateExact("x", 2, 3).Print();    // (1/2) * ln(3/2)
-ExprParser.Parse("1/(x^3 + 1)").IntegrateExact("x", 0, 1).Print();    // π / (3sqrt(3)) + (1/3) * ln(2)
+ExprParser.Parse("1/(x^3 + 1)").IntegrateExact("x", 0, 1).Print();    // (1/3) * ln(2) + (1/9) * π * sqrt(3)
 ExprParser.Parse("x^2").IntegrateExact("x", 1, 0).Print();            // -1/3
 ```
 

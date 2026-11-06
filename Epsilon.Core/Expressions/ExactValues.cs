@@ -179,6 +179,14 @@ internal static class ExactValues
 
     // Products, quotients and integer powers of rational numbers and square roots of positive
     // rational numbers, such as sqrt(3)/2, -sqrt(2)/2, 1/sqrt(3) or (2sqrt(2))^3.
+    // c * sqrt(r) for such a number, with r = 1 for a rational one.
+    internal static bool TryGetSurd(Expr expr, out Rational coefficient, out BigInteger radicand)
+    {
+        bool found = TryGetSurd(expr, out Surd value);
+        (coefficient, radicand) = (value.Coefficient, value.Radicand);
+        return found;
+    }
+
     private static bool TryGetSurd(Expr expr, out Surd value)
     {
         switch (expr)

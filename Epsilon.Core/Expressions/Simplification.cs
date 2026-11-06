@@ -1022,6 +1022,7 @@ public static class Simplifier
 
         ApplyPythagoreanIdentities(combined, termIndex, ref constantSum, assumptions, mode);
 
+        CollectNumericMultiples(combined);
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
         Expr result = BuildSum(combined, constantSum);
@@ -1030,6 +1031,93 @@ public static class Simplifier
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // Terms that are c sqrt(d) times the same rest are added up, with the number taken from
+    // anywhere in the term: (1/6) pi sqrt(3) + pi/(6sqrt(3)) = (2/9) pi sqrt(3), x/(2y) + x/(3y)
+    // = (5/6) x/y. A term without a partner keeps its form, and so do different d: pi + sqrt(2) pi.
+    private static void CollectNumericMultiples(List<(Rational Coefficient, Expr Term)> terms)
+    {
+        var parts = new (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)[terms.Count];
+        var groups = new Dictionary<(Expr, System.Numerics.BigInteger), List<int>>();
+        bool merges = false;
+        for (int i = 0; i < terms.Count; i++)
+        {
+            var (coefficient, term) = terms[i];
+            parts[i] = NumericFactor(term) is var (part, c, d) ? (part, coefficient * c, d) : (term, coefficient, 1);
+            var key = (parts[i].Part, parts[i].Radicand);
+            if (!groups.TryGetValue(key, out List<int>? members))
+                groups[key] = members = [];
+            members.Add(i);
+            merges |= members.Count > 1;
+        }
+        if (!merges)
+            return;
+
+        var removed = new HashSet<int>();
+        foreach (List<int> members in groups.Values.Where(members => members.Count > 1))
+        {
+            var (rest, _, d) = parts[members[0]];
+            Rational total = members.Aggregate(Rational.Zero, (sum, i) => sum + parts[i].Coefficient);
+            Expr term = d.IsOne ? rest : rest is Constant { Value.IsOne: true }
+                ? new Sqrt(new Constant(new Rational(d)))
+                : new Multiply(new Sqrt(new Constant(new Rational(d))), rest);
+            terms[members[0]] = (total, term);
+            removed.UnionWith(members.Skip(1));
+        }
+        for (int i = terms.Count - 1; i >= 0; i--)
+            if (removed.Contains(i))
+                terms.RemoveAt(i);
+    }
+
+    // A product or quotient as c sqrt(d) times the rest; null when it holds no number.
+    private static (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)? NumericFactor(Expr term)
+    {
+        var top = new List<Expr>();
+        var bottom = new List<Expr>();
+        var numbers = new List<Expr>();
+        var divisors = new List<Expr>();
+        bool negative = false;
+
+        void Split(Expr e, bool below)
+        {
+            switch (e)
+            {
+                case Multiply(var l, var r):
+                    Split(l, below);
+                    Split(r, below);
+                    break;
+                case Divide(var n, var d):
+                    Split(n, below);
+                    Split(d, !below);
+                    break;
+                case Negate(var a):
+                    negative = !negative;
+                    Split(a, below);
+                    break;
+                case Constant or Sqrt(Constant { Value.Sign: > 0 }):
+                    (below ? divisors : numbers).Add(e);
+                    break;
+                default:
+                    (below ? bottom : top).Add(e);
+                    break;
+            }
+        }
+
+        if (term is not (Multiply or Divide or Negate))
+            return null;
+        Split(term, false);
+        if (numbers.Count == 0 && divisors.Count == 0)
+            return null;
+
+        static Expr Product(List<Expr> factors) =>
+            factors.Count == 0 ? new Constant(1) : factors.Aggregate((product, factor) => new Multiply(product, factor));
+
+        if (!ExactValues.TryGetSurd(new Divide(Product(numbers), Product(divisors)), out Rational c, out var radicand))
+            return null;
+
+        Expr rest = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
+        return (rest.Canonicalize(), negative ? -c : c, radicand);
     }
 
     // Higher powers aren't looked for in ln(r^k), nor merged into one logarithm.
