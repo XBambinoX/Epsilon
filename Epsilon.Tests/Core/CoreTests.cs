@@ -2806,6 +2806,32 @@ public class QuadraticSurdTests
     }
 }
 
+public class LogarithmOfRationalTests
+{
+    [Theory]
+    [InlineData("ln(1/2)", "-ln(2)")]
+    [InlineData("ln(9)", "2ln(3)")]
+    [InlineData("ln(1/8)", "-3ln(2)")]
+    [InlineData("ln(4/9)", "2ln(2/3)")]
+    [InlineData("ln(1024)", "10ln(2)")]
+    [InlineData("ln(2/3)", "ln(2/3)")]
+    [InlineData("ln(6)", "ln(6)")]
+    [InlineData("ln(-2)", "ln(-2)")]
+    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "(1/2) * ln(3/2)")]
+    [InlineData("ln(6) - ln(2) - ln(3)", "0")]
+    [InlineData("ln(12) - 2*ln(2)", "ln(3)")]
+    [InlineData("ln(2) + x + ln(3)", "x + ln(6)")]
+    [InlineData("(1/2)*ln(2) + (1/3)*ln(3)", "(1/3) * ln(3) + (1/2) * ln(2)")]   // not multiples
+    public void Logarithms_of_rational_numbers_take_out_powers_and_merge(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+        if (!input.Contains('x') && expr.Evaluate() is var value && double.IsFinite(value))
+            Assert.Equal(value, expr.Simplify().Evaluate(), 1e-12);
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

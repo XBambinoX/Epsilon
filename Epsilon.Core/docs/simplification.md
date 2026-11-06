@@ -110,6 +110,16 @@ ExprParser.Parse("2sin(pi/3)").Simplify().Print();   // sqrt(3)
 ExprParser.Parse("ln(e^2)").Simplify().Print();      // 2
 ```
 
+Logarithms of rational numbers take out a perfect power and write `ln(1/n)` as `-ln(n)`, and
+in a sum they merge where the coefficients are multiples of the smallest one:
+
+```csharp
+ExprParser.Parse("ln(9)").Simplify().Print();                           // 2ln(3)
+ExprParser.Parse("ln(1/8)").Simplify().Print();                         // -3ln(2)
+ExprParser.Parse("(1/2)*ln(1/2) - (1/2)*ln(1/3)").Simplify().Print();   // (1/2) * ln(3/2)
+ExprParser.Parse("ln(6) - ln(2) - ln(3)").Simplify().Print();           // 0
+```
+
 A number divided by a sum with a square root, such as `sqrt(3) + 2`, is multiplied by the
 conjugate, so no root is left in the denominator, and the sign of such a number is known
 exactly. Roots of two different numbers are left as they are:

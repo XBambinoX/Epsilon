@@ -351,6 +351,10 @@ public static class Simplifier
                 when QuadraticSurd.Of(n) is { } top && QuadraticSurd.Of(d) is { B.IsZero: false } bottom && top / bottom is { } quotient:
                 return quotient.ToExpr();
 
+            // ln(1/2) = -ln(2), ln(9) = 2ln(3), ln(4/9) = 2ln(2/3); ln(2/3) and ln(6) stay.
+            case Ln(Constant c) when c.Value.Sign > 0 && LogarithmOfRational(c.Value) is { } log:
+                return log;
+
             case Abs(Constant c):
                 return new Constant(c.Value.Abs());
 
@@ -933,12 +937,60 @@ public static class Simplifier
         ApplyPythagoreanIdentities(combined, termIndex, ref constantSum, assumptions, mode);
 
         combined.RemoveAll(t => t.Coefficient.IsZero);
+        MergeLogarithms(combined);
         Expr result = BuildSum(combined, constantSum);
         if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
             return folded;
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // Higher powers aren't looked for in ln(r^k), nor merged into one logarithm.
+    private const int MaxLogarithmPower = 64;
+    private const int MaxMergedLogarithmPower = 16;
+
+    private static Expr? LogarithmOfRational(Rational q)
+    {
+        if (q.IsOne)
+            return null;
+        if (q.Numerator.IsOne)
+            return new Negate(new Ln(new Constant(new Rational(q.Denominator))));
+
+        long bits = Math.Max(q.Numerator.GetBitLength(), q.Denominator.GetBitLength());
+        for (int k = (int)Math.Min(MaxLogarithmPower, bits); k >= 2; k--)
+            if (TryExactRoot(q, k, out Rational root))
+                return new Multiply(new Constant(k), new Ln(new Constant(root)));
+        return null;
+    }
+
+    // a ln(p) + b ln(q) = a ln(p q^(b/a)) for numbers p, q > 0 where b is a multiple of a:
+    // (1/2) ln(1/2) - (1/2) ln(1/3) = (1/2) ln(3/2), ln(6) - ln(2) - ln(3) = 0.
+    private static void MergeLogarithms(List<(Rational Coefficient, Expr Term)> terms)
+    {
+        var logs = new List<int>();
+        for (int i = 0; i < terms.Count; i++)
+            if (terms[i].Term is Ln(Constant { Value.Sign: > 0 }))
+                logs.Add(i);
+        if (logs.Count < 2)
+            return;
+
+        Rational unit = logs.Select(i => terms[i].Coefficient.Abs()).Min();
+        Rational product = Rational.One;
+        foreach (int i in logs)
+        {
+            Rational ratio = terms[i].Coefficient / unit;
+            if (!ratio.IsInteger || ratio.Abs() > MaxMergedLogarithmPower)
+                return;
+            product *= ((Constant)((Ln)terms[i].Term).Argument).Value.Pow((int)ratio.Numerator);
+        }
+
+        for (int j = logs.Count - 1; j >= 1; j--)
+            terms.RemoveAt(logs[j]);
+        if (product.IsOne)
+            terms.RemoveAt(logs[0]);
+        else
+            terms[logs[0]] = (unit, new Ln(new Constant(product)));
     }
 
     // A sum of numbers a + b sqrt(d) as one, term by term: (sqrt(2) - 2)/2 + 1 = sqrt(2)/2.

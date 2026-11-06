@@ -19,8 +19,8 @@ public class LimitationsDocTests
     public void Exact_values_only_at_the_usual_points()
     {
         Assert.Equal("sin(π / 12)", ExprParser.Parse("sin(pi/12)").Simplify().Print());
-        Assert.Equal("ln(8)", ExprParser.Parse("ln(8)").Simplify().Print());
         Assert.Equal("16^(1/3)", ExprParser.Parse("16^(1/3)").Simplify().Print());
+        Assert.Equal("ln(6)", ExprParser.Parse("ln(6)").Simplify().Print());
     }
 
     [Fact]
@@ -348,6 +348,10 @@ public class SimplificationDocTests
     [InlineData("12^(3/2)", "24sqrt(3)")]
     [InlineData("2sin(pi/3)", "sqrt(3)")]
     [InlineData("ln(e^2)", "2")]
+    [InlineData("ln(9)", "2ln(3)")]
+    [InlineData("ln(1/8)", "-3ln(2)")]
+    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "(1/2) * ln(3/2)")]
+    [InlineData("ln(6) - ln(2) - ln(3)", "0")]
     [InlineData("1/(sqrt(3) + 2)", "-sqrt(3) + 2")]
     [InlineData("-2/(2*sqrt(2) + 4) + 1", "sqrt(2) / 2")]
     [InlineData("abs(1 - sqrt(2))", "sqrt(2) - 1")]
