@@ -133,7 +133,7 @@ and cos by Bioche's rules or by t = tan(x/2):
 ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // (1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))
 ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();   // cos(x) - 2atan(cos(x))
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ```
 
 Where no antiderivative is found, or none made of elementary functions exists, `Integrate`

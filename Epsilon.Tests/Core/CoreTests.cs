@@ -945,10 +945,10 @@ public class PrinterTests
     }
 
     [Fact]
-    public void Prints_negated_sin_argument_cleanly()
+    public void Prints_negated_function_argument_cleanly()
     {
-        Expr expr = ExprParser.Parse("sin(0 - x)").Simplify();
-        Assert.Equal("sin(-x)", expr.Print());
+        Expr expr = ExprParser.Parse("exp(0 - x)").Simplify();
+        Assert.Equal("exp(-x)", expr.Print());
     }
 
     [Fact]
@@ -1967,7 +1967,7 @@ public class NthRootSimplificationTests
     {
         var hugeOdd = new Rational(System.Numerics.BigInteger.Pow(10, 30) + 1);
         Expr expr = new NthRoot(new Constant(-8), new Constant(hugeOdd));
-        Assert.IsType<NthRoot>(expr.Simplify());
+        Assert.Equal(new Negate(new NthRoot(new Constant(8), new Constant(hugeOdd))), expr.Simplify());
     }
 }
 
@@ -2715,6 +2715,33 @@ public class RationalPowerTests
     [InlineData("0^(-3/2)", "0^(-3/2)")]
     [InlineData("2^(2049/2)", "2^(2049/2)")]     // too large to write out
     public void A_rational_power_of_a_number_is_worked_out_where_it_is_exact(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+}
+
+public class ParityTests
+{
+    [Theory]
+    [InlineData("sin(-x)", "-sin(x)")]
+    [InlineData("tan(-2*x)", "-tan(2x)")]
+    [InlineData("csch(-x/2)", "-csch(x / 2)")]
+    [InlineData("asin(-1/3)", "-asin(1/3)")]
+    [InlineData("atanh(-(x*y))", "-atanh(x * y)")]
+    [InlineData("sign(-x)", "-sign(x)")]
+    [InlineData("nthroot(-x, 3)", "-nthroot(x, 3)")]
+    [InlineData("nthroot(-x, 2)", "nthroot(-x, 2)")]    // not odd: defined for x <= 0 only
+    [InlineData("cos(-2)", "cos(2)")]
+    [InlineData("sech(-x)", "sech(x)")]
+    [InlineData("abs(-2*x)", "abs(2x)")]
+    [InlineData("(-x)^2", "x^2")]
+    [InlineData("(-x)^-1", "-x^-1")]
+    [InlineData("sin(1 - x)", "sin(-x + 1)")]           // a sum keeps its form
+    [InlineData("acos(-x)", "acos(-x)")]                 // neither odd nor even
+    [InlineData("sin(-x) + sin(x) + cos(-x) - cos(x)", "0")]
+    public void Odd_and_even_functions_take_the_sign_out_of_the_argument(string input, string expected)
     {
         Expr expr = ExprParser.Parse(input);
         Assert.Equal(expected, expr.Simplify().Print());

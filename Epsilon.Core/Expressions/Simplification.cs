@@ -375,10 +375,31 @@ public static class Simplifier
             case Max(Constant a, Constant b):
                 return new Constant(a.Value > b.Value ? a.Value : b.Value);
 
+            // sin(-u) = -sin(u), cos(-u) = cos(u). A sum keeps its form: sin(1 - x) stays.
+            case UnaryExpr f when IsOdd(f) && HasNegativeSign(f.Argument):
+                return new Negate(f.WithChildren([new Negate(f.Argument)]));
+
+            case UnaryExpr f when f is Cos or Sec or Cosh or Sech or Abs && HasNegativeSign(f.Argument):
+                return f.WithChildren([new Negate(f.Argument)]);
+
+            case NthRoot(var a, Constant n) when IsOddInteger(n.Value) && HasNegativeSign(a):
+                return new Negate(new NthRoot(new Negate(a), n));
+
+            case Power(var b, Constant k) when k.Value.IsInteger && HasNegativeSign(b):
+                Expr power = new Power(new Negate(b), k);
+                return k.Value.Numerator.IsEven ? power : new Negate(power);
+
             default:
                 return expr;
         }
     }
+
+    private static bool IsOdd(UnaryExpr f) =>
+        f is Sin or Tan or Cot or Csc or Sinh or Tanh or Coth or Csch or Asin or Atan or Asinh or Atanh or Sign;
+
+    // -u, a negative number, a product with a negative coefficient or a quotient with one on top.
+    private static bool HasNegativeSign(Expr u) =>
+        ConstantFactor(u).Sign < 0 || u is Divide(var n, _) && ConstantFactor(n).Sign < 0;
 
     // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
     // the product was the factor itself.

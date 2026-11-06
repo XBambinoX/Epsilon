@@ -81,6 +81,18 @@ ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
 a non-negative expression, and more.
 
+**Odd and even functions** take the minus sign out of the argument: sin, tan, cot, csc, their
+hyperbolic versions, asin, atan, asinh, atanh, sign and odd roots are odd; cos, sec, cosh,
+sech and abs are even, and so are even powers. An argument that is a sum keeps its form, so
+`sin(1 - x)` stays:
+
+```csharp
+ExprParser.Parse("sin(-x) + sin(x)").Simplify().Print();   // 0
+ExprParser.Parse("cos(-2x)").Simplify().Print();           // cos(2x)
+ExprParser.Parse("atan(-x/2)").Simplify().Print();         // -atan(x / 2)
+ExprParser.Parse("(-x)^3").Simplify().Print();             // -x^3
+```
+
 **Exact values of functions** at the usual points: the trigonometric functions at
 multiples of pi/6 and pi/4, `asin`, `acos` and `atan` at the matching values, `ln(1)`,
 `ln(e)`, `exp(0)` and the hyperbolic functions at 0. Square roots of rational numbers are

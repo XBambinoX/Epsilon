@@ -127,7 +127,7 @@ public class TrigonometricIntegralsTests
     public void Even_in_both()
     {
         Assert.Equal("(1/3) * tan(x)^3", Integral("sin(x)^2/cos(x)^4"));
-        Assert.Equal("(1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("(1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
         Assert.Equal("(1/2) * x - tan(x) / (2tan(x)^2 + 2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
     }
 
@@ -157,10 +157,10 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void Linear_in_cos_and_sin_over_linear_in_cos_and_sin()
     {
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
         Assert.Equal("(1/4) * (x + 2atan(sin(x) / (-cos(x) + 3)))", Integral("1/(5 - 3*cos(x))"));
-        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + exp(1)))) / sinh(1)", Integral("1/(cos(x) + cosh(1))"));
+        Assert.Equal("x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + exp(1)))) / sinh(1)", Integral("1/(cos(x) + cosh(1))"));
         Assert.Equal("10 * (x + 2atan((4cos(x) - 9sin(x)) / (4sin(x) + 9cos(x) + sqrt(3) + 10))) / sqrt(3)",
             Integral("1/(1 + 0.9*cos(x) + 0.4*sin(x))"));
 
@@ -169,7 +169,7 @@ public class TrigonometricIntegralsTests
 
         Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
         Assert.Equal("sin(x) / (cos(x) + 1) - ln(abs(cos(x) + 1))", Integral("(1 + sin(x))/(1 + cos(x))"));
-        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1)) - ln(abs(cos(x) + sqrt(2)))", Integral("(1 + sin(x))/(sqrt(2) + cos(x))"));
+        Assert.Equal("x - ln(abs(cos(x) + sqrt(2))) - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("(1 + sin(x))/(sqrt(2) + cos(x))"));
     }
 
     // atan(p tan(u) + q) jumped by pi where tan u does, and F(2 pi) - F(0) of 1/(2 + cos(x)) was 0.

@@ -201,7 +201,7 @@ public class PartialFractionsTests
     // Three real roots in the trigonometric form.
     [Fact]
     public void Cubics_with_three_real_roots() =>
-        Assert.Equal("ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (-2cos((1/9) * π))^2 - 4/9)"
+        Assert.Equal("ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (2cos((1/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
 

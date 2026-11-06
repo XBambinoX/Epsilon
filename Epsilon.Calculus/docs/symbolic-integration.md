@@ -127,7 +127,7 @@ roots of a cubic in trigonometric form:
 
 ```csharp
 ExprParser.Parse("1/(x^3 - 3*x + 1)").Integrate("x").Print();
-// ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (-2cos((1/9) * π))^2 - 4/9)
+// ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (2cos((1/9) * π))^2 - 4/9)
 //   + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)
 //   + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)
 ```
@@ -196,8 +196,8 @@ gives an arctangent with a denominator that stays positive for a^2 > b^2 + c^2, 
 a^2 < b^2 + c^2 and a quotient between:
 
 ```csharp
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
-ExprParser.Parse("1/(sqrt(2) + cos(x))").Integrate("x").Print();  // x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("1/(sqrt(2) + cos(x))").Integrate("x").Print();  // x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))
 ExprParser.Parse("1/(3 + 5*sin(x))").Integrate("x").Print();      // (1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))
 ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();   // x + cos(x) / (sin(x) + 1)
 ```
@@ -223,7 +223,7 @@ rules apply, the shortest result is taken:
 ```csharp
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();    // cos(x) - 2atan(cos(x))
 ExprParser.Parse("cos(x)^5/sin(x)^2").Integrate("x").Print();          // (1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)
-ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))
+ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))
 ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(cos(x)^2 + 1)
 ```
 
@@ -337,7 +337,7 @@ function:
 ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // (1/2) * ln(x^2 + 1) - atan(x) * i
 ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
 ExprParser.Parse("tan(x + i)").Integrate("x").Print();
-// (-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x + 2atan(-sin(2x) / (cos(2x) + exp(2)))) * i
+// (-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) * i
 ```
 
 The parts are those of sums, products, quotients and integer powers, of the trigonometric and

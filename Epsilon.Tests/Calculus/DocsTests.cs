@@ -106,7 +106,7 @@ public class CalculusReadmeExamplesTests
         Assert.Equal("(1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))", Integral("x/((x - 1)*(x + 2))"));
         Assert.Equal("(3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)", Integral("1/(x^2 + 1)^3"));
         Assert.Equal("cos(x) - 2atan(cos(x))", Integral("sin(x)^3/(1 + cos(x)^2)"));
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
 
         Assert.Throws<NotSupportedException>(() => Integral("exp(x^2)"));
     }
@@ -635,7 +635,7 @@ public class CalculusSymbolicIntegrationDocTests
             Integral("1/(x^6 + 1)"));
         Assert.Contains("cos((1/5) * π)", Integral("1/(x^5 - 1)"));
 
-        Assert.Equal("ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (-2cos((1/9) * π))^2 - 4/9)"
+        Assert.Equal("ln(abs(x + 2cos((1/9) * π))) * ((-2/9) * cos((1/9) * π) + (2/9) * (2cos((1/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((2/9) * π))) * ((2/9) * cos((2/9) * π) + (2/9) * (2cos((2/9) * π))^2 - 4/9)"
             + " + ln(abs(x - 2cos((4/9) * π))) * ((2/9) * cos((4/9) * π) + (2/9) * (2cos((4/9) * π))^2 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
 
@@ -682,8 +682,8 @@ public class CalculusSymbolicIntegrationDocTests
     [Fact]
     public void Trigonometric_and_hyperbolic_functions()
     {
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
-        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
         Assert.Equal("(1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))", Integral("1/(3 + 5*sin(x))"));
         Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
 
@@ -694,7 +694,7 @@ public class CalculusSymbolicIntegrationDocTests
 
         Assert.Equal("cos(x) - 2atan(cos(x))", Integral("sin(x)^3/(1 + cos(x)^2)"));
         Assert.Equal("(1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
-        Assert.Equal("(1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("(1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
         Assert.Equal("-ln(cos(x)^2 + 1)", Integral("sin(2*x)/(1 + cos(x)^2)"));
 
         Assert.Equal("-2 * (3tan(x / 2)^2 + 3tan(x / 2) + 2) / (3(tan(x / 2) + 1)^3)", Integral("1/(1 + sin(x))^2"));
@@ -748,7 +748,7 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("i * x^2 / 2", Integral("i*x"));
         Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
         Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
-        Assert.Equal("(-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x + 2atan(-sin(2x) / (cos(2x) + exp(2)))) * i", Integral("tan(x + i)"));
+        Assert.Equal("(-1/2) * ln(abs(cos(2x) + cosh(2))) + (1/2) * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) * i", Integral("tan(x + i)"));
         Assert.Equal("2(x + i)^(3/2) / 3", Integral("sqrt(x + i)"));
         Assert.Throws<NotSupportedException>(() => Integral("atan(x + i)"));
     }
