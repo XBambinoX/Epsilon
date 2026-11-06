@@ -66,6 +66,8 @@ public class LimitTests
     [InlineData("x*(atan(x) - pi/2)", "-1")]
     [InlineData("atan(x)/2 + x/(2*(x^2 + 1))", "(1/4) * π")]
     [InlineData("-exp(-x)*(x^2 + 2*x + 2)", "0")]
+    [InlineData("(exp(x) + x)^(1/x)", "e")]
+    [InlineData("exp(2*ln(x))/x^2", "1")]
     public void At_infinity(string expr, string limit) => Assert.Equal(limit, At(expr, Inf));
 
     [Theory]

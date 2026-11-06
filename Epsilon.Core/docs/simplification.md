@@ -78,8 +78,8 @@ ExprParser.Parse("2sec(x)^2 - tan(x)^2").Simplify().Print();        // sec(x)^2 
 ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 ```
 
-Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
-a non-negative expression, and more.
+Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `exp(2ln(x)) = x^2`, `sqrt(x)^2 = x`,
+`tan(x) * cot(x) = 1`, `abs` of a non-negative expression, and more.
 
 **Odd and even functions** take the minus sign out of the argument: sin, tan, cot, csc, their
 hyperbolic versions, asin, atan, asinh, atanh, sign and odd roots are odd; cos, sec, cosh,

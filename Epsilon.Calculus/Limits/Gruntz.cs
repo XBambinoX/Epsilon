@@ -110,7 +110,10 @@ internal sealed class Gruntz(string variable)
         List<Expr> elements = omega;
         if (omega.IndexOf(_x) is var level and >= 0)
         {
-            elements = [.. omega.Select(element => element.Substitute(variable, new Exp(_x)).Simplify())];
+            // Only the arguments are simplified: Simplify writes exp(ln(1/x)/x) as (1/x)^(1/x).
+            elements = [.. omega.Select(element => element is Exp exp
+                ? new Exp(exp.Argument.Substitute(variable, new Exp(_x)).Simplify())
+                : element.Substitute(variable, new Exp(_x)).Simplify())];
             arguments[level] = _x;
         }
 
@@ -162,11 +165,18 @@ internal sealed class Gruntz(string variable)
         }
 
         var expander = new SeriesExpander(w.Name, 0, sign > 0 ? -g : g);
-        f = f.Simplify();
+        f = Exponentials(f.Simplify());
         if (expander.Valuation(f) is not { } exponent)
             return (0, 0);
 
         return (expander.Expand(f, exponent + 1).Leading.Simplify(), exponent);
+    }
+
+    // Simplify writes exp(c ln(u)) as u^c, which the expansion in w can't raise to a c with x in it.
+    private static Expr Exponentials(Expr e)
+    {
+        e = e.MapChildren(Exponentials);
+        return e is Power { Exponent: not Constant } power ? new Exp(power.Exponent * new Ln(power.Base)) : e;
     }
 
     private Rational Ratio(Expr a, Expr b)

@@ -2749,6 +2749,36 @@ public class ParityTests
     }
 }
 
+public class ExpOfLogarithmTests
+{
+    // exp(c ln(u)) = u^c on the terms of exp(ln(u)) = u: Strict needs u > 0.
+    [Theory]
+    [InlineData("exp(-ln(2))", "1/2", "1/2")]
+    [InlineData("exp(2*ln(3))", "9", "9")]
+    [InlineData("exp(ln(2)/2)", "sqrt(2)", "sqrt(2)")]
+    [InlineData("e^(2*ln(3))", "9", "9")]
+    [InlineData("exp(-2*ln(x))", "x^-2", "exp(-2ln(x))")]
+    [InlineData("exp(y*ln(x))", "x^y", "exp(ln(x) * y)")]
+    [InlineData("exp(-ln(x)/3)", "x^(-1/3)", "exp(-ln(x) / 3)")]
+    [InlineData("e^ln(x)", "x", "e^ln(x)")]
+    [InlineData("exp(-(1/2)*ln(x^2 + 1))", "(x^2 + 1)^(-1/2)", "(x^2 + 1)^(-1/2)")]
+    [InlineData("exp(2*ln(-2))", "exp(2ln(-2))", "exp(2ln(-2))")]           // ln(-2) isn't real
+    [InlineData("exp(ln(x)*ln(y))", "exp(ln(x) * ln(y))", "exp(ln(x) * ln(y))")] // x^ln(y) or y^ln(x)
+    public void An_exponential_of_a_multiple_of_a_logarithm_is_a_power(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Strict_mode_takes_the_power_where_the_base_is_known_to_be_positive()
+    {
+        var positive = Assumptions.None.AssumePositive("x");
+        Assert.Equal("x^y", ExprParser.Parse("exp(y*ln(x))").Simplify(positive, SimplifyMode.Strict).Print());
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

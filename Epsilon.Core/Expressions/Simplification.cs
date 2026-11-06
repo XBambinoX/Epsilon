@@ -286,6 +286,13 @@ public static class Simplifier
             case Exp(Ln(var a)) when PositiveForDomain(a, assumptions, mode):
                 return a;
 
+            // exp(c ln(u)) = u^c, on the same terms as exp(ln(u)) = u.
+            case Exp(var a) when IsLogarithmMultiple(a, out Expr? u, out Expr? c) && PositiveForDomain(u!, assumptions, mode):
+                return new Power(u!, c!);
+
+            case Power(EulerNumber, var a) when IsLogarithmMultiple(a, out Expr? u, out Expr? c) && PositiveForDomain(u!, assumptions, mode):
+                return new Power(u!, c!);
+
             // tan(x) = sin(x) / cos(x)
             case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
                 return new Tan(x);
@@ -391,6 +398,43 @@ public static class Simplifier
 
             default:
                 return expr;
+        }
+    }
+
+    // a = c ln(u) with exactly one logarithm among the factors: -ln(2), ln(x)*y, ln(2)/2.
+    private static bool IsLogarithmMultiple(Expr a, out Expr? u, out Expr? c)
+    {
+        u = c = null;
+        switch (a)
+        {
+            case Ln(var v):
+                (u, c) = (v, new Constant(1));
+                return true;
+
+            case Negate(var t) when IsLogarithmMultiple(t, out u, out Expr? k):
+                c = new Negate(k!);
+                return true;
+
+            case Divide(var t, var d) when IsLogarithmMultiple(t, out u, out Expr? k):
+                c = new Divide(k!, d);
+                return true;
+
+            case Multiply(var l, var r):
+                if (IsLogarithmMultiple(l, out u, out Expr? kl) && !IsLogarithmMultiple(r, out _, out _))
+                {
+                    c = new Multiply(kl!, r);
+                    return true;
+                }
+                if (IsLogarithmMultiple(r, out u, out Expr? kr) && !IsLogarithmMultiple(l, out _, out _))
+                {
+                    c = new Multiply(l, kr!);
+                    return true;
+                }
+                u = null;
+                return false;
+
+            default:
+                return false;
         }
     }
 

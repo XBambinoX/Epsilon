@@ -333,6 +333,7 @@ public class SimplificationDocTests
     [InlineData("sin(x)/cos(x)", "tan(x)")]
     [InlineData("ln(exp(x))", "x")]
     [InlineData("exp(ln(x))", "x")]
+    [InlineData("exp(2ln(x))", "x^2")]
     [InlineData("sqrt(x)^2", "x")]
     [InlineData("tan(x)*cot(x)", "1")]
     [InlineData("sin(-x) + sin(x)", "0")]
