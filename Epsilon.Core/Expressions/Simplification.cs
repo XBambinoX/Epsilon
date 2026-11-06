@@ -140,6 +140,10 @@ public static class Simplifier
             case Negate(Negate(var a)):
                 return a;
 
+            // -(-2/y) = 2/y, -(-y/2) = y/2: the minus cancels the sign of the numerator.
+            case Negate(Divide(var n, var d)) when ConstantFactor(n).Sign < 0:
+                return new Divide(new Negate(n), d);
+
             // Constant folding, 1 * x and equal-base merging for products are all done by
             // CombineProductFactors above; only 0 * x is deliberately left to this rule.
             case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
@@ -695,9 +699,10 @@ public static class Simplifier
     // tree - x*y*x*y -> x^2*y^2 and 2*x*3*x -> 6*x^2 (the binary rules only caught the
     // first pair). Constants are multiplied together; equal bases get their exponents
     // added, subject to the same domain rules as the binary rules (CanMergeExponents).
+    // A negated product is one too: -(-2y^2) = 2y^2, -(2x) = -2x.
     private static Expr CombineProductFactors(Expr expr, Assumptions assumptions, SimplifyMode mode)
     {
-        if (expr is not Multiply)
+        if (expr is not (Multiply or Negate(Multiply)))
             return expr;
 
         var factors = new List<Expr>();

@@ -140,6 +140,28 @@ public class SimplifierTests
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
     }
 
+    [Theory]
+    [InlineData("-(-2*y^2)", "2y^2")]          // was --2y^2
+    [InlineData("-(-2*y^2*x)", "2y^2 * x")]
+    [InlineData("-(-1/2*y)", "(1/2) * y")]     // was -(-1/2) * y
+    [InlineData("-(-2/y)", "2 / y")]
+    [InlineData("-(-y/2)", "y / 2")]
+    [InlineData("-(-2*x/y)", "2x / y")]
+    [InlineData("-(x/(-y))", "x / y")]
+    [InlineData("(-(-2*x))^3", "(2x)^3")]
+    [InlineData("-(x*y)", "-x * y")]
+    public void A_negation_cancels_the_sign_of_a_negative_product_or_quotient(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void A_negated_product_is_the_same_expression_as_its_negative_coefficient()
+    {
+        Assert.Equal(ExprParser.Parse("-2*x").Simplify(), ExprParser.Parse("-(2*x)").Simplify());
+        Assert.Equal("2exp(-2x)", ExprParser.Parse("exp(-(2*x)) + exp(-2*x)").Simplify().Print());
+    }
 
     [Fact]
     public void Canonicalizes_zero_minus_x_to_negation()
