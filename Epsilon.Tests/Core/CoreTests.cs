@@ -2832,6 +2832,46 @@ public class LogarithmOfRationalTests
     }
 }
 
+public class InverseCompositionTests
+{
+    [Theory]
+    [InlineData("tan(atan(x))", "x", "x")]
+    [InlineData("sinh(asinh(x))", "x", "x")]
+    [InlineData("asinh(sinh(x))", "x", "x")]
+    [InlineData("atanh(tanh(x))", "x", "x")]
+    [InlineData("acosh(cosh(x))", "abs(x)", "abs(x)")]
+    [InlineData("sin(asin(x))", "x", "sin(asin(x))")]       // asin is undefined for abs(x) > 1
+    [InlineData("cos(acos(x))", "x", "cos(acos(x))")]
+    [InlineData("tanh(atanh(x))", "x", "tanh(atanh(x))")]
+    [InlineData("cosh(acosh(x))", "x", "cosh(acosh(x))")]
+    [InlineData("sin(asin(2))", "sin(asin(2))", "sin(asin(2))")]
+    [InlineData("cosh(acosh(1/2))", "cosh(acosh(1/2))", "cosh(acosh(1/2))")]
+    [InlineData("atan(tan(x))", "atan(tan(x))", "atan(tan(x))")]
+    public void An_inverse_after_its_function_gives_the_argument_back(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("atan(tan(10))", "10 - 3 * π")]
+    [InlineData("atan(tan(1))", "1")]
+    [InlineData("atan(tan(5*sqrt(2)))", "5sqrt(2) - 2 * π")]
+    [InlineData("asin(sin(10))", "3 * π - 10")]
+    [InlineData("asin(sin(2))", "π - 2")]
+    [InlineData("acos(cos(10))", "4 * π - 10")]
+    [InlineData("acos(cos(4))", "2 * π - 4")]
+    [InlineData("atan(tan(pi/2))", "atan(tan(π / 2))")]          // tan is undefined there
+    [InlineData("atan(tan(10000000))", "atan(tan(10000000))")]   // too far out to round exactly
+    public void At_a_number_the_inverse_lands_in_its_principal_range(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expr.Evaluate(), expr.Simplify().Evaluate(), 1e-12);
+    }
+}
+
 public class ProductCombiningTests
 {
     private static readonly string[] Vars = ["x", "y", "z", "n", "m"];

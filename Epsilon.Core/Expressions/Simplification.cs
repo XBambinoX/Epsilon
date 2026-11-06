@@ -397,6 +397,46 @@ public static class Simplifier
             case Max(Constant a, Constant b):
                 return new Constant(a.Value > b.Value ? a.Value : b.Value);
 
+            // An inverse after its function: x for real x, or where the inverse is defined.
+            case Tan(Atan(var a)):
+                return a;
+
+            case Sinh(Asinh(var a)):
+                return a;
+
+            case Asinh(Sinh(var a)):
+                return a;
+
+            case Atanh(Tanh(var a)):
+                return a;
+
+            case Acosh(Cosh(var a)):
+                return new Abs(a);
+
+            case Sin(Asin(var a)) when InDomainForComposition(a, -1, 1, mode):
+                return a;
+
+            case Cos(Acos(var a)) when InDomainForComposition(a, -1, 1, mode):
+                return a;
+
+            case Tanh(Atanh(var a)) when InDomainForComposition(a, -1, 1, mode):
+                return a;
+
+            case Cosh(Acosh(var a)) when InDomainForComposition(a, 1, double.PositiveInfinity, mode):
+                return a;
+
+            // atan(tan(10)) = 10 - 3pi, asin(sin(c)) = (-1)^k (c - k pi), acos(cos(c)) = |c - 2m pi|.
+            case Atan(Tan(var c)) when TryTurns(c, Math.PI, out long k, out _):
+                return new Subtract(c, new Multiply(new Constant(k), new Pi()));
+
+            case Asin(Sin(var c)) when TryTurns(c, Math.PI, out long k, out _):
+                Expr halfTurns = new Multiply(new Constant(k), new Pi());
+                return k % 2 == 0 ? new Subtract(c, halfTurns) : new Subtract(halfTurns, c);
+
+            case Acos(Cos(var c)) when TryTurns(c, 2 * Math.PI, out long m, out double offset) && Math.Abs(offset) > TurnMargin:
+                Expr turns = new Multiply(new Constant(2 * m), new Pi());
+                return offset > 0 ? new Subtract(c, turns) : new Subtract(turns, c);
+
             // sin(-u) = -sin(u), cos(-u) = cos(u). A sum keeps its form: sin(1 - x) stays.
             case UnaryExpr f when IsOdd(f) && HasNegativeSign(f.Argument):
                 return new Negate(f.WithChildren([new Negate(f.Argument)]));
@@ -451,6 +491,52 @@ public static class Simplifier
             default:
                 return false;
         }
+    }
+
+    // Generic mode: anything but a number outside [low, high]; Strict mode: a number inside.
+    private static bool InDomainForComposition(Expr a, double low, double high, SimplifyMode mode) =>
+        TryEvaluateConstant(a, out double value)
+            ? value >= low && value <= high
+            : mode == SimplifyMode.Generic;
+
+    // Rounding c / period is exact only well away from a half, where the inverse jumps, and for
+    // moderate c: then atan(tan(c)) = c - k pi for the nearest k.
+    private const double MaxTurns = 1e6;
+    private const double TurnMargin = 1e-9;
+
+    private static bool TryTurns(Expr c, double period, out long k, out double offset)
+    {
+        (k, offset) = (0, 0);
+        if (!TryEvaluateConstant(c, out double value))
+            return false;
+
+        double turns = value / period;
+        if (!double.IsFinite(turns) || Math.Abs(turns) > MaxTurns)
+            return false;
+
+        double nearest = Math.Round(turns);
+        offset = turns - nearest;
+        if (Math.Abs(Math.Abs(offset) - 0.5) < TurnMargin)
+            return false;
+
+        k = (long)nearest;
+        return true;
+    }
+
+    private static bool TryEvaluateConstant(Expr e, out double value)
+    {
+        value = double.NaN;
+        if (e.GetVariables().Count > 0)
+            return false;
+        try
+        {
+            value = e.Evaluate(new Dictionary<string, double>());
+        }
+        catch (Exception error) when (error is InvalidOperationException or ArithmeticException or NotSupportedException)
+        {
+            return false;
+        }
+        return double.IsFinite(value);
     }
 
     private static bool IsOdd(UnaryExpr f) =>

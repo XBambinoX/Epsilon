@@ -81,6 +81,17 @@ ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `exp(2ln(x)) = x^2`, `sqrt(x)^2 = x`,
 `tan(x) * cot(x) = 1`, `abs` of a non-negative expression, and more.
 
+**An inverse function after its function** gives the argument back: `tan(atan(x)) = x`,
+`asinh(sinh(x)) = x`, `acosh(cosh(x)) = abs(x)` and the like. Where the inverse is defined only
+on part of the line, as for `sin(asin(x))`, that holds in Generic mode. At a number, the
+inverse trigonometric functions land in their principal range:
+
+```csharp
+ExprParser.Parse("tan(atan(x))").Simplify().Print();    // x
+ExprParser.Parse("atan(tan(10))").Simplify().Print();   // 10 - 3 * π
+ExprParser.Parse("acos(cos(10))").Simplify().Print();   // 4 * π - 10
+```
+
 **Odd and even functions** take the minus sign out of the argument: sin, tan, cot, csc, their
 hyperbolic versions, asin, atan, asinh, atanh, sign and odd roots are odd; cos, sec, cosh,
 sech and abs are even, and so are even powers. An argument that is a sum keeps its form, so
@@ -197,6 +208,7 @@ More examples of the difference:
 | `1/(2/x)` | `x / 2` | `1 / (2 / x)` | x = 0 |
 | `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
 | `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
+| `sin(asin(x))` | `x` | `sin(asin(x))` | abs(x) > 1 |
 | `tan(x)*cot(x)` | `1` | `cot(x) * tan(x)` | multiples of π/2 |
 
 Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both modes.

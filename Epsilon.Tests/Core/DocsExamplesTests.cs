@@ -336,6 +336,9 @@ public class SimplificationDocTests
     [InlineData("exp(2ln(x))", "x^2")]
     [InlineData("sqrt(x)^2", "x")]
     [InlineData("tan(x)*cot(x)", "1")]
+    [InlineData("tan(atan(x))", "x")]
+    [InlineData("atan(tan(10))", "10 - 3 * π")]
+    [InlineData("acos(cos(10))", "4 * π - 10")]
     [InlineData("sin(-x) + sin(x)", "0")]
     [InlineData("cos(-2x)", "cos(2x)")]
     [InlineData("atan(-x/2)", "-atan(x / 2)")]
@@ -371,6 +374,7 @@ public class SimplificationDocTests
     [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
     [InlineData("sqrt(x)^2", "x", "sqrt(x)^2")]
     [InlineData("exp(ln(x))", "x", "exp(ln(x))")]
+    [InlineData("sin(asin(x))", "x", "sin(asin(x))")]
     [InlineData("tan(x)*cot(x)", "1", "cot(x) * tan(x)")]
     [InlineData("sin(x)/cos(x)", "tan(x)", "tan(x)")]
     public void Generic_vs_strict(string input, string generic, string strict)
