@@ -185,6 +185,7 @@ public static class Simplifier
             // left alone too: Power is the principal value, unlike the real-valued NthRoot.
             case Power(Constant b, Constant e)
                 when System.Numerics.BigInteger.Abs(e.Value.Numerator) == 1 &&
+                     !(b.Value.IsZero && e.Value.Sign < 0) &&
                      TryExactRoot(b.Value, e.Value.Denominator, out Rational rootValue):
                 return e.Value.Numerator.Sign > 0
                     ? new Constant(rootValue)

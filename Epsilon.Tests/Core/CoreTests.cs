@@ -1294,6 +1294,28 @@ public class AdvancedSimplifierTests
         Assert.Equal(expected, expr.Print());
     }
 
+    [Theory]
+    [InlineData("0^(-1/2)", "0^(-1/2)")]
+    [InlineData("0^(-1/3)", "0^(-1/3)")]
+    [InlineData("0^(-1)", "0^-1")]
+    [InlineData("0^(-2)", "0^-2")]
+    [InlineData("0^(-3/2)", "0^(-3/2)")]
+    [InlineData("2*0^(-1/2) + 1", "1 + 2 * 0^(-1/2)")]
+    public void Zero_to_a_negative_power_stays_unsimplified(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+        Assert.Equal(double.PositiveInfinity, expr.Evaluate(new Dictionary<string, double>()));
+    }
+
+    [Fact]
+    public void A_negative_power_of_a_variable_at_zero_stays_unsimplified()
+    {
+        Expr expr = ExprParser.Parse("x^(-1/2)", "x").Substitute("x", 0);
+        Assert.Equal("0^(-1/2)", expr.Simplify().Print());
+    }
+
     [Fact]
     public void Simplifies_sqrt_of_perfect_square_constant()
     {
