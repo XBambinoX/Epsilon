@@ -1167,9 +1167,9 @@ public class CalculusLimitationsDocTests
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x^2/(exp(x) - 1)").IntegrateExact("x", 0, double.PositiveInfinity));
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cos(x)").IntegrateExact("x", 0, double.PositiveInfinity));
 
-        Expr logistic = ExprParser.Parse("1/(1 + exp(x))").IntegrateExact("x", -1, 1);
-        Assert.Equal("ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1))", logistic.Print());
-        Assert.Equal(1, logistic.Evaluate(), 1e-15);
+        Expr notSimplest = ExprParser.Parse("1/(2 + sin(x))").IntegrateExact("x", new Constant(0), new Pi() / 2);
+        Assert.Equal("π / (2sqrt(3)) - 2atan(-sqrt(3) + 2) / sqrt(3)", notSimplest.Print());
+        Assert.Equal(Math.PI / (3 * Math.Sqrt(3)), notSimplest.Evaluate(), 1e-15);
     }
 
     [Fact]

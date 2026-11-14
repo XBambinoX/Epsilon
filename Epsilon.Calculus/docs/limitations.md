@@ -94,8 +94,9 @@ is updated with it. The expressions have
   simplifier showing it.
 - **Symbols in the limits only where the antiderivative is continuous everywhere**: `1/x` from
   1 to c, which is ln(c) for c > 0, throws.
-- **Results aren't always in their simplest form**: `1/(1 + exp(x))` from -1 to 1 is
-  ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1)), which is 1.
+- **Results aren't always in their simplest form**: `1/(2 + sin(x))` from 0 to pi/2 is
+  π / (2sqrt(3)) - 2atan(-sqrt(3) + 2) / sqrt(3), which is π / (3sqrt(3)): the simplifier doesn't
+  know that atan(2 - sqrt(3)) = pi/12.
 
 ## Line integrals
 

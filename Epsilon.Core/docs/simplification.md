@@ -95,6 +95,16 @@ ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `exp(2ln(x)) = x^2`, `sqrt(x)^2 = x`,
 `tan(x) * cot(x) = 1`, `abs` of a non-negative expression, and more.
 
+**Powers of e leave a logarithm**: `ln(exp(x) * y) = x + ln(y)`, since `exp(x) > 0`. The other
+way, logarithms with a number in front leave an exponential, on the terms of `exp(ln(x)) = x`.
+Logarithms of sums of powers of e add up where one sum is the other times a power of e:
+
+```csharp
+ExprParser.Parse("ln(exp(x)/(exp(x) + 1))").Simplify().Print();            // x - ln(exp(x) + 1)
+ExprParser.Parse("exp(x - ln(exp(x) + 1))").Simplify().Print();            // exp(x) / (exp(x) + 1)
+ExprParser.Parse("ln(exp(1) + 1) - ln(exp(-1) + 1)").Simplify().Print();   // 1
+```
+
 **Even powers leave a square root** where the rest under it is known to be non-negative, and
 so do the square factors of a number in it. `abs` of an expression known to be positive, such
 as `cosh` or `exp`, is the expression:

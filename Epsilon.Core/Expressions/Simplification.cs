@@ -283,6 +283,11 @@ public static class Simplifier
             case Ln(Power(EulerNumber, var a)):
                 return a;
 
+            // ln(exp(u) * R) = u + ln(R), ln(R / exp(u)) = ln(R) - u: exp(u) > 0, so both sides
+            // are defined for the same R. ln(e / (e + 1)) = 1 - ln(e + 1).
+            case Ln(var a) when TryTakeExponentialsOut(a, out Expr? taken):
+                return taken!;
+
             case Exp(Ln(var a)) when PositiveForDomain(a, assumptions, mode):
                 return a;
 
@@ -292,6 +297,15 @@ public static class Simplifier
 
             case Power(EulerNumber, var a) when IsLogarithmMultiple(a, out Expr? u, out Expr? c) && PositiveForDomain(u!, assumptions, mode):
                 return new Power(u!, c!);
+
+            // exp(x + ln(y)) = exp(x) * y: the logarithms of a sum leave it on the same terms.
+            // Undoes ln(exp(x) * y) = x + ln(y) inside exp(ln(exp(x) * y)), and
+            // exp(x - ln(exp(x) + 1)) = exp(x) / (exp(x) + 1).
+            case Exp(var a) when a is Add or Subtract && TryTakeLogarithmsOut(a, assumptions, mode, out Expr? product):
+                return product!;
+
+            case Power(EulerNumber, var a) when a is Add or Subtract && TryTakeLogarithmsOut(a, assumptions, mode, out Expr? product):
+                return product!;
 
             // tan(x) = sin(x) / cos(x)
             case Divide(Sin(var x), Cos(var y)) when x.Equals(y):
@@ -505,6 +519,110 @@ public static class Simplifier
             default:
                 return false;
         }
+    }
+
+    // exp(a) of a sum with terms c ln(u) for numbers c: exp(x + 2ln(y)) = exp(x) * y^2.
+    private static bool TryTakeLogarithmsOut(Expr a, Assumptions assumptions, SimplifyMode mode, out Expr? product)
+    {
+        product = null;
+        var rest = new List<(Rational, Expr)>();
+        var top = new List<Expr>();
+        var bottom = new List<Expr>();
+        Rational number = Rational.Zero;
+        foreach (var (coefficient, term) in CollectTerms(a, term => term))
+        {
+            if (term is Constant c)
+                number += coefficient * c.Value;
+            // Only numbers times a logarithm, like SymPy: exp(1 + x ln(2)) stays, and so do the
+            // forms that Calculus Gruntz expands in, exp(-x + exp(w) ln(1/w)).
+            else if (term is Ln(var u) && PositiveForDomain(u, assumptions, mode))
+            {
+                // exp(x - ln(y)) = exp(x) / y, not exp(x) * y^-1.
+                Rational scale = coefficient.Abs();
+                Expr power = scale.IsOne ? u : new Power(u, new Constant(scale));
+                (coefficient.Sign < 0 ? bottom : top).Add(power);
+            }
+            else
+                rest.Add((coefficient, term));
+        }
+        if (top.Count == 0 && bottom.Count == 0)
+            return false;
+
+        if (rest.Count > 0 || !number.IsZero)
+            top.Insert(0, new Exp(BuildSum(rest, number)));
+        static Expr Product(List<Expr> factors) =>
+            factors.Count == 0 ? new Constant(1) : factors.Aggregate((p, factor) => new Multiply(p, factor));
+        product = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
+        return true;
+    }
+
+    // The exponent of a power of e; null for anything else.
+    private static Expr? ExponentOfE(Expr factor) => factor switch
+    {
+        Exp(var u) => u,
+        Power(EulerNumber, var u) => u,
+        EulerNumber => new Constant(1),
+        Sqrt(EulerNumber) => new Constant(Half),
+        Sqrt(Exp(var u)) => Scaled(u, Half),
+        Power(Exp(var u), Constant k) => Scaled(u, k.Value),
+        Power(Exp(var u), var k) => new Multiply(k, u),
+        _ => null,
+    };
+
+    private static Expr Scaled(Expr u, Rational k) =>
+        u is Constant c ? new Constant(c.Value * k) : new Multiply(new Constant(k), u);
+
+    // ln(a) with the powers of e of a product or quotient taken out: ln(exp(x) * y / e) =
+    // x - 1 + ln(y), ln(exp(x) / y) = x - ln(y).
+    private static bool TryTakeExponentialsOut(Expr a, out Expr? result)
+    {
+        Expr? sum = null;
+        var top = new List<Expr>();
+        var bottom = new List<Expr>();
+        bool negative = false;
+
+        void Split(Expr e, bool below)
+        {
+            switch (e)
+            {
+                case Multiply(var l, var r):
+                    Split(l, below);
+                    Split(r, below);
+                    break;
+                case Divide(var n, var d):
+                    Split(n, below);
+                    Split(d, !below);
+                    break;
+                case Negate(var inner):
+                    negative = !negative;
+                    Split(inner, below);
+                    break;
+                default:
+                    if (ExponentOfE(e) is not { } u)
+                        (below ? bottom : top).Add(e);
+                    else if (below)
+                        sum = sum is null ? new Negate(u) : new Subtract(sum, u);
+                    else
+                        sum = sum is null ? u : new Add(sum, u);
+                    break;
+            }
+        }
+
+        Split(a, false);
+        result = sum;
+        if (sum is null)
+            return false;
+
+        static Expr Product(List<Expr> factors) =>
+            factors.Count == 0 ? new Constant(1) : factors.Aggregate((product, factor) => new Multiply(product, factor));
+
+        Expr Signed(Expr e) => negative ? new Negate(e) : e;
+
+        if (top.Count == 0 && bottom.Count > 0)
+            result = new Subtract(sum, new Ln(Signed(Product(bottom))));
+        else if (top.Count > 0 || negative)
+            result = new Add(sum, new Ln(Signed(bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom)))));
+        return true;
     }
 
     // Generic mode: anything but a number outside [low, high]; Strict mode: a number inside.
@@ -1113,6 +1231,7 @@ public static class Simplifier
         CollectNumericMultiples(combined);
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
+        MergeExponentialLogarithms(combined, ref constantSum);
         Expr result = BuildSum(combined, constantSum);
         if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
             return folded;
@@ -1293,6 +1412,76 @@ public static class Simplifier
             terms.RemoveAt(logs[0]);
         else
             terms[logs[0]] = (unit, new Ln(new Constant(product)));
+    }
+
+    // ln(A) and ln(B) of sums of numbers times powers of e with A = e^k B add up as
+    // ln(e^m N) = m + ln(N), N with the lowest power e^0: ln(exp(-1) + 1) - ln(e + 1) = -1.
+    // A logarithm without a partner keeps its form.
+    private static void MergeExponentialLogarithms(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant)
+    {
+        List<int>? candidates = null;
+        for (int i = 0; i < terms.Count; i++)
+            if (terms[i].Term is Ln(Add or Subtract))
+                (candidates ??= []).Add(i);
+        if (candidates is not { Count: > 1 })
+            return;
+
+        var groups = new Dictionary<Expr, List<(int Index, Rational Shift)>>();
+        foreach (int i in candidates)
+            if (ExponentialSum(((Ln)terms[i].Term).Argument) is var (normal, shift))
+            {
+                if (!groups.TryGetValue(normal, out var members))
+                    groups[normal] = members = [];
+                members.Add((i, shift));
+            }
+
+        var removed = new HashSet<int>();
+        foreach (var (normal, members) in groups)
+        {
+            if (members.Count < 2)
+                continue;
+            Rational total = Rational.Zero;
+            Expr log = new Ln(normal);
+            foreach (var (index, shift) in members)
+            {
+                total += terms[index].Coefficient;
+                constant += terms[index].Coefficient * shift;
+                if (shift.IsZero)
+                    log = terms[index].Term;
+            }
+            terms[members[0].Index] = (total, log);
+            removed.UnionWith(members.Skip(1).Select(m => m.Index));
+            if (total.IsZero)
+                removed.Add(members[0].Index);
+        }
+        for (int i = terms.Count - 1; i >= 0; i--)
+            if (removed.Contains(i))
+                terms.RemoveAt(i);
+    }
+
+    // A sum of numbers times e^q for rational q as e^m N, N with e^0 as its lowest power.
+    private static (Expr Normal, Rational Shift)? ExponentialSum(Expr sum)
+    {
+        var powers = new SortedDictionary<Rational, Rational>();
+        foreach (var (coefficient, term) in CollectTerms(sum, term => term))
+        {
+            Rational exponent;
+            Rational factor = coefficient;
+            if (term is Constant c)
+                (exponent, factor) = (Rational.Zero, coefficient * c.Value);
+            else if (ExponentOfE(term) is Constant q)
+                exponent = q.Value;
+            else
+                return null;
+            powers[exponent] = powers.GetValueOrDefault(exponent) + factor;
+        }
+
+        var nonzero = powers.Where(p => !p.Value.IsZero).ToList();
+        if (nonzero.Count < 2)
+            return null;
+        Rational lowest = nonzero[0].Key;
+        var parts = nonzero.Skip(1).Select(p => (p.Value, (Expr)new Exp(new Constant(p.Key - lowest)))).ToList();
+        return (BuildSum(parts, nonzero[0].Value), lowest);
     }
 
     // A sum of numbers a + b sqrt(d) as one, term by term: (sqrt(2) - 2)/2 + 1 = sqrt(2)/2.

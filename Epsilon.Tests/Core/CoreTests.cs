@@ -2832,6 +2832,60 @@ public class LogarithmOfRationalTests
     }
 }
 
+public class ExponentialLogarithmTests
+{
+    [Theory]
+    [InlineData("ln(exp(1)/(exp(1) + 1)) - ln(exp(-1)/(exp(-1) + 1))", "1")]
+    [InlineData("ln(exp(x)*y)", "x + ln(y)")]
+    [InlineData("ln(exp(x)/(exp(x) + 1))", "x - ln(exp(x) + 1)")]
+    [InlineData("ln(2*exp(x))", "x + ln(2)")]
+    [InlineData("ln(exp(x)^2/y)", "2x - ln(y)")]
+    [InlineData("ln(exp(x)/exp(y))", "x - y")]
+    [InlineData("ln(sqrt(e)*x)", "ln(x) + 1/2")]
+    [InlineData("ln(-exp(x)*y)", "x + ln(-y)")]
+    [InlineData("ln(x*exp(x)) - x", "ln(x)")]
+    [InlineData("ln(x*y)", "ln(x * y)")]
+    [InlineData("ln(e + 1) - ln(exp(-1) + 1)", "1")]
+    [InlineData("ln(e - 1) - ln(1 - exp(-1))", "1")]
+    [InlineData("ln(2*exp(-1) + 2) - ln(2*exp(1) + 2)", "-1")]
+    [InlineData("ln(exp(1/2) + exp(-1/2)) - ln(e + 1)", "-1/2")]
+    [InlineData("ln(exp(1) + 1) + ln(exp(-1) + 1)", "2ln(exp(1) + 1) - 1")]
+    [InlineData("ln(exp(-1) + 1)", "ln(exp(-1) + 1)")]                                  // alone, keeps its form
+    [InlineData("ln(exp(2) + 1) - ln(exp(-1) + 1)", "ln(exp(2) + 1) - ln(exp(-1) + 1)")] // not e^k times each other
+    [InlineData("exp(2 + ln(3))", "3exp(2)")]
+    [InlineData("exp(x - ln(exp(x) + 1))", "exp(x) / (exp(x) + 1)")]
+    [InlineData("exp(1 + x*ln(2))", "exp(ln(2) * x + 1)")]                               // only numbers times a logarithm
+    public void Powers_of_e_and_logarithms_leave_each_other(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+        if (expr.GetVariables().Count == 0)
+            Assert.Equal(expr.Evaluate(), expr.Simplify().Evaluate(), 1e-12);
+    }
+
+    // exp(ln(y)) = y needs y > 0 in Strict mode, and so does exp(x + ln(y)) = exp(x) * y.
+    [Theory]
+    [InlineData("exp(ln(exp(x)*y))", "exp(x) * y", "exp(x + ln(y))")]
+    [InlineData("exp(x + ln(y))", "exp(x) * y", "exp(x + ln(y))")]
+    [InlineData("exp(ln(x) - ln(y))", "x / y", "exp(ln(x) - ln(y))")]
+    [InlineData("exp(x - 2*ln(x))", "exp(x) / x^2", "exp(x - 2ln(x))")]
+    [InlineData("exp(ln(x)/2 - 1)", "exp(-1) * sqrt(x)", "exp((1/2) * ln(x) - 1)")]
+    public void Logarithms_leave_an_exponential_where_their_arguments_are_positive(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void A_positive_logarithm_argument_leaves_an_exponential_in_Strict_mode()
+    {
+        Assumptions positive = Assumptions.None.Assume("y", signing: Signing.Positive);
+        Assert.Equal("exp(x) * y", ExprParser.Parse("exp(x + ln(y))").Simplify(positive, SimplifyMode.Strict).Print());
+    }
+}
+
 public class InverseCompositionTests
 {
     [Theory]
