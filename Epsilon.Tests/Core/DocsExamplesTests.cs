@@ -330,6 +330,8 @@ public class SimplificationDocTests
     [InlineData("x^3/x", "x^2")]
     [InlineData("4x/6", "2x / 3")]
     [InlineData("x/(-2)", "-x / 2")]
+    [InlineData("(x^2 - 1)/(x - 1)", "x + 1")]
+    [InlineData("(x^3 - y^3)/(x - y)", "x * y + x^2 + y^2")]
     [InlineData("x/(x + 1) + 1/(x + 1)", "1")]
     [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
     [InlineData("1/x + 1/y", "1 / x + 1 / y")]

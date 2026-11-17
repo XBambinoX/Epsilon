@@ -67,14 +67,18 @@ ExprParser.Parse("x*sqrt(x)").Simplify().Print();           // x^(3/2)
 ExprParser.Parse("sqrt(y) - y^(1/2)").Simplify().Print();   // 0
 ```
 
-**Common factors cancel** in quotients, and the numbers in them reduce like a fraction:
+**Common factors cancel** in quotients, and the numbers in them reduce like a fraction. A sum
+that divides a multiplied-out sum on the other side as a polynomial cancels too; in Strict mode
+only where it is known not to be 0:
 
 ```csharp
-ExprParser.Parse("(2x)/(4x)").Simplify().Print();       // 1/2
-ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();   // x
-ExprParser.Parse("x^3/x").Simplify().Print();           // x^2
-ExprParser.Parse("4x/6").Simplify().Print();            // 2x / 3
-ExprParser.Parse("x/(-2)").Simplify().Print();          // -x / 2
+ExprParser.Parse("(2x)/(4x)").Simplify().Print();             // 1/2
+ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();         // x
+ExprParser.Parse("x^3/x").Simplify().Print();                 // x^2
+ExprParser.Parse("4x/6").Simplify().Print();                  // 2x / 3
+ExprParser.Parse("x/(-2)").Simplify().Print();                // -x / 2
+ExprParser.Parse("(x^2 - 1)/(x - 1)").Simplify().Print();     // x + 1
+ExprParser.Parse("(x^3 - y^3)/(x - y)").Simplify().Print();   // x * y + x^2 + y^2
 ```
 
 **Fractions that cancel are put over a common denominator**: terms that share a base in their

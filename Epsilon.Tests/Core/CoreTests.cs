@@ -2974,6 +2974,33 @@ public class CommonDenominatorTests
         Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
     }
 
+    [Theory]
+    [InlineData("(x^2 - 1)/(x - 1)", "x + 1")]
+    [InlineData("(x - 1)/(x^2 - 1)", "1 / (x + 1)")]
+    [InlineData("(x^2 + 2*x + 1)/(x + 1)", "x + 1")]
+    [InlineData("(x^2 - 1)/(x - 1)^2", "(x + 1) / (x - 1)")]
+    [InlineData("(x^3 - y^3)/(x - y)", "x * y + x^2 + y^2")]
+    [InlineData("(x + 2)^3*(x^2 - 1)/(x - 1)", "(x + 1) * (x + 2)^3")]             // the other factors stay
+    [InlineData("x*(x + 1)/(x^2 + x)", "1")]
+    [InlineData("(2*x^4 + 4*x^2*y^2 + 2*y^4)/(x^2 + y^2)^4", "2 / (x^2 + y^2)^2")]
+    [InlineData("(sin(x)^3 + 1)/(sin(x) + 1)", "sin(x)^2 - sin(x) + 1")]
+    [InlineData("(x^2 + 1)/(x - 1)", "(x^2 + 1) / (x - 1)")]                       // doesn't divide
+    [InlineData("x^2/(x + 1)", "x^2 / (x + 1)")]
+    public void A_sum_that_divides_the_other_side_as_a_polynomial_cancels(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        var point = expr.GetVariables().Select(v => (v, v == "x" ? 0.7 : 1.3)).ToArray();
+        Assert.Equal(expr.Evaluate(point), expr.Simplify().Evaluate(point), 1e-12);
+    }
+
+    // Strict mode cancels only a sum known not to be 0.
+    [Theory]
+    [InlineData("(x^2 - 1)/(x - 1)", "(x^2 - 1) / (x - 1)")]
+    [InlineData("(x^4 - 1)/(x^2 + 1)", "x^2 - 1")]
+    public void Strict_mode_cancels_only_sums_known_not_to_be_0(string input, string expected) =>
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+
     [Fact]
     public void A_denominator_known_not_to_be_0_is_cleared_in_Strict_mode()
     {

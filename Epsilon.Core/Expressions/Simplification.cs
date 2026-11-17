@@ -153,6 +153,10 @@ public static class Simplifier
                 when TryCancelCommonFactors(numerator, denominator, assumptions, mode, cache, out Expr? cancelled):
                 return cancelled!;
 
+            case Divide(var numerator, var denominator)
+                when TryCancelPolynomialFactors(numerator, denominator, assumptions, mode, out Expr? divided):
+                return divided!;
+
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
@@ -1278,8 +1282,8 @@ public static class Simplifier
             {
                 t_combiningFractions = false;
             }
-            bool simpler = DenominatorWeight(after) < weight ||
-                cancelled && NodeCount(after) < NodeCount(BuildSum([.. component.Select(i => terms[i])], Rational.Zero));
+            bool simpler = (DenominatorWeight(after) < weight || cancelled) &&
+                NodeCount(after) < NodeCount(BuildSum([.. component.Select(i => terms[i])], Rational.Zero));
             if (!simpler)
                 continue;
 
@@ -2086,6 +2090,84 @@ public static class Simplifier
         Multiply(var l, var r) => ConstantFactor(l) * ConstantFactor(r),
         _ => Rational.One
     };
+
+    // (x^2 - 1)/(x - 1) = x + 1, (x - 1)/(x^2 - 1) = 1/(x + 1): a sum on one side that divides a
+    // multiplied-out factor of the other side, or the whole of it, as a polynomial cancels. Like
+    // x/x = 1 this gains the zeros of the sum, so Strict mode needs it provably nonzero.
+    private static bool TryCancelPolynomialFactors(Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, out Expr? result)
+    {
+        result = null;
+        if (!HasSumFactor(n) && !HasSumFactor(d))
+            return false;
+
+        var (top, topFactors) = ExtractFactors(n);
+        var (bottom, bottomFactors) = ExtractFactors(d);
+        var polynomials = new AtomPolynomials();
+        if (!TryDivideBySum(polynomials, ref top, topFactors, bottomFactors, assumptions, mode) &&
+            !TryDivideBySum(polynomials, ref bottom, bottomFactors, topFactors, assumptions, mode))
+            return false;
+
+        Expr numerator = BuildProduct(top, topFactors), denominator = BuildProduct(bottom, bottomFactors);
+        result = IsConstantOne(denominator) ? numerator : new Divide(numerator, denominator);
+        return true;
+    }
+
+    // Divides one factor of a side, or the side as a whole, by a sum among the factors of the
+    // other side, and updates both.
+    private static bool TryDivideBySum(AtomPolynomials polynomials, ref Rational coefficient, Dictionary<Expr, Rational> side,
+        Dictionary<Expr, Rational> other, Assumptions assumptions, SimplifyMode mode)
+    {
+        foreach (var (sum, exponent) in other)
+        {
+            if (sum is not (Add or Subtract) || !exponent.IsInteger || exponent.Sign <= 0 ||
+                polynomials.Of(sum) is not { Count: > 1 } divisor || !NonZeroForDomain(sum, assumptions, mode))
+                continue;
+
+            var degrees = polynomials.Degrees(divisor).ToList();
+            bool Reaches(Expr dividend) => degrees.All(d => AtomPolynomials.Degree(dividend, d.Atom) >= d.Degree);
+
+            foreach (var (factor, power) in side)
+                if (factor is Add or Subtract && power.IsInteger && power.Sign > 0 && AtomPolynomials.IsExpanded(factor) && Reaches(factor) &&
+                    polynomials.Of(factor) is { } dividend && AtomPolynomials.ExactQuotient(dividend, divisor) is { } quotient)
+                {
+                    TakeOne(side, factor);
+                    TakeOne(other, sum);
+                    AddFactor(side, polynomials.ToExpr(quotient), ref coefficient);
+                    return true;
+                }
+
+            // The whole side is multiplied out: only where its factors are, and that doesn't make
+            // it longer.
+            Expr product = BuildProduct(coefficient, side);
+            if (side.Count > 1 && side.Keys.All(AtomPolynomials.IsExpanded) && Reaches(product) && polynomials.Of(product) is { } whole &&
+                AtomPolynomials.ExactQuotient(whole, divisor) is { } wholeQuotient &&
+                polynomials.ToExpr(wholeQuotient) is var expanded && NodeCount(expanded) <= NodeCount(product))
+            {
+                side.Clear();
+                coefficient = Rational.One;
+                TakeOne(other, sum);
+                AddFactor(side, expanded, ref coefficient);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void TakeOne(Dictionary<Expr, Rational> factors, Expr factor)
+    {
+        if (factors[factor].IsOne)
+            factors.Remove(factor);
+        else
+            factors[factor] -= Rational.One;
+    }
+
+    private static void AddFactor(Dictionary<Expr, Rational> factors, Expr factor, ref Rational coefficient)
+    {
+        if (factor is Constant c)
+            coefficient *= c.Value;
+        else
+            AddExponent(factors, factor, Rational.One);
+    }
 
     private static bool TryCancelCommonFactors(
         Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)

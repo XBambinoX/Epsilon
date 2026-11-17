@@ -11,7 +11,7 @@ is updated with it. The expressions have
   integrated, having no elementary antiderivative. And where the two sides of the gap of a
   square root differ and Euler's substitution leaves irrational coefficients, they are
   integrated apart and joined by a sign, whose derivative the core doesn't have yet:
-  `1/((x - pi)*sqrt(x^2 - 2*x))` gives an antiderivative with sign(x - 1) in it.
+  `1/((x - pi)*sqrt(x^2 - 1))` gives an antiderivative with sign(x) in it.
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.

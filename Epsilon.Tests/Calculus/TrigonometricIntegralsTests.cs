@@ -253,6 +253,7 @@ public class TrigonometricIntegralsTests
     [InlineData("x/((x + 5)*sqrt(x^2 - 2*x))")]
     [InlineData("1/(x*sqrt(2*x^2 - 4*x))")]
     [InlineData("1/(x*sqrt(3*x^2 - 2*x))")]
+    [InlineData("1/((x - pi)*sqrt(x^2 - 2*x))")]       // one formula on both sides since polynomials cancel
     public void Both_sides_of_the_gap_by_Euler_s_substitution(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -269,11 +270,11 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void Both_sides_of_the_gap_apart()
     {
-        var f = ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 2*x))");
+        var f = ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 1))");
         var antiderivative = f.Integrate("x");
-        Assert.Contains("sign(x - 1)", antiderivative.Print());
+        Assert.Contains("sign(x)", antiderivative.Print());
 
-        foreach (double x in new[] { -3.0, -0.5, 2.5, 4.0 })
+        foreach (double x in new[] { -3.0, -1.5, 2.5, 4.0 })
         {
             const double h = 1e-5;
             double slope = (antiderivative.Evaluate(("x", x + h)) - antiderivative.Evaluate(("x", x - h))) / (2 * h);
