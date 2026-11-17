@@ -26,8 +26,8 @@ is updated with it. The expressions have
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
   coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)), but Bioche's
-  rules and t = tan(x/2) leave fractions with irrational coefficients that the core doesn't bring
-  to a common denominator: `1/(sqrt(2) + cos(x))^2` and `1/(pi + cos(x)^2)` aren't integrated.
+  rules and t = tan(x/2) leave fractions with irrational coefficients that the core doesn't
+  always simplify: `1/(sqrt(2) + cos(x))^2` isn't integrated.
 - **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
   `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
   [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
@@ -139,11 +139,10 @@ is updated with it. The expressions have
 
 - **floor, ceiling, round, sign, min and max have no derivatives** in the core yet, so
   gradients and Hessians of expressions with them throw `NotSupportedException`.
-- **Fractions aren't brought to a common denominator**, so a Laplacian or a curl that is 0 may
-  show only in value:
+- **A zero may show only in value** where a sum doesn't cancel against its fractional powers,
+  as in the Laplacian of the dipole x/r^3:
 
   ```csharp
-  var laplacian = ExprParser.Parse("ln(x^2 + y^2)").Laplacian("x", "y");
-  laplacian.Print();   // (-4x^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2 + (-4y^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2
-  laplacian.Evaluate(("x", 1), ("y", 2));   // 0
+  var laplacian = ExprParser.Parse("x/(x^2 + y^2 + z^2)^(3/2)").Laplacian("x", "y", "z");
+  laplacian.Evaluate(("x", 1), ("y", 2), ("z", 3));   // -1.734723475976807E-18
   ```

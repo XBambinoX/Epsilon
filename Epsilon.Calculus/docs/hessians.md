@@ -41,11 +41,12 @@ ExprParser.Parse("exp(x)*sin(y)").Laplacian("x", "y").Print();   // 0
 ExprParser.Parse("x^3 - 3*x*y^2").Laplacian("x", "y").Print();   // 0
 ```
 
-For rational functions the zero may show only in value, because the simplifier doesn't bring
-fractions to a common denominator. The potential 1/r in three dimensions is harmonic:
+Fractions whose terms cancel are put over a common denominator, so the zero shows for rational
+functions and roots too. The potential 1/r in three dimensions is harmonic:
 
 ```csharp
-ExprParser.Parse("1/sqrt(x^2 + y^2 + z^2)").Laplacian("x", "y", "z").Evaluate(("x", 1), ("y", 2), ("z", 3));   // 0
+ExprParser.Parse("1/sqrt(x^2 + y^2 + z^2)").Laplacian("x", "y", "z").Print();   // 0
+ExprParser.Parse("ln(x^2 + y^2)").Laplacian("x", "y").Print();                  // 0
 ```
 
 ## Critical points

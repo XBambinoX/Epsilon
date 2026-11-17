@@ -290,8 +290,7 @@ public class CalculusVectorFieldsDocTests
 
         Assert.Equal("8y", ExprParser.Parse("x^2*y + y^3").Gradient("x", "y").Divergence("x", "y").Print());
 
-        var curl = ExprParser.Parse("atan(y/z)").Gradient("x", "y", "z").Curl("x", "y", "z");
-        Assert.Equal("[6.938893903907228E-18, 0, 0]", curl.Evaluate(("x", 1), ("y", 2), ("z", 3)).ToString());
+        Assert.Equal("[0, 0, 0]", ExprParser.Parse("atan(y/z)").Gradient("x", "y", "z").Curl("x", "y", "z").Print());
     }
 
     [Fact]
@@ -416,7 +415,8 @@ public class CalculusHessiansDocTests
         Assert.Equal("2y - sin(y)", F.Laplacian().Print());
         Assert.Equal("0", ExprParser.Parse("exp(x)*sin(y)").Laplacian("x", "y").Print());
         Assert.Equal("0", ExprParser.Parse("x^3 - 3*x*y^2").Laplacian("x", "y").Print());
-        Assert.Equal(0, ExprParser.Parse("1/sqrt(x^2 + y^2 + z^2)").Laplacian("x", "y", "z").Evaluate(("x", 1), ("y", 2), ("z", 3)));
+        Assert.Equal("0", ExprParser.Parse("1/sqrt(x^2 + y^2 + z^2)").Laplacian("x", "y", "z").Print());
+        Assert.Equal("0", ExprParser.Parse("ln(x^2 + y^2)").Laplacian("x", "y").Print());
     }
 
     [Fact]
@@ -1132,7 +1132,7 @@ public class CalculusLimitationsDocTests
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
         Assert.Equal("(1/2) * x^2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());
         Assert.Equal("-cos(x) * i + sin(x)", ExprParser.Parse("exp(i*x)").Integrate("x").Print());
-        foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "sech(x + i)", "1/(sqrt(2) + cos(x))^2", "1/(pi + cos(x)^2)" })
+        foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "sech(x + i)", "1/(sqrt(2) + cos(x))^2" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
@@ -1215,8 +1215,8 @@ public class CalculusLimitationsDocTests
     {
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("floor(x)*y").Hessian());
 
-        var laplacian = ExprParser.Parse("ln(x^2 + y^2)").Laplacian("x", "y");
-        Assert.Equal("(-4x^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2 + (-4y^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2", laplacian.Print());
-        Assert.Equal(0, laplacian.Evaluate(("x", 1), ("y", 2)));
+        var laplacian = ExprParser.Parse("x/(x^2 + y^2 + z^2)^(3/2)").Laplacian("x", "y", "z");
+        Assert.NotEqual("0", laplacian.Print());
+        Assert.Equal(-1.734723475976807E-18, laplacian.Evaluate(("x", 1), ("y", 2), ("z", 3)));
     }
 }

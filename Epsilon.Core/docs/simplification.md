@@ -77,6 +77,17 @@ ExprParser.Parse("4x/6").Simplify().Print();            // 2x / 3
 ExprParser.Parse("x/(-2)").Simplify().Print();          // -x / 2
 ```
 
+**Fractions that cancel are put over a common denominator**: terms that share a base in their
+denominators, or a root in one and the other, are added up as one fraction with the numerator
+multiplied out, and kept that way where something then cancels. Where nothing does, the terms
+keep their form. In Strict mode a denominator that may be 0 is kept:
+
+```csharp
+ExprParser.Parse("x/(x + 1) + 1/(x + 1)").Simplify().Print();                     // 1
+ExprParser.Parse("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)").Simplify().Print();         // 1 / sqrt(x^2 + 1)
+ExprParser.Parse("1/x + 1/y").Simplify().Print();                                 // 1 / x + 1 / y
+```
+
 **Identities.** The Pythagorean identities (`sin^2 + cos^2 = 1`, `sec^2 - tan^2 = 1`,
 `csc^2 - cot^2 = 1`) and their hyperbolic forms (`cosh^2 - sinh^2 = 1`, `sech^2 + tanh^2 = 1`,
 `coth^2 - csch^2 = 1`) work across a whole sum, with any coefficients, a common factor and

@@ -1233,12 +1233,246 @@ public static class Simplifier
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
         MergeExponentialLogarithms(combined, ref constantSum);
+        CombineFractions(combined, ref constantSum, mode);
         Expr result = BuildSum(combined, constantSum);
         if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
             return folded;
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // Expand simplifies, and the sums it simplifies are put over a common denominator by the
+    // caller, not inside.
+    [ThreadStatic]
+    private static bool t_combiningFractions;
+
+    // Terms linked by a base in a denominator, x/(x + 1) and 1/(x + 1) or sqrt(r) and x/sqrt(r),
+    // are put over a common denominator, with the numerator multiplied out, where something then
+    // cancels: x/(x + 1) + 1/(x + 1) = 1, sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1) = 1/sqrt(x^2 + 1), and
+    // a Laplacian whose terms add up to 0 is 0. Where nothing cancels, the terms keep their form:
+    // exp(c)/c - 1/c, 1/x + 1/y.
+    private static void CombineFractions(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant, SimplifyMode mode)
+    {
+        if (t_combiningFractions || !terms.Any(t => HasDenominator(t.Term)))
+            return;
+
+        foreach (List<int> component in LinkedByDenominators(terms))
+        {
+            Expr after;
+            Rational weight;
+            bool cancelled;
+            t_combiningFractions = true;
+            try
+            {
+                after = OverCommonDenominator(
+                    [.. component.Select(i => FractionParts.Of(terms[i].Coefficient, terms[i].Term))], mode, out weight, out cancelled);
+            }
+            finally
+            {
+                t_combiningFractions = false;
+            }
+            bool simpler = DenominatorWeight(after) < weight ||
+                cancelled && NodeCount(after) < NodeCount(BuildSum([.. component.Select(i => terms[i])], Rational.Zero));
+            if (!simpler)
+                continue;
+
+            foreach (int i in component)
+                terms[i] = (Rational.Zero, terms[i].Term);
+            foreach (var (coefficient, term) in CollectTerms(after, term => term))
+            {
+                if (term is Constant c)
+                    constant += coefficient * c.Value;
+                else
+                    terms.Add((coefficient, term));
+            }
+        }
+        terms.RemoveAll(t => t.Coefficient.IsZero);
+    }
+
+    // Numbers in denominators, sqrt(3) and pi included, are coefficients and link nothing.
+    private static bool HasDenominator(Expr term) => term switch
+    {
+        Divide(_, var d) => HasVariable(d),
+        Power(var b, Constant { Value.Sign: < 0 }) => HasVariable(b),
+        Power(Divide(_, var d), _) => HasVariable(d),
+        Multiply(var l, var r) => HasDenominator(l) || HasDenominator(r),
+        Negate(var a) => HasDenominator(a),
+        _ => false,
+    };
+
+    private static bool HasVariable(Expr e)
+    {
+        if (e is Variable)
+            return true;
+        foreach (Expr child in e.Children)
+            if (HasVariable(child))
+                return true;
+        return false;
+    }
+
+    // Groups of two or more terms with a base in their denominators, or one with a base below
+    // that another has above in a root: sqrt(r) - x^2/sqrt(r). x + 1/x isn't put together, as
+    // nothing could cancel.
+    private static IEnumerable<List<int>> LinkedByDenominators(List<(Rational Coefficient, Expr Term)> terms)
+    {
+        var below = new HashSet<Expr>();
+        var rootsBelow = new HashSet<Expr>();
+        foreach (var (_, term) in terms)
+            if (HasDenominator(term))
+                VisitBases(term, false, 1, (b, k, isBelow) =>
+                {
+                    if (isBelow && HasVariable(b))
+                    {
+                        below.Add(b);
+                        if (!k.IsInteger)
+                            rootsBelow.Add(b);
+                    }
+                });
+
+        if (below.Count == 0)
+            return [];
+
+        var root = Enumerable.Range(0, terms.Count).ToArray();
+        int Find(int i) => root[i] == i ? i : root[i] = Find(root[i]);
+        var first = new Dictionary<Expr, int>();
+        bool linked = false;
+        for (int i = 0; i < terms.Count; i++)
+        {
+            int index = i;
+            VisitBases(terms[i].Term, false, 1, (b, k, isBelow) =>
+            {
+                if (!below.Contains(b) || !isBelow && k.IsInteger && !rootsBelow.Contains(b))
+                    return;
+                if (first.TryGetValue(b, out int j))
+                {
+                    root[Find(index)] = Find(j);
+                    linked = true;
+                }
+                else
+                    first[b] = index;
+            });
+        }
+
+        return linked ? Enumerable.Range(0, terms.Count).GroupBy(Find).Select(g => g.ToList()).Where(g => g.Count > 1) : [];
+    }
+
+    private const int MaxFractionDepth = 3;
+
+    // (sum of c N L/D) / L, with L the product of the highest power of every base below, its
+    // total power, and whether terms of the numerator cancelled. The numerator, multiplied out, is
+    // put over its own common denominator in turn: -sqrt(r) + 3x^2/sqrt(r) + ... has one.
+    private static Expr OverCommonDenominator(
+        List<FractionParts> parts, SimplifyMode mode, out Rational weight, out bool cancelled, int depth = 0)
+    {
+        var common = new Dictionary<Expr, Rational>();
+        foreach (FractionParts p in parts)
+            foreach (var (b, k) in p.Bottom)
+                common[b] = common.TryGetValue(b, out Rational m) && m >= k ? m : k;
+        weight = Weight(common);
+
+        // Each numerator is multiplied out on its own, so that terms that cancel in the sum show.
+        Expr? numerator = null;
+        int separate = 0;
+        foreach (FractionParts p in parts)
+        {
+            var factors = new Dictionary<Expr, Rational>(p.Top);
+            foreach (var (b, k) in common)
+            {
+                Rational missing = k - p.Bottom.GetValueOrDefault(b);
+                if (!missing.IsZero)
+                    factors[b] = factors.GetValueOrDefault(b) + missing;
+            }
+            Expr term = PowerProduct(p.Coefficient, factors).Expand(mode);
+            separate += TermCount(term);
+            numerator = numerator is null ? term : new Add(numerator, term);
+        }
+
+        Expr expanded = numerator!.Simplify(mode);
+        cancelled = TermCount(expanded) < separate;
+        if (depth < MaxFractionDepth && CollectTerms(expanded, term => term) is { Count: > 1 } inner && inner.Any(t => HasDenominator(t.Term)))
+        {
+            expanded = OverCommonDenominator([.. inner.Select(t => FractionParts.Of(t.Coefficient, t.Term))], mode, out _, out bool innerCancelled, depth + 1);
+            cancelled |= innerCancelled;
+        }
+        return new Divide(expanded, PowerProduct(Rational.One, common)).Simplify(mode);
+    }
+
+    private static int TermCount(Expr e) => e is Constant { Value.IsZero: true } ? 0 : CollectTerms(e, term => term).Count;
+
+    private static Rational Weight(Dictionary<Expr, Rational> bases) =>
+        bases.Where(b => HasVariable(b.Key)).Aggregate(Rational.Zero, (sum, b) => sum + b.Value);
+
+    // The highest total power below in the terms of e: 0 once everything has cancelled.
+    private static Rational DenominatorWeight(Expr e) =>
+        CollectTerms(e, term => term).Select(t => Weight(FractionParts.Of(t.Coefficient, t.Term).Bottom)).Max();
+
+    private static Expr PowerProduct(Rational coefficient, Dictionary<Expr, Rational> factors)
+    {
+        Expr result = new Constant(coefficient);
+        foreach (var (b, k) in factors)
+            result = new Multiply(result, k.IsOne ? b : k == Half ? new Sqrt(b) : new Power(b, new Constant(k)));
+        return result;
+    }
+
+    private const int MaxSplitPower = 64;
+
+    // Calls found(b, k, below) for each factor b^k of a term, sqrt(b) counted as b^(1/2), and
+    // returns the number the term holds. Integer powers of products and quotients are taken
+    // apart: (S * z^2)^2 = S^2 z^4, which shares the base S with (S * z)^2.
+    private static Rational VisitBases(Expr e, bool below, int power, Action<Expr, Rational, bool> found)
+    {
+        switch (e)
+        {
+            case Multiply(var l, var r):
+                return VisitBases(l, below, power, found) * VisitBases(r, below, power, found);
+            case Divide(var n, var d):
+                return VisitBases(n, below, power, found) * VisitBases(d, !below, power, found);
+            case Negate(var a):
+                Rational inner = VisitBases(a, below, power, found);
+                return power % 2 != 0 ? -inner : inner;
+            case Constant c when !c.Value.IsZero:
+                Rational value = c.Value.Pow(power);
+                return below ? Rational.One / value : value;
+            case Power(var b, Constant { Value: { IsInteger: true } k }) when b is not Constant && power * System.Numerics.BigInteger.Abs(k.Numerator) <= MaxSplitPower:
+                return VisitBases(b, k.Sign < 0 ? !below : below, power * (int)System.Numerics.BigInteger.Abs(k.Numerator), found);
+            case Power(var b, Constant { Value: var k }) when b is not Constant:
+                found(b, k.Abs() * power, k.Sign < 0 ? !below : below);
+                return Rational.One;
+            case Sqrt(var b) when b is not Constant:
+                found(b, Half * power, below);
+                return Rational.One;
+            default:
+                found(e, power, below);
+                return Rational.One;
+        }
+    }
+
+    // A term as c * (product of b^k) / (product of b^k).
+    private sealed class FractionParts
+    {
+        public Rational Coefficient { get; private set; }
+        public Dictionary<Expr, Rational> Top { get; } = [];
+        public Dictionary<Expr, Rational> Bottom { get; } = [];
+
+        public static FractionParts Of(Rational coefficient, Expr term)
+        {
+            var parts = new FractionParts();
+            parts.Coefficient = coefficient * VisitBases(term, false, 1, (b, k, below) =>
+            {
+                var side = below ? parts.Bottom : parts.Top;
+                side[b] = side.GetValueOrDefault(b) + k;
+            });
+
+            // R / R^(3/2) = 1 / sqrt(R): a base that stays below keeps the domain as it was.
+            foreach (Expr b in parts.Top.Keys.Where(parts.Bottom.ContainsKey).ToList())
+                if (parts.Bottom[b] > parts.Top[b])
+                {
+                    parts.Bottom[b] -= parts.Top[b];
+                    parts.Top.Remove(b);
+                }
+            return parts;
+        }
     }
 
     // Terms equal but for the sign of the sums in them add up: 2(a - b) + 2(b - a) = 0,

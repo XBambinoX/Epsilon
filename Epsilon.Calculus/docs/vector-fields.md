@@ -45,12 +45,10 @@ field.Curl("x", "y", "z").Divergence("x", "y", "z").Print();   // 0
 ExprParser.Parse("x^2*y + y^3").Gradient("x", "y").Divergence("x", "y").Print();   // 8y
 ```
 
-The simplifier doesn't bring fractions to a common denominator, so for some functions the zero
-shows only in value, up to rounding:
+Fractions whose terms cancel are put over a common denominator, so the zero shows for them too:
 
 ```csharp
-var curl = ExprParser.Parse("atan(y/z)").Gradient("x", "y", "z").Curl("x", "y", "z");
-curl.Evaluate(("x", 1), ("y", 2), ("z", 3));   // [6.938893903907228E-18, 0, 0]
+ExprParser.Parse("atan(y/z)").Gradient("x", "y", "z").Curl("x", "y", "z").Print();   // [0, 0, 0]
 ```
 ## Potentials
 

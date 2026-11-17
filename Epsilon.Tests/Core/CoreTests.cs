@@ -2926,6 +2926,39 @@ public class InverseCompositionTests
     }
 }
 
+public class CommonDenominatorTests
+{
+    [Theory]
+    [InlineData("x/(x + 1) + 1/(x + 1)", "1")]
+    [InlineData("2/(x + 1) + (x - 1)/(x + 1)", "1")]
+    [InlineData("(a + b)/(x + 1) + (c - b)/(x + 1)", "(a + c) / (x + 1)")]
+    [InlineData("(-4*x^2 + 2*(x^2 + y^2))/(x^2 + y^2)^2 + (-4*y^2 + 2*(x^2 + y^2))/(x^2 + y^2)^2", "0")]
+    [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
+    [InlineData("sqrt(x^2 + y^2) - x^2/sqrt(x^2 + y^2) - y^2/sqrt(x^2 + y^2)", "0")]
+    [InlineData("(2*y^2 - ((y/z)^2 + 1)*z^2)/(((y/z)^2 + 1)*z^2)^2 - (y^2/z^2 - 1)/(((y/z)^2 + 1)*z)^2", "0")]
+    [InlineData("1/x + 1/y", "1 / x + 1 / y")]                              // nothing cancels
+    [InlineData("x + 1/x", "x + 1 / x")]
+    [InlineData("exp(c)/c - 1/c", "exp(c) / c - 1 / c")]
+    [InlineData("a/(x + 1) + b/(x + 1)", "a / (x + 1) + b / (x + 1)")]
+    [InlineData("(1/2)*sqrt(u) - 1/(2*sqrt(u))", "(1/2) * sqrt(u) - 1 / (2sqrt(u))")]
+    [InlineData("x/sqrt(3) + y/sqrt(3)", "x / sqrt(3) + y / sqrt(3)")]      // numbers below link nothing
+    public void Fractions_that_cancel_are_put_over_a_common_denominator(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        if (expr.GetVariables().All(v => v == "x"))
+            Assert.Equal(expr.Evaluate(("x", 0.7)), expr.Simplify().Evaluate(("x", 0.7)), 1e-12);
+    }
+
+    // Strict mode keeps a denominator that may be 0, where Generic cancels it.
+    [Theory]
+    [InlineData("x/(x + 1) + 1/(x + 1)", "1 / (x + 1) + x / (x + 1)")]
+    [InlineData("(-4*x^2 + 2*(x^2 + y^2))/(x^2 + y^2)^2 + (-4*y^2 + 2*(x^2 + y^2))/(x^2 + y^2)^2", "0 / (x^2 + y^2)^2")]
+    [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
+    public void Strict_mode_keeps_the_denominators_that_may_be_0(string input, string expected) =>
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+}
+
 public class NumericMultipleTests
 {
     [Theory]

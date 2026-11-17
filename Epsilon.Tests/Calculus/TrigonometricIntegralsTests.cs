@@ -45,6 +45,7 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(cos(x) + cosh(1))")]
     [InlineData("1/(cos(x) - sqrt(5))")]
     [InlineData("1/(sqrt(3) + cos(x/2))")]
+    [InlineData("1/(pi + cos(x)^2)")]                    // Bioche's fractions put together by the core
     [InlineData("1/(1 + 2*cos(x))")]
     [InlineData("1/(1/2 + cos(x))")]
     [InlineData("1/(sqrt(2) + sin(x) + cos(x))")]
