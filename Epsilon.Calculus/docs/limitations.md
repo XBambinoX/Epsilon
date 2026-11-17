@@ -89,9 +89,6 @@ is updated with it. The expressions have
 - **A point found only numerically**: where the antiderivative may be undefined at a root that
   isn't found exactly, as ln(abs(x + cos(x))) at -0.739..., `IntegrateExact` throws
   `NotSupportedException`: a limit at a decimal next to a pole is finite.
-- **Constants that cancel aren't always seen to**: `1/(1 + cos(x)^4)` from 0 to 10 throws, since
-  at pi/2 the coefficients of the logarithms in its antiderivative add up to 0 without the
-  simplifier showing it.
 - **Symbols in the limits only where the antiderivative is continuous everywhere**: `1/x` from
   1 to c, which is ln(c) for c > 0, throws.
 - **Results aren't always in their simplest form**: `1/(2 + sin(x))` from 0 to pi/2 is

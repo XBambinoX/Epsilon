@@ -2946,6 +2946,27 @@ public class NumericMultipleTests
         Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
     }
 
+    [Theory]
+    [InlineData("2*(a + b) + 2*(-a - b)", "0")]
+    [InlineData("x*(a + b) + x*(-a - b)", "0")]
+    [InlineData("2*(-a*c + b) + 2*(a*c - b)", "0")]
+    [InlineData("(1 - x)*y + (x - 1)*y", "0")]
+    [InlineData("(a - b)^2 - (b - a)^2", "0")]
+    [InlineData("(a - b)^3 + (b - a)^3", "0")]
+    [InlineData("x/(a - b) + x/(b - a)", "0")]
+    [InlineData("(x - 1)*(y - 1) - (1 - x)*(1 - y)", "0")]
+    [InlineData("3*(1 - x) + 2*(x - 1)", "-x + 1")]
+    [InlineData("2*(1 - x) + 3*(x - 1)", "x - 1")]
+    [InlineData("y*(a - b) + 2*y*(b - a) + z", "(b - a) * y + z")]
+    [InlineData("2*(x - 1)", "2 * (x - 1)")]                       // no partner, no change
+    [InlineData("2*((-1/4)*cos(3*pi/8)*nthroot(4, 8) + (1/8)*cos(pi/8)*nthroot(4, 8)^3) + 2*((1/4)*cos(3*pi/8)*nthroot(4, 8) - (1/8)*cos(pi/8)*nthroot(4, 8)^3)", "0")]
+    public void Terms_that_differ_by_the_sign_of_a_sum_add_up(string input, string expected)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(expected, expr.Simplify().Print());
+        Assert.Equal(expected, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
     [Fact]
     public void Adding_up_keeps_the_domain_of_the_terms()
     {

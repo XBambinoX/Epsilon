@@ -320,6 +320,7 @@ public class SimplificationDocTests
     [InlineData("x/(2*y) + x/(3*y)", "5x / (6y)")]
     [InlineData("x*sqrt(2) + x/sqrt(2)", "3sqrt(2) * x / 2")]
     [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "(2/9) * π * sqrt(3)")]
+    [InlineData("2*(a - b) + 2*(b - a)", "0")]
     [InlineData("x/sqrt(3)", "x / sqrt(3)")]
     [InlineData("x^(1/2)", "sqrt(x)")]
     [InlineData("x*sqrt(x)", "x^(3/2)")]

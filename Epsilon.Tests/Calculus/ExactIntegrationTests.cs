@@ -122,6 +122,7 @@ public class ExactIntegrationTests
     [InlineData("1/(2 - cos(x))^3", 0, 10)]
     [InlineData("1/(2 + tan(x)^2)", 0, 10)]
     [InlineData("1/(sin(x)^4 + cos(x)^4)", 0, 10)]
+    [InlineData("1/(1 + cos(x)^4)", 0, 10)]          // log coefficients c(a - b) + c(b - a) cancel at pi/2
     [InlineData("1/(sin(x) + cos(x) + 2)", 0, 10)]
     [InlineData("sin(x)/(1 + sin(x)^2)", 0, 10)]
     [InlineData("1/(1 + sin(x))", 0, 4)]

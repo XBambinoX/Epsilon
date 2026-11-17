@@ -1228,6 +1228,7 @@ public static class Simplifier
 
         ApplyPythagoreanIdentities(combined, termIndex, ref constantSum, assumptions, mode);
 
+        CollectNegatedSums(combined);
         CollectNumericMultiples(combined);
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
@@ -1238,6 +1239,153 @@ public static class Simplifier
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // Terms equal but for the sign of the sums in them add up: 2(a - b) + 2(b - a) = 0,
+    // (a - b)^2 - (b - a)^2 = 0, x/(a - b) + x/(b - a) = 0. A term without a partner keeps its form.
+    private static void CollectNegatedSums(List<(Rational Coefficient, Expr Term)> terms)
+    {
+        // A hash first, the same for S and -S: the full forms are built only where hashes meet.
+        Dictionary<int, List<int>>? hashes = null;
+        for (int i = 0; i < terms.Count; i++)
+        {
+            if (!HasSumFactor(terms[i].Term))
+                continue;
+            hashes ??= [];
+            int hash = SignFreeHash(terms[i].Term);
+            if (!hashes.TryGetValue(hash, out var same))
+                hashes[hash] = same = [];
+            same.Add(i);
+        }
+        if (hashes is null || hashes.Count == hashes.Values.Sum(same => same.Count))
+            return;
+
+        var groups = new Dictionary<Expr, List<(int Index, int Sign)>>();
+        foreach (int i in hashes.Values.Where(same => same.Count > 1).SelectMany(same => same))
+        {
+            var (key, sign) = WithPositiveSums(terms[i].Term);
+            if (!groups.TryGetValue(key, out var members))
+                groups[key] = members = [];
+            members.Add((i, sign));
+        }
+
+        var removed = new HashSet<int>();
+        foreach (var members in groups.Values.Where(members => members.Count > 1))
+        {
+            Rational total = members.Aggregate(Rational.Zero, (sum, m) => sum + terms[m.Index].Coefficient * m.Sign);
+            // The form that keeps a positive coefficient: 3(1 - x) + 2(x - 1) = 1 - x, not -(x - 1).
+            var (kept, keptSign) = members.FirstOrDefault(m => (total * m.Sign).Sign > 0, members[0]);
+            terms[kept] = (total * keptSign, terms[kept].Term);
+            removed.UnionWith(members.Where(m => m.Index != kept).Select(m => m.Index));
+        }
+        for (int i = terms.Count - 1; i >= 0; i--)
+            if (removed.Contains(i))
+                terms.RemoveAt(i);
+    }
+
+    private static int SignFreeHash(Expr e) => e switch
+    {
+        Multiply(var l, var r) => unchecked(SignFreeHash(l) + SignFreeHash(r)),
+        Divide(var n, var d) => HashCode.Combine(SignFreeHash(n), SignFreeHash(d)),
+        Negate(var a) => SignFreeHash(a),
+        Add or Subtract => SumHash(e),
+        Power(var b and (Add or Subtract), var k) => HashCode.Combine(SumHash(b), k),
+        _ => e.GetHashCode(),
+    };
+
+    private static int SumHash(Expr sum)
+    {
+        int hash = 0;
+        var pending = new Stack<Expr>();
+        pending.Push(sum);
+        while (pending.TryPop(out Expr? e))
+        {
+            switch (e)
+            {
+                case Add(var l, var r):
+                    pending.Push(l);
+                    pending.Push(r);
+                    break;
+                case Subtract(var l, var r):
+                    pending.Push(l);
+                    pending.Push(r);
+                    break;
+                default:
+                    var (coefficient, term) = ExtractCoefficient(e);
+                    hash = unchecked(hash + (term is Constant c
+                        ? (coefficient * c.Value).Abs().GetHashCode()
+                        : HashCode.Combine(term, coefficient.Abs())));
+                    break;
+            }
+        }
+        return hash;
+    }
+
+    private static bool HasSumFactor(Expr term) => term switch
+    {
+        Add or Subtract => true,
+        Multiply(var l, var r) => HasSumFactor(l) || HasSumFactor(r),
+        Divide(var n, var d) => HasSumFactor(n) || HasSumFactor(d),
+        Negate(var a) => HasSumFactor(a),
+        Power(Add or Subtract, Constant { Value.IsInteger: true }) => true,
+        _ => false,
+    };
+
+    // The term with every sum in it written so that S and -S give the same sum, and the sign
+    // that took: (b - a) * x -> ((a - b) * x, -1) or ((b - a) * x, 1), the same for both.
+    private static (Expr Key, int Sign) WithPositiveSums(Expr term)
+    {
+        int sign = 1;
+        Expr Visit(Expr e)
+        {
+            switch (e)
+            {
+                case Multiply(var l, var r):
+                    return new Multiply(Visit(l), Visit(r));
+                case Divide(var n, var d):
+                    return new Divide(Visit(n), Visit(d));
+                case Negate(var a):
+                    sign = -sign;
+                    return Visit(a);
+                case Add or Subtract:
+                    var (sum, flipped) = PositiveSum(e);
+                    if (flipped)
+                        sign = -sign;
+                    return sum;
+                case Power(var b and (Add or Subtract), Constant { Value.IsInteger: true } k):
+                    var (powered, flippedBase) = PositiveSum(b);
+                    if (flippedBase && !k.Value.Numerator.IsEven)
+                        sign = -sign;
+                    return new Power(powered, k);
+                default:
+                    return e;
+            }
+        }
+
+        Expr key = Visit(term).Canonicalize();
+        return (key, sign);
+    }
+
+    // The sum with its terms in structural order, negated if the first has a minus sign.
+    private static (Expr Sum, bool Flipped) PositiveSum(Expr sum)
+    {
+        var parts = CollectTerms(sum, term => term)
+            .Select(p => p.Term is Constant c ? (p.Coefficient * c.Value, (Expr)new Constant(1)) : p)
+            .ToList();
+        parts.Sort((a, b) => Canonicalizer.StructuralCompare(a.Item2, b.Item2));
+        bool flip = parts[0].Item1.Sign < 0;
+
+        Rational constant = Rational.Zero;
+        var rest = new List<(Rational, Expr)>();
+        foreach (var (coefficient, term) in parts)
+        {
+            Rational signed = flip ? -coefficient : coefficient;
+            if (term is Constant)
+                constant += signed;
+            else
+                rest.Add((signed, term));
+        }
+        return (BuildSum(rest, constant), flip);
     }
 
     // Terms that are c sqrt(d) times the same rest are added up, with the number taken from

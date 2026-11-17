@@ -228,7 +228,6 @@ Where the integral isn't found, `IntegrateExact` throws `NotSupportedException`:
 | `exp(-c*x)` | 0, inf | it depends on the sign of c |
 | `1/(x + c)` | 0, 1 | whether the antiderivative ln(abs(x + c)) is undefined between the limits depends on c |
 | `(1 - sin(x))/(x + cos(x))` | -1, 0 | the antiderivative ln(abs(x + cos(x))) is undefined at -0.739..., which is found only numerically, and a limit at a decimal says nothing |
-| `1/(1 + cos(x)^4)` | 0, 10 | at pi/2 the logarithms in its antiderivative cancel, but their coefficients aren't simplified to show it |
 | `cos(1/x)/x^2` | -1, 1 | the antiderivative -sin(1/x) oscillates at 0 |
 
 ## How it works

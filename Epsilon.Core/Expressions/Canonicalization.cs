@@ -163,7 +163,7 @@ public static class Canonicalizer
     // Total order used to sort terms and factors: by node type name, then by payload
     // (Constant value, Variable name), then child by child. Generic over Children, so
     // it covers every node type without listing them.
-    private static int StructuralCompare(Expr a, Expr b)
+    internal static int StructuralCompare(Expr a, Expr b)
     {
         if (ReferenceEquals(a, b))
             return 0;

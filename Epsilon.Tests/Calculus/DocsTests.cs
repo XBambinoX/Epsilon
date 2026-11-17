@@ -889,7 +889,6 @@ public class CalculusExactIntegrationDocTests
     [InlineData("sin(x)/x", 1, 2)]
     [InlineData("1/(x + c)", 0, 1)]
     [InlineData("(1 - sin(x))/(x + cos(x))", -1, 0)]
-    [InlineData("1/(1 + cos(x)^4)", 0, 10)]
     [InlineData("cos(1/x)/x^2", -1, 1)]
     [InlineData("exp(-x^2)", 0, 1)]
     public void What_isnt_found(string expr, int a, int b) => Fails<NotSupportedException>(expr, a, b);
@@ -1158,7 +1157,6 @@ public class CalculusLimitationsDocTests
     {
         Assert.Contains("may be undefined at x = -0.739",
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse("(1 - sin(x))/(x + cos(x))").IntegrateExact("x", -1, 0)).Message);
-        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/(1 + cos(x)^4)").IntegrateExact("x", 0, 10));
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1/x").IntegrateExact("x", 1, new Variable("c")));
 
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("exp(-x^2)").IntegrateExact("x", 0, 1));
