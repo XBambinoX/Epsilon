@@ -46,6 +46,7 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(cos(x) - sqrt(5))")]
     [InlineData("1/(sqrt(3) + cos(x/2))")]
     [InlineData("1/(pi + cos(x)^2)")]                    // Bioche's fractions put together by the core
+    [InlineData("1/(sqrt(2) + cos(x))^2")]
     [InlineData("1/(1 + 2*cos(x))")]
     [InlineData("1/(1/2 + cos(x))")]
     [InlineData("1/(sqrt(2) + sin(x) + cos(x))")]
@@ -128,7 +129,7 @@ public class TrigonometricIntegralsTests
     public void Even_in_both()
     {
         Assert.Equal("(1/3) * tan(x)^3", Integral("sin(x)^2/cos(x)^4"));
-        Assert.Equal("(1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("(x - atan(sin(2x) / (cos(2x) + 3))) / 2", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
         Assert.Equal("(1/2) * x - tan(x) / (2sec(x)^2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
     }
 

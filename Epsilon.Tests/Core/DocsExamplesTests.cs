@@ -333,6 +333,8 @@ public class SimplificationDocTests
     [InlineData("x/(x + 1) + 1/(x + 1)", "1")]
     [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
     [InlineData("1/x + 1/y", "1 / x + 1 / y")]
+    [InlineData("1/(1 + 1/x)", "x / (x + 1)")]
+    [InlineData("1/((y^2/z^2 + 1)*z)", "z / (y^2 + z^2)")]
     [InlineData("2sin(x)^2 + 2cos(x)^2 + 1", "3")]
     [InlineData("1 - sin(x)^2", "cos(x)^2")]
     [InlineData("sec(x)^2 - tan(x)^2", "1")]

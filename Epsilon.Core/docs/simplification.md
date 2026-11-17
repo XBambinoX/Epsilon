@@ -88,6 +88,14 @@ ExprParser.Parse("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)").Simplify().Print();       
 ExprParser.Parse("1/x + 1/y").Simplify().Print();                                 // 1 / x + 1 / y
 ```
 
+A sum with fractions in a denominator always goes over its common denominator, which moves up.
+Where that denominator is 0 the quotient wasn't defined, so Strict mode needs it known not to be 0:
+
+```csharp
+ExprParser.Parse("1/(1 + 1/x)").Simplify().Print();           // x / (x + 1)
+ExprParser.Parse("1/((y^2/z^2 + 1)*z)").Simplify().Print();   // z / (y^2 + z^2)
+```
+
 **Identities.** The Pythagorean identities (`sin^2 + cos^2 = 1`, `sec^2 - tan^2 = 1`,
 `csc^2 - cot^2 = 1`) and their hyperbolic forms (`cosh^2 - sinh^2 = 1`, `sech^2 + tanh^2 = 1`,
 `coth^2 - csch^2 = 1`) work across a whole sum, with any coefficients, a common factor and

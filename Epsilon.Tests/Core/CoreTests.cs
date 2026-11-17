@@ -2957,6 +2957,29 @@ public class CommonDenominatorTests
     [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
     public void Strict_mode_keeps_the_denominators_that_may_be_0(string input, string expected) =>
         Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+
+    [Theory]
+    [InlineData("1/(1 + 1/x)", "x / (x + 1)", "1 / (1 / x + 1)")]
+    [InlineData("1/(x - 1/x)", "x / (x^2 - 1)", "1 / (x - 1 / x)")]
+    [InlineData("x/(1/x + 1/y)", "x^2 * y / (x + y)", "x / (1 / x + 1 / y)")]
+    [InlineData("1/((y^2/z^2 + 1)*z)", "z / (y^2 + z^2)", "1 / ((y^2 / z^2 + 1) * z)")]
+    [InlineData("1/(1 + 1/x)^2", "x^2 / (x + 1)^2", "1 / (1 / x + 1)^2")]
+    [InlineData("2/(sqrt(x) + 1/sqrt(x))", "2sqrt(x) / (x + 1)", "2 / (1 / sqrt(x) + sqrt(x))")]
+    [InlineData("(1 + 1/x)/y", "(1 / x + 1) / y", "(1 / x + 1) / y")]                   // only below
+    [InlineData("1/(x/2 + 1)", "1 / ((1/2) * x + 1)", "1 / ((1/2) * x + 1)")]            // numbers aren't fractions
+    public void A_sum_with_fractions_in_a_denominator_goes_over_its_common_denominator(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void A_denominator_known_not_to_be_0_is_cleared_in_Strict_mode()
+    {
+        Assumptions positive = Assumptions.None.Assume("x", signing: Signing.Positive);
+        Assert.Equal("x / (x + 1)", ExprParser.Parse("1/(1 + 1/x)").Simplify(positive, SimplifyMode.Strict).Print());
+    }
 }
 
 public class NumericMultipleTests

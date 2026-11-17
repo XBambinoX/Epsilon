@@ -156,6 +156,12 @@ public static class Simplifier
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
                 return new Constant(a.Value / b.Value);
 
+            // 1/(1 + 1/x) = x/(x + 1), 1/((y^2/z^2 + 1) z) = z/(y^2 + z^2): a sum with fractions in
+            // a denominator goes over its common denominator L, which moves up. The quotient wasn't
+            // defined where L = 0, so Strict mode needs L provably nonzero.
+            case Divide(var n, var d) when TryClearFractionsBelow(n, d, assumptions, mode, out Expr? cleared):
+                return cleared!;
+
             // 0 / d = 0 - enlarges the domain by the zeros of d, so Strict mode needs d provably
             // nonzero. Never applies to a literal 0/0, in either mode.
             case Divide(Constant zero, var d) when zero.Value.IsZero && NonZeroForDomain(d, assumptions, mode):
@@ -1365,6 +1371,13 @@ public static class Simplifier
     private static Expr OverCommonDenominator(
         List<FractionParts> parts, SimplifyMode mode, out Rational weight, out bool cancelled, int depth = 0)
     {
+        Expr numerator = CommonNumerator(parts, mode, out Expr denominator, out weight, out cancelled, depth);
+        return new Divide(numerator, denominator).Simplify(mode);
+    }
+
+    private static Expr CommonNumerator(
+        List<FractionParts> parts, SimplifyMode mode, out Expr denominator, out Rational weight, out bool cancelled, int depth = 0)
+    {
         var common = new Dictionary<Expr, Rational>();
         foreach (FractionParts p in parts)
             foreach (var (b, k) in p.Bottom)
@@ -1395,8 +1408,82 @@ public static class Simplifier
             expanded = OverCommonDenominator([.. inner.Select(t => FractionParts.Of(t.Coefficient, t.Term))], mode, out _, out bool innerCancelled, depth + 1);
             cancelled |= innerCancelled;
         }
-        return new Divide(expanded, PowerProduct(Rational.One, common)).Simplify(mode);
+        denominator = PowerProduct(Rational.One, common);
+        return expanded;
     }
+
+    // n / (S * rest) with S a sum with fractions in it, S = N/L: n L / (N * rest), and so for S^k.
+    private static bool TryClearFractionsBelow(Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, out Expr? result)
+    {
+        result = null;
+        if (SumWithFractions(d) is not { } sum)
+            return false;
+
+        Expr numerator, common;
+        bool combining = t_combiningFractions;
+        t_combiningFractions = true;
+        try
+        {
+            numerator = CommonNumerator(
+                [.. CollectTerms(sum, term => term).Select(t => FractionParts.Of(t.Coefficient, t.Term))], mode, out common, out _, out _);
+        }
+        finally
+        {
+            t_combiningFractions = combining;
+        }
+        if (numerator is Constant { Value.IsZero: true } || HasDenominator(numerator) || HasFractionTerm(numerator) ||
+            !NonZeroForDomain(common, assumptions, mode))
+            return false;
+
+        int power = 1;
+        Expr below = Replaced(d, sum, numerator, ref power);
+        if (ReferenceEquals(below, d))
+            return false;
+        result = new Divide(new Multiply(n, power == 1 ? common : new Power(common, new Constant(power))), below);
+        return true;
+    }
+
+    // d with the sum in it replaced by its numerator, and the power the sum is raised to.
+    private static Expr Replaced(Expr e, Expr sum, Expr numerator, ref int power)
+    {
+        switch (e)
+        {
+            case var _ when ReferenceEquals(e, sum):
+                return numerator;
+            case Power(var b, Constant k) when ReferenceEquals(b, sum):
+                power = (int)k.Value.Numerator;
+                return new Power(numerator, k);
+            case Multiply(var l, var r):
+                Expr left = Replaced(l, sum, numerator, ref power);
+                if (!ReferenceEquals(left, l))
+                    return new Multiply(left, r);
+                Expr right = Replaced(r, sum, numerator, ref power);
+                return ReferenceEquals(right, r) ? e : new Multiply(l, right);
+            case Negate(var a):
+                Expr inner = Replaced(a, sum, numerator, ref power);
+                return ReferenceEquals(inner, a) ? e : new Negate(inner);
+            default:
+                return e;
+        }
+    }
+
+    // The first sum with a fraction among the factors of d, also under a positive integer power.
+    private static Expr? SumWithFractions(Expr d) => d switch
+    {
+        Add or Subtract => HasFractionTerm(d) ? d : null,
+        Multiply(var l, var r) => SumWithFractions(l) ?? SumWithFractions(r),
+        Negate(var a) => SumWithFractions(a),
+        Power(var b and (Add or Subtract), Constant { Value: { IsInteger: true, Sign: > 0 } k })
+            when k.Numerator <= MaxSplitPower => SumWithFractions(b),
+        _ => null,
+    };
+
+    private static bool HasFractionTerm(Expr sum) => sum switch
+    {
+        Add(var l, var r) => HasFractionTerm(l) || HasFractionTerm(r),
+        Subtract(var l, var r) => HasFractionTerm(l) || HasFractionTerm(r),
+        _ => HasDenominator(sum),
+    };
 
     private static int TermCount(Expr e) => e is Constant { Value.IsZero: true } ? 0 : CollectTerms(e, term => term).Count;
 

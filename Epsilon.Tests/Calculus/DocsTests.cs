@@ -694,7 +694,7 @@ public class CalculusSymbolicIntegrationDocTests
 
         Assert.Equal("cos(x) - 2atan(cos(x))", Integral("sin(x)^3/(1 + cos(x)^2)"));
         Assert.Equal("(1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
-        Assert.Equal("(1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("(x - atan(sin(2x) / (cos(2x) + 3))) / 2", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
         Assert.Equal("-ln(cos(x)^2 + 1)", Integral("sin(2*x)/(1 + cos(x)^2)"));
 
         Assert.Equal("-2 * (3tan(x / 2)^2 + 3tan(x / 2) + 2) / (3(tan(x / 2) + 1)^3)", Integral("1/(1 + sin(x))^2"));
@@ -756,7 +756,6 @@ public class CalculusSymbolicIntegrationDocTests
     [Theory]
     [InlineData("1/(x^5 - x - 1)")]
     [InlineData("1/(x^2 + a^2)")]
-    [InlineData("1/(sqrt(2) + cos(x))^2")]
     [InlineData("exp(x^2)")]
     [InlineData("x*tan(x)")]
     [InlineData("sqrt(1 + x^3)")]
@@ -1132,8 +1131,11 @@ public class CalculusLimitationsDocTests
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
         Assert.Equal("(1/2) * x^2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());
         Assert.Equal("-cos(x) * i + sin(x)", ExprParser.Parse("exp(i*x)").Integrate("x").Print());
-        foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "sech(x + i)", "1/(sqrt(2) + cos(x))^2" })
+        foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "sech(x + i)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
+        var root2 = ExprParser.Parse("1/(sqrt(2) + cos(x))^2");
+        Assert.InRange(root2.Integrate("x").Print().Length, 600, 800);
+        Assert.Throws<NotSupportedException>(() => root2.IntegrateExact("x", 0, 10));
 
         Assert.Equal("((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2", ExprParser.Parse("min(x, 1)").Integrate("x").Print());
         Assert.Equal("2atan(sqrt(2) * x) / sqrt(2) + 2x / (2x^2 + 1)", ExprParser.Parse("1/(x^2 + 1/2)^2").Integrate("x").Print());
@@ -1206,6 +1208,9 @@ public class CalculusLimitationsDocTests
 
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("sqrt(x - a)").Limit("x", ExprParser.Parse("a")));
         Assert.Equal("0", ExprParser.Parse("sqrt(x - a)").Limit("x", ExprParser.Parse("a"), LimitDirection.Right).Print());
+
+        Assert.Throws<NotSupportedException>(() => ExprParser.Parse("(sqrt(2*sqrt(2) + 3) - sqrt(2) - 1)*x").Limit("x", double.PositiveInfinity));
+        Assert.Equal("inf", ExprParser.Parse("(sqrt(3) - 1.7320508)*x").Limit("x", double.PositiveInfinity).Print());
 
         Assert.Equal("tan(15707963267949/10000000000000)", ExprParser.Parse("tan(x)").Limit("x", Math.PI / 2).Print());
     }

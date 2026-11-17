@@ -210,7 +210,7 @@ public class PartialFractionsTests
     public void Sums_of_fractions()
     {
         Assert.Equal("x - ln(abs(x + 1))", Integral("1/(1/x + 1)"));
-        Assert.Equal("(1/6) * x^3 + (1/2) * x", Integral("1/((1 - x^2)/(1 + x^2) + 1)"));
+        Assert.Equal("((1/3) * x^3 + x) / 2", Integral("1/((1 - x^2)/(1 + x^2) + 1)"));
     }
 
     // A polynomial in x^k splits as one in y = x^k does, which the search for linear and

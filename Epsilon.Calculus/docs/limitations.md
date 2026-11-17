@@ -25,9 +25,10 @@ is updated with it. The expressions have
 - **Rational functions with symbols or irrational numbers in the denominator.** In
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
-  coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)), but Bioche's
-  rules and t = tan(x/2) leave fractions with irrational coefficients that the core doesn't
-  always simplify: `1/(sqrt(2) + cos(x))^2` isn't integrated.
+  coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)). With
+  irrational coefficients Bioche's rules and t = tan(x/2) give long antiderivatives with nested
+  radicals that the simplifier doesn't denest: `1/(sqrt(2) + cos(x))^2` gives about 700
+  characters, and its limits at pi aren't found, so `IntegrateExact` over pi throws.
 - **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
   `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
   [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
@@ -132,6 +133,9 @@ is updated with it. The expressions have
 - **A coefficient with a symbol is taken as other than 0**, as in series, and with symbols the
   side an expression isn't real on isn't left out: `sqrt(x - a)` at x = a throws, though from
   the right it is 0.
+- **A number within rounding of 0 that the simplifier doesn't show to be 0 has no sign**, so
+  the limit isn't found: `(sqrt(2*sqrt(2) + 3) - sqrt(2) - 1)*x` at inf, which is 0, throws, as
+  sqrt(2sqrt(2) + 3) = sqrt(2) + 1 isn't seen.
 - **A point given as a double is its decimal**: `tan(x)` at `Math.PI / 2` is
   tan(15707963267949/10000000000000), a number, not a limit from two sides of a pole.
 

@@ -223,7 +223,7 @@ rules apply, the shortest result is taken:
 ```csharp
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();    // cos(x) - 2atan(cos(x))
 ExprParser.Parse("cos(x)^5/sin(x)^2").Integrate("x").Print();          // (1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)
-ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (1/2) * (x - atan(sin(2x) / (cos(2x) + 3)))
+ExprParser.Parse("1/(sin(x)^2 + 4*cos(x)^2)").Integrate("x").Print();  // (x - atan(sin(2x) / (cos(2x) + 3))) / 2
 ExprParser.Parse("sin(2*x)/(1 + cos(x)^2)").Integrate("x").Print();    // -ln(cos(x)^2 + 1)
 ```
 
@@ -395,7 +395,6 @@ ExprParser.Parse("1/(x^2 + a^2)").Integrate("x");
 | Integrand | Needs |
 |---|---|
 | `1/(x^2 + a^2)` | the sign of a quadratic with a symbol in it |
-| `1/(sqrt(2) + cos(x))^2` | fractions with irrational coefficients brought to a common denominator |
 | `1/(x^5 - x - 1)` | the roots of a factor of degree 5, which radicals don't write |
 | `exp(x^2)`, `x*tan(x)` | nothing: they have no elementary antiderivative |
 | `sqrt(1 + x^3)`, `1/sqrt(x^4 + 1)` | nothing either: these square roots of a cubic and a quartic give elliptic integrals |
