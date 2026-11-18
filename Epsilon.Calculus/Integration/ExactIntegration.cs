@@ -182,8 +182,6 @@ public static class ExactIntegrationExtensions
 
     private sealed class Definite(Expr f, string variable, Bound a, Bound b)
     {
-        private const int MaxLogarithmPower = 16;
-
         private string Integral => $"The integral of {f.Print()} from {a.Print()} to {b.Print()}";
 
         public Expr Value()
@@ -453,7 +451,7 @@ public static class ExactIntegrationExtensions
 
         private static Expr Tidied(Expr e)
         {
-            Expr tidy = MergedLogarithms(SeriesExpander.Tidy(e));
+            Expr tidy = SeriesExpander.Tidy(e);
             if (QuadraticSurd.Of(tidy) is { } surd)
                 return surd.ToExpr();
 
@@ -513,49 +511,6 @@ public static class ExactIntegrationExtensions
             }
         }
 
-        // a ln(p) + b ln(q) for rationals p, q > 0 and b a multiple of a is a ln(p q^(b/a)):
-        // (1/2) ln(3/2) rather than (1/2) ln(1/2) - (1/2) ln(1/3), and -ln(2) rather than ln(1/2).
-        private static Expr MergedLogarithms(Expr e)
-        {
-            var terms = new List<Expr>();
-            Terms(e, false, terms);
-            var logs = new List<(Rational Coefficient, Rational Argument)>();
-            var rest = new List<Expr>();
-            foreach (Expr term in terms)
-            {
-                if (Logarithm(term) is { } log)
-                    logs.Add(log);
-                else
-                    rest.Add(term);
-            }
-
-            if (logs.Count == 0)
-                return e;
-
-            Rational unit = logs.Select(log => log.Coefficient.Abs()).Min();
-            if (logs.Any(log => !(log.Coefficient / unit).IsInteger || (log.Coefficient / unit).Abs() > MaxLogarithmPower))
-                return e;
-
-            Rational product = logs.Aggregate(Rational.One, (p, log) => p * log.Argument.Pow((int)(log.Coefficient / unit).Numerator));
-            if (product.Numerator.IsOne)
-                (unit, product) = (-unit, 1 / product);
-
-            for (int k = MaxLogarithmPower; k >= 2; k--)
-                if (Root(product.Numerator, k) is { } top && Root(product.Denominator, k) is { } bottom)
-                {
-                    (unit, product) = (unit * k, new Rational(top, bottom));
-                    break;
-                }
-
-            return rest.Aggregate(new Constant(unit) * new Ln(new Constant(product)), (sum, term) => sum + term).Simplify();
-        }
-
-        private static System.Numerics.BigInteger? Root(System.Numerics.BigInteger a, int k)
-        {
-            var r = new System.Numerics.BigInteger(Math.Round(Math.Pow((double)a, 1.0 / k)));
-            return System.Numerics.BigInteger.Pow(r, k) == a ? r : null;
-        }
-
         private static void Terms(Expr e, bool negated, List<Expr> terms)
         {
             switch (e)
@@ -576,15 +531,6 @@ public static class ExactIntegrationExtensions
                     break;
             }
         }
-
-        private static (Rational Coefficient, Rational Argument)? Logarithm(Expr term) => term switch
-        {
-            Ln { Argument: Constant { Value: { Sign: > 0 } r } } => (Rational.One, r),
-            Multiply { Left: Constant c, Right: var log } when Logarithm(log) is var (k, r) => (c.Value * k, r),
-            Divide { Numerator: var log, Denominator: Constant { Value.IsZero: false } c } when Logarithm(log) is var (k, r) => (k / c.Value, r),
-            Negate negate when Logarithm(negate.Argument) is var (k, r) => (-k, r),
-            _ => null,
-        };
 
         private static bool Negligible(Expr jump, Expr scale)
         {
