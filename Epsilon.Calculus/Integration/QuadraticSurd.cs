@@ -2,8 +2,9 @@ using Epsilon.Core;
 
 namespace Epsilon.Calculus;
 
-// A number a + b sqrt(d) for rationals a and b and a squarefree integer d > 1, kept exact, with
-// division by the conjugate: the simplifier leaves 1/(sqrt(3) + 2) as it is, which is 2 - sqrt(3).
+// A number a + b sqrt(d) for rationals a and b and a squarefree integer d > 1, kept exact: the
+// coefficients of sinusoids and quadratics taken apart, and exact results put over a common
+// denominator. The core's own is internal.
 internal readonly record struct QuadraticSurd(Rational A, Rational B, long D)
 {
     private const long MaxRadicand = 1_000_000_000_000;
@@ -36,8 +37,7 @@ internal readonly record struct QuadraticSurd(Rational A, Rational B, long D)
 
     public bool IsZero => A.IsZero && B.IsZero;
 
-    // Over a common denominator, (40 - 4 sqrt(3))/97: the simplifier prints a sum with a
-    // negative fraction before the root as -4 * (1/97) * sqrt(3) + 40/97.
+    // Over a common denominator, (5sqrt(5) - 1)/12, which Simplify leaves as 5sqrt(5)/12 - 1/12.
     public Expr ToExpr()
     {
         if (B.IsZero)
