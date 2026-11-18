@@ -885,7 +885,34 @@ public static class Simplifier
     // a sum of only such terms (the minus that was distributed over it).
     private static bool HasNegativeSign(Expr u) =>
         ConstantFactor(u).Sign < 0 || u is Divide(var n, _) && ConstantFactor(n).Sign < 0 ||
-        u is Add or Subtract && CollectTerms(u, term => term).All(t => (t.Term is Constant c ? t.Coefficient * c.Value : t.Coefficient).Sign < 0);
+        u is Add or Subtract && AllTermsNegative(u, negated: false);
+
+    // As the terms CollectTerms gives, without building them: the left spine of a long sum in a
+    // loop, and out at the first term that isn't negative.
+    private static bool AllTermsNegative(Expr sum, bool negated)
+    {
+        Expr e = sum;
+        while (true)
+        {
+            switch (e)
+            {
+                case Add(var l, var r):
+                    if (!AllTermsNegative(r, negated))
+                        return false;
+                    e = l;
+                    continue;
+                case Subtract(var l, var r):
+                    if (!AllTermsNegative(r, !negated))
+                        return false;
+                    e = l;
+                    continue;
+                default:
+                    var (k, term) = ExtractCoefficient(e);
+                    int sign = (term is Constant c ? k * c.Value : k).Sign;
+                    return (negated ? -sign : sign) < 0;
+            }
+        }
+    }
 
     // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
     // the product was the factor itself.
