@@ -1374,6 +1374,13 @@ public static class Simplifier
         if (expr is not (Multiply or Negate(Multiply)))
             return expr;
 
+        // The most common product, two factors that stay as they are (5x^5, x sin(x)), without the
+        // lists below: Simplify runs this for every product, every step.
+        if (expr is Multiply(var l, var r) && IsSettledFactor(r) &&
+            (l is Constant { Value: var k } ? !k.IsZero && !k.IsOne && k != Rational.MinusOne
+                                            : IsSettledFactor(l) && !AsPower(l).Base.Equals(AsPower(r).Base)))
+            return expr;
+
         var factors = new List<Expr>();
         Rational coefficient = Rational.One;
         FlattenProduct(expr, factors, ref coefficient);
@@ -1419,6 +1426,13 @@ public static class Simplifier
         result ??= new Constant(negate ? Rational.One : coefficient);
         return negate ? new Negate(result) : result;
     }
+
+    // A factor that the product leaves as it is: not a number, product, negation or sum of negative
+    // terms, which go into the coefficient, nor a power 1 or 1/2, which is written otherwise.
+    private static bool IsSettledFactor(Expr f) =>
+        f is not (Constant or Multiply or Negate) &&
+        !(f is Add or Subtract && HasNegativeSign(f)) &&
+        !(f is Power(_, Constant { Value: var e }) && (e.IsOne || e == Half));
 
     // Negations anywhere in the chain are pulled out into the coefficient, so that
     // -x * y * x merges to -(x^2*y) and x * (-y) * x * (-y) to x^2 * y^2.
