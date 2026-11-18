@@ -1154,41 +1154,58 @@ public static class Simplifier
 
     // Flattens a chain of Add/Subtract into a flat list of (coefficient, term) pairs, in order,
     // simplifying each term first. A term that simplifies to a sum (ln(exp(a + b))) is flattened
-    // too; its own terms are simplified already. Uses an explicit stack, not recursion: a sum of
-    // n terms is a chain n levels deep.
+    // too; its own terms are simplified already. The left spine is walked in a loop, not by
+    // recursion: a sum of n terms is a chain n levels deep.
     private static List<(Rational Coefficient, Expr Term)> CollectTerms(Expr sum, Func<Expr, Expr> simplifyTerm)
     {
         var terms = new List<(Rational Coefficient, Expr Term)>();
-        var pending = new Stack<(Expr Expr, Rational Sign, bool Simplified)>();
-        pending.Push((sum, Rational.One, false));
+        AddTermsFromTheEnd(sum, Rational.One, simplified: false, simplifyTerm, terms);
+        terms.Reverse();
+        return terms;
+    }
 
-        while (pending.TryPop(out var item))
+    // The left spine in a loop, last term first: a stack walking it in order would hold every
+    // right term of a long sum at once.
+    private static void AddTermsFromTheEnd(
+        Expr e, Rational sign, bool simplified, Func<Expr, Expr> simplifyTerm, List<(Rational Coefficient, Expr Term)> terms)
+    {
+        while (true)
         {
-            switch (item.Expr)
+            switch (e)
             {
                 case Add(var l, var r):
-                    pending.Push((r, item.Sign, item.Simplified));
-                    pending.Push((l, item.Sign, item.Simplified));
-                    break;
+                    if (r is Add or Subtract)
+                        AddTermsFromTheEnd(r, sign, simplified, simplifyTerm, terms);
+                    else
+                        AddTerm(r, sign, simplified, simplifyTerm, terms);
+                    e = l;
+                    continue;
                 case Subtract(var l, var r):
-                    pending.Push((r, -item.Sign, item.Simplified));
-                    pending.Push((l, item.Sign, item.Simplified));
-                    break;
+                    if (r is Add or Subtract)
+                        AddTermsFromTheEnd(r, -sign, simplified, simplifyTerm, terms);
+                    else
+                        AddTerm(r, -sign, simplified, simplifyTerm, terms);
+                    e = l;
+                    continue;
                 default:
-                    Expr simplified = item.Simplified ? item.Expr : simplifyTerm(item.Expr);
-                    if (simplified is Add or Subtract)
-                    {
-                        pending.Push((simplified, item.Sign, true));
-                        break;
-                    }
-
-                    var (coef, term) = ExtractCoefficient(simplified);
-                    terms.Add((coef * item.Sign, term));
-                    break;
+                    AddTerm(e, sign, simplified, simplifyTerm, terms);
+                    return;
             }
         }
+    }
 
-        return terms;
+    private static void AddTerm(
+        Expr e, Rational sign, bool simplified, Func<Expr, Expr> simplifyTerm, List<(Rational Coefficient, Expr Term)> terms)
+    {
+        Expr simplifiedTerm = simplified ? e : simplifyTerm(e);
+        if (simplifiedTerm is Add or Subtract)
+        {
+            AddTermsFromTheEnd(simplifiedTerm, sign, simplified: true, simplifyTerm, terms);
+            return;
+        }
+
+        var (coef, term) = ExtractCoefficient(simplifiedTerm);
+        terms.Add((coef * sign, term));
     }
 
     private static bool IsSquareOf<TFunction>(Expr term, out Expr argument) where TFunction : UnaryExpr
