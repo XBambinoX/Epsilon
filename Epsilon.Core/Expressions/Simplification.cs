@@ -129,7 +129,7 @@ public static class Simplifier
     // is never dropped; Strict mode also needs u provably defined: 0 * ln(x) keeps x > 0.
     private static bool DefinedForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
         ScanConstantParts(expr) is not null &&
-        (mode == SimplifyMode.Generic || IsProvablyDefined(expr, assumptions));
+        (mode == SimplifyMode.Generic || DomainConditions(expr, assumptions).Count == 0);
 
     // Whether expr has variables, or null when a part of it is undefined whatever they are: a
     // part without variables that has no value (1/0, ln(0), 0^(-1/2)), or x/0.
@@ -176,35 +176,99 @@ public static class Simplifier
         catch (Exception e) when (e is ArithmeticException or InvalidOperationException or NotSupportedException) { return null; }
     }
 
-    // Whether expr has a real value for all values of its variables that the assumptions allow.
-    // Parts without variables were checked by ScanConstantParts.
-    private static bool IsProvablyDefined(Expr expr, Assumptions assumptions)
+    private enum DomainKind { NonZero, NonNegative, Positive, CosNonZero, SinNonZero, Defined }
+
+    // What expr needs to have a real value, besides what the assumptions prove: y != 0 for x/y,
+    // x > 0 for ln(x), cos(x) != 0 for tan(x). A part these don't describe, like asin(x), needs
+    // itself defined. Parts without variables were checked by ScanConstantParts.
+    private static HashSet<(DomainKind Kind, Expr Of)> DomainConditions(Expr expr, Assumptions assumptions)
+    {
+        var conditions = new HashSet<(DomainKind, Expr)>();
+        AddDomainConditions(expr, assumptions, conditions);
+        return conditions;
+    }
+
+    private static void AddDomainConditions(Expr expr, Assumptions assumptions, HashSet<(DomainKind, Expr)> conditions)
     {
         if (!HasVariables(expr))
-            return true;
+            return;
 
-        return expr switch
+        switch (expr)
         {
-            Variable => true,
-            Add or Subtract or Multiply or Negate or Exp or Sin or Cos or Atan or Sinh or Cosh or Tanh or Asinh
-                or Sech or Abs or Sign or Floor or Ceiling or Round or Min or Max =>
-                expr.Children.All(child => IsProvablyDefined(child, assumptions)),
-            Divide(var n, var d) =>
-                IsProvablyDefined(n, assumptions) && IsProvablyDefined(d, assumptions) && d.IsProvablyNonZero(assumptions),
-            Power(var b, Constant e) when e.Value.IsInteger =>
-                IsProvablyDefined(b, assumptions) && (e.Value.Sign >= 0 || b.IsProvablyNonZero(assumptions)),
-            Power(var b, Constant e) =>
-                IsProvablyDefined(b, assumptions) &&
-                (e.Value.Sign > 0 ? b.IsProvablyNonNegative(assumptions) : b.IsProvablyPositive(assumptions)),
-            Power(var b, var e) =>
-                IsProvablyDefined(b, assumptions) && IsProvablyDefined(e, assumptions) && b.IsProvablyPositive(assumptions),
-            Sqrt(var a) => IsProvablyDefined(a, assumptions) && a.IsProvablyNonNegative(assumptions),
-            NthRoot(var a, Constant n) => IsProvablyDefined(a, assumptions) &&
-                                          (n.Value.IsInteger && !n.Value.Numerator.IsEven || a.IsProvablyNonNegative(assumptions)),
-            Ln(var a) => IsProvablyDefined(a, assumptions) && a.IsProvablyPositive(assumptions),
-            _ => false
-        };
+            case Variable or Add or Subtract or Multiply or Negate or Exp or Sin or Cos or Atan or Sinh or Cosh or Tanh
+                or Asinh or Sech or Abs or Sign or Floor or Ceiling or Round or Min or Max:
+                break;
+            case Divide(_, var d):
+                AddNonZero(d, assumptions, conditions);
+                break;
+            case Power(var b, Constant e) when e.Value.IsInteger:
+                if (e.Value.Sign < 0)
+                    AddNonZero(b, assumptions, conditions);
+                break;
+            case Power(var b, Constant e):
+                AddSign(e.Value.Sign > 0 ? DomainKind.NonNegative : DomainKind.Positive, b, assumptions, conditions);
+                break;
+            case Power(var b, _):
+                AddSign(DomainKind.Positive, b, assumptions, conditions);
+                break;
+            case Sqrt(var a):
+                AddSign(DomainKind.NonNegative, a, assumptions, conditions);
+                break;
+            case NthRoot(var a, Constant n) when n.Value.IsInteger:
+                if (n.Value.Numerator.IsEven)
+                    AddSign(DomainKind.NonNegative, a, assumptions, conditions);
+                break;
+            case Ln(var a):
+                AddSign(DomainKind.Positive, a, assumptions, conditions);
+                break;
+            case Tan or Sec:
+                conditions.Add((DomainKind.CosNonZero, ((UnaryExpr)expr).Argument));
+                break;
+            case Cot or Csc:
+                conditions.Add((DomainKind.SinNonZero, ((UnaryExpr)expr).Argument));
+                break;
+            case Coth or Csch:
+                AddNonZero(((UnaryExpr)expr).Argument, assumptions, conditions);
+                break;
+            default:
+                conditions.Add((DomainKind.Defined, expr));
+                break;
+        }
+
+        foreach (Expr child in expr.Children)
+            AddDomainConditions(child, assumptions, conditions);
     }
+
+    // u != 0 as conditions on its factors: x^2 * y != 0 is x != 0 and y != 0, the same as 1/x needs.
+    private static void AddNonZero(Expr expr, Assumptions assumptions, HashSet<(DomainKind, Expr)> conditions)
+    {
+        switch (expr)
+        {
+            case Multiply(var l, var r):
+                AddNonZero(l, assumptions, conditions);
+                AddNonZero(r, assumptions, conditions);
+                break;
+            case Negate or Abs or Sqrt or Divide or Power(_, Constant { Value.Sign: > 0 }):
+                AddNonZero(expr.Children[0], assumptions, conditions);
+                break;
+            default:
+                if (HasVariables(expr) && !expr.IsProvablyNonZero(assumptions))
+                    conditions.Add((DomainKind.NonZero, expr));
+                break;
+        }
+    }
+
+    private static void AddSign(DomainKind kind, Expr expr, Assumptions assumptions, HashSet<(DomainKind, Expr)> conditions)
+    {
+        bool proven = kind == DomainKind.Positive ? expr.IsProvablyPositive(assumptions) : expr.IsProvablyNonNegative(assumptions);
+        if (!proven)
+            conditions.Add((kind, expr));
+    }
+
+    // u > 0 also gives u != 0 and u >= 0.
+    private static bool IsImplied((DomainKind Kind, Expr Of) condition, HashSet<(DomainKind, Expr)> known) =>
+        known.Contains(condition) ||
+        condition.Kind is DomainKind.NonZero or DomainKind.NonNegative && known.Contains((DomainKind.Positive, condition.Of));
 
     private static bool HasVariables(Expr expr) =>
         expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
@@ -1326,16 +1390,55 @@ public static class Simplifier
 
         CollectNegatedSums(combined);
         CollectNumericMultiples(combined);
+
+        var cancelled = combined.Where(t => t.Coefficient.IsZero).Select(t => t.Term).ToList();
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
         MergeExponentialLogarithms(combined, ref constantSum);
         CombineFractions(combined, ref constantSum, mode);
+        if (cancelled.Count > 0)
+            KeepUndefinedCancelledTerms(combined, cancelled, assumptions, mode);
         Expr result = BuildSum(combined, constantSum);
         if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
             return folded;
 
         // An unchanged sum keeps its instance, and with it the cached hash codes.
         return result.Equals(sum) ? sum : result;
+    }
+
+    // Terms that add up to 0 go where that keeps the domain, as 0 * u does. ln(0) - ln(0) stays in
+    // either mode
+    private static void KeepUndefinedCancelledTerms(
+        List<(Rational Coefficient, Expr Term)> terms, List<Expr> cancelled, Assumptions assumptions, SimplifyMode mode)
+    {
+        HashSet<(DomainKind, Expr)>? domain = null;
+
+        foreach (Expr term in cancelled)
+        {
+            if (ScanConstantParts(term) is not null)
+            {
+                if (mode == SimplifyMode.Generic)
+                    continue;
+
+                var needed = DomainConditions(term, assumptions);
+                if (needed.Count == 0)
+                    continue;
+
+                if (domain is null)
+                {
+                    domain = [];
+                    foreach (var (_, other) in terms)
+                        AddDomainConditions(other, assumptions, domain);
+                }
+
+                if (needed.All(condition => IsImplied(condition, domain)))
+                    continue;
+
+                domain.UnionWith(needed);
+            }
+
+            terms.Add((Rational.Zero, term));
+        }
     }
 
     // Expand simplifies, and the sums it simplifies are put over a common denominator by the

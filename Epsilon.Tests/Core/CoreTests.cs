@@ -2681,6 +2681,26 @@ public class QuotientConstantFactorTests
     }
 
     [Theory]
+    [InlineData("x/y - x/y", "0", "0 / y")]
+    [InlineData("x/(a - b) + x/(b - a)", "0", "0 / (a - b)")]
+    [InlineData("ln(x) - ln(x) + 1", "1", "0 * ln(x) + 1")]
+    [InlineData("1/x - 1/x + 1/x^2", "1 / x^2", "1 / x^2")]       // 1/x^2 keeps x != 0
+    [InlineData("ln(x) - ln(x) + sqrt(x - 1)", "sqrt(x - 1)", "0 * ln(x) + sqrt(x - 1)")]
+    [InlineData("ln(x) - ln(x) + ln(x)^2", "ln(x)^2", "ln(x)^2")]
+    [InlineData("sin(x) - sin(x)", "0", "0")]
+    [InlineData("ln(0) - ln(0)", "0 * ln(0)", "0 * ln(0)")]
+    public void Terms_that_cancel_go_only_where_the_domain_stays(string input, string generic, string strict)
+    {
+        Expr expr = ExprParser.Parse(input);
+        Assert.Equal(generic, expr.Simplify().Print());
+        Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Terms_that_cancel_where_the_assumptions_define_them_go_in_strict_mode() =>
+        Assert.Equal("0", ExprParser.Parse("x/y - x/y").Simplify(Assumptions.None.AssumeNonZero("y"), SimplifyMode.Strict).Print());
+
+    [Theory]
     [InlineData("1/(x/2)", "2 / x", "2 / x")]
     [InlineData("3/(x/2)", "6 / x", "6 / x")]
     [InlineData("1/(1/x)", "x", "1 / (1 / x)")]          // undefined at x = 0
@@ -2738,7 +2758,7 @@ public class SquareRootAsPowerTests
 {
     // sqrt(u) and u^(1/2) are one expression; Strict keeps refusing what enlarges the domain.
     [Theory]
-    [InlineData("sqrt(y) - y^(1/2)", "0", "0")]
+    [InlineData("sqrt(y) - y^(1/2)", "0", "0 * sqrt(y)")]
     [InlineData("(x^2 + 1)^(1/2) - sqrt(x^2 + 1)", "0", "0")]
     [InlineData("1/x^(1/2)", "1 / sqrt(x)", "1 / sqrt(x)")]
     [InlineData("x*sqrt(x)", "x^(3/2)", "x^(3/2)")]
@@ -3100,7 +3120,6 @@ public class NumericMultipleTests
     [InlineData("(1 - x)*y + (x - 1)*y", "0")]
     [InlineData("(a - b)^2 - (b - a)^2", "0")]
     [InlineData("(a - b)^3 + (b - a)^3", "0")]
-    [InlineData("x/(a - b) + x/(b - a)", "0")]
     [InlineData("(x - 1)*(y - 1) - (1 - x)*(1 - y)", "0")]
     [InlineData("3*(1 - x) + 2*(x - 1)", "-x + 1")]
     [InlineData("2*(1 - x) + 3*(x - 1)", "x - 1")]

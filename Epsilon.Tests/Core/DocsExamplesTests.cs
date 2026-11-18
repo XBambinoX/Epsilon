@@ -397,6 +397,7 @@ public class SimplificationDocTests
     [InlineData("x^3/x", "x^2", "x^3 / x")]
     [InlineData("0/x", "0", "0 / x")]
     [InlineData("0*ln(x)", "0", "0 * ln(x)")]
+    [InlineData("x/y - x/y", "0", "0 / y")]
     [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
     [InlineData("sqrt(x)^2", "x", "sqrt(x)^2")]
     [InlineData("exp(ln(x))", "x", "exp(ln(x))")]

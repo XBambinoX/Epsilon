@@ -268,6 +268,7 @@ More examples of the difference:
 | `x^3/x` | `x^2` | `x^3 / x` | x = 0 |
 | `0/x` | `0` | `0 / x` | x = 0 |
 | `0*ln(x)` | `0` | `0 * ln(x)` | x <= 0 |
+| `x/y - x/y` | `0` | `0 / y` | y = 0 |
 | `1/(2/x)` | `x / 2` | `1 / (2 / x)` | x = 0 |
 | `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
 | `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
