@@ -1804,6 +1804,37 @@ public class CoreCoverageBatchTests
 public class RationalTests
 {
     [Theory]
+    [InlineData(1, 2, 2, 3, -1)]
+    [InlineData(-1, 2, -2, 3, 1)]
+    [InlineData(-1, 2, 1, 3, -1)]
+    [InlineData(2, 4, 1, 2, 0)]
+    [InlineData(3, 1, 5, 2, 1)]
+    [InlineData(-7, 1, -6, 1, -1)]
+    [InlineData(0, 1, -1, 1000000, 1)]
+    public void Compares_by_value(long a, long b, long c, long d, int sign)
+    {
+        Rational x = new(a, b), y = new(c, d);
+
+        Assert.Equal(sign, Math.Sign(x.CompareTo(y)));
+        Assert.Equal(-sign, Math.Sign(y.CompareTo(x)));
+        Assert.Equal(sign < 0, x < y);
+        Assert.Equal(sign > 0, x > y);
+        Assert.Equal(sign <= 0, x <= y);
+        Assert.Equal(sign >= 0, x >= y);
+    }
+
+    [Fact]
+    public void Compares_huge_and_default_values()
+    {
+        var huge = new Rational(System.Numerics.BigInteger.Pow(10, 40) + 1, System.Numerics.BigInteger.Pow(10, 40));
+
+        Assert.True(huge > Rational.One);
+        Assert.True(new Rational(System.Numerics.BigInteger.Pow(10, 40), System.Numerics.BigInteger.Pow(10, 40) + 1) < Rational.One);
+        Assert.Equal(0, default(Rational).CompareTo(Rational.Zero));
+        Assert.True(default(Rational) < new Rational(1, 3));
+    }
+
+    [Theory]
     [InlineData(double.PositiveInfinity, "double.PositiveInfinity")]
     [InlineData(double.NegativeInfinity, "double.NegativeInfinity")]
     [InlineData(double.NaN, "double.NaN")]

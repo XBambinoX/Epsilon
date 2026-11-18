@@ -26,16 +26,26 @@ public static class Simplifier
     /// <param name="mode">See <see cref="Simplify(Expr, SimplifyMode)"/>.</param>
     /// <returns>An equivalent expression in canonical form.</returns>
     public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic) =>
-        SimplifyCached(expr, assumptions, mode, new Dictionary<Expr, Expr>());
+        SimplifyCached(expr, assumptions, mode, new SimplifyCache());
 
     // One call simplifies the same subtrees over and over: every fixpoint step re-simplifies
-    // all children
-    private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    // all children. Sums that didn't come out simpler over a common denominator, and quotients
+    // whose sums didn't divide, are kept too: the next step, which checks the result, would try
+    // them again.
+    private sealed class SimplifyCache : Dictionary<Expr, Expr>
+    {
+        public HashSet<Expr> Uncombined { get; } = [];
+        public HashSet<Expr> Undivided { get; } = [];
+    }
+
+    private readonly record struct Context(Assumptions Assumptions, SimplifyMode Mode, SimplifyCache Cache);
+
+    private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         if (cache.TryGetValue(expr, out Expr? cached))
             return cached;
 
-        Expr result = IterateToFixpoint(expr.Canonicalize(), e => SimplifyOnce(e, assumptions, mode, cache));
+        Expr result = IterateToFixpoint(expr.Canonicalize(), new Context(assumptions, mode, cache), static (e, c) => SimplifyOnce(e, c.Assumptions, c.Mode, c.Cache));
         cache[expr] = result;
         cache.TryAdd(result, result);
         return result;
@@ -49,7 +59,12 @@ public static class Simplifier
     // so far is a correct answer: the smallest one is returned instead of throwing at the user.
     // A repeated expression ends the loop at once, and the choice doesn't depend on where in
     // the cycle it was noticed.
-    internal static Expr IterateToFixpoint(Expr start, Func<Expr, Expr> step, int maxIterations = MaxSimplifyIterations)
+    internal static Expr IterateToFixpoint(Expr start, Func<Expr, Expr> step, int maxIterations = MaxSimplifyIterations) =>
+        IterateToFixpoint(start, step, static (e, f) => f(e), maxIterations);
+
+    // With the state passed along, so that the steps of Simplify, run for every subtree, need no
+    // closure: those were a good part of what the garbage collector had to clean up.
+    private static Expr IterateToFixpoint<TState>(Expr start, TState state, Func<Expr, TState, Expr> step, int maxIterations = MaxSimplifyIterations)
     {
         // Fast path: almost every call settles within a step or two. Simplify runs this for
         // every subtree, so the history below is only built for the rare slow cases.
@@ -57,7 +72,7 @@ public static class Simplifier
         int untracked = Math.Min(UntrackedIterations, maxIterations);
         for (int i = 0; i < untracked; i++)
         {
-            Expr next = step(current);
+            Expr next = step(current, state);
             if (next.Equals(current))
                 return next;
             current = next;
@@ -70,7 +85,7 @@ public static class Simplifier
 
         for (int i = untracked; i < maxIterations; i++)
         {
-            Expr next = step(current);
+            Expr next = step(current, state);
 
             if (next.Equals(current))
                 return next;
@@ -98,12 +113,12 @@ public static class Simplifier
         return count;
     }
 
-    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         if (expr is Add or Subtract)
             return SimplifySum(expr, assumptions, mode, cache).Canonicalize();
 
-        Expr simplifiedChildren = expr.MapChildren(child => SimplifyCached(child, assumptions, mode, cache));
+        Expr simplifiedChildren = expr.MapChildren(new Context(assumptions, mode, cache), static (child, c) => SimplifyCached(child, c.Assumptions, c.Mode, c.Cache));
         return ApplyRules(simplifiedChildren, assumptions, mode, cache).Canonicalize();
     }
 
@@ -135,7 +150,7 @@ public static class Simplifier
     // part without variables that has no value (1/0, ln(0), 0^(-1/2)), or x/0.
     private static bool? ScanConstantParts(Expr expr)
     {
-        bool hasVariables = expr.Children.Length == 0 && expr.GetVariables().Count > 0;
+        bool hasVariables = expr.Children.Length == 0 && expr.HasVariables();
         bool lastHasVariables = false; // of a quotient, the denominator
 
         foreach (Expr child in expr.Children)
@@ -288,11 +303,10 @@ public static class Simplifier
             RealValue(constant) is { } value && double.IsFinite(value) ? Math.Abs(value) : double.PositiveInfinity,
             (largest, part) => Math.Max(largest, LargestPart(part)));
 
-    private static bool HasVariables(Expr expr) =>
-        expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
+    private static bool HasVariables(Expr expr) => expr.HasVariables();
 
     // Sums never get here: SimplifySum handles a whole Add/Subtract chain at once.
-    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         Expr combinedProduct = CombineProductFactors(expr, assumptions, mode);
         if (!combinedProduct.Equals(expr))
@@ -325,7 +339,7 @@ public static class Simplifier
                 return cancelled!;
 
             case Divide(var numerator, var denominator)
-                when TryCancelPolynomialFactors(numerator, denominator, assumptions, mode, out Expr? divided):
+                when TryCancelPolynomialFactors(expr, numerator, denominator, assumptions, mode, cache, out Expr? divided):
                 return divided!;
 
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
@@ -859,7 +873,7 @@ public static class Simplifier
     private static bool TryEvaluateConstant(Expr e, out double value)
     {
         value = double.NaN;
-        if (e.GetVariables().Count > 0)
+        if (e.HasVariables())
             return false;
         try
         {
@@ -879,7 +893,34 @@ public static class Simplifier
     // a sum of only such terms (the minus that was distributed over it).
     private static bool HasNegativeSign(Expr u) =>
         ConstantFactor(u).Sign < 0 || u is Divide(var n, _) && ConstantFactor(n).Sign < 0 ||
-        u is Add or Subtract && CollectTerms(u, term => term).All(t => (t.Term is Constant c ? t.Coefficient * c.Value : t.Coefficient).Sign < 0);
+        u is Add or Subtract && AllTermsNegative(u, negated: false);
+
+    // As the terms CollectTerms gives, without building them: the left spine of a long sum in a
+    // loop, and out at the first term that isn't negative.
+    private static bool AllTermsNegative(Expr sum, bool negated)
+    {
+        Expr e = sum;
+        while (true)
+        {
+            switch (e)
+            {
+                case Add(var l, var r):
+                    if (!AllTermsNegative(r, negated))
+                        return false;
+                    e = l;
+                    continue;
+                case Subtract(var l, var r):
+                    if (!AllTermsNegative(r, !negated))
+                        return false;
+                    e = l;
+                    continue;
+                default:
+                    var (k, term) = ExtractCoefficient(e);
+                    int sign = (term is Constant c ? k * c.Value : k).Sign;
+                    return (negated ? -sign : sign) < 0;
+            }
+        }
+    }
 
     // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
     // the product was the factor itself.
@@ -1112,41 +1153,58 @@ public static class Simplifier
 
     // Flattens a chain of Add/Subtract into a flat list of (coefficient, term) pairs, in order,
     // simplifying each term first. A term that simplifies to a sum (ln(exp(a + b))) is flattened
-    // too; its own terms are simplified already. Uses an explicit stack, not recursion: a sum of
-    // n terms is a chain n levels deep.
+    // too; its own terms are simplified already. The left spine is walked in a loop, not by
+    // recursion: a sum of n terms is a chain n levels deep.
     private static List<(Rational Coefficient, Expr Term)> CollectTerms(Expr sum, Func<Expr, Expr> simplifyTerm)
     {
         var terms = new List<(Rational Coefficient, Expr Term)>();
-        var pending = new Stack<(Expr Expr, Rational Sign, bool Simplified)>();
-        pending.Push((sum, Rational.One, false));
+        AddTermsFromTheEnd(sum, Rational.One, simplified: false, simplifyTerm, terms);
+        terms.Reverse();
+        return terms;
+    }
 
-        while (pending.TryPop(out var item))
+    // The left spine in a loop, last term first: a stack walking it in order would hold every
+    // right term of a long sum at once.
+    private static void AddTermsFromTheEnd(
+        Expr e, Rational sign, bool simplified, Func<Expr, Expr> simplifyTerm, List<(Rational Coefficient, Expr Term)> terms)
+    {
+        while (true)
         {
-            switch (item.Expr)
+            switch (e)
             {
                 case Add(var l, var r):
-                    pending.Push((r, item.Sign, item.Simplified));
-                    pending.Push((l, item.Sign, item.Simplified));
-                    break;
+                    if (r is Add or Subtract)
+                        AddTermsFromTheEnd(r, sign, simplified, simplifyTerm, terms);
+                    else
+                        AddTerm(r, sign, simplified, simplifyTerm, terms);
+                    e = l;
+                    continue;
                 case Subtract(var l, var r):
-                    pending.Push((r, -item.Sign, item.Simplified));
-                    pending.Push((l, item.Sign, item.Simplified));
-                    break;
+                    if (r is Add or Subtract)
+                        AddTermsFromTheEnd(r, -sign, simplified, simplifyTerm, terms);
+                    else
+                        AddTerm(r, -sign, simplified, simplifyTerm, terms);
+                    e = l;
+                    continue;
                 default:
-                    Expr simplified = item.Simplified ? item.Expr : simplifyTerm(item.Expr);
-                    if (simplified is Add or Subtract)
-                    {
-                        pending.Push((simplified, item.Sign, true));
-                        break;
-                    }
-
-                    var (coef, term) = ExtractCoefficient(simplified);
-                    terms.Add((coef * item.Sign, term));
-                    break;
+                    AddTerm(e, sign, simplified, simplifyTerm, terms);
+                    return;
             }
         }
+    }
 
-        return terms;
+    private static void AddTerm(
+        Expr e, Rational sign, bool simplified, Func<Expr, Expr> simplifyTerm, List<(Rational Coefficient, Expr Term)> terms)
+    {
+        Expr simplifiedTerm = simplified ? e : simplifyTerm(e);
+        if (simplifiedTerm is Add or Subtract)
+        {
+            AddTermsFromTheEnd(simplifiedTerm, sign, simplified: true, simplifyTerm, terms);
+            return;
+        }
+
+        var (coef, term) = ExtractCoefficient(simplifiedTerm);
+        terms.Add((coef * sign, term));
     }
 
     private static bool IsSquareOf<TFunction>(Expr term, out Expr argument) where TFunction : UnaryExpr
@@ -1332,6 +1390,13 @@ public static class Simplifier
         if (expr is not (Multiply or Negate(Multiply)))
             return expr;
 
+        // The most common product, two factors that stay as they are (5x^5, x sin(x)), without the
+        // lists below: Simplify runs this for every product, every step.
+        if (expr is Multiply(var l, var r) && IsSettledFactor(r) &&
+            (l is Constant { Value: var k } ? !k.IsZero && !k.IsOne && k != Rational.MinusOne
+                                            : IsSettledFactor(l) && !AsPower(l).Base.Equals(AsPower(r).Base)))
+            return expr;
+
         var factors = new List<Expr>();
         Rational coefficient = Rational.One;
         FlattenProduct(expr, factors, ref coefficient);
@@ -1378,6 +1443,13 @@ public static class Simplifier
         return negate ? new Negate(result) : result;
     }
 
+    // A factor that the product leaves as it is: not a number, product, negation or sum of negative
+    // terms, which go into the coefficient, nor a power 1 or 1/2, which is written otherwise.
+    private static bool IsSettledFactor(Expr f) =>
+        f is not (Constant or Multiply or Negate) &&
+        !(f is Add or Subtract && HasNegativeSign(f)) &&
+        !(f is Power(_, Constant { Value: var e }) && (e.IsOne || e == Half));
+
     // Negations anywhere in the chain are pulled out into the coefficient, so that
     // -x * y * x merges to -(x^2*y) and x * (-y) * x * (-y) to x^2 * y^2.
     private static void FlattenProduct(Expr expr, List<Expr> factors, ref Rational coefficient)
@@ -1420,7 +1492,7 @@ public static class Simplifier
     // all of them in one pass. Simplifying every prefix of the chain as a node of its own, as for
     // other nodes, took time growing with the square of the number of terms and recursed once per
     // term; binary rules such as sec^2 - tan^2 = 1 also fired only on neighbouring terms.
-    private static Expr SimplifySum(Expr sum, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr SimplifySum(Expr sum, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         var raw = CollectTerms(sum, term => SimplifyCached(term, assumptions, mode, cache));
 
@@ -1462,7 +1534,7 @@ public static class Simplifier
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
         MergeExponentialLogarithms(combined, ref constantSum);
-        CombineFractions(combined, ref constantSum, mode);
+        CombineFractions(combined, ref constantSum, mode, cache);
         if (cancelled.Count > 0)
             KeepUndefinedCancelledTerms(combined, cancelled, assumptions, mode, cache);
         Expr result = BuildSum(combined, constantSum);
@@ -1477,7 +1549,7 @@ public static class Simplifier
     // either mode
     private static void KeepUndefinedCancelledTerms(
         List<(Rational Coefficient, Expr Term)> terms, List<Expr> cancelled, Assumptions assumptions, SimplifyMode mode,
-        Dictionary<Expr, Expr> cache)
+        SimplifyCache cache)
     {
         HashSet<(DomainKind, Expr)>? domain = null;
 
@@ -1520,13 +1592,17 @@ public static class Simplifier
     // cancels: x/(x + 1) + 1/(x + 1) = 1, sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1) = 1/sqrt(x^2 + 1), and
     // a Laplacian whose terms add up to 0 is 0. Where nothing cancels, the terms keep their form:
     // exp(c)/c - 1/c, 1/x + 1/y.
-    private static void CombineFractions(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant, SimplifyMode mode)
+    private static void CombineFractions(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant, SimplifyMode mode, SimplifyCache cache)
     {
         if (t_combiningFractions || !terms.Any(t => HasDenominator(t.Term)))
             return;
 
         foreach (List<int> component in LinkedByDenominators(terms))
         {
+            Expr sum = BuildSum([.. component.Select(i => terms[i])], Rational.Zero).Canonicalize();
+            if (cache.Uncombined.Contains(sum))
+                continue;
+
             Expr after;
             Rational weight;
             bool cancelled;
@@ -1540,10 +1616,12 @@ public static class Simplifier
             {
                 t_combiningFractions = false;
             }
-            bool simpler = (DenominatorWeight(after) < weight || cancelled) &&
-                NodeCount(after) < NodeCount(BuildSum([.. component.Select(i => terms[i])], Rational.Zero));
+            bool simpler = (DenominatorWeight(after) < weight || cancelled) && NodeCount(after) < NodeCount(sum);
             if (!simpler)
+            {
+                cache.Uncombined.Add(sum);
                 continue;
+            }
 
             foreach (int i in component)
                 terms[i] = (Rational.Zero, terms[i].Term);
@@ -1976,21 +2054,38 @@ public static class Simplifier
     // = (5/6) x/y. A term without a partner keeps its form, and so do different d: pi + sqrt(2) pi.
     private static void CollectNumericMultiples(List<(Rational Coefficient, Expr Term)> terms)
     {
-        var parts = new (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)[terms.Count];
-        var groups = new Dictionary<(Expr, System.Numerics.BigInteger), List<int>>();
+        // Equal terms were added up already, so without a number in some term nothing merges.
+        (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)[]? parts = null;
+        for (int i = 0; i < terms.Count; i++)
+        {
+            if (NumericFactor(terms[i].Term) is var (part, c, d))
+            {
+                parts ??= new (Expr, Rational, System.Numerics.BigInteger)[terms.Count];
+                parts[i] = (part, terms[i].Coefficient * c, d);
+            }
+        }
+        if (parts is null)
+            return;
+
+        var first = new Dictionary<(Expr, System.Numerics.BigInteger), int>();
         bool merges = false;
         for (int i = 0; i < terms.Count; i++)
         {
-            var (coefficient, term) = terms[i];
-            parts[i] = NumericFactor(term) is var (part, c, d) ? (part, coefficient * c, d) : (term, coefficient, 1);
+            if (parts[i].Part is null)
+                parts[i] = (terms[i].Term, terms[i].Coefficient, 1);
+            merges |= !first.TryAdd((parts[i].Part, parts[i].Radicand), i);
+        }
+        if (!merges)
+            return;
+
+        var groups = new Dictionary<(Expr, System.Numerics.BigInteger), List<int>>();
+        for (int i = 0; i < terms.Count; i++)
+        {
             var key = (parts[i].Part, parts[i].Radicand);
             if (!groups.TryGetValue(key, out List<int>? members))
                 groups[key] = members = [];
             members.Add(i);
-            merges |= members.Count > 1;
         }
-        if (!merges)
-            return;
 
         var removed = new HashSet<int>();
         foreach (List<int> members in groups.Values.Where(members => members.Count > 1))
@@ -2011,6 +2106,9 @@ public static class Simplifier
     // A product or quotient as c sqrt(d) times the rest; null when it holds no number.
     private static (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)? NumericFactor(Expr term)
     {
+        if (term is not (Multiply or Divide or Negate) || !HasNumberFactor(term))
+            return null;
+
         var top = new List<Expr>();
         var bottom = new List<Expr>();
         var numbers = new List<Expr>();
@@ -2042,8 +2140,6 @@ public static class Simplifier
             }
         }
 
-        if (term is not (Multiply or Divide or Negate))
-            return null;
         Split(term, false);
         if (numbers.Count == 0 && divisors.Count == 0)
             return null;
@@ -2057,6 +2153,16 @@ public static class Simplifier
         Expr rest = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
         return (rest.Canonicalize(), negative ? -c : c, radicand);
     }
+
+    // Whether NumericFactor finds a number among the factors, checked before it builds lists.
+    private static bool HasNumberFactor(Expr e) => e switch
+    {
+        Multiply(var l, var r) => HasNumberFactor(l) || HasNumberFactor(r),
+        Divide(var n, var d) => HasNumberFactor(n) || HasNumberFactor(d),
+        Negate(var a) => HasNumberFactor(a),
+        Constant or Sqrt(Constant { Value.Sign: > 0 }) => true,
+        _ => false,
+    };
 
     // s with c = s^2 r, from the square factors of the numerator and the denominator; null if 1.
     private static Rational? SquareFactor(Rational c)
@@ -2221,7 +2327,7 @@ public static class Simplifier
         QuadraticSurd? total = new QuadraticSurd(constant, 0, 1);
         foreach (var (coefficient, term) in terms)
         {
-            if (total is not { } sum || term.GetVariables().Count > 0 || QuadraticSurd.Of(term) is not { } value)
+            if (total is not { } sum || term.HasVariables() || QuadraticSurd.Of(term) is not { } value)
                 return null;
             total = sum + value.Times(coefficient);
         }
@@ -2327,7 +2433,7 @@ public static class Simplifier
     // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x), 2/(-x - 1) = -2/(x + 1).
     // Both sides are multiplied by the same nonzero number, so the domain stays the same.
     private static bool TryReduceConstantFactors(
-        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
 
@@ -2361,10 +2467,11 @@ public static class Simplifier
     // (x^2 - 1)/(x - 1) = x + 1, (x - 1)/(x^2 - 1) = 1/(x + 1): a sum on one side that divides a
     // multiplied-out factor of the other side, or the whole of it, as a polynomial cancels. Like
     // x/x = 1 this gains the zeros of the sum, so Strict mode needs it provably nonzero.
-    private static bool TryCancelPolynomialFactors(Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, out Expr? result)
+    private static bool TryCancelPolynomialFactors(
+        Expr quotient, Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
-        if (!HasSumFactor(n) && !HasSumFactor(d))
+        if (!HasSumFactor(n) && !HasSumFactor(d) || cache.Undivided.Contains(quotient))
             return false;
 
         var (top, topFactors) = ExtractFactors(n);
@@ -2372,7 +2479,10 @@ public static class Simplifier
         var polynomials = new AtomPolynomials();
         if (!TryDivideBySum(polynomials, ref top, topFactors, bottomFactors, assumptions, mode) &&
             !TryDivideBySum(polynomials, ref bottom, bottomFactors, topFactors, assumptions, mode))
+        {
+            cache.Undivided.Add(quotient);
             return false;
+        }
 
         Expr numerator = BuildProduct(top, topFactors), denominator = BuildProduct(bottom, bottomFactors);
         result = IsConstantOne(denominator) ? numerator : new Divide(numerator, denominator);
@@ -2437,7 +2547,7 @@ public static class Simplifier
     }
 
     private static bool TryCancelCommonFactors(
-        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
 
