@@ -36,8 +36,8 @@ public class SeriesTests
     public void With_symbols()
     {
         Assert.Equal("1 + a * x + a^2 * x^2 / 2 + O(x^3)", Printed("exp(a*x)", "0", 2));
-        Assert.Equal("sin(a) + cos(a) * (x - a) - (sin(a) / 2) * (x - a)^2 + O((x - a)^3)", Printed("sin(x)", "a", 2));
-        Assert.Equal("-1 / a - (1 / a^2) * x - (1 / a^3) * x^2 + O(x^3)", Printed("1/(x - a)", "0", 2));
+        Assert.Equal("sin(a) + cos(a) * (-a + x) - (sin(a) / 2) * (-a + x)^2 + O((-a + x)^3)", Printed("sin(x)", "a", 2));
+        Assert.Equal("-1 / a - x * (1 / a^2) - x^2 * (1 / a^3) + O(x^3)", Printed("1/(x - a)", "0", 2));
     }
 
     // A pole: the series starts at a negative power.

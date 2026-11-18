@@ -211,25 +211,25 @@ public class TrigonometricIntegralsTests
 
     [Fact]
     public void By_parts_with_the_half_angle() =>
-        Assert.Equal("tan(x / 2) * x + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
+        Assert.Equal("x * tan(x / 2) + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
 
     // sqrt(q) for q = p((x - h)^2 + k) with p, k < 0: x - h = sqrt(-k) sin(a), sqrt(q) a multiple of cos(a).
     [Fact]
     public void Square_roots_by_sin()
     {
-        Assert.Equal("-sqrt(-x^2 + 1) * x / 2 + asin(x) / 2", Integral("x^2/sqrt(1 - x^2)"));
+        Assert.Equal("-x * sqrt(-x^2 + 1) / 2 + asin(x) / 2", Integral("x^2/sqrt(1 - x^2)"));
         Assert.Equal("-sqrt(-x^2 + 4) / x - asin(x / 2)", Integral("sqrt(4 - x^2)/x^2"));
-        Assert.Equal("asin(x) * x^2 / 2 + sqrt(-x^2 + 1) * x / 4 - asin(x) / 4", Integral("x*asin(x)"));
+        Assert.Equal("x^2 * asin(x) / 2 + x * sqrt(-x^2 + 1) / 4 - asin(x) / 4", Integral("x*asin(x)"));
     }
 
     // p, k > 0: x - h = sqrt(k) sinh(a), sqrt(q) a multiple of cosh(a).
     [Fact]
     public void Square_roots_by_sinh()
     {
-        Assert.Equal("x^3 * sqrt(x^2 + 1) / 4 + sqrt(x^2 + 1) * x / 8 - asinh(x) / 8", Integral("x^2*sqrt(x^2 + 1)"));
+        Assert.Equal("x^3 * sqrt(x^2 + 1) / 4 + x * sqrt(x^2 + 1) / 8 - asinh(x) / 8", Integral("x^2*sqrt(x^2 + 1)"));
         Assert.Equal("-sqrt(x^2 + 4) / (4x)", Integral("1/(x^2*sqrt(4 + x^2))"));
         Assert.Equal("x / sqrt(x^2 + 1)", Integral("1/(1 + x^2)^(3/2)"));
-        Assert.Equal("sqrt(x^2 + 2x + 5) * x / 2 - asinh(x / 2 + 1/2) - 3sqrt(x^2 + 2x + 5) / 2", Integral("x^2/sqrt(x^2 + 2*x + 5)"));
+        Assert.Equal("x * sqrt(x^2 + 2x + 5) / 2 - asinh(x / 2 + 1/2) - 3sqrt(x^2 + 2x + 5) / 2", Integral("x^2/sqrt(x^2 + 2*x + 5)"));
     }
 
     // p > 0 > k: x - h = s sqrt(-k) cosh(a) for the sign s of x - h, so the result holds on both
@@ -239,8 +239,8 @@ public class TrigonometricIntegralsTests
     {
         Assert.Equal("sqrt(x^2 - 1) / x", Integral("1/(x^2*sqrt(x^2 - 1))"));
         Assert.Equal("sqrt(x^2 - 1) / (2x^2) + atan(sqrt(x^2 - 1)) / 2", Integral("1/(x^3*sqrt(x^2 - 1))"));
-        Assert.Equal("x^3 * sqrt(x^2 - 1) / 4 - sqrt(x^2 - 1) * x / 8 - ln(abs(x + sqrt(x^2 - 1))) / 8", Integral("x^2*sqrt(x^2 - 1)"));
-        Assert.Equal("sqrt(x^2 - 2x) * x / 2 + 3ln(abs(x + sqrt(x^2 - 2x) - 1)) / 2 + 3sqrt(x^2 - 2x) / 2", Integral("x^2/sqrt(x^2 - 2*x)"));
+        Assert.Equal("x^3 * sqrt(x^2 - 1) / 4 - x * sqrt(x^2 - 1) / 8 - ln(abs(x + sqrt(x^2 - 1))) / 8", Integral("x^2*sqrt(x^2 - 1)"));
+        Assert.Equal("x * sqrt(x^2 - 2x) / 2 + 3ln(abs(x + sqrt(x^2 - 2x) - 1)) / 2 + 3sqrt(x^2 - 2x) / 2", Integral("x^2/sqrt(x^2 - 2*x)"));
     }
 
     // Where the sides of the gap differ, Euler's t = x + sqrt(q/p) takes both at once. These were

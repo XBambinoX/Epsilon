@@ -24,7 +24,7 @@ The curl is defined in three dimensions:
 
 ```csharp
 Vector<Expr>.Parse("[-y, x, 0]").Curl("x", "y", "z").Print();          // [0, 0, 2]
-Vector<Expr>.Parse("[x^2*y, x*y^2, 0]").Curl("x", "y", "z").Print();   // [0, 0, y^2 - x^2]
+Vector<Expr>.Parse("[x^2*y, x*y^2, 0]").Curl("x", "y", "z").Print();   // [0, 0, -x^2 + y^2]
 ```
 
 A field in the plane, [P, Q], is written [P, Q, 0]. The last entry of its curl is

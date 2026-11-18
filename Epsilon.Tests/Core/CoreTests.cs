@@ -142,7 +142,7 @@ public class SimplifierTests
 
     [Theory]
     [InlineData("-(-2*y^2)", "2y^2")]          // was --2y^2
-    [InlineData("-(-2*y^2*x)", "2y^2 * x")]
+    [InlineData("-(-2*y^2*x)", "2x * y^2")]
     [InlineData("-(-1/2*y)", "y / 2")]     // was -(-1/2) * y
     [InlineData("-(-2/y)", "2 / y")]
     [InlineData("-(-y/2)", "y / 2")]
@@ -1543,7 +1543,7 @@ public class PolynomialFactoringTests
 
     [Theory]
     [InlineData("(x - 2)^4", "(x - 2)^4", "(x - 2)^4")]
-    [InlineData("(x + 1)*(x - 2)*x", "(x + 1) * (x - 2) * x", "(x + 1) * (x - 2) * x")]
+    [InlineData("(x + 1)*(x - 2)*x", "x * (x + 1) * (x - 2)", "x * (x + 1) * (x - 2)")]
     [InlineData("3(x - 1)^2 (x + 2)", "3 * (x + 2) * (x - 1)^2", "3 * (x + 2) * (x - 1)^2")]
     [InlineData("(x + 1)^2/2", "(x + 1)^2 / 2", "(x + 1)^2 / 2")]
     [InlineData("(x^2 + 1)*(x - 1)", "(x^2 + 1) * (x - 1)", "(x + i) * (x - 1) * (x - i)")]
@@ -2356,7 +2356,7 @@ public class ExactFactoringTests
     [InlineData("x^4 - 5x^2 + 6", "(x + sqrt(2)) * (x + sqrt(3)) * (x - sqrt(2)) * (x - sqrt(3))")]
     [InlineData("6x^2 - 5x + 1", "6 * (x - 1/3) * (x - 1/2)")]
     [InlineData("x^4 + 5x^2 + 4", "(x^2 + 1) * (x^2 + 4)")]         // irreducible quadratics kept
-    [InlineData("x^5 - x", "(x^2 + 1) * (x + 1) * (x - 1) * x")]
+    [InlineData("x^5 - x", "x * (x^2 + 1) * (x + 1) * (x - 1)")]
     public void Factors_over_the_reals_exactly(string input, string expected)
     {
         Expr original = P(input);
@@ -2758,7 +2758,7 @@ public class ExpOfLogarithmTests
     [InlineData("exp(ln(2)/2)", "sqrt(2)", "sqrt(2)")]
     [InlineData("e^(2*ln(3))", "9", "9")]
     [InlineData("exp(-2*ln(x))", "x^-2", "exp(-2ln(x))")]
-    [InlineData("exp(y*ln(x))", "x^y", "exp(ln(x) * y)")]
+    [InlineData("exp(y*ln(x))", "x^y", "exp(y * ln(x))")]
     [InlineData("exp(-ln(x)/3)", "x^(-1/3)", "exp(-ln(x) / 3)")]
     [InlineData("e^ln(x)", "x", "e^ln(x)")]
     [InlineData("exp(-(1/2)*ln(x^2 + 1))", "(x^2 + 1)^(-1/2)", "(x^2 + 1)^(-1/2)")]
@@ -2866,8 +2866,8 @@ public class ExponentialLogarithmTests
 
     // exp(ln(y)) = y needs y > 0 in Strict mode, and so does exp(x + ln(y)) = exp(x) * y.
     [Theory]
-    [InlineData("exp(ln(exp(x)*y))", "exp(x) * y", "exp(x + ln(y))")]
-    [InlineData("exp(x + ln(y))", "exp(x) * y", "exp(x + ln(y))")]
+    [InlineData("exp(ln(exp(x)*y))", "y * exp(x)", "exp(x + ln(y))")]
+    [InlineData("exp(x + ln(y))", "y * exp(x)", "exp(x + ln(y))")]
     [InlineData("exp(ln(x) - ln(y))", "x / y", "exp(ln(x) - ln(y))")]
     [InlineData("exp(x - 2*ln(x))", "exp(x) / x^2", "exp(x - 2ln(x))")]
     [InlineData("exp(ln(x)/2 - 1)", "exp(-1) * sqrt(x)", "exp(ln(x) / 2 - 1)")]
@@ -2882,7 +2882,7 @@ public class ExponentialLogarithmTests
     public void A_positive_logarithm_argument_leaves_an_exponential_in_Strict_mode()
     {
         Assumptions positive = Assumptions.None.Assume("y", signing: Signing.Positive);
-        Assert.Equal("exp(x) * y", ExprParser.Parse("exp(x + ln(y))").Simplify(positive, SimplifyMode.Strict).Print());
+        Assert.Equal("y * exp(x)", ExprParser.Parse("exp(x + ln(y))").Simplify(positive, SimplifyMode.Strict).Print());
     }
 }
 
@@ -2962,7 +2962,7 @@ public class CommonDenominatorTests
     [InlineData("1/(1 + 1/x)", "x / (x + 1)", "1 / (1 / x + 1)")]
     [InlineData("1/(x - 1/x)", "x / (x^2 - 1)", "1 / (x - 1 / x)")]
     [InlineData("x/(1/x + 1/y)", "x^2 * y / (x + y)", "x / (1 / x + 1 / y)")]
-    [InlineData("1/((y^2/z^2 + 1)*z)", "z / (y^2 + z^2)", "1 / ((y^2 / z^2 + 1) * z)")]
+    [InlineData("1/((y^2/z^2 + 1)*z)", "z / (y^2 + z^2)", "1 / (z * (y^2 / z^2 + 1))")]
     [InlineData("1/(1 + 1/x)^2", "x^2 / (x + 1)^2", "1 / (1 / x + 1)^2")]
     [InlineData("2/(sqrt(x) + 1/sqrt(x))", "2sqrt(x) / (x + 1)", "2 / (1 / sqrt(x) + sqrt(x))")]
     [InlineData("(1 + 1/x)/y", "(1 / x + 1) / y", "(1 / x + 1) / y")]                   // only below
@@ -2979,7 +2979,7 @@ public class CommonDenominatorTests
     [InlineData("(x - 1)/(x^2 - 1)", "1 / (x + 1)")]
     [InlineData("(x^2 + 2*x + 1)/(x + 1)", "x + 1")]
     [InlineData("(x^2 - 1)/(x - 1)^2", "(x + 1) / (x - 1)")]
-    [InlineData("(x^3 - y^3)/(x - y)", "x * y + x^2 + y^2")]
+    [InlineData("(x^3 - y^3)/(x - y)", "x^2 + x * y + y^2")]
     [InlineData("(x + 2)^3*(x^2 - 1)/(x - 1)", "(x + 1) * (x + 2)^3")]             // the other factors stay
     [InlineData("x*(x + 1)/(x^2 + x)", "1")]
     [InlineData("(2*x^4 + 4*x^2*y^2 + 2*y^4)/(x^2 + y^2)^4", "2 / (x^2 + y^2)^2")]
@@ -3040,7 +3040,7 @@ public class NumericMultipleTests
     [InlineData("(x - 1)*(y - 1) - (1 - x)*(1 - y)", "0")]
     [InlineData("3*(1 - x) + 2*(x - 1)", "-x + 1")]
     [InlineData("2*(1 - x) + 3*(x - 1)", "x - 1")]
-    [InlineData("y*(a - b) + 2*y*(b - a) + z", "(b - a) * y + z")]
+    [InlineData("y*(a - b) + 2*y*(b - a) + z", "y * (-a + b) + z")]
     [InlineData("2*(x - 1)", "2 * (x - 1)")]                       // no partner, no change
     [InlineData("2*((-1/4)*cos(3*pi/8)*nthroot(4, 8) + (1/8)*cos(pi/8)*nthroot(4, 8)^3) + 2*((1/4)*cos(3*pi/8)*nthroot(4, 8) - (1/8)*cos(pi/8)*nthroot(4, 8)^3)", "0")]
     public void Terms_that_differ_by_the_sign_of_a_sum_add_up(string input, string expected)
@@ -3065,9 +3065,9 @@ public class PythagoreanWithFactorsTests
     [Theory]
     [InlineData("R^2*cos(t)^2 + R^2*sin(t)^2", "R^2", "R^2")]
     [InlineData("x*y*sin(t)^2 + y*x*cos(t)^2", "x * y", "x * y")]
-    [InlineData("2*R*sin(t)^2 + 3*R*cos(t)^2", "2R + cos(t)^2 * R", "2R + cos(t)^2 * R")]
+    [InlineData("2*R*sin(t)^2 + 3*R*cos(t)^2", "2R + R * cos(t)^2", "2R + R * cos(t)^2")]
     [InlineData("sin(t)^2*cos(u)^2 + cos(t)^2*cos(u)^2", "cos(u)^2", "cos(u)^2")]
-    [InlineData("R^2 - R^2*sin(t)^2", "cos(t)^2 * R^2", "cos(t)^2 * R^2")]
+    [InlineData("R^2 - R^2*sin(t)^2", "R^2 * cos(t)^2", "R^2 * cos(t)^2")]
     [InlineData("cosh(t)^2 - sinh(t)^2", "1", "1")]
     [InlineData("1 + sinh(t)^2", "cosh(t)^2", "cosh(t)^2")]
     [InlineData("cosh(t)^2 - 1", "sinh(t)^2", "sinh(t)^2")]
@@ -3076,7 +3076,7 @@ public class PythagoreanWithFactorsTests
     [InlineData("coth(t)^2 - csch(t)^2", "1", "coth(t)^2 - csch(t)^2")]   // undefined at t = 0
     [InlineData("1 + tan(x)^2", "sec(x)^2", "sec(x)^2")]
     [InlineData("sec(x)^2 - 1", "tan(x)^2", "tan(x)^2")]
-    [InlineData("a*sin(t)^2 + b*cos(t)^2", "cos(t)^2 * b + sin(t)^2 * a", "cos(t)^2 * b + sin(t)^2 * a")]
+    [InlineData("a*sin(t)^2 + b*cos(t)^2", "a * sin(t)^2 + b * cos(t)^2", "a * sin(t)^2 + b * cos(t)^2")]
     [InlineData("sin(x)^2 + cos(y)^2", "cos(y)^2 + sin(x)^2", "cos(y)^2 + sin(x)^2")]
     public void Pythagorean_identities_work_with_a_common_factor_and_for_hyperbolic_functions(string input, string generic, string strict)
     {
@@ -3102,7 +3102,7 @@ public class SquaresOutOfRootsTests
     [InlineData("sqrt(9*x^6)", "3abs(x)^3")]
     [InlineData("sqrt(x^4)", "x^2")]
     [InlineData("sqrt(x^-2)", "abs(x)^-1")]
-    [InlineData("sqrt(pi*x^2)", "abs(x) * sqrt(π)")]
+    [InlineData("sqrt(pi*x^2)", "sqrt(π) * abs(x)")]
     [InlineData("sqrt(x^2*y)", "sqrt(x^2 * y)")]     // y may be negative: sqrt(y) undefined at x = 0
     [InlineData("sqrt(-2*x^2)", "sqrt(-2x^2)")]      // defined at x = 0 only
     [InlineData("sqrt(pi/4)", "sqrt(π) / 2")]
@@ -3144,8 +3144,8 @@ public class ProductCombiningTests
     [InlineData("y*x*z*x*y*x", "x^3 * y^2 * z")]
     [InlineData("x^2*y*x^3", "x^5 * y")]
     [InlineData("x*(x*y)*x", "x^3 * y")]
-    [InlineData("(x+1)*y*(x+1)", "(x + 1)^2 * y")]
-    [InlineData("sin(x)*y*sin(x)*y", "sin(x)^2 * y^2")]
+    [InlineData("(x+1)*y*(x+1)", "y * (x + 1)^2")]
+    [InlineData("sin(x)*y*sin(x)*y", "y^2 * sin(x)^2")]
     [InlineData("2^x*3*2^y", "3 * 2^(x + y)")]
     [InlineData("2*x*y*0.5", "x * y")]
     public void Merges_repeated_factors_anywhere_in_a_product(string input, string expected)
@@ -3856,14 +3856,14 @@ public class DifferentiateSimplifiesTests
     public void Chain_rule_leaves_no_zero_terms()
     {
         // sin's derivative used to be built without simplifying: cos(x^2 + 1) * (2x + 0).
-        Assert.Equal("2cos(x^2 + 1) * x", ExprParser.Parse("sin(x^2 + 1)", "x").Differentiate("x").Print());
+        Assert.Equal("2x * cos(x^2 + 1)", ExprParser.Parse("sin(x^2 + 1)", "x").Differentiate("x").Print());
     }
 
     [Fact]
     public void Uses_generic_mode_like_Simplify()
     {
         // Strict would keep x/x here: d/dx x^x = (x/x + ln(x)) * x^x.
-        Assert.Equal("(ln(x) + 1) * x^x", ExprParser.Parse("x^x", "x").Differentiate("x").Print());
+        Assert.Equal("x^x * (ln(x) + 1)", ExprParser.Parse("x^x", "x").Differentiate("x").Print());
     }
 }
 
@@ -4215,7 +4215,7 @@ public class ExpandTests
     [InlineData("-(x + 1)*(x - 2)", "-x^2 + x + 2")]
     [InlineData("6(x - 3) + 9", "6x - 9")]
     [InlineData("x*(x + 1) - x^2", "x")]
-    [InlineData("(x + y)^2", "2x * y + x^2 + y^2")]
+    [InlineData("(x + y)^2", "x^2 + 2x * y + y^2")]
     [InlineData("(2x)^3", "8x^3")]
     [InlineData("(x*y)^2", "x^2 * y^2")]
     public void Multiplies_out_products_and_powers_of_sums(string input, string expected)
@@ -4301,7 +4301,7 @@ public class PrintStyleTests
     [Theory]
     [InlineData("3x^2", "3x^2")]
     [InlineData("-3x^2", "-3x^2")]
-    [InlineData("2 * cos(x) * y", "2cos(x) * y")]
+    [InlineData("2 * cos(x) * y", "2y * cos(x)")]
     [InlineData("3 * (x + 1)^2", "3(x + 1)^2")]
     [InlineData("3 * 2^x", "3 * 2^x")]       // "32^x" would be a different number
     [InlineData("x * y", "x * y")]           // never juxtapose two letters: c*o*s is not cos
@@ -4317,10 +4317,33 @@ public class PrintStyleTests
     [InlineData("(-4/97)*sqrt(3) + 40/97", "-4sqrt(3) / 97 + 40/97")]
     [InlineData("(-3/4)*ln(y) + x", "x - 3ln(y) / 4")]
     [InlineData("(-1/2)*x^2 + (1/24)*x^4 + 1", "x^4 / 24 - x^2 / 2 + 1")]
-    [InlineData("(1/2)*(x + 1)*y", "(x + 1) * y / 2")]
+    [InlineData("(1/2)*(x + 1)*y", "y * (x + 1) / 2")]
     [InlineData("(3/4)*2^x", "3 * 2^x / 4")]
     [InlineData("(1/3)*ln(2) + (1/9)*pi*sqrt(3)", "ln(2) / 3 + π * sqrt(3) / 9")]
     public void Writes_a_fractional_coefficient_as_a_division(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("exp(x) * x", "x * exp(x)", "xe^{x}")]
+    [InlineData("x^2 * a", "a * x^2", "ax^{2}")]
+    [InlineData("y^2 * x * 3", "3x * y^2", "3xy^{2}")]
+    [InlineData("sin(x) * x * pi", "π * x * sin(x)", "\\pi \\cdot x \\cdot \\sin\\left(x\\right)")]
+    [InlineData("(x + 1) * x", "x * (x + 1)", "x \\cdot \\left(x + 1\\right)")]
+    public void Writes_numbers_then_variables_by_name_then_the_rest(string input, string expected, string latex)
+    {
+        Expr expr = ExprParser.Parse(input).Simplify();
+        Assert.Equal(expected, expr.Print());
+        Assert.Equal(latex, expr.ToLatex());
+    }
+
+    [Theory]
+    [InlineData("3x*y^2 + x^2*y", "x^2 * y + 3x * y^2")]
+    [InlineData("y^2 - 2x*y + x^2", "x^2 - 2x * y + y^2")]
+    [InlineData("x*z + x*y + y^2", "x * y + x * z + y^2")]
+    [InlineData("x - a", "-a + x")]
+    public void Orders_terms_of_the_same_degree_lexicographically(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
     }
@@ -4363,7 +4386,7 @@ public class ReadmeExamplesTests
         Assert.Equal("3x^2 - 4x + 1", F.Differentiate("x").Print());
         Assert.Equal("3x^{2} - 4x + 1", F.Differentiate("x").ToLatex());
         Assert.Equal([0.0, 1.0], F.FindRealRoots(-10, 10));
-        Assert.Equal("(x - 1)^2 * x", F.TryFactorReal("x").Factored.Print());
+        Assert.Equal("x * (x - 1)^2", F.TryFactorReal("x").Factored.Print());
     }
 
     [Fact]
@@ -4405,7 +4428,7 @@ public class ReadmeExamplesTests
     [Fact]
     public void Differentiation()
     {
-        Assert.Equal("3y^2 + x^2", ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print());
+        Assert.Equal("x^2 + 3y^2", ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print());
     }
 
     [Fact]

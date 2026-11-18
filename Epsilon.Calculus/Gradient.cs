@@ -47,7 +47,7 @@ public static class GradientExtensions
     /// <paramref name="direction"/>, whose entry i goes with <c>variables[i]</c>; simplified.
     /// The direction is not normalized: along a unit vector it is the rate of change, along a
     /// longer one that rate times its length. For <c>x^2 * y</c> along <c>[1, 1]</c> by <c>x</c>
-    /// and <c>y</c> it is <c>2x * y + x^2</c>.
+    /// and <c>y</c> it is <c>x^2 + 2x * y</c>.
     /// </summary>
     /// <exception cref="ArgumentException">
     /// The direction and the variables have different lengths, or a name is listed twice.

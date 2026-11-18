@@ -1,23 +1,47 @@
 namespace Epsilon.Core;
 
-// Display order of the terms of a sum, shared by Printer and LatexPrinter: descending degree,
-// then terms without variables last - x^2 + 2x + sin(x) + 1, as people write polynomials.
+// Display order of the terms of a sum and the factors of a product, shared by Printer and
+// LatexPrinter: x^2 * y + 3x * y^2 + sin(x) + 1, π * x * exp(x), as people write them.
 // Only the printed order changes; the tree keeps its canonical order, which Equals and the
 // simplifier rely on.
 internal static class SumTerms
 {
-    // Flattens an Add/Subtract chain into its terms, each with whether it is subtracted.
-    // OrderBy is stable, so equal-degree terms keep their canonical order.
+    // Flattens an Add/Subtract chain into its terms, each with whether it is subtracted:
+    // descending degree, equal degrees by the powers of the variables in name order, terms
+    // without variables last. OrderBy is stable, so the remaining ties keep their canonical order.
     public static IReadOnlyList<(bool Subtracted, Expr Term)> InDisplayOrder(Expr sum)
     {
         var terms = new List<(bool Subtracted, Expr Term)>();
         Flatten(sum, subtracted: false, terms);
 
         return terms
-            .OrderBy(t => t.Term.GetVariables().Count == 0 ? 1 : 0)
-            .ThenByDescending(t => Degree(t.Term))
+            .Select(t => (Entry: t, Powers: Powers(t.Term)))
+            .OrderBy(t => t.Entry.Term.GetVariables().Count == 0 ? 1 : 0)
+            .ThenByDescending(t => t.Powers.Values.Sum())
+            .ThenBy(t => t.Powers, Comparer<SortedDictionary<string, int>>.Create(CompareLexicographically))
+            .Select(t => t.Entry)
             .ToList();
     }
+
+    // Numbers and other constants first, then the variables and their powers by name, then
+    // the rest in canonical order: π * x^2 * y * exp(x).
+    public static List<Expr> FactorsInDisplayOrder(List<Expr> factors) =>
+        factors
+            .OrderBy(FactorGroup)
+            .ThenBy(f => VariableOf(f)?.Name ?? "", StringComparer.Ordinal)
+            .ToList();
+
+    private static int FactorGroup(Expr factor) =>
+        VariableOf(factor) is not null ? 1 : factor.GetVariables().Count == 0 ? 0 : 2;
+
+    // A negated factor sorts as what it negates: -a * b, not b * -a.
+    private static Variable? VariableOf(Expr factor) => factor switch
+    {
+        Variable v => v,
+        Power(Variable v, _) => v,
+        Negate(var a) => VariableOf(a),
+        _ => null
+    };
 
     private static void Flatten(Expr expr, bool subtracted, List<(bool, Expr)> terms)
     {
@@ -39,16 +63,54 @@ internal static class SumTerms
         }
     }
 
-    // Total degree of a monomial-like term (3x^2*y -> 3); 0 for anything else, such as sin(x).
-    private static int Degree(Expr term) => term switch
+    // The integer powers of the variables in a monomial-like term: 3x^2 * y -> x^2, y.
+    // Other factors, such as sin(x), add nothing.
+    private static SortedDictionary<string, int> Powers(Expr term)
     {
-        Variable => 1,
-        Power(Variable, Constant e) when e.Value.IsInteger => (int)Math.Clamp(e.Value.ToDouble(), -1e6, 1e6),
-        Multiply(var l, var r) => Degree(l) + Degree(r),
-        Divide(var n, Constant) => Degree(n),
-        Negate(var a) => Degree(a),
-        _ => 0
-    };
+        var powers = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        AddPowers(term, powers);
+        return powers;
+    }
+
+    private static void AddPowers(Expr term, SortedDictionary<string, int> powers)
+    {
+        switch (term)
+        {
+            case Variable v:
+                powers[v.Name] = powers.GetValueOrDefault(v.Name) + 1;
+                break;
+
+            case Power(Variable v, Constant e) when e.Value.IsInteger:
+                powers[v.Name] = powers.GetValueOrDefault(v.Name) + (int)Math.Clamp(e.Value.ToDouble(), -1e6, 1e6);
+                break;
+
+            case Multiply(var l, var r):
+                AddPowers(l, powers);
+                AddPowers(r, powers);
+                break;
+
+            case Divide(var n, Constant):
+                AddPowers(n, powers);
+                break;
+
+            case Negate(var a):
+                AddPowers(a, powers);
+                break;
+        }
+    }
+
+    // The higher power of the first variable by name goes first: x^2 * y before x * y^2.
+    private static int CompareLexicographically(SortedDictionary<string, int>? a, SortedDictionary<string, int>? b)
+    {
+        foreach (string name in a!.Keys.Union(b!.Keys).Order(StringComparer.Ordinal))
+        {
+            int compare = b.GetValueOrDefault(name).CompareTo(a.GetValueOrDefault(name));
+            if (compare != 0)
+                return compare;
+        }
+
+        return 0;
+    }
 
     // Joins printed terms with " + " / " - ". A printed term that starts with '-' is a
     // negation of the whole term (-4x, -x^2, -(a + b), -3/4), so a + (-4x) prints as a - 4x.

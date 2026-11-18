@@ -155,7 +155,7 @@ public class PartialFractionsTests
     public void Constant_factors()
     {
         Assert.Equal("-atan((2x - 1) / sqrt(3)) / sqrt(3) + ln(x^2 - x + 1) / 6 - ln(abs(x + 1)) / 3", Integral("-1/(x^3 + 1)"));
-        Assert.Equal("ln(abs((x - 1) / (x + 1))) * π / 2", Integral("pi/(x^2 - 1)"));
+        Assert.Equal("π * ln(abs((x - 1) / (x + 1))) / 2", Integral("pi/(x^2 - 1)"));
     }
 
     [Fact]
@@ -167,19 +167,19 @@ public class PartialFractionsTests
     [Fact]
     public void Roots_of_binomials()
     {
-        Assert.Equal("ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) * sqrt(2) / 8 + (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) * sqrt(2) / 4",
+        Assert.Equal("sqrt(2) * ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) / 8 + sqrt(2) * (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) / 4",
             Integral("1/(x^4 + 1)"));
-        Assert.Equal("(atan(2x + sqrt(3)) + atan(2x - sqrt(3))) / 6 + atan(x) / 3 + ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) * sqrt(3) / 12",
+        Assert.Equal("(atan(2x + sqrt(3)) + atan(2x - sqrt(3))) / 6 + atan(x) / 3 + sqrt(3) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) / 12",
             Integral("1/(x^6 + 1)"));
-        Assert.Equal("-ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) * nthroot(2, 3) / 12 + ln(abs(x - nthroot(2, 3))) * nthroot(2, 3) / 6"
-            + " - atan(2sqrt(3) * x / (3nthroot(2, 3)) + sqrt(3) / 3) * nthroot(2, 3) * sqrt(3) / 6", Integral("1/(x^3 - 2)"));
+        Assert.Equal("-nthroot(2, 3) * ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) / 12 + nthroot(2, 3) * ln(abs(x - nthroot(2, 3))) / 6"
+            + " - nthroot(2, 3) * sqrt(3) * atan(2sqrt(3) * x / (3nthroot(2, 3)) + sqrt(3) / 3) / 6", Integral("1/(x^3 - 2)"));
     }
 
     // Angles without a known value stay exact.
     [Fact]
     public void Roots_of_unity() =>
         Assert.Equal("ln(abs(x - 1)) / 5 + cos(2 * π / 5) * ln(x^2 - 2cos(2 * π / 5) * x + 1) / 5"
-            + " - 2atan(csc(π / 5) * x + cot(π / 5)) * sin(π / 5) / 5 - 2atan(csc(2 * π / 5) * x - cot(2 * π / 5)) * sin(2 * π / 5) / 5"
+            + " - 2sin(π / 5) * atan(csc(π / 5) * x + cot(π / 5)) / 5 - 2sin(2 * π / 5) * atan(csc(2 * π / 5) * x - cot(2 * π / 5)) / 5"
             + " - cos(π / 5) * ln(x^2 + 2cos(π / 5) * x + 1) / 5", Integral("1/(x^5 - 1)"));
 
     // c/p' is a constant modulo p: one logarithm of p, whatever its roots.
@@ -193,17 +193,17 @@ public class PartialFractionsTests
     {
         const string r = "(nthroot(-sqrt(69) / 18 + 1/2, 3) + nthroot(sqrt(69) / 18 + 1/2, 3))";
         Assert.Equal($"(-6{r}^2 / 23 + 9 * {r} / 23 + 4/23) * ln(abs(x - nthroot(-sqrt(69) / 18 + 1/2, 3) - nthroot(sqrt(69) / 18 + 1/2, 3)))"
-            + $" + ln(x^2 + {r} * x + {r}^2 - 1) * (-9 * {r} / 46 + 3{r}^2 / 23 - 2/23)"
-            + $" - (6 * {r} / 23 + 9/23) * atan((2x + nthroot(-sqrt(69) / 18 + 1/2, 3) + nthroot(sqrt(69) / 18 + 1/2, 3)) / sqrt(3{r}^2 - 4)) * sqrt(3{r}^2 - 4)",
+            + $" + (-9 * {r} / 46 + 3{r}^2 / 23 - 2/23) * ln(x^2 + {r} * x + {r}^2 - 1)"
+            + $" - (6 * {r} / 23 + 9/23) * sqrt(3{r}^2 - 4) * atan((2x + nthroot(-sqrt(69) / 18 + 1/2, 3) + nthroot(sqrt(69) / 18 + 1/2, 3)) / sqrt(3{r}^2 - 4))",
             Integral("1/(x^3 - x - 1)"));
     }
 
     // Three real roots in the trigonometric form.
     [Fact]
     public void Cubics_with_three_real_roots() =>
-        Assert.Equal("ln(abs(x + 2cos(π / 9))) * (-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9)"
-            + " + ln(abs(x - 2cos(2 * π / 9))) * (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9)"
-            + " + ln(abs(x - 2cos(4 * π / 9))) * (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9)", Integral("1/(x^3 - 3*x + 1)"));
+        Assert.Equal("(-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))"
+            + " + (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(2 * π / 9)))"
+            + " + (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(4 * π / 9)))", Integral("1/(x^3 - 3*x + 1)"));
 
     // A sum of fractions brought to one, which may be a polynomial.
     [Fact]

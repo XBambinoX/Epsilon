@@ -78,7 +78,7 @@ ExprParser.Parse("x^3/x").Simplify().Print();                 // x^2
 ExprParser.Parse("4x/6").Simplify().Print();                  // 2x / 3
 ExprParser.Parse("x/(-2)").Simplify().Print();                // -x / 2
 ExprParser.Parse("(x^2 - 1)/(x - 1)").Simplify().Print();     // x + 1
-ExprParser.Parse("(x^3 - y^3)/(x - y)").Simplify().Print();   // x * y + x^2 + y^2
+ExprParser.Parse("(x^3 - y^3)/(x - y)").Simplify().Print();   // x^2 + x * y + y^2
 ```
 
 **Fractions that cancel are put over a common denominator**: terms that share a base in their
@@ -136,7 +136,7 @@ as `cosh` or `exp`, is the expression:
 
 ```csharp
 ExprParser.Parse("sqrt(4*cosh(t)^2)").Simplify().Print();   // 2cosh(t)
-ExprParser.Parse("sqrt(2*x^2)").Simplify().Print();         // abs(x) * sqrt(2)
+ExprParser.Parse("sqrt(2*x^2)").Simplify().Print();         // sqrt(2) * abs(x)
 ExprParser.Parse("sqrt(x^4)").Simplify().Print();           // x^2
 ExprParser.Parse("sqrt(x^2*y)").Simplify().Print();         // sqrt(x^2 * y)
 ExprParser.Parse("sqrt(pi/4)").Simplify().Print();          // sqrt(π) / 2

@@ -30,7 +30,7 @@ when a limitation is lifted this page is updated with it. The expressions have
 
   ```csharp
   Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print();
-  // a * d + t^2 - b * c + (-a - d) * t
+  // a * d - b * c + t^2 + t * (-a - d)
   ```
 
 - **The simplifier knows few trigonometric identities.** It knows sin^2 + cos^2 = 1, also with

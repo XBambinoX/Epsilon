@@ -103,7 +103,7 @@ public class SymbolicTransformTests
         var turnAndMove = Matrix<Expr>.Translation(V("[a, b]")) * Matrix<Expr>.Rotation(P("pi / 2")).ToHomogeneous();
 
         Assert.Equal("[-y, x]", turnAndMove.TransformDirection(V("[x, y]")).Print());
-        Assert.Equal("[-y + a, b + x]", turnAndMove.TransformPoint(V("[x, y]")).Print());
+        Assert.Equal("[a - y, b + x]", turnAndMove.TransformPoint(V("[x, y]")).Print());
     }
 
     [Fact]

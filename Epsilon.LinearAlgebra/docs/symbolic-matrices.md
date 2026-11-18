@@ -84,7 +84,7 @@ m.Adjugate().Print();                            // [[d, -b], [-c, a]]
 r.Inverse().Print();                             // [[-2, 1], [3/2, -1/2]]
 rotation.Inverse().Print();                      // [[cos(x), sin(x)], [-sin(x), cos(x)]]
 m.Solve(Vector<Expr>.Parse("[p, q]")).Print();
-// [(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]
+// [(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]
 ```
 
 `Solve` with a matrix solves for each of its columns at once.

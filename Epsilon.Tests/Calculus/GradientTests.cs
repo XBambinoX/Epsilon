@@ -87,7 +87,7 @@ public class GradientTests
     [Fact]
     public void Directional_derivative_is_the_gradient_dotted_with_the_direction()
     {
-        Assert.Equal("2x * y + x^2", ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print());
+        Assert.Equal("x^2 + 2x * y", ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print());
 
         Vector<Expr> direction = [ExprParser.Parse("cos(t)"), ExprParser.Parse("sin(t)")];
         Assert.Equal(F.Gradient("x", "y").Dot(direction), F.DirectionalDerivative(direction, "x", "y"));

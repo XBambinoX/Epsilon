@@ -120,7 +120,7 @@ public class SymbolicIntegrationTests
     {
         var antiderivative = ExprParser.Parse("nthroot(x, 3)").Integrate("x");
 
-        Assert.Equal("3nthroot(x, 3) * x / 4", antiderivative.Print());
+        Assert.Equal("3x * nthroot(x, 3) / 4", antiderivative.Print());
         Assert.Equal(12, antiderivative.Evaluate(("x", -8)), 1e-14);
         Assert.Equal(-2, antiderivative.Differentiate("x").Evaluate(("x", -8)), 1e-14);
         Assert.Equal("3nthroot(x, 3)^2 / 2", Integral("1/nthroot(x, 3)"));
@@ -148,13 +148,13 @@ public class SymbolicIntegrationTests
         Assert.Equal("-exp(-3x) / 3", Integral("exp(-3*x)"));
         Assert.Equal("e^(2x) / 2", Integral("e^(2*x)"));
         Assert.Equal("2^x / ln(2)", Integral("2^x"));
-        Assert.Equal("ln(x) * x - x", Integral("ln(x)"));
+        Assert.Equal("x * ln(x) - x", Integral("ln(x)"));
         Assert.Equal("sin(3x + 1) / 3", Integral("cos(3*x + 1)"));
         Assert.Equal("-ln(abs(cos(x)))", Integral("tan(x)"));
         Assert.Equal("ln(abs(sec(x) + tan(x)))", Integral("sec(x)"));
         Assert.Equal("atan(sinh(x))", Integral("sech(x)"));
-        Assert.Equal("asin(x) * x + sqrt(-x^2 + 1)", Integral("asin(x)"));
-        Assert.Equal("abs(x) * x / 2", Integral("abs(x)"));
+        Assert.Equal("x * asin(x) + sqrt(-x^2 + 1)", Integral("asin(x)"));
+        Assert.Equal("x * abs(x) / 2", Integral("abs(x)"));
         Assert.Equal("abs(x)", Integral("sign(x)"));
     }
 
@@ -165,7 +165,7 @@ public class SymbolicIntegrationTests
         Assert.Equal("2^x * 3^x / ln(6)", Integral("2^x*3^x"));
         Assert.Equal("2^x / (ln(2/3) * 3^x)", Integral("2^x/3^x"));
         Assert.Equal("exp(x) * 2^x / (ln(2) + 1)", Integral("2^x*exp(x)"));
-        Assert.Equal("2^x * 3^x * x / ln(6) - 2^x * 3^x / ln(6)^2", Integral("x*2^x*3^x"));
+        Assert.Equal("x * 2^x * 3^x / ln(6) - 2^x * 3^x / ln(6)^2", Integral("x*2^x*3^x"));
         Assert.Throws<NotSupportedException>(() => Integral("(-2)^x*3^x"));
     }
 
@@ -205,7 +205,7 @@ public class SymbolicIntegrationTests
     [Fact]
     public void Roots_of_fractions_in_quadratics()
     {
-        Assert.Equal("atan(sqrt(2) * x) * sqrt(2)", Integral("1/(x^2 + 1/2)"));
+        Assert.Equal("sqrt(2) * atan(sqrt(2) * x)", Integral("1/(x^2 + 1/2)"));
         Assert.Equal("atan(x / sqrt(2)) / sqrt(2)", Integral("1/(x^2 + 2)"));
         Assert.Equal("atan(sqrt(2) * x) / sqrt(2)", Integral("1/(2*x^2 + 1)"));
         Assert.Equal("ln(abs((2x - sqrt(2)) / (2x + sqrt(2)))) / sqrt(2)", Integral("1/(x^2 - 1/2)"));
@@ -219,7 +219,7 @@ public class SymbolicIntegrationTests
         Assert.Equal("asin(x)", Integral("1/sqrt(1 - x^2)"));
         Assert.Equal("asinh(x)", Integral("1/sqrt(x^2 + 1)"));
         Assert.Equal("ln(abs(x + sqrt(x^2 - 1)))", Integral("1/sqrt(x^2 - 1)"));
-        Assert.Equal("sqrt(-x^2 + 1) * x / 2 + asin(x) / 2", Integral("sqrt(1 - x^2)"));
+        Assert.Equal("x * sqrt(-x^2 + 1) / 2 + asin(x) / 2", Integral("sqrt(1 - x^2)"));
         Assert.Equal("sqrt(x^2 + 1)", Integral("x/sqrt(x^2 + 1)"));
     }
 
@@ -249,10 +249,10 @@ public class SymbolicIntegrationTests
     [Fact]
     public void Other_variables_are_constants()
     {
-        Assert.Equal("x^2 * a / 2", Integral("a*x"));
+        Assert.Equal("a * x^2 / 2", Integral("a*x"));
         Assert.Equal("-cos(a * x) / a", Integral("sin(a*x)"));
-        Assert.Equal("y^2 * x / 2", ExprParser.Parse("x*y").Integrate("y").Print());
-        Assert.Equal("sin(x) * t", ExprParser.Parse("sin(x)").Integrate("t").Print());
+        Assert.Equal("x * y^2 / 2", ExprParser.Parse("x*y").Integrate("y").Print());
+        Assert.Equal("t * sin(x)", ExprParser.Parse("sin(x)").Integrate("t").Print());
     }
 
     [Fact]
@@ -324,8 +324,8 @@ public class SymbolicIntegrationTests
             Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
         }
 
-        Assert.Equal("ln(x^2 + 1) / 2 - atan(x) * i", Integral("1/(x + i)"));
-        Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
+        Assert.Equal("ln(x^2 + 1) / 2 - i * atan(x)", Integral("1/(x + i)"));
+        Assert.Equal("-i * cos(x) + sin(x)", Integral("exp(i*x)"));
     }
 
     // On a line that misses the negative real axis, the cut of the principal power, the power rule

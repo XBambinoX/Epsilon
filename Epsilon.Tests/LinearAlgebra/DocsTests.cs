@@ -267,7 +267,7 @@ public class LinearAlgebraGettingStartedDocTests
     {
         var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
         var crossing = m.Solve(Vector<Expr>.Parse("[p, q]"));
-        Assert.Equal("[(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]", crossing.Print());
+        Assert.Equal("[(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]", crossing.Print());
         Assert.Equal("a * d - b * c", m.Determinant().Print());
         Assert.Empty(Vector<Expr>.Parse("[e, i]").GetVariables());
 
@@ -456,7 +456,7 @@ public class LinearAlgebraArithmeticDocTests
         Assert.Equal("[[2a, 2b], [2c, 2d]]", (M + M).Print());
         Assert.Equal("[[a * x, b * x], [c * x, d * x]]", (M * new Variable("x")).Print());
         Assert.Equal("[a * x + b * y, c * x + d * y]", (M * Vector<Expr>.Parse("[x, y]")).Print());
-        Assert.Equal("[[b * c + a^2, a * b + b * d], [a * c + c * d, b * c + d^2]]", (M * M).Print());
+        Assert.Equal("[[a^2 + b * c, a * b + b * d], [a * c + c * d, b * c + d^2]]", (M * M).Print());
 
         var r = Matrix<Expr>.Parse("[[1, 2], [3, 4]]");
         Assert.Equal("[[7, 10], [15, 22]]", (r * r).Print());
@@ -574,7 +574,7 @@ public class LinearAlgebraVectorGeometryDocTests
         Assert.Equal("[sqrt(2) / 2, sqrt(2) / 2]", Vector<Expr>.Parse("[1, 1]").Normalize().Print());
         Assert.Equal("π / 4", Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print());
         Assert.Equal("sqrt(a^2 + b^2)", Vector<Expr>.Parse("[a, b]").Norm().Print());
-        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]",
+        Assert.Equal("[b * z - c * y, -a * z + c * x, a * y - b * x]",
             Vector<Expr>.Parse("[a, b, c]").Cross(Vector<Expr>.Parse("[x, y, z]")).Print());
         Assert.Equal("[(x + y) / 2, (x + y) / 2]", Vector<Expr>.Parse("[x, y]").ProjectOnto(Vector<Expr>.Parse("[1, 1]")).Print());
         Assert.Equal("[x, -y]", Vector<Expr>.Parse("[x, y]").Reflect(Vector<Expr>.Parse("[0, 1]")).Print());
@@ -673,7 +673,7 @@ public class LinearAlgebraSymbolicMatricesDocTests
         Assert.Equal("[[d, -b], [-c, a]]", M.Adjugate().Print());
         Assert.Equal("[[-2, 1], [3/2, -1/2]]", R.Inverse().Print());
         Assert.Equal("[[cos(x), sin(x)], [-sin(x), cos(x)]]", Rotation.Inverse().Print());
-        Assert.Equal("[(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]",
+        Assert.Equal("[(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]",
             M.Solve(Vector<Expr>.Parse("[p, q]")).Print());
         Assert.Equal(M.Inverse(), M.Solve(Matrix<Expr>.Identity(2)));
 
@@ -856,9 +856,9 @@ public class LinearAlgebraFastCodeDocTests
     public void Jacobian()
     {
         var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
-        Assert.Equal("[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]", polar.Jacobian(["r", "t"]).Print());
+        Assert.Equal("[[cos(t), -r * sin(t)], [sin(t), r * cos(t)]]", polar.Jacobian(["r", "t"]).Print());
 
-        Assert.Equal("[[cos(t), -sin(t) * r, 0]]", Vector.Create(polar[0]).Jacobian(["r", "t", "z"]).Print());
+        Assert.Equal("[[cos(t), -r * sin(t), 0]]", Vector.Create(polar[0]).Jacobian(["r", "t", "z"]).Print());
     }
 
     [Fact]
@@ -899,7 +899,7 @@ public class LinearAlgebraFastCodeDocTests
         Assert.Equal("[[1, 0, a], [0, 1, b], [0, 0, 1]]", move.Print());
 
         var turnThenMove = move * quarterTurn.ToHomogeneous();
-        Assert.Equal("[-y + a, b + x]", turnThenMove.TransformPoint(Vector<Expr>.Parse("[x, y]")).Print());
+        Assert.Equal("[a - y, b + x]", turnThenMove.TransformPoint(Vector<Expr>.Parse("[x, y]")).Print());
         Assert.Equal("[-y, x]", turnThenMove.TransformDirection(Vector<Expr>.Parse("[x, y]")).Print());
 
         Assert.Equal("[[s, 0, 0], [0, s, 0], [0, 0, 1]]", Matrix<Expr>.FromDiagonal(Vector<Expr>.Parse("[s, s]")).ToHomogeneous().Print());
@@ -1303,7 +1303,7 @@ public class LinearAlgebraLimitationsDocTests
     [Fact]
     public void Symbolic_matrices()
     {
-        Assert.Equal("a * d + t^2 - b * c + (-a - d) * t", Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print());
+        Assert.Equal("a * d - b * c + t^2 + t * (-a - d)", Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print());
 
 
         Assert.Equal("cos(a) * cos(b) - sin(a) * sin(b)",
@@ -1346,7 +1346,7 @@ public class LinearAlgebraLeastSquaresDocTests
 
         var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));
         Assert.Equal("[[1, -2, 4], [1, -1, 1], [1, 0, 0], [1, 1, 1], [1, 2, 4]]", parabola.Print());
-        Assert.Equal("12b / 35 + 12d / 35 + 17c / 35 - 3a / 35 - 3f / 35",
+        Assert.Equal("-3a / 35 + 12b / 35 + 17c / 35 + 12d / 35 - 3f / 35",
             parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print());
 
         Assert.Equal("[(p * u + q * v + r * w) / (p^2 + q^2 + r^2)]",

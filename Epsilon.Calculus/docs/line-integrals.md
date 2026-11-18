@@ -61,7 +61,7 @@ Other variables are constants, in the curve and in the integrand:
 
 ```csharp
 var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * new Pi());
-ExprParser.Parse("1").LineIntegralExact(circleOfRadius, "x", "y").Print();   // 2abs(R) * π
+ExprParser.Parse("1").LineIntegralExact(circleOfRadius, "x", "y").Print();   // 2 * π * abs(R)
 ```
 
 ## Along a vector field

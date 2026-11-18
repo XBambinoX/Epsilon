@@ -60,7 +60,7 @@ So `-x^2` is `-(x^2)`, `2^3^2` is `2^9`, and implicit multiplication binds exact
 ```csharp
 ExprParser.Parse("-x^2").Evaluate(3);     // -9
 ExprParser.Parse("2^3^2").Evaluate(0);    // 512
-ExprParser.Parse("x/2y").Print();         // (x / 2) * y
+ExprParser.Parse("x/2y").Print();         // y * (x / 2)
 ```
 
 Write `x/(2y)` when you mean it.

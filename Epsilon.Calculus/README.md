@@ -21,7 +21,7 @@ var f = ExprParser.Parse("x^3 - 3*x + y^2");
 
 f.Gradient("x", "y").Print();                    // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));     // LocalMinimum
-ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // exp(x) * x - exp(x)
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // x * exp(x) - exp(x)
 ExprParser.Parse("sin(x)/x").Limit("x", 0).Print();                 // 1
 ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // π / 4
 ```
@@ -50,7 +50,7 @@ f.Hessian("x", "y").Print();      // [[2y, 2x], [2x, -sin(y)]]
 f.Laplacian("x", "y").Print();    // 2y - sin(y)
 
 // Antiderivatives
-ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // ln(x) * x^2 / 2 - x^2 / 4
+ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // x^2 * ln(x) / 2 - x^2 / 4
 ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // ln(abs((x - 1) / (x + 1))) / 2
 
 // Series and limits
@@ -81,7 +81,7 @@ var gradient = f.Gradient("x", "y");
 gradient.Evaluate(("x", 1), ("y", 2));        // [4, 0.5838531634528576]
 gradient.Compile("x", "y")(1, 2);             // [4, 0.5838531634528576]
 
-ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // 2x * y + x^2
+ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // x^2 + 2x * y
 Vector<Expr>.Parse("[x*y, y^2]").Divergence("x", "y").Print();               // 3y
 Vector<Expr>.Parse("[-y, x, 0]").Curl("x", "y", "z").Print();                // [0, 0, 2]
 ```
@@ -121,7 +121,7 @@ p;   // [1, 1]
 ```csharp
 ExprParser.Parse("2*x*cos(x^2)").Integrate("x").Print();          // sin(x^2)
 ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();         // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
-ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();         // 3nthroot(x, 3) * x / 4
+ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();         // 3x * nthroot(x, 3) / 4
 ExprParser.Parse("1/(x^2*sqrt(4 + x^2))").Integrate("x").Print(); // -sqrt(x^2 + 4) / (4x)
 ```
 

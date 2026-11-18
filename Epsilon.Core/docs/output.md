@@ -19,14 +19,17 @@ ExprParser.Parse("sqrt(x) + |y|").Print();              // abs(y) + sqrt(x)
 ExprParser.Parse("2pi").Print();                        // 2 * π
 ```
 
-- **Terms are ordered by descending degree**, constants last.
-- A number is written right before a single variable or function (`3x^2`, `2cos(x) * y`);
+- **Terms are ordered by descending degree**, constants last; terms of the same degree by
+  the powers of the variables in name order: `x^2 * y + 3x * y^2`, `-a + x`.
+- **Factors are ordered** numbers and other constants first, then the variables and their
+  powers by name, then the rest: `π * x * sin(x)`, `a * x^2`, `x * (x + 1)`.
+- A number is written right before a single variable or function (`3x^2`, `2cos(x)`);
   anything else keeps an explicit `*` (`3 * 2^x`, `2 * π`).
 - Negative and fractional bases and exponents are parenthesized: `(-2)^x`, `x^(1 / 2)`.
 - Numbers are exact rationals, like `1/3`, and are written the same in every culture.
 
-The output of `Print` can always be read back by [`Parse`](parsing.md) into the same
-tree.
+The output of `Print` can always be read back by [`Parse`](parsing.md) into an expression
+with the same value; only the order of terms and factors may differ from the tree's.
 
 ## ToLatex
 

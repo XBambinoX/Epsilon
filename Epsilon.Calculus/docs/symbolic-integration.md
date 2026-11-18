@@ -18,7 +18,7 @@ constants:
 
 ```csharp
 ExprParser.Parse("sin(a*x)").Integrate("x").Print();   // -cos(a * x) / a
-ExprParser.Parse("x*y").Integrate("y").Print();        // y^2 * x / 2
+ExprParser.Parse("x*y").Integrate("y").Print();        // x * y^2 / 2
 ```
 
 ## Exact results
@@ -29,7 +29,7 @@ sides of 0, and the integral of a real root is real wherever the root is:
 ```csharp
 ExprParser.Parse("sqrt(x)").Integrate("x").Print();         // 2x^(3/2) / 3
 ExprParser.Parse("1/x").Integrate("x").Print();             // ln(abs(x))
-ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();   // 3nthroot(x, 3) * x / 4
+ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();   // 3x * nthroot(x, 3) / 4
 
 ExprParser.Parse("nthroot(x, 3)").Integrate("x").Evaluate(("x", -8));   // 12
 ```
@@ -43,12 +43,12 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | Powers of a linear expression | `(2*x + 1)^5` | `(2x + 1)^6 / 12` |
 | Exponentials | `exp(-3*x)`, `2^x` | `-exp(-3x) / 3`, `2^x / ln(2)` |
 | | `2^x*3^x` | `2^x * 3^x / ln(6)` |
-| Logarithms | `ln(x)` | `ln(x) * x - x` |
+| Logarithms | `ln(x)` | `x * ln(x) - x` |
 | Trigonometric functions | `cos(3*x + 1)`, `tan(x)` | `sin(3x + 1) / 3`, `-ln(abs(cos(x)))` |
 | | `sec(x)` | `ln(abs(sec(x) + tan(x)))` |
-| Inverse functions | `atan(x)` | `atan(x) * x - ln(x^2 + 1) / 2` |
-| abs and sign | `abs(x)` | `abs(x) * x / 2` |
-| floor, ceiling and round | `floor(x)` | `floor(x) * x - (floor(x) + 1) * floor(x) / 2` |
+| Inverse functions | `atan(x)` | `x * atan(x) - ln(x^2 + 1) / 2` |
+| abs and sign | `abs(x)` | `x * abs(x) / 2` |
+| floor, ceiling and round | `floor(x)` | `x * floor(x) - (floor(x) + 1) * floor(x) / 2` |
 | Squares and products | `sin(x)^2` | `x / 2 - sin(2x) / 4` |
 | | `sec(x)*tan(x)`, `sin(x)*cos(x)` | `sec(x)`, `-cos(2x) / 4` |
 | Polynomials | `x*(x + 1)` | `x^3 / 3 + x^2 / 2` |
@@ -57,7 +57,7 @@ The cube root of -8 is -2, and x^(4/3) would be NaN there.
 | Quadratic denominators | `1/(1 + x^2)`, `1/(x^2 + 2*x + 5)` | `atan(x)`, `atan((x + 1) / 2) / 2` |
 | | `x/(x^2 + 1)` | `ln(x^2 + 1) / 2` |
 | Square roots of quadratics | `1/sqrt(1 - x^2)`, `1/sqrt(x^2 + 1)` | `asin(x)`, `asinh(x)` |
-| | `sqrt(1 - x^2)` | `sqrt(-x^2 + 1) * x / 2 + asin(x) / 2` |
+| | `sqrt(1 - x^2)` | `x * sqrt(-x^2 + 1) / 2 + asin(x) / 2` |
 
 The arguments may be any linear expression a x + b: the exponential, logarithm, trigonometric,
 hyperbolic and inverse functions, abs and sign, floor, ceiling and round, whose antiderivatives
@@ -117,9 +117,9 @@ otherwise as cos(pi/5) is for x^5 - 1:
 
 ```csharp
 ExprParser.Parse("1/(x^4 + 1)").Integrate("x").Print();
-// ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) * sqrt(2) / 8 + (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) * sqrt(2) / 4
+// sqrt(2) * ln((x^2 + sqrt(2) * x + 1) / (x^2 - sqrt(2) * x + 1)) / 8 + sqrt(2) * (atan(sqrt(2) * x + 1) + atan(sqrt(2) * x - 1)) / 4
 ExprParser.Parse("1/(x^6 + 1)").Integrate("x").Print();
-// (atan(2x + sqrt(3)) + atan(2x - sqrt(3))) / 6 + atan(x) / 3 + ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) * sqrt(3) / 12
+// (atan(2x + sqrt(3)) + atan(2x - sqrt(3))) / 6 + atan(x) / 3 + sqrt(3) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) / 12
 ```
 
 The roots of any other cubic or quartic come from Cardano's and Ferrari's formulas, three real
@@ -127,9 +127,9 @@ roots of a cubic in trigonometric form:
 
 ```csharp
 ExprParser.Parse("1/(x^3 - 3*x + 1)").Integrate("x").Print();
-// ln(abs(x + 2cos(π / 9))) * (-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9)
-//   + ln(abs(x - 2cos(2 * π / 9))) * (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9)
-//   + ln(abs(x - 2cos(4 * π / 9))) * (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9)
+// (-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))
+//   + (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(2 * π / 9)))
+//   + (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(4 * π / 9)))
 ```
 
 These are exact, but a root in radicals takes room, and it appears in every coefficient. With
@@ -254,10 +254,10 @@ r cosh(t) for p > 0 > k, with r = sqrt(|k|). The square root is then a multiple 
 cosh(t) or sinh(t), and the result is written back in x:
 
 ```csharp
-ExprParser.Parse("x^2/sqrt(1 - x^2)").Integrate("x").Print();       // -sqrt(-x^2 + 1) * x / 2 + asin(x) / 2
+ExprParser.Parse("x^2/sqrt(1 - x^2)").Integrate("x").Print();       // -x * sqrt(-x^2 + 1) / 2 + asin(x) / 2
 ExprParser.Parse("1/(x^2*sqrt(4 + x^2))").Integrate("x").Print();   // -sqrt(x^2 + 4) / (4x)
 ExprParser.Parse("x^2*sqrt(x^2 + 1)").Integrate("x").Print();
-// x^3 * sqrt(x^2 + 1) / 4 + sqrt(x^2 + 1) * x / 8 - asinh(x) / 8
+// x^3 * sqrt(x^2 + 1) / 4 + x * sqrt(x^2 + 1) / 8 - asinh(x) / 8
 ```
 
 For p > 0 > k, x - h is r cosh(t) on one side of the gap around h and -r cosh(t) on the other.
@@ -282,18 +282,18 @@ taken: a logarithm, an inverse function or a polynomial, in that order, and the 
 polynomial loses a degree with each step:
 
 ```csharp
-ExprParser.Parse("x*exp(x)").Integrate("x").Print();     // exp(x) * x - exp(x)
-ExprParser.Parse("x^2*cos(x)").Integrate("x").Print();   // x^2 * sin(x) + 2cos(x) * x - 2sin(x)
-ExprParser.Parse("x*ln(x)").Integrate("x").Print();      // ln(x) * x^2 / 2 - x^2 / 4
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();     // x * exp(x) - exp(x)
+ExprParser.Parse("x^2*cos(x)").Integrate("x").Print();   // x^2 * sin(x) + 2x * cos(x) - 2sin(x)
+ExprParser.Parse("x*ln(x)").Integrate("x").Print();      // x^2 * ln(x) / 2 - x^2 / 4
 ```
 
 A logarithm or an inverse function alone, or a power of one, is u with dv = dx:
 
 ```csharp
-ExprParser.Parse("ln(x)^2").Integrate("x").Print();       // 2x + ln(x)^2 * x - 2ln(x) * x
-ExprParser.Parse("ln(x^2 + 1)").Integrate("x").Print();   // ln(x^2 + 1) * x - 2x + 2atan(x)
-ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)
-ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // asin(x) * x^2 / 2 + sqrt(-x^2 + 1) * x / 4 - asin(x) / 4
+ExprParser.Parse("ln(x)^2").Integrate("x").Print();       // 2x + x * ln(x)^2 - 2x * ln(x)
+ExprParser.Parse("ln(x^2 + 1)").Integrate("x").Print();   // x * ln(x^2 + 1) - 2x + 2atan(x)
+ExprParser.Parse("asin(x)^2").Integrate("x").Print();     // x * asin(x)^2 - 2x + 2asin(x) * sqrt(-x^2 + 1)
+ExprParser.Parse("x*asin(x)").Integrate("x").Print();     // x^2 * asin(x) / 2 + x * sqrt(-x^2 + 1) / 4 - asin(x) / 4
 ```
 
 An exponential, sinh or cosh times sin or cos, and sin or cos of a logarithm, come back to the
@@ -303,7 +303,7 @@ integral I after two steps, as I = A + c I, which is solved for I:
 ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();       // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
 ExprParser.Parse("exp(2*x)*cos(3*x)").Integrate("x").Print();   // 2cos(3x) * exp(2x) / 13 + 3exp(2x) * sin(3x) / 13
 ExprParser.Parse("cosh(x)*cos(x)").Integrate("x").Print();      // cos(x) * sinh(x) / 2 + cosh(x) * sin(x) / 2
-ExprParser.Parse("sin(ln(x))").Integrate("x").Print();          // (sin(ln(x)) * x - cos(ln(x)) * x) / 2
+ExprParser.Parse("sin(ln(x))").Integrate("x").Print();          // (x * sin(ln(x)) - x * cos(ln(x))) / 2
 ```
 
 For sinh and cosh at the rate of the exponential, c is 1 and there is nothing to solve, so they
@@ -334,10 +334,10 @@ real, the integrand is split into its real and imaginary parts, and each is inte
 function:
 
 ```csharp
-ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // ln(x^2 + 1) / 2 - atan(x) * i
-ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -cos(x) * i + sin(x)
+ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // ln(x^2 + 1) / 2 - i * atan(x)
+ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -i * cos(x) + sin(x)
 ExprParser.Parse("tan(x + i)").Integrate("x").Print();
-// -ln(abs(cos(2x) + cosh(2))) / 2 + (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) * i / 2
+// -ln(abs(cos(2x) + cosh(2))) / 2 + i * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) / 2
 ```
 
 The parts are those of sums, products, quotients and integer powers, of the trigonometric and
@@ -359,7 +359,7 @@ The derivative of an antiderivative is the integrand:
 ```csharp
 var integral = ExprParser.Parse("atan(x)").Integrate("x");
 
-integral.Print();                    // atan(x) * x - ln(x^2 + 1) / 2
+integral.Print();                    // x * atan(x) - ln(x^2 + 1) / 2
 integral.Differentiate("x").Print(); // atan(x)
 ```
 

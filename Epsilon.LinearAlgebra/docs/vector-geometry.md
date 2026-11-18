@@ -63,7 +63,7 @@ Vector<Expr>.Parse("[1, 1]").Normalize().Print();                          // [s
 Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print();   // π / 4
 Vector<Expr>.Parse("[a, b]").Norm().Print();                               // sqrt(a^2 + b^2)
 Vector<Expr>.Parse("[a, b, c]").Cross(Vector<Expr>.Parse("[x, y, z]")).Print();
-// [b * z - c * y, c * x - a * z, a * y - b * x]
+// [b * z - c * y, -a * z + c * x, a * y - b * x]
 Vector<Expr>.Parse("[x, y]").ProjectOnto(Vector<Expr>.Parse("[1, 1]")).Print();   // [(x + y) / 2, (x + y) / 2]
 Vector<Expr>.Parse("[x, y]").Reflect(Vector<Expr>.Parse("[0, 1]")).Print();       // [x, -y]
 ```

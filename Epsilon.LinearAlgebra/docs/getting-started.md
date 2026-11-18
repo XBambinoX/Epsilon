@@ -32,7 +32,7 @@ linear system. Let's solve it once for all lines, with symbols.
 var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
 var crossing = m.Solve(Vector<Expr>.Parse("[p, q]"));
 
-crossing.Print();          // [(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]
+crossing.Print();          // [(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]
 m.Determinant().Print();   // a * d - b * c
 ```
 

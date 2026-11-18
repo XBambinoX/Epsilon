@@ -9,9 +9,9 @@ Expr Differentiate()   // for an expression with at most one variable
 in the default Generic mode:
 
 ```csharp
-ExprParser.Parse("sin(x^2)").Differentiate("x").Print();     // 2cos(x^2) * x
+ExprParser.Parse("sin(x^2)").Differentiate("x").Print();     // 2x * cos(x^2)
 ExprParser.Parse("x/(x + 1)").Differentiate("x").Print();    // 1 / (x + 1)^2
-ExprParser.Parse("x^x").Differentiate("x").Print();          // (ln(x) + 1) * x^x
+ExprParser.Parse("x^x").Differentiate("x").Print();          // x^x * (ln(x) + 1)
 ```
 
 ## Partial and higher derivatives
@@ -22,7 +22,7 @@ mixed derivatives:
 ```csharp
 Expr f = ExprParser.Parse("x^2*y^3");
 
-f.Differentiate("x").Differentiate("y").Print();                // 6y^2 * x
+f.Differentiate("x").Differentiate("y").Print();                // 6x * y^2
 ExprParser.Parse("x^4").Differentiate("x").Differentiate("x").Print();   // 12x^2
 ```
 

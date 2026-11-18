@@ -53,7 +53,7 @@ expressions, and numbers stay exact:
 (m + m).Print();                                 // [[2a, 2b], [2c, 2d]]
 (m * new Variable("x")).Print();                 // [[a * x, b * x], [c * x, d * x]]
 (m * Vector<Expr>.Parse("[x, y]")).Print();     // [a * x + b * y, c * x + d * y]
-(m * m).Print();                                 // [[b * c + a^2, a * b + b * d], [a * c + c * d, b * c + d^2]]
+(m * m).Print();                                 // [[a^2 + b * c, a * b + b * d], [a * c + c * d, b * c + d^2]]
 
 var r = Matrix<Expr>.Parse("[[1, 2], [3, 4]]");
 (r * r).Print();                                 // [[7, 10], [15, 22]]

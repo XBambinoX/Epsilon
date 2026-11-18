@@ -113,6 +113,7 @@ public static class Printer
         var factors = new List<Expr>();
         FlattenMultiply(left, factors);
         FlattenMultiply(right, factors);
+        factors = SumTerms.FactorsInDisplayOrder(factors);
 
         Constant? constant = null;
         int constantCount = 0;

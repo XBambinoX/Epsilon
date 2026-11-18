@@ -674,7 +674,7 @@ public class SymbolicVectorOperationsTests
     [Fact]
     public void Cross_product()
     {
-        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]", V("[a, b, c]").Cross(V("[x, y, z]")).Print());
+        Assert.Equal("[b * z - c * y, -a * z + c * x, a * y - b * x]", V("[a, b, c]").Cross(V("[x, y, z]")).Print());
         Assert.Equal("[0, 0, 1]", V("[1, 0, 0]").Cross(V("[0, 1, 0]")).Print());
         Assert.Throws<InvalidOperationException>(() => V("[a, b]").Cross(V("[x, y, z]")));
     }

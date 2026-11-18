@@ -14,7 +14,7 @@ polynomials and find roots — with no dependencies beyond the .NET base library
 Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 
 f.Differentiate("x").Print();            // 3x^2 - 4x + 1
-f.TryFactorReal("x").Factored.Print();   // (x - 1)^2 * x
+f.TryFactorReal("x").Factored.Print();   // x * (x - 1)^2
 ```
 
 ## Installation
@@ -36,7 +36,7 @@ f.Evaluate(3);                           // 12
 f.Differentiate("x").Print();            // 3x^2 - 4x + 1
 f.Differentiate("x").ToLatex();          // 3x^{2} - 4x + 1
 f.FindRealRoots(-10, 10);                // [0, 1]
-f.TryFactorReal("x").Factored.Print();   // (x - 1)^2 * x
+f.TryFactorReal("x").Factored.Print();   // x * (x - 1)^2
 ```
 
 Expressions can also be built with ordinary C# operators:
@@ -102,7 +102,7 @@ Contradictory assumptions (`x > 0` and `x < 0`) are rejected with an error namin
 Symbolic derivatives, partial derivatives included, returned already simplified:
 
 ```csharp
-ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print();   // 3y^2 + x^2
+ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print();   // x^2 + 3y^2
 ```
 
 ### Root finding

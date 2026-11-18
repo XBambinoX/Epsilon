@@ -42,7 +42,7 @@ factoring:
 
 ```csharp
 h.FindRealRoots(-10, 10);                // [0, 4]
-h.TryFactorReal("t").Factored.Print();   // -5 * (t - 4) * t
+h.TryFactorReal("t").Factored.Print();   // -5t * (t - 4)
 ```
 
 **Write it as LaTeX** for a report:

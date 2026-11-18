@@ -52,7 +52,7 @@ entry and one column per variable, in the order you give:
 
 ```csharp
 var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
-polar.Jacobian(["r", "t"]).Print();   // [[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]
+polar.Jacobian(["r", "t"]).Print();   // [[cos(t), -r * sin(t)], [sin(t), r * cos(t)]]
 ```
 
 A variable that no entry has gives a column of zeros, and a vector of one entry gives its
@@ -112,7 +112,7 @@ var move = Matrix<Expr>.Translation(Vector<Expr>.Parse("[a, b]"));
 move.Print();          // [[1, 0, a], [0, 1, b], [0, 0, 1]]
 
 var turnThenMove = move * quarterTurn.ToHomogeneous();
-turnThenMove.TransformPoint(Vector<Expr>.Parse("[x, y]")).Print();       // [-y + a, b + x]
+turnThenMove.TransformPoint(Vector<Expr>.Parse("[x, y]")).Print();       // [a - y, b + x]
 turnThenMove.TransformDirection(Vector<Expr>.Parse("[x, y]")).Print();   // [-y, x]
 ```
 

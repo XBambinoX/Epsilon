@@ -62,19 +62,19 @@ public class IntegrationByPartsTests
     [Fact]
     public void A_polynomial_times_an_exponential_or_a_sine()
     {
-        Assert.Equal("exp(x) * x - exp(x)", Integral("x*exp(x)"));
-        Assert.Equal("x^2 * sin(x) + 2cos(x) * x - 2sin(x)", Integral("x^2*cos(x)"));
-        Assert.Equal("exp(x) * x", Integral("(x + 1)*exp(x)"));
+        Assert.Equal("x * exp(x) - exp(x)", Integral("x*exp(x)"));
+        Assert.Equal("x^2 * sin(x) + 2x * cos(x) - 2sin(x)", Integral("x^2*cos(x)"));
+        Assert.Equal("x * exp(x)", Integral("(x + 1)*exp(x)"));
     }
 
     // A logarithm or an inverse function for u, alone with dv = dx.
     [Fact]
     public void Logarithms_and_inverse_functions()
     {
-        Assert.Equal("ln(x) * x^2 / 2 - x^2 / 4", Integral("x*ln(x)"));
-        Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
-        Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
-        Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)", Integral("asin(x)^2"));
+        Assert.Equal("x^2 * ln(x) / 2 - x^2 / 4", Integral("x*ln(x)"));
+        Assert.Equal("2x + x * ln(x)^2 - 2x * ln(x)", Integral("ln(x)^2"));
+        Assert.Equal("x * ln(x^2 + 1) - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
+        Assert.Equal("x * asin(x)^2 - 2x + 2asin(x) * sqrt(-x^2 + 1)", Integral("asin(x)^2"));
     }
 
     // Two steps come back to the integral, which is solved for.
@@ -83,7 +83,7 @@ public class IntegrationByPartsTests
     {
         Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));
         Assert.Equal("2cos(3x) * exp(2x) / 13 + 3exp(2x) * sin(3x) / 13", Integral("exp(2*x)*cos(3*x)"));
-        Assert.Equal("(sin(ln(x)) * x - cos(ln(x)) * x) / 2", Integral("sin(ln(x))"));
+        Assert.Equal("(x * sin(ln(x)) - x * cos(ln(x))) / 2", Integral("sin(ln(x))"));
     }
 
     // sinh and cosh as the partner of sin and cos, which is u in both steps.
@@ -111,7 +111,7 @@ public class IntegrationByPartsTests
     public void After_a_substitution()
     {
         Assert.Equal("2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))", Integral("exp(sqrt(x))"));
-        Assert.Equal("exp(x^2) * x^2 / 2 - exp(x^2) / 2", Integral("x^3*exp(x^2)"));
+        Assert.Equal("x^2 * exp(x^2) / 2 - exp(x^2) / 2", Integral("x^3*exp(x^2)"));
     }
 
     // Integration by parts made u = x - 1 a better choice than the root, and the expansion lost

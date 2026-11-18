@@ -11,7 +11,7 @@ kept as a polynomial.
 
 ```csharp
 ExprParser.Parse("x^2 - 5x + 6").TryFactorReal("x").Factored.Print();   // (x - 2) * (x - 3)
-ExprParser.Parse("x^3 - x").TryFactorReal("x").Factored.Print();        // (x + 1) * (x - 1) * x
+ExprParser.Parse("x^3 - x").TryFactorReal("x").Factored.Print();        // x * (x + 1) * (x - 1)
 ```
 
 The polynomial doesn't have to be written out: it is [expanded](simplification.md#expanding)
