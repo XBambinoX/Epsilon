@@ -127,7 +127,7 @@ public static class Simplifier
 
     // For 0 * u = 0. Like 0/0, a u that is undefined whatever the variables are (1/0, x/0, ln(0))
     // is never dropped; Strict mode also needs u provably defined: 0 * ln(x) keeps x > 0.
-    private static bool DefinedForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
+    internal static bool DefinedForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
         ScanConstantParts(expr) is not null &&
         (mode == SimplifyMode.Generic || DomainConditions(expr, assumptions).Count == 0);
 
@@ -1366,8 +1366,13 @@ public static class Simplifier
         var combined = new List<(Rational Coefficient, Expr Term)>();
         var termIndex = new Dictionary<Expr, int>();
 
-        foreach (var (coef, term) in raw)
+        foreach (var (rawCoef, rawTerm) in raw)
         {
+            // 0/d, a cancelled term kept for d != 0, is 0 times 1/d: it goes too if others keep d != 0.
+            var (coef, term) = rawTerm is Divide(Constant { Value.IsZero: true }, var d)
+                ? (Rational.Zero, new Divide(new Constant(1), d))
+                : (rawCoef, rawTerm);
+
             if (term is Constant c)
             {
                 constantSum += coef * c.Value;
@@ -1397,7 +1402,7 @@ public static class Simplifier
         MergeExponentialLogarithms(combined, ref constantSum);
         CombineFractions(combined, ref constantSum, mode);
         if (cancelled.Count > 0)
-            KeepUndefinedCancelledTerms(combined, cancelled, assumptions, mode);
+            KeepUndefinedCancelledTerms(combined, cancelled, assumptions, mode, cache);
         Expr result = BuildSum(combined, constantSum);
         if (SurdSum(combined, constantSum) is { } surd && surd.ToExpr() is var folded && NodeCount(folded) < NodeCount(result))
             return folded;
@@ -1409,7 +1414,8 @@ public static class Simplifier
     // Terms that add up to 0 go where that keeps the domain, as 0 * u does. ln(0) - ln(0) stays in
     // either mode
     private static void KeepUndefinedCancelledTerms(
-        List<(Rational Coefficient, Expr Term)> terms, List<Expr> cancelled, Assumptions assumptions, SimplifyMode mode)
+        List<(Rational Coefficient, Expr Term)> terms, List<Expr> cancelled, Assumptions assumptions, SimplifyMode mode,
+        Dictionary<Expr, Expr> cache)
     {
         HashSet<(DomainKind, Expr)>? domain = null;
 
@@ -1437,7 +1443,8 @@ public static class Simplifier
                 domain.UnionWith(needed);
             }
 
-            terms.Add((Rational.Zero, term));
+            // In the form 0 * u simplifies to, 0 / y for x/y, so the next pass keeps it as it is.
+            terms.Add((Rational.One, SimplifyCached(new Multiply(new Constant(0), term), assumptions, mode, cache)));
         }
     }
 

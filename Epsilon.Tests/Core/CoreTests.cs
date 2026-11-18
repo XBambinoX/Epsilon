@@ -2685,6 +2685,8 @@ public class QuotientConstantFactorTests
     [InlineData("x/(a - b) + x/(b - a)", "0", "0 / (a - b)")]
     [InlineData("ln(x) - ln(x) + 1", "1", "0 * ln(x) + 1")]
     [InlineData("1/x - 1/x + 1/x^2", "1 / x^2", "1 / x^2")]       // 1/x^2 keeps x != 0
+    [InlineData("0/x + 1/x^2", "1 / x^2", "1 / x^2")]
+    [InlineData("x/y - x/y + x", "x", "x + 0 / y")]
     [InlineData("ln(x) - ln(x) + sqrt(x - 1)", "sqrt(x - 1)", "0 * ln(x) + sqrt(x - 1)")]
     [InlineData("ln(x) - ln(x) + ln(x)^2", "ln(x)^2", "ln(x)^2")]
     [InlineData("sin(x) - sin(x)", "0", "0")]
@@ -4330,6 +4332,13 @@ public class ExpandTests
     [InlineData("(x + 1/x)^2", "x^2 + 1 / x^2 + 2", "x^2 + 1 / x^2 + 2x / x")]
     // Merging the powers gives (x + 1)^2, which is multiplied out in turn.
     [InlineData("(x + 1)^(1/2) * (x + 1)^(3/2)", "x^2 + 2x + 1", "(x + 1)^(3/2) * sqrt(x + 1)")]
+    // Terms that cancel go only where the others keep their domain, as in Simplify.
+    [InlineData("(ln(x) + 1)*(1 - ln(x)) + ln(x)^2", "1", "0 * ln(x) + 1")]
+    [InlineData("(x + ln(x))*(x - ln(x))", "x^2 - ln(x)^2", "x^2 - ln(x)^2")]
+    [InlineData("(x + 1/x)*(x - 1/x)", "x^2 - 1 / x^2", "x^2 - 1 / x^2")]
+    [InlineData("(1/x + 1)*(1/x - 1)*x", "-x + 1 / x", "-x + x / x^2")]
+    [InlineData("x/y - x/y", "0", "0 / y")]
+    [InlineData("ln(0) - ln(0)", "0 * ln(0)", "0 * ln(0)")]
     public void Simplifies_in_the_given_mode(string input, string generic, string strict)
     {
         Expr expr = ExprParser.Parse(input);
