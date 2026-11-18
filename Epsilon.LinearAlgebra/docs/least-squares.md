@@ -52,7 +52,7 @@ smoothing filter of Savitzky and Golay:
 ```csharp
 var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));   // x = -2 ... 2
 parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print();
-// -3a / 35 + 12b / 35 + 17c / 35 + 12d / 35 - 3f / 35
+// 12b / 35 - 3a / 35 + 17c / 35 + 12d / 35 - 3f / 35
 ```
 
 Symbols in the matrix give the general formula, here of a line through the origin, y = k x:

@@ -115,7 +115,7 @@ Other variables are constants, in the expression and in the point:
 ExprParser.Parse("exp(a*x)").Series("x", 0, 2).Print();    // 1 + a * x + a^2 * x^2 / 2 + O(x^3)
 ExprParser.Parse("1/(x - a)").Series("x", 0, 2).Print();   // -1 / a - x * (1 / a^2) - x^2 * (1 / a^3) + O(x^3)
 ExprParser.Parse("sin(x)").Series("x", ExprParser.Parse("a"), 2).Print();
-// sin(a) + cos(a) * (-a + x) - (sin(a) / 2) * (-a + x)^2 + O((-a + x)^3)
+// sin(a) + cos(a) * (x - a) - (sin(a) / 2) * (x - a)^2 + O((x - a)^3)
 ```
 
 A coefficient with a symbol is taken as other than 0, so `1/(x - a)` at 0 holds for a other than

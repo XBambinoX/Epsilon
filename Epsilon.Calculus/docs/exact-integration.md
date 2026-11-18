@@ -43,7 +43,7 @@ ExprParser.Parse("exp(-x)").IntegrateExact("x", 0, ExprParser.Parse("ln(2)")).Pr
 ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print();                        // 2
 
 ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print();
-// -cos(314159265358979/100000000000000) + 1
+// 1 - cos(314159265358979/100000000000000)
 ```
 
 ## Singular limits and points inside
@@ -146,7 +146,7 @@ where tan(x/2) is, and there the limits from both sides are taken:
 ExprParser.Parse("1/(2 + cos(x))").IntegrateExact("x", 0, ExprParser.Parse("2*pi")).Print();
 // 2 * π / sqrt(3)
 ExprParser.Parse("1/(1 + sin(x))^2").IntegrateExact("x", 0, 3).Print();
-// -2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3
+// 4/3 - 2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3)
 ```
 
 Where an antiderivative jumps while the integrand doesn't, the jumps are taken off. By

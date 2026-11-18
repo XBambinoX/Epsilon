@@ -39,13 +39,13 @@ public class ExactIntegrationTests
     [InlineData("1/x", "1", "e", "1")]
     [InlineData("1/x", "-e", "-1", "-1")]
     [InlineData("exp(-x)", "0", "ln(2)", "1/2")]
-    [InlineData("x*exp(-x)", "0", "1", "-2exp(-1) + 1")]
-    [InlineData("atan(x)", "0", "1", "-ln(2) / 2 + π / 4")]
+    [InlineData("x*exp(-x)", "0", "1", "1 - 2exp(-1)")]
+    [InlineData("atan(x)", "0", "1", "π / 4 - ln(2) / 2")]
     [InlineData("asin(x)", "0", "1", "π / 2 - 1")]
     [InlineData("acos(x)", "-1", "1", "π")]
     [InlineData("1/(x^2 - 1)", "2", "3", "ln(3/2) / 2")]
     [InlineData("1/(4 - x^2)", "-1", "1", "ln(3) / 2")]
-    [InlineData("1/(x^2 - 2)", "0", "1", "ln(-2sqrt(2) + 3) / (2sqrt(2))")]
+    [InlineData("1/(x^2 - 2)", "0", "1", "ln(3 - 2sqrt(2)) / (2sqrt(2))")]
     [InlineData("x/(x^4 - 1)", "2", "3", "ln(4/3) / 4")]
     [InlineData("1/(x^3 + 1)", "0", "1", "ln(2) / 3 + π * sqrt(3) / 9")]
     [InlineData("1/(x^2 + 4)", "-2", "2*sqrt(3)", "7 * π / 24")]
@@ -303,7 +303,7 @@ public class ExactIntegrationTests
         Assert.Equal("1", f.IntegrateExact(0, Inf).Print());
         Assert.Equal("exp(-π)", f.IntegrateExact(new Pi(), Inf).Print());
         Assert.Equal("-exp(-π)", f.IntegrateExact(Inf, new Pi()).Print());
-        Assert.Equal("-exp(-1) + 1", f.IntegrateExact(new Constant(0), new Constant(1)).Print());
+        Assert.Equal("1 - exp(-1)", f.IntegrateExact(new Constant(0), new Constant(1)).Print());
         Assert.Equal("1/2", ExprParser.Parse("x").IntegrateExact("x", 0, 1).Print());
         Assert.Throws<ArgumentException>(() => f.IntegrateExact(0, double.NaN));
     }

@@ -100,8 +100,8 @@ public class PartialFractionsTests
     [Fact]
     public void Repeated_factors()
     {
-        Assert.Equal("-1 / (x - 1) + ln(abs(x - 1))", Integral("x/(x - 1)^2"));
-        Assert.Equal("-1 / (2x^2) + ln(abs(x))", Integral("(x^2 + 1)/x^3"));
+        Assert.Equal("ln(abs(x - 1)) - 1 / (x - 1)", Integral("x/(x - 1)^2"));
+        Assert.Equal("ln(abs(x)) - 1 / (2x^2)", Integral("(x^2 + 1)/x^3"));
         Assert.Equal("x / (2 * (x^2 + 1)) + atan(x) / 2", Integral("1/(x^2 + 1)^2"));
         Assert.Equal("(3x^3 + 5x) / (8(x^2 + 1)^2) + 3atan(x) / 8", Integral("1/(x^2 + 1)^3"));
         Assert.Equal("-1 / (2 * (x^2 + 1))", Integral("x/(x^2 + 1)^2"));
@@ -112,7 +112,7 @@ public class PartialFractionsTests
     [Fact]
     public void Squarefree_factorization()
     {
-        Assert.Equal("-x / (2 * (x + 1) * (x - 1)) + ln(abs((x + 1) / (x - 1))) / 4", Integral("1/(x^4 - 2*x^2 + 1)"));
+        Assert.Equal("ln(abs((x + 1) / (x - 1))) / 4 - x / (2 * (x + 1) * (x - 1))", Integral("1/(x^4 - 2*x^2 + 1)"));
         Assert.Equal("1 / (2 * (x + 1)) + ln(abs((x - 1) / (x + 1))) / 4", Integral("1/((x^2 - 1)*(x + 1))"));
     }
 
@@ -126,8 +126,8 @@ public class PartialFractionsTests
     {
         Assert.Equal("atan((2x - 1) / sqrt(3)) / sqrt(3) + ln(abs(x + 1)) / 3 - ln(x^2 - x + 1) / 6", Integral("1/(x^3 + 1)"));
         Assert.Equal("ln(abs(x)) - ln(x^2 + 1) / 2", Integral("1/(x*(x^2 + 1))"));
-        Assert.Equal("-atan(x) / 2 + ln(abs((x - 1) / (x + 1))) / 4", Integral("1/(x^4 - 1)"));
-        Assert.Equal("-ln(abs(x)) / 2 + ln(abs(x^2 - 2)) / 4", Integral("1/(x*(x^2 - 2))"));
+        Assert.Equal("ln(abs((x - 1) / (x + 1))) / 4 - atan(x) / 2", Integral("1/(x^4 - 1)"));
+        Assert.Equal("ln(abs(x^2 - 2)) / 4 - ln(abs(x)) / 2", Integral("1/(x*(x^2 - 2))"));
     }
 
     // Logarithms with coefficients of the same size become one, of a product or a quotient.
@@ -144,8 +144,8 @@ public class PartialFractionsTests
     [Fact]
     public void Products_of_quadratics()
     {
-        Assert.Equal("-atan(x / 2) / 6 + atan(x) / 3", Integral("1/((x^2 + 1)*(x^2 + 4))"));
-        Assert.Equal("-atan(x / 2) / 6 + atan(x) / 3", Integral("1/(x^4 + 5*x^2 + 4)"));
+        Assert.Equal("atan(x) / 3 - atan(x / 2) / 6", Integral("1/((x^2 + 1)*(x^2 + 4))"));
+        Assert.Equal("atan(x) / 3 - atan(x / 2) / 6", Integral("1/(x^4 + 5*x^2 + 4)"));
         Assert.Equal("atan((2x + 1) / sqrt(3)) / (2sqrt(3)) + atan((2x - 1) / sqrt(3)) / (2sqrt(3)) + ln((x^2 + x + 1) / (x^2 - x + 1)) / 4",
             Integral("1/(x^4 + x^2 + 1)"));
         Assert.Equal("ln((x^2 + 2x + 2) / (x^2 - 2x + 2)) / 16 + atan(x + 1) / 8 + atan(x - 1) / 8", Integral("1/(x^4 + 4)"));
@@ -154,7 +154,7 @@ public class PartialFractionsTests
     [Fact]
     public void Constant_factors()
     {
-        Assert.Equal("-atan((2x - 1) / sqrt(3)) / sqrt(3) + ln(x^2 - x + 1) / 6 - ln(abs(x + 1)) / 3", Integral("-1/(x^3 + 1)"));
+        Assert.Equal("ln(x^2 - x + 1) / 6 - atan((2x - 1) / sqrt(3)) / sqrt(3) - ln(abs(x + 1)) / 3", Integral("-1/(x^3 + 1)"));
         Assert.Equal("π * ln(abs((x - 1) / (x + 1))) / 2", Integral("pi/(x^2 - 1)"));
     }
 
@@ -171,7 +171,7 @@ public class PartialFractionsTests
             Integral("1/(x^4 + 1)"));
         Assert.Equal("(atan(2x + sqrt(3)) + atan(2x - sqrt(3))) / 6 + atan(x) / 3 + sqrt(3) * ln((x^2 + sqrt(3) * x + 1) / (x^2 - sqrt(3) * x + 1)) / 12",
             Integral("1/(x^6 + 1)"));
-        Assert.Equal("-nthroot(2, 3) * ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) / 12 + nthroot(2, 3) * ln(abs(x - nthroot(2, 3))) / 6"
+        Assert.Equal("nthroot(2, 3) * ln(abs(x - nthroot(2, 3))) / 6 - nthroot(2, 3) * ln(x^2 + nthroot(2, 3) * x + nthroot(2, 3)^2) / 12"
             + " - nthroot(2, 3) * sqrt(3) * atan(2sqrt(3) * x / (3nthroot(2, 3)) + sqrt(3) / 3) / 6", Integral("1/(x^3 - 2)"));
     }
 
@@ -191,17 +191,17 @@ public class PartialFractionsTests
     [Fact]
     public void Cubics()
     {
-        const string r = "(nthroot(-sqrt(69) / 18 + 1/2, 3) + nthroot(sqrt(69) / 18 + 1/2, 3))";
-        Assert.Equal($"(-6{r}^2 / 23 + 9 * {r} / 23 + 4/23) * ln(abs(x - nthroot(-sqrt(69) / 18 + 1/2, 3) - nthroot(sqrt(69) / 18 + 1/2, 3)))"
-            + $" + (-9 * {r} / 46 + 3{r}^2 / 23 - 2/23) * ln(x^2 + {r} * x + {r}^2 - 1)"
-            + $" - (6 * {r} / 23 + 9/23) * sqrt(3{r}^2 - 4) * atan((2x + nthroot(-sqrt(69) / 18 + 1/2, 3) + nthroot(sqrt(69) / 18 + 1/2, 3)) / sqrt(3{r}^2 - 4))",
+        const string r = "(nthroot(1/2 - sqrt(69) / 18, 3) + nthroot(sqrt(69) / 18 + 1/2, 3))";
+        Assert.Equal($"(9 * {r} / 23 - 6{r}^2 / 23 + 4/23) * ln(abs(x - nthroot(1/2 - sqrt(69) / 18, 3) - nthroot(sqrt(69) / 18 + 1/2, 3)))"
+            + $" + (3{r}^2 / 23 - 9 * {r} / 46 - 2/23) * ln(x^2 + {r} * x + {r}^2 - 1)"
+            + $" - (6 * {r} / 23 + 9/23) * sqrt(3{r}^2 - 4) * atan((2x + nthroot(1/2 - sqrt(69) / 18, 3) + nthroot(sqrt(69) / 18 + 1/2, 3)) / sqrt(3{r}^2 - 4))",
             Integral("1/(x^3 - x - 1)"));
     }
 
     // Three real roots in the trigonometric form.
     [Fact]
     public void Cubics_with_three_real_roots() =>
-        Assert.Equal("(-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))"
+        Assert.Equal("(2(2cos(π / 9))^2 / 9 - 2cos(π / 9) / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))"
             + " + (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(2 * π / 9)))"
             + " + (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(4 * π / 9)))", Integral("1/(x^3 - 3*x + 1)"));
 

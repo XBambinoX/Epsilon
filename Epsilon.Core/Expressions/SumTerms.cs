@@ -14,13 +14,65 @@ internal static class SumTerms
         var terms = new List<(bool Subtracted, Expr Term)>();
         Flatten(sum, subtracted: false, terms);
 
-        return terms
-            .Select(t => (Entry: t, Powers: Powers(t.Term)))
-            .OrderBy(t => t.Entry.Term.GetVariables().Count == 0 ? 1 : 0)
-            .ThenByDescending(t => t.Powers.Values.Sum())
+        var ordered = terms
+            .Select(t => (Entry: t, Constant: t.Term.GetVariables().Count == 0, Powers: Powers(t.Term)))
+            .Select(t => (t.Entry, t.Constant, t.Powers, Degree: t.Powers.Values.Sum()))
+            .OrderBy(t => t.Constant ? 1 : 0)
+            .ThenByDescending(t => t.Degree)
             .ThenBy(t => t.Powers, Comparer<SortedDictionary<string, int>>.Create(CompareLexicographically))
-            .Select(t => t.Entry)
             .ToList();
+
+        // x - a, not -a + x: a positive term of the leading degree goes first. Lower degrees stay
+        // after it, so -x^2 + 5 keeps its order.
+        var head = ordered[0];
+        if (IsNegative(head.Entry))
+        {
+            int positive = ordered.FindIndex(t => t.Constant == head.Constant && t.Degree == head.Degree && !IsNegative(t.Entry));
+            if (positive > 0)
+            {
+                var first = ordered[positive];
+                ordered.RemoveAt(positive);
+                ordered.Insert(0, first);
+            }
+        }
+
+        return ordered.Select(t => t.Entry).ToList();
+    }
+
+    // Whether the term prints with a minus in front: -x, -2x, -sin(x) / 2.
+    private static bool IsNegative((bool Subtracted, Expr Term) entry) => entry.Subtracted != StartsWithMinus(entry.Term);
+
+    private static bool StartsWithMinus(Expr term) => term switch
+    {
+        Constant c => c.Value.Sign < 0,
+        Negate => true,
+        Divide(var n, _) => StartsWithMinus(n),
+        Multiply => ProductStartsWithMinus(term),
+        _ => false
+    };
+
+    // The printers write the first number of a product as its coefficient, or the first factor.
+    private static bool ProductStartsWithMinus(Expr product)
+    {
+        var factors = new List<Expr>();
+        FlattenMultiply(product, factors);
+
+        return factors.OfType<Constant>().FirstOrDefault() is { } coefficient
+            ? coefficient.Value.Sign < 0
+            : StartsWithMinus(FactorsInDisplayOrder(factors)[0]);
+    }
+
+    private static void FlattenMultiply(Expr expr, List<Expr> factors)
+    {
+        if (expr is Multiply(var l, var r))
+        {
+            FlattenMultiply(l, factors);
+            FlattenMultiply(r, factors);
+        }
+        else
+        {
+            factors.Add(expr);
+        }
     }
 
     // Numbers and other constants first, then the variables and their powers by name, then

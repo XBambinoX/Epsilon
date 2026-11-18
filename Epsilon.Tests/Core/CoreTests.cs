@@ -2782,15 +2782,15 @@ public class ExpOfLogarithmTests
 public class QuadraticSurdTests
 {
     [Theory]
-    [InlineData("1/(sqrt(3) + 2)", "-sqrt(3) + 2")]
+    [InlineData("1/(sqrt(3) + 2)", "2 - sqrt(3)")]
     [InlineData("(1 + sqrt(2))/(1 - sqrt(2))", "-2sqrt(2) - 3")]
     [InlineData("1/(1 + 2*sqrt(3))", "(2sqrt(3) - 1) / 11")]
-    [InlineData("1/(1 + sqrt(2))^2", "-2sqrt(2) + 3")]
+    [InlineData("1/(1 + sqrt(2))^2", "3 - 2sqrt(2)")]
     [InlineData("3/(sqrt(8) + sqrt(2))", "sqrt(2) / 2")]
     [InlineData("-2/(2*sqrt(2) + 4) + 1", "sqrt(2) / 2")]
     [InlineData("1/(1 + sqrt(2)) + 1/(1 - sqrt(2))", "-2")]
     [InlineData("abs(1 - sqrt(2))", "sqrt(2) - 1")]
-    [InlineData("abs(3 - 2*sqrt(2))", "-2sqrt(2) + 3")]
+    [InlineData("abs(3 - 2*sqrt(2))", "3 - 2sqrt(2)")]
     [InlineData("sign(1 - sqrt(2))", "-1")]
     [InlineData("sign(7 - 5*sqrt(2))", "-1")]                     // 49 < 50
     [InlineData("sign(sqrt(50) - 7)", "1")]
@@ -3040,7 +3040,7 @@ public class NumericMultipleTests
     [InlineData("(x - 1)*(y - 1) - (1 - x)*(1 - y)", "0")]
     [InlineData("3*(1 - x) + 2*(x - 1)", "-x + 1")]
     [InlineData("2*(1 - x) + 3*(x - 1)", "x - 1")]
-    [InlineData("y*(a - b) + 2*y*(b - a) + z", "y * (-a + b) + z")]
+    [InlineData("y*(a - b) + 2*y*(b - a) + z", "y * (b - a) + z")]
     [InlineData("2*(x - 1)", "2 * (x - 1)")]                       // no partner, no change
     [InlineData("2*((-1/4)*cos(3*pi/8)*nthroot(4, 8) + (1/8)*cos(pi/8)*nthroot(4, 8)^3) + 2*((1/4)*cos(3*pi/8)*nthroot(4, 8) - (1/8)*cos(pi/8)*nthroot(4, 8)^3)", "0")]
     public void Terms_that_differ_by_the_sign_of_a_sum_add_up(string input, string expected)
@@ -4314,7 +4314,7 @@ public class PrintStyleTests
     [Theory]
     [InlineData("atan(1) - atan(0)", "π / 4")]
     [InlineData("(1/4)*pi", "π / 4")]
-    [InlineData("(-4/97)*sqrt(3) + 40/97", "-4sqrt(3) / 97 + 40/97")]
+    [InlineData("(-4/97)*sqrt(3) + 40/97", "40/97 - 4sqrt(3) / 97")]
     [InlineData("(-3/4)*ln(y) + x", "x - 3ln(y) / 4")]
     [InlineData("(-1/2)*x^2 + (1/24)*x^4 + 1", "x^4 / 24 - x^2 / 2 + 1")]
     [InlineData("(1/2)*(x + 1)*y", "y * (x + 1) / 2")]
@@ -4342,8 +4342,20 @@ public class PrintStyleTests
     [InlineData("3x*y^2 + x^2*y", "x^2 * y + 3x * y^2")]
     [InlineData("y^2 - 2x*y + x^2", "x^2 - 2x * y + y^2")]
     [InlineData("x*z + x*y + y^2", "x * y + x * z + y^2")]
-    [InlineData("x - a", "-a + x")]
+    [InlineData("x*y + a*x", "a * x + x * y")]
     public void Orders_terms_of_the_same_degree_lexicographically(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("x - a", "x - a")]
+    [InlineData("y^2 - x^2", "y^2 - x^2")]
+    [InlineData("2 - sqrt(3)", "2 - sqrt(3)")]
+    [InlineData("sin(x) - i*cos(x)", "sin(x) - i * cos(x)")]
+    [InlineData("5 - x^2", "-x^2 + 5")]
+    [InlineData("4 - 6x - 6u", "-6u - 6x + 4")]
+    public void Starts_with_a_positive_term_of_the_leading_degree(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
     }

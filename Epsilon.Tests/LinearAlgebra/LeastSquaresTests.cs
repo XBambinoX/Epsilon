@@ -289,12 +289,12 @@ public class SymbolicLeastSquaresTests
     public void Constant_matrices_give_combinations_of_the_right_hand_side()
     {
         var line = Matrix<Expr>.Parse("[[1, 0], [1, 1], [1, 2]]");
-        Assert.Equal("[5u / 6 + v / 3 - w / 6, -u / 2 + w / 2]",
+        Assert.Equal("[5u / 6 + v / 3 - w / 6, w / 2 - u / 2]",
             line.LeastSquares(Vector<Expr>.Parse("[u, v, w]")).Print());
 
         // A parabola through five points: the smoothing weights of Savitzky and Golay.
         var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));
-        Assert.Equal("-3a / 35 + 12b / 35 + 17c / 35 + 12d / 35 - 3f / 35",
+        Assert.Equal("12b / 35 - 3a / 35 + 17c / 35 + 12d / 35 - 3f / 35",
             parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print());
 
         Assert.Equal("[s / 2, s / 2]", Matrix<Expr>.Parse("[[1, 1]]").LeastSquares(Vector<Expr>.Parse("[s]")).Print());

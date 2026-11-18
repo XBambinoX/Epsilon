@@ -98,7 +98,7 @@ public class SubstitutionTests
     public void x_written_in_a_root()
     {
         Assert.Equal("2(x + 1)^(5/2) / 5 - 2(x + 1)^(3/2) / 3", Integral("x*sqrt(x + 1)"));
-        Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
+        Assert.Equal("2sqrt(x) - 2atan(sqrt(x))", Integral("sqrt(x)/(1 + x)"));
         Assert.Equal("3nthroot(x + 1, 3)^7 / 7 - 3nthroot(x + 1, 3)^4 / 4", Integral("x*nthroot(x + 1, 3)"));
     }
 

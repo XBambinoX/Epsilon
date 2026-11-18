@@ -29,7 +29,7 @@ public class VectorFieldTests
     public void Curl_small_examples()
     {
         Assert.Equal("[0, 0, 2]", Field("-y", "x", "0").Curl("x", "y", "z").Print());
-        Assert.Equal("[0, 0, -x^2 + y^2]", Field("x^2*y", "x*y^2", "0").Curl("x", "y", "z").Print());
+        Assert.Equal("[0, 0, y^2 - x^2]", Field("x^2*y", "x*y^2", "0").Curl("x", "y", "z").Print());
     }
 
     [Fact]

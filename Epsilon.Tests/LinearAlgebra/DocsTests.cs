@@ -267,7 +267,7 @@ public class LinearAlgebraGettingStartedDocTests
     {
         var m = Matrix<Expr>.Parse("[[a, b], [c, d]]");
         var crossing = m.Solve(Vector<Expr>.Parse("[p, q]"));
-        Assert.Equal("[(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]", crossing.Print());
+        Assert.Equal("[(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]", crossing.Print());
         Assert.Equal("a * d - b * c", m.Determinant().Print());
         Assert.Empty(Vector<Expr>.Parse("[e, i]").GetVariables());
 
@@ -574,7 +574,7 @@ public class LinearAlgebraVectorGeometryDocTests
         Assert.Equal("[sqrt(2) / 2, sqrt(2) / 2]", Vector<Expr>.Parse("[1, 1]").Normalize().Print());
         Assert.Equal("π / 4", Vector<Expr>.Parse("[1, 0]").Angle(Vector<Expr>.Parse("[1, 1]")).Print());
         Assert.Equal("sqrt(a^2 + b^2)", Vector<Expr>.Parse("[a, b]").Norm().Print());
-        Assert.Equal("[b * z - c * y, -a * z + c * x, a * y - b * x]",
+        Assert.Equal("[b * z - c * y, c * x - a * z, a * y - b * x]",
             Vector<Expr>.Parse("[a, b, c]").Cross(Vector<Expr>.Parse("[x, y, z]")).Print());
         Assert.Equal("[(x + y) / 2, (x + y) / 2]", Vector<Expr>.Parse("[x, y]").ProjectOnto(Vector<Expr>.Parse("[1, 1]")).Print());
         Assert.Equal("[x, -y]", Vector<Expr>.Parse("[x, y]").Reflect(Vector<Expr>.Parse("[0, 1]")).Print());
@@ -673,7 +673,7 @@ public class LinearAlgebraSymbolicMatricesDocTests
         Assert.Equal("[[d, -b], [-c, a]]", M.Adjugate().Print());
         Assert.Equal("[[-2, 1], [3/2, -1/2]]", R.Inverse().Print());
         Assert.Equal("[[cos(x), sin(x)], [-sin(x), cos(x)]]", Rotation.Inverse().Print());
-        Assert.Equal("[(-b * q + d * p) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]",
+        Assert.Equal("[(d * p - b * q) / (a * d - b * c), (a * q - c * p) / (a * d - b * c)]",
             M.Solve(Vector<Expr>.Parse("[p, q]")).Print());
         Assert.Equal(M.Inverse(), M.Solve(Matrix<Expr>.Identity(2)));
 
@@ -1346,7 +1346,7 @@ public class LinearAlgebraLeastSquaresDocTests
 
         var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));
         Assert.Equal("[[1, -2, 4], [1, -1, 1], [1, 0, 0], [1, 1, 1], [1, 2, 4]]", parabola.Print());
-        Assert.Equal("-3a / 35 + 12b / 35 + 17c / 35 + 12d / 35 - 3f / 35",
+        Assert.Equal("12b / 35 - 3a / 35 + 17c / 35 + 12d / 35 - 3f / 35",
             parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print());
 
         Assert.Equal("[(p * u + q * v + r * w) / (p^2 + q^2 + r^2)]",

@@ -325,7 +325,7 @@ public class SymbolicIntegrationTests
         }
 
         Assert.Equal("ln(x^2 + 1) / 2 - i * atan(x)", Integral("1/(x + i)"));
-        Assert.Equal("-i * cos(x) + sin(x)", Integral("exp(i*x)"));
+        Assert.Equal("sin(x) - i * cos(x)", Integral("exp(i*x)"));
     }
 
     // On a line that misses the negative real axis, the cut of the principal power, the power rule

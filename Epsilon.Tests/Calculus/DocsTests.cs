@@ -172,7 +172,7 @@ public class CalculusReadmeExamplesTests
         Assert.Equal("x * floor(x) - (floor(x) + 1) * floor(x) / 2", Integral("floor(x)"));
 
         Assert.IsType<double>(ExprParser.Parse("x").Integrate("x", 0, 1));
-        Assert.Equal("-cos(314159265358979/100000000000000) + 1", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print());
+        Assert.Equal("1 - cos(314159265358979/100000000000000)", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print());
         Assert.Equal("2", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, new Pi()).Print());
     }
 }
@@ -276,7 +276,7 @@ public class CalculusVectorFieldsDocTests
     public void Curl()
     {
         Assert.Equal("[0, 0, 2]", Vector<Expr>.Parse("[-y, x, 0]").Curl("x", "y", "z").Print());
-        Assert.Equal("[0, 0, -x^2 + y^2]", Vector<Expr>.Parse("[x^2*y, x*y^2, 0]").Curl("x", "y", "z").Print());
+        Assert.Equal("[0, 0, y^2 - x^2]", Vector<Expr>.Parse("[x^2*y, x*y^2, 0]").Curl("x", "y", "z").Print());
     }
 
     [Fact]
@@ -622,7 +622,7 @@ public class CalculusSymbolicIntegrationDocTests
             Integral("1/(x^4 + x^2 + 1)"));
 
         Assert.Equal("(3x^3 + 5x) / (8(x^2 + 1)^2) + 3atan(x) / 8", Integral("1/(x^2 + 1)^3"));
-        Assert.Equal("-x / (2 * (x + 1) * (x - 1)) + ln(abs((x + 1) / (x - 1))) / 4", Integral("1/(x^4 - 2*x^2 + 1)"));
+        Assert.Equal("ln(abs((x + 1) / (x - 1))) / 4 - x / (2 * (x + 1) * (x - 1))", Integral("1/(x^4 - 2*x^2 + 1)"));
         Assert.Equal("-1 / (3 * (x^3 - 2))", Integral("x^2/(x^3 - 2)^2"));
     }
 
@@ -635,12 +635,12 @@ public class CalculusSymbolicIntegrationDocTests
             Integral("1/(x^6 + 1)"));
         Assert.Contains("cos(π / 5)", Integral("1/(x^5 - 1)"));
 
-        Assert.Equal("(-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))"
+        Assert.Equal("(2(2cos(π / 9))^2 / 9 - 2cos(π / 9) / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))"
             + " + (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(2 * π / 9)))"
             + " + (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(4 * π / 9)))", Integral("1/(x^3 - 3*x + 1)"));
 
         var integral = ExprParser.Parse("1/(x^3 - x - 1)").Integrate("x");
-        Assert.Equal(918, integral.Print().Length);
+        Assert.Equal(905, integral.Print().Length);
         Assert.Equal(0.20000000000000007, integral.Differentiate("x").Evaluate(("x", 2)));
 
         Assert.Equal("atan(x^2) / 2", Integral("x/(1 + x^4)"));
@@ -672,7 +672,7 @@ public class CalculusSymbolicIntegrationDocTests
         Assert.Equal("(x^2 + 1)^(5/2) / 5 - (x^2 + 1)^(3/2) / 3", Integral("x^3*sqrt(x^2 + 1)"));
 
         Assert.Equal("2(x + 1)^(5/2) / 5 - 2(x + 1)^(3/2) / 3", Integral("x*sqrt(x + 1)"));
-        Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
+        Assert.Equal("2sqrt(x) - 2atan(sqrt(x))", Integral("sqrt(x)/(1 + x)"));
 
         Assert.Equal("cos(x)^3 / 3 - cos(x)", Integral("sin(x)^3"));
         Assert.Equal("x / 8 - sin(4x) / 32", Integral("sin(x)^2*cos(x)^2"));
@@ -684,7 +684,7 @@ public class CalculusSymbolicIntegrationDocTests
     {
         Assert.Equal("(x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
         Assert.Equal("x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
-        Assert.Equal("ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3))) / 4", Integral("1/(3 + 5*sin(x))"));
+        Assert.Equal("ln(abs((3sin(x) - 4cos(x) + 5) / (5sin(x) + 3))) / 4", Integral("1/(3 + 5*sin(x))"));
         Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
 
         var f = ExprParser.Parse("1/(2 + cos(x))");
@@ -747,8 +747,8 @@ public class CalculusSymbolicIntegrationDocTests
     {
         Assert.Equal("i * x^2 / 2", Integral("i*x"));
         Assert.Equal("ln(x^2 + 1) / 2 - i * atan(x)", Integral("1/(x + i)"));
-        Assert.Equal("-i * cos(x) + sin(x)", Integral("exp(i*x)"));
-        Assert.Equal("-ln(abs(cos(2x) + cosh(2))) / 2 + i * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) / 2", Integral("tan(x + i)"));
+        Assert.Equal("sin(x) - i * cos(x)", Integral("exp(i*x)"));
+        Assert.Equal("i * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) / 2 - ln(abs(cos(2x) + cosh(2))) / 2", Integral("tan(x + i)"));
         Assert.Equal("2(x + i)^(3/2) / 3", Integral("sqrt(x + i)"));
         Assert.Throws<NotSupportedException>(() => Integral("atan(x + i)"));
     }
@@ -792,7 +792,7 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("2", Integral("sin(x)", 0, new Pi()));
         Assert.Equal("1/2", Integral("exp(-x)", 0, ExprParser.Parse("ln(2)")));
         Assert.Equal("2", ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print());
-        Assert.Equal("-cos(314159265358979/100000000000000) + 1", Integral("sin(x)", 0, Math.PI));
+        Assert.Equal("1 - cos(314159265358979/100000000000000)", Integral("sin(x)", 0, Math.PI));
     }
 
     [Fact]
@@ -846,7 +846,7 @@ public class CalculusExactIntegrationDocTests
     public void Across_periods_and_jumps()
     {
         Assert.Equal("2 * π / sqrt(3)", Integral("1/(2 + cos(x))", 0, ExprParser.Parse("2*pi")));
-        Assert.Equal("-2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3", Integral("1/(1 + sin(x))^2", 0, 3));
+        Assert.Equal("4/3 - 2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3)", Integral("1/(1 + sin(x))^2", 0, 3));
 
         var f = ExprParser.Parse("sec(x)^2/(4 + tan(x)^2)");
         Assert.Equal("atan(tan(x) / 2) / 2", f.Integrate("x").Print());
@@ -965,7 +965,7 @@ public class CalculusSeriesDocTests
     {
         Assert.Equal("1 + a * x + a^2 * x^2 / 2 + O(x^3)", Printed("exp(a*x)", "0", 2));
         Assert.Equal("-1 / a - x * (1 / a^2) - x^2 * (1 / a^3) + O(x^3)", Printed("1/(x - a)", "0", 2));
-        Assert.Equal("sin(a) + cos(a) * (-a + x) - (sin(a) / 2) * (-a + x)^2 + O((-a + x)^3)", Printed("sin(x)", "a", 2));
+        Assert.Equal("sin(a) + cos(a) * (x - a) - (sin(a) / 2) * (x - a)^2 + O((x - a)^3)", Printed("sin(x)", "a", 2));
         Assert.Throws<NotSupportedException>(() => Printed("abs(a*x)", "0", 2));
     }
 
@@ -1130,7 +1130,7 @@ public class CalculusLimitationsDocTests
 
         Assert.Equal("i * x^2 / 2", ExprParser.Parse("i*x").Integrate("x").Print());
         Assert.Equal("x^2 / 2 + i * x", ExprParser.Parse("x + i").Integrate("x").Print());
-        Assert.Equal("-i * cos(x) + sin(x)", ExprParser.Parse("exp(i*x)").Integrate("x").Print());
+        Assert.Equal("sin(x) - i * cos(x)", ExprParser.Parse("exp(i*x)").Integrate("x").Print());
         foreach (string integrand in new[] { "atan(x + i)", "ln(x + i*x)", "sech(x + i)" })
             Assert.Throws<NotSupportedException>(() => ExprParser.Parse(integrand).Integrate("x"));
         var root2 = ExprParser.Parse("1/(sqrt(2) + cos(x))^2");
@@ -1168,7 +1168,7 @@ public class CalculusLimitationsDocTests
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cos(x)").IntegrateExact("x", 0, double.PositiveInfinity));
 
         Expr notSimplest = ExprParser.Parse("1/(2 + sin(x))").IntegrateExact("x", new Constant(0), new Pi() / 2);
-        Assert.Equal("π / (2sqrt(3)) - 2atan(-sqrt(3) + 2) / sqrt(3)", notSimplest.Print());
+        Assert.Equal("π / (2sqrt(3)) - 2atan(2 - sqrt(3)) / sqrt(3)", notSimplest.Print());
         Assert.Equal(Math.PI / (3 * Math.Sqrt(3)), notSimplest.Evaluate(), 1e-15);
     }
 

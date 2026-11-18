@@ -105,7 +105,7 @@ x^3 - 2 aren't needed:
 
 ```csharp
 ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + 3atan(x) / 8
-ExprParser.Parse("1/(x^4 - 2*x^2 + 1)").Integrate("x").Print();   // -x / (2 * (x + 1) * (x - 1)) + ln(abs((x + 1) / (x - 1))) / 4
+ExprParser.Parse("1/(x^4 - 2*x^2 + 1)").Integrate("x").Print();   // ln(abs((x + 1) / (x - 1))) / 4 - x / (2 * (x + 1) * (x - 1))
 ExprParser.Parse("x^2/(x^3 - 2)^2").Integrate("x").Print();       // -1 / (3 * (x^3 - 2))
 ```
 
@@ -127,7 +127,7 @@ roots of a cubic in trigonometric form:
 
 ```csharp
 ExprParser.Parse("1/(x^3 - 3*x + 1)").Integrate("x").Print();
-// (-2cos(π / 9) / 9 + 2(2cos(π / 9))^2 / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))
+// (2(2cos(π / 9))^2 / 9 - 2cos(π / 9) / 9 - 4/9) * ln(abs(x + 2cos(π / 9)))
 //   + (2cos(2 * π / 9) / 9 + 2(2cos(2 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(2 * π / 9)))
 //   + (2cos(4 * π / 9) / 9 + 2(2cos(4 * π / 9))^2 / 9 - 4/9) * ln(abs(x - 2cos(4 * π / 9)))
 ```
@@ -139,7 +139,7 @@ derivative is still the integrand, here 1/(8 - 2 - 1) at 2:
 ```csharp
 var integral = ExprParser.Parse("1/(x^3 - x - 1)").Integrate("x");
 
-integral.Print().Length;                          // 918
+integral.Print().Length;                          // 905
 integral.Differentiate("x").Evaluate(("x", 2));   // 0.20000000000000007
 ```
 
@@ -175,7 +175,7 @@ so the integral is one of a polynomial in u:
 
 ```csharp
 ExprParser.Parse("x*sqrt(x + 1)").Integrate("x").Print();    // 2(x + 1)^(5/2) / 5 - 2(x + 1)^(3/2) / 3
-ExprParser.Parse("sqrt(x)/(1 + x)").Integrate("x").Print();  // -2atan(sqrt(x)) + 2sqrt(x)
+ExprParser.Parse("sqrt(x)/(1 + x)").Integrate("x").Print();  // 2sqrt(x) - 2atan(sqrt(x))
 ```
 
 Powers of sin and cos are integrated by sin^2 + cos^2 = 1: an odd power keeps one factor for
@@ -198,7 +198,7 @@ a^2 < b^2 + c^2 and a quotient between:
 ```csharp
 ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ExprParser.Parse("1/(sqrt(2) + cos(x))").Integrate("x").Print();  // x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))
-ExprParser.Parse("1/(3 + 5*sin(x))").Integrate("x").Print();      // ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3))) / 4
+ExprParser.Parse("1/(3 + 5*sin(x))").Integrate("x").Print();      // ln(abs((3sin(x) - 4cos(x) + 5) / (5sin(x) + 3))) / 4
 ExprParser.Parse("sin(x)/(1 + sin(x))").Integrate("x").Print();   // x + cos(x) / (sin(x) + 1)
 ```
 
@@ -335,9 +335,9 @@ function:
 
 ```csharp
 ExprParser.Parse("1/(x + i)").Integrate("x").Print();   // ln(x^2 + 1) / 2 - i * atan(x)
-ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // -i * cos(x) + sin(x)
+ExprParser.Parse("exp(i*x)").Integrate("x").Print();    // sin(x) - i * cos(x)
 ExprParser.Parse("tan(x + i)").Integrate("x").Print();
-// -ln(abs(cos(2x) + cosh(2))) / 2 + i * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) / 2
+// i * (2x - 2atan(sin(2x) / (cos(2x) + exp(2)))) / 2 - ln(abs(cos(2x) + cosh(2))) / 2
 ```
 
 The parts are those of sums, products, quotients and integer powers, of the trigonometric and

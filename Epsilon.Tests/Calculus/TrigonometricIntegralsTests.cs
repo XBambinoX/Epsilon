@@ -166,8 +166,8 @@ public class TrigonometricIntegralsTests
         Assert.Equal("10 * (x + 2atan((4cos(x) - 9sin(x)) / (4sin(x) + 9cos(x) + sqrt(3) + 10))) / sqrt(3)",
             Integral("1/(1 + 0.9*cos(x) + 0.4*sin(x))"));
 
-        Assert.Equal("ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3))) / 4", Integral("1/(3 + 5*sin(x))"));
-        Assert.Equal("ln(abs((-cos(x) + sin(x) + sqrt(2)) / (cos(x) + sin(x)))) / sqrt(2)", Integral("1/(sin(x) + cos(x))"));
+        Assert.Equal("ln(abs((3sin(x) - 4cos(x) + 5) / (5sin(x) + 3))) / 4", Integral("1/(3 + 5*sin(x))"));
+        Assert.Equal("ln(abs((sin(x) - cos(x) + sqrt(2)) / (cos(x) + sin(x)))) / sqrt(2)", Integral("1/(sin(x) + cos(x))"));
 
         Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
         Assert.Equal("sin(x) / (cos(x) + 1) - ln(abs(cos(x) + 1))", Integral("(1 + sin(x))/(1 + cos(x))"));

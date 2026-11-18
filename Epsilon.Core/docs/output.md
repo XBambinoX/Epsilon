@@ -20,7 +20,9 @@ ExprParser.Parse("2pi").Print();                        // 2 * π
 ```
 
 - **Terms are ordered by descending degree**, constants last; terms of the same degree by
-  the powers of the variables in name order: `x^2 * y + 3x * y^2`, `-a + x`.
+  the powers of the variables in name order: `x^2 * y + 3x * y^2`, `a * x + x * y`. A sum
+  starts with a positive term of its leading degree when it has one: `x - a`, `2 - sqrt(3)`,
+  but `-x^2 + 5`.
 - **Factors are ordered** numbers and other constants first, then the variables and their
   powers by name, then the rest: `π * x * sin(x)`, `a * x^2`, `x * (x + 1)`.
 - A number is written right before a single variable or function (`3x^2`, `2cos(x)`);

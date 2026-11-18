@@ -198,7 +198,7 @@ conjugate, so no root is left in the denominator, and the sign of such a number 
 exactly. Roots of two different numbers are left as they are:
 
 ```csharp
-ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print();          // -sqrt(3) + 2
+ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print();          // 2 - sqrt(3)
 ExprParser.Parse("-2/(2*sqrt(2) + 4) + 1").Simplify().Print();   // sqrt(2) / 2
 ExprParser.Parse("abs(1 - sqrt(2))").Simplify().Print();         // sqrt(2) - 1
 ExprParser.Parse("1/(sqrt(2) + sqrt(3))").Simplify().Print();    // 1 / (sqrt(2) + sqrt(3))
