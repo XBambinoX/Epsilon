@@ -211,13 +211,13 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
     /// <summary>Value inequality.</summary>
     public static bool operator !=(Rational a, Rational b) => !a.Equals(b);
     /// <summary>Exact comparison.</summary>
-    public static bool operator <(Rational a, Rational b) => (a - b).Sign < 0;
+    public static bool operator <(Rational a, Rational b) => a.CompareTo(b) < 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator >(Rational a, Rational b) => (a - b).Sign > 0;
+    public static bool operator >(Rational a, Rational b) => a.CompareTo(b) > 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator <=(Rational a, Rational b) => (a - b).Sign <= 0;
+    public static bool operator <=(Rational a, Rational b) => a.CompareTo(b) <= 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator >=(Rational a, Rational b) => (a - b).Sign >= 0;
+    public static bool operator >=(Rational a, Rational b) => a.CompareTo(b) >= 0;
 
     /// <summary>Value equality (both sides are in lowest terms, so this is exact).</summary>
     public bool Equals(Rational other) => Numerator == other.Numerator && Denominator == other.Denominator;
@@ -226,7 +226,15 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Numerator, Denominator);
     /// <summary>Exact ordering: negative, zero or positive as this value is less than, equal to or greater than <paramref name="other"/>.</summary>
-    public int CompareTo(Rational other) => (this - other).Sign;
+    public int CompareTo(Rational other)
+    {
+        // The denominators are positive, so the cross products compare as the values do, without
+        // the reduced difference a subtraction would build.
+        BigInteger d = Denominator, otherD = other.Denominator;
+        return d.IsOne && otherD.IsOne
+            ? Numerator.CompareTo(other.Numerator)
+            : (Numerator * otherD).CompareTo(other.Numerator * d);
+    }
 
     /// <inheritdoc/>
     // Invariant culture: some cultures (sv-SE, fi-FI, ...) use U+2212 as the minus sign,
