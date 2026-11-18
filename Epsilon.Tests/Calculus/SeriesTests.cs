@@ -40,6 +40,14 @@ public class SeriesTests
         Assert.Equal("-1 / a - x * (1 / a^2) - x^2 * (1 / a^3) + O(x^3)", Printed("1/(x - a)", "0", 2));
     }
 
+    // A coefficient whose print starts with a minus is subtracted, never added as "+ -".
+    [Theory]
+    [InlineData("-(a + b)*sin(x)/2")]   // was ... + -x^3 * (-a - b) / 12
+    [InlineData("exp(-(a + 1)*x)")]
+    [InlineData("1/(1 - (a + b)*x)")]
+    public void Signs_are_not_doubled(string expr) =>
+        Assert.DoesNotContain("+ -", Printed(expr, "0", 3));
+
     // A pole: the series starts at a negative power.
     [Fact]
     public void Laurent_series()

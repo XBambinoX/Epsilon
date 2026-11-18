@@ -92,7 +92,7 @@ public sealed class Series
         _ => SeriesExpander.Tidy(-c),
     };
 
-    private static bool Negative(Expr c) => c.Print() is var text && (text.StartsWith('-') || text.StartsWith("(-"));
+    private static bool Negative(Expr c) => c.Print().StartsWith('-');
 
     private Expr Raised(Rational exponent) => exponent.IsOne ? _base : new Power(_base, exponent);
 }
