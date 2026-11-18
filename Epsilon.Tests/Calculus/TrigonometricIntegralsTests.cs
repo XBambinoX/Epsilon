@@ -92,6 +92,9 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(1 + sinh(x))")]
     [InlineData("1/(sinh(x)^2*cosh(x))")]
     [InlineData("cosh(x)^2/sinh(x)^2")]
+    [InlineData("cos(2*(x + 1))*cos(2*x + 2)")]   // the same argument written two ways: was 0^-1 in the result
+    [InlineData("sin(3*(x - 1))*sin(3*x - 3)")]
+    [InlineData("sin(2*(x + 1))*cos(2*x + 2)")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -137,6 +140,15 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void The_shortest_of_the_rules() =>
         Assert.Equal("ln(abs(tan(x)))", Integral("1/(sin(x)*cos(x))"));
+
+    // The same linear argument written two ways is the same: cos(a - b) was cos(0 x + c), and
+    // its integral divided by 0.
+    [Fact]
+    public void Products_of_equal_arguments_written_differently()
+    {
+        Assert.Equal("(x + sin(4x + 4) / 4) / 2", Integral("cos(2*(x + 1))*cos(2*x + 2)"));
+        Assert.Equal("sec(2 * (x + 1)) / 2", Integral("sec(2*(x + 1))*tan(2*x + 2)"));
+    }
 
     // sin(k x) and cos(k x) by the multiple-angle formulas, and any linear argument.
     [Fact]

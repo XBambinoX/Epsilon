@@ -305,8 +305,8 @@ internal sealed partial class IntegrationTable(string variable, int depth = 0, i
             return null;
 
         Expr u = f.Argument, v = g.Argument;
-        Expr sum = (u + v).Simplify(), difference = (u - v).Simplify();
-        bool same = u.Equals(v);
+        Expr sum = Linear(u + v), difference = Linear(u - v);
+        bool same = Linear(u).Equals(Linear(v));
 
         return (f, g) switch
         {

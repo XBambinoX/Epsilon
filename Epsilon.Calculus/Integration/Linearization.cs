@@ -143,8 +143,8 @@ internal sealed partial class IntegrationTable
         return product;
     }
 
-    // A linear argument as k x + c, so that equal ones are equal: the simplifier leaves -(0 - 2x)
-    // as --2x.
+    // A linear argument as k x + c, so that equal ones are equal: Simplify leaves 2(x + 1) as it is,
+    // and 2(x + 1) - (2x + 2) isn't 0 for it.
     private Expr Linear(Expr argument)
     {
         Expr slope = Derivative(argument)?.Simplify() ?? argument, start = argument.Substitute(variable, 0).Simplify();
