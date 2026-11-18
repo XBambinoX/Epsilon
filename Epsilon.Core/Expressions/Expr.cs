@@ -390,6 +390,9 @@ public abstract class Expr : IEquatable<Expr>
     public override bool Equals(object? obj) => obj is Expr other && Equals(other);
     private int _hashCode;
 
+    // Set on what Canonicalize returns: an immutable tree that is canonical stays so.
+    internal bool IsCanonical { get; set; }
+
     /// <inheritdoc/>
     public override int GetHashCode()
     {
