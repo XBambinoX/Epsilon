@@ -452,63 +452,7 @@ public static class ExactIntegrationExtensions
         private static Expr Tidied(Expr e)
         {
             Expr tidy = SeriesExpander.Tidy(e);
-            if (QuadraticSurd.Of(tidy) is { } surd)
-                return surd.ToExpr();
-
-            Expr collected = Collected(tidy);
-            return collected.Print().Length < tidy.Print().Length ? collected : tidy;
-        }
-
-        // Terms that differ by a factor a + b sqrt(d) only, added up: (1/6) pi sqrt(3) + pi/(6 sqrt(3))
-        // is 2 sqrt(3) pi/9.
-        private static Expr Collected(Expr e)
-        {
-            var terms = new List<Expr>();
-            Terms(e, false, terms);
-            var groups = new List<(Expr Part, QuadraticSurd Coefficient)>();
-            foreach (Expr term in terms)
-            {
-                List<Expr> factors = [], divisors = [];
-                Factors(term, factors, divisors);
-                bool Numeric(Expr factor) => factor.GetVariables().Count == 0 && QuadraticSurd.Of(factor) is not null;
-                Expr Product(IEnumerable<Expr> part) => part.Aggregate((Expr)1, (product, factor) => product * factor);
-
-                Expr rest = (Product(factors.Where(factor => !Numeric(factor))) / Product(divisors.Where(factor => !Numeric(factor)))).Simplify();
-                if (QuadraticSurd.Of(Product(factors.Where(Numeric)) / Product(divisors.Where(Numeric))) is not { } coefficient)
-                    return e;
-
-                int i = groups.FindIndex(group => group.Part.Equals(rest) && (group.Coefficient + coefficient) is not null);
-                if (i < 0)
-                    groups.Add((rest, coefficient));
-                else
-                    groups[i] = (rest, (groups[i].Coefficient + coefficient)!.Value);
-            }
-
-            return groups.Count == terms.Count
-                ? e
-                : groups.Aggregate((Expr)0, (sum, group) => sum + group.Coefficient.ToExpr() * group.Part).Simplify();
-        }
-
-        private static void Factors(Expr e, List<Expr> factors, List<Expr> divisors)
-        {
-            switch (e)
-            {
-                case Multiply product:
-                    Factors(product.Left, factors, divisors);
-                    Factors(product.Right, factors, divisors);
-                    break;
-                case Divide quotient:
-                    Factors(quotient.Numerator, factors, divisors);
-                    Factors(quotient.Denominator, divisors, factors);
-                    break;
-                case Negate negate:
-                    factors.Add(-1);
-                    Factors(negate.Argument, factors, divisors);
-                    break;
-                default:
-                    factors.Add(e);
-                    break;
-            }
+            return QuadraticSurd.Of(tidy) is { } surd ? surd.ToExpr() : tidy;
         }
 
         private static void Terms(Expr e, bool negated, List<Expr> terms)
