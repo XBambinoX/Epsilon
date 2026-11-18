@@ -309,8 +309,33 @@ public abstract class Expr : IEquatable<Expr>
         return variables;
     }
 
+    // Whether any variable occurs, without building the set GetVariables returns.
+    internal bool HasVariables()
+    {
+        ImmutableArray<Expr> children = Children;
+        if (children.Length == 0)
+            return this is Variable || GetVariables().Count > 0;
+
+        foreach (Expr child in children)
+            if (child.HasVariables())
+                return true;
+        return false;
+    }
+
     /// <summary>Whether <paramref name="variable"/> occurs in the expression.</summary>
-    public virtual bool DependsOn(string variable) => GetVariables().Contains(variable);
+    public virtual bool DependsOn(string variable)
+    {
+        // Child by child, out at the first: building the set of all the variables for one name
+        // was a good part of what integration allocated.
+        ImmutableArray<Expr> children = Children;
+        if (children.Length == 0)
+            return GetVariables().Contains(variable);
+
+        foreach (Expr child in children)
+            if (child.DependsOn(variable))
+                return true;
+        return false;
+    }
 
     /// <summary>
     /// Replaces every occurrence of <paramref name="variable"/> with <paramref name="replacement"/>.
@@ -520,6 +545,9 @@ public sealed class Variable(string name) : Expr
 
     /// <inheritdoc/>
     public override IReadOnlySet<string> GetVariables() => new HashSet<string> { Name };
+
+    /// <inheritdoc/>
+    public override bool DependsOn(string variable) => variable == Name;
 
     /// <inheritdoc/>
     public override Expr Substitute(string variable, Expr replacement) => variable == Name ? replacement : this;

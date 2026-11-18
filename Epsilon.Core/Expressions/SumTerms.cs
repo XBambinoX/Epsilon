@@ -15,7 +15,7 @@ internal static class SumTerms
         Flatten(sum, subtracted: false, terms);
 
         var ordered = terms
-            .Select(t => (Entry: t, Constant: t.Term.GetVariables().Count == 0, Powers: Powers(t.Term)))
+            .Select(t => (Entry: t, Constant: !t.Term.HasVariables(), Powers: Powers(t.Term)))
             .Select(t => (t.Entry, t.Constant, t.Powers, Degree: t.Powers.Values.Sum()))
             .OrderBy(t => t.Constant ? 1 : 0)
             .ThenByDescending(t => t.Degree)
@@ -84,7 +84,7 @@ internal static class SumTerms
             .ToList();
 
     private static int FactorGroup(Expr factor) =>
-        VariableOf(factor) is not null ? 1 : factor.GetVariables().Count == 0 ? 0 : 2;
+        VariableOf(factor) is not null ? 1 : !factor.HasVariables() ? 0 : 2;
 
     // A negated factor sorts as what it negates: -a * b, not b * -a.
     private static Variable? VariableOf(Expr factor) => factor switch

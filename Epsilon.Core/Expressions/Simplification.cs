@@ -150,7 +150,7 @@ public static class Simplifier
     // part without variables that has no value (1/0, ln(0), 0^(-1/2)), or x/0.
     private static bool? ScanConstantParts(Expr expr)
     {
-        bool hasVariables = expr.Children.Length == 0 && expr.GetVariables().Count > 0;
+        bool hasVariables = expr.Children.Length == 0 && expr.HasVariables();
         bool lastHasVariables = false; // of a quotient, the denominator
 
         foreach (Expr child in expr.Children)
@@ -303,8 +303,7 @@ public static class Simplifier
             RealValue(constant) is { } value && double.IsFinite(value) ? Math.Abs(value) : double.PositiveInfinity,
             (largest, part) => Math.Max(largest, LargestPart(part)));
 
-    private static bool HasVariables(Expr expr) =>
-        expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
+    private static bool HasVariables(Expr expr) => expr.HasVariables();
 
     // Sums never get here: SimplifySum handles a whole Add/Subtract chain at once.
     private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
@@ -874,7 +873,7 @@ public static class Simplifier
     private static bool TryEvaluateConstant(Expr e, out double value)
     {
         value = double.NaN;
-        if (e.GetVariables().Count > 0)
+        if (e.HasVariables())
             return false;
         try
         {
@@ -2328,7 +2327,7 @@ public static class Simplifier
         QuadraticSurd? total = new QuadraticSurd(constant, 0, 1);
         foreach (var (coefficient, term) in terms)
         {
-            if (total is not { } sum || term.GetVariables().Count > 0 || QuadraticSurd.Of(term) is not { } value)
+            if (total is not { } sum || term.HasVariables() || QuadraticSurd.Of(term) is not { } value)
                 return null;
             total = sum + value.Times(coefficient);
         }
