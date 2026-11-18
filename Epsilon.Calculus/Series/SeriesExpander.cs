@@ -142,7 +142,7 @@ internal sealed class SeriesExpander(string variable, Expr point, Expr? logarith
         if (!integer && !odd && lead.GetVariables().Count == 0 && !ComplexParts.HasImaginaryUnit(lead) && lead.Evaluate() < 0)
             throw new NotSupportedException($"{b.Print()} is negative next to {At}, where its power {k.Print()} isn't real.");
 
-        Expr scale = Folded((root is { } degree ? new NthRoot(lead, degree) : (Expr)new Power(lead, k)).Simplify());
+        Expr scale = (root is { } degree ? new NthRoot(lead, degree) : (Expr)new Power(lead, k)).Simplify();
         bool rightSided = v != 0 && !integer && !(odd && shift.IsInteger);
         return Binomial(Relative(expanded, v), k, precision - shift).Scaled(scale).Shifted(shift).Truncated(precision)
             .OnRight(expanded.RightSided || rightSided);
@@ -277,7 +277,7 @@ internal sealed class SeriesExpander(string variable, Expr point, Expr? logarith
             if (j > 0)
                 factorial *= j;
 
-            Expr c = (Folded(derivative.Substitute(y.Name, s0).Simplify()) / factorial).Simplify();
+            Expr c = (derivative.Substitute(y.Name, s0) / factorial).Simplify();
             if (!IsFinite(c))
                 throw new NotSupportedException($"{f.Print()} isn't analytic at {At}.");
 
@@ -292,39 +292,11 @@ internal sealed class SeriesExpander(string variable, Expr point, Expr? logarith
         return sum.Truncated(h.Precision).OnRight(argument.RightSided);
     }
 
-    // A coefficient in the shorter of its simplified and expanded forms, with powers of rationals
-    // worked out: (-1/a)^2 as 1/a^2.
+    // A coefficient in the shorter of its simplified and expanded forms.
     public static Expr Tidy(Expr c)
     {
-        Expr folded = Folded(c.Simplify()), expanded = Folded(folded.Expand().Simplify());
-        return expanded.Print().Length < folded.Print().Length ? expanded : folded;
-    }
-
-    // b^q for a rational b > 0, which the simplifier leaves as 1^(-3/2) and (3/4)^(1/2): rational
-    // where b has a rational root, and a + b sqrt(d) for a half-integer q.
-    private static Expr Folded(Expr e) => e switch
-    {
-        Power { Base: Constant { Value: { Sign: > 0 } b }, Exponent: Constant { Value: { IsInteger: false } q } }
-            when Root(b.Numerator, q.Denominator) is { } top && Root(b.Denominator, q.Denominator) is { } bottom =>
-            new Rational(top, bottom).Pow((int)q.Numerator),
-        Power { Base: Constant { Value: { Sign: > 0 } b }, Exponent: Constant { Value: { IsInteger: false } q } }
-            when q.Denominator == 2 && QuadraticSurd.Of(new Power(new Sqrt(b), new Constant(new Rational(q.Numerator)))) is { } surd => surd.ToExpr(),
-        _ when e.Children.Length > 0 => e.WithChildren([.. e.Children.Select(Folded)]).Simplify(),
-        _ => e,
-    };
-
-    // The integer n-th root of a nonnegative integer, where there is one.
-    private static System.Numerics.BigInteger? Root(System.Numerics.BigInteger a, System.Numerics.BigInteger n)
-    {
-        if (n > 64)
-            return null;
-
-        int degree = (int)n;
-        var r = new System.Numerics.BigInteger(Math.Round(Math.Pow((double)a, 1.0 / degree)));
-        for (var c = System.Numerics.BigInteger.Max(r - 1, 0); c <= r + 1; c++)
-            if (System.Numerics.BigInteger.Pow(c, degree) == a)
-                return c;
-        return null;
+        Expr simplified = c.Simplify(), expanded = simplified.Expand();
+        return expanded.Print().Length < simplified.Print().Length ? expanded : simplified;
     }
 
     private string FreshName(Expr e)
