@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
     <ProjectReference Include="..\Epsilon.LinearAlgebra\Epsilon.LinearAlgebra.csproj" />
+    <ProjectReference Include="..\Epsilon.Calculus\Epsilon.Calculus.csproj" />
   </ItemGroup>
 
   <ItemGroup>
