@@ -35,7 +35,7 @@ ExprParser.Parse("sin(x)").Series("x", ExprParser.Parse("pi/2"), 2).Print();
 ```
 
 The point is an `Expr`. A `double` is taken as the decimal it prints as, so `Math.PI / 2` is
-15707963267949/10000000000000, not pi/2: give pi as `ExprParser.Parse("pi/2")` or `new Pi() / 2`.
+15707963267949/10000000000000, not pi/2: give pi as `ExprParser.Parse("pi/2")` or `Expr.PI / 2`.
 Without a variable name, the expression's only variable is taken:
 
 ```csharp

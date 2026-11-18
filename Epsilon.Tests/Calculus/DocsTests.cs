@@ -313,8 +313,8 @@ public class CalculusVectorFieldsDocTests
 public class CalculusLineIntegralsDocTests
 {
     private static readonly Variable T = new("t");
-    private static readonly Curve Circle = new("t", [new Cos(T), new Sin(T)], 0, 2 * new Pi());
-    private static readonly Curve Helix = new("t", Vector<Expr>.Parse("[cos(t), sin(t), t]"), 0, 2 * new Pi());
+    private static readonly Curve Circle = new("t", [new Cos(T), new Sin(T)], 0, 2 * Expr.PI);
+    private static readonly Curve Helix = new("t", Vector<Expr>.Parse("[cos(t), sin(t), t]"), 0, 2 * Expr.PI);
     private static readonly Curve Segment = Curve.Segment([0, 0], [1, 2]);
     private static readonly Curve Triangle = Curve.Polygon([[0, 0], [1, 0], [0, 1]], closed: true);
 
@@ -343,7 +343,7 @@ public class CalculusLineIntegralsDocTests
         var catenary = new Curve("t", Vector<Expr>.Parse("[t, cosh(t)]"), 0, 1);
         Assert.Equal("sinh(1)", ExprParser.Parse("1").LineIntegralExact(catenary, "x", "y").Print());
 
-        var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * new Pi());
+        var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * Expr.PI);
         Assert.Equal("2 * π * abs(R)", ExprParser.Parse("1").LineIntegralExact(circleOfRadius, "x", "y").Print());
     }
 
@@ -376,7 +376,7 @@ public class CalculusLineIntegralsDocTests
     [Fact]
     public void Numeric_and_exact()
     {
-        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * new Pi());
+        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * Expr.PI);
 
         Shown.Equal(9.688448220547672, ExprParser.Parse("1").LineIntegral(ellipse, "x", "y"));
         Assert.Equal("The line integral isn't found: the integral of sqrt(3sin(t)^2 + 1) by t from 0 to 2 * π isn't found.",
@@ -789,9 +789,9 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("ln(2) / 3 + π * sqrt(3) / 9", Integral("1/(x^3 + 1)", 0, 1));
         Assert.Equal("-1/3", Integral("x^2", 1, 0));
 
-        Assert.Equal("2", Integral("sin(x)", 0, new Pi()));
+        Assert.Equal("2", Integral("sin(x)", 0, Expr.PI));
         Assert.Equal("1/2", Integral("exp(-x)", 0, ExprParser.Parse("ln(2)")));
-        Assert.Equal("2", ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print());
+        Assert.Equal("2", ExprParser.Parse("sin(t)").IntegrateExact(0, Expr.PI).Print());
         Assert.Equal("1 - cos(314159265358979/100000000000000)", Integral("sin(x)", 0, Math.PI));
     }
 
@@ -818,7 +818,7 @@ public class CalculusExactIntegrationDocTests
         Assert.Equal("1/2", ExprParser.Parse("exp(-x)*sin(x)").IntegrateExact("x", 0, inf).Print());
         Assert.Equal("π * sqrt(2) / 4", ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print());
         Assert.Equal("π", ExprParser.Parse("1/(sqrt(x)*(1 + x))").IntegrateExact("x", 0, inf).Print());
-        Assert.Equal("exp(-π)", ExprParser.Parse("exp(-x)").IntegrateExact("x", new Pi(), inf).Print());
+        Assert.Equal("exp(-π)", ExprParser.Parse("exp(-x)").IntegrateExact("x", Expr.PI, inf).Print());
         Assert.Equal("The integral of 1 / x from 1 to inf diverges at inf.",
             Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("1/x").IntegrateExact("x", 1, inf)).Message);
     }
@@ -869,7 +869,7 @@ public class CalculusExactIntegrationDocTests
     public void Divergent_integrals()
     {
         Assert.Equal("The integral of 1 / x from -1 to 1 diverges at x = 0.", Fails<InvalidOperationException>("1/x", -1, 1));
-        Assert.Equal("The integral of tan(x) from 0 to π diverges at x = π / 2.", Fails<InvalidOperationException>("tan(x)", 0, new Pi()));
+        Assert.Equal("The integral of tan(x) from 0 to π diverges at x = π / 2.", Fails<InvalidOperationException>("tan(x)", 0, Expr.PI));
         Assert.Equal("The integral of sqrt(x) from -1 to 1 doesn't exist: the integrand isn't real at x = -0.5.",
             Fails<InvalidOperationException>("sqrt(x)", -1, 1));
     }
@@ -879,7 +879,7 @@ public class CalculusExactIntegrationDocTests
     {
         Assert.Equal("exp(c) / c - 1 / c", Integral("exp(c*x)", 0, 1));
         Assert.Equal("c^3 / 3", Integral("x^2", 0, new Variable("c")));
-        Assert.Equal("2 * i", Integral("exp(i*x)", 0, new Pi()));
+        Assert.Equal("2 * i", Integral("exp(i*x)", 0, Expr.PI));
         Assert.Equal("The integral of 1 / x from 1 to c isn't found: whether its antiderivative ln(abs(x)) is undefined or jumps between the limits depends on c.",
             Fails<NotSupportedException>("1/x", 1, new Variable("c")));
     }
@@ -1011,7 +1011,7 @@ public class CalculusLimitsDocTests
 
         Assert.Equal("314159265358979/100000000000000", new Constant(Math.PI).Print());
         Assert.Equal("-1", ExprParser.Parse("sin(x)/(x - pi)").Limit("x", ExprParser.Parse("pi")).Print());
-        Assert.Equal("-1", ExprParser.Parse("sin(x)/(x - pi)").Limit("x", new Pi()).Print());
+        Assert.Equal("-1", ExprParser.Parse("sin(x)/(x - pi)").Limit("x", Expr.PI).Print());
         Assert.Equal("1", ExprParser.Parse("sin(t)/t").Limit(0).Print());
     }
 
@@ -1167,7 +1167,7 @@ public class CalculusLimitationsDocTests
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("x^2/(exp(x) - 1)").IntegrateExact("x", 0, double.PositiveInfinity));
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("cos(x)").IntegrateExact("x", 0, double.PositiveInfinity));
 
-        Expr notSimplest = ExprParser.Parse("1/(2 + sin(x))").IntegrateExact("x", new Constant(0), new Pi() / 2);
+        Expr notSimplest = ExprParser.Parse("1/(2 + sin(x))").IntegrateExact("x", new Constant(0), Expr.PI / 2);
         Assert.Equal("π / (2sqrt(3)) - 2atan(2 - sqrt(3)) / sqrt(3)", notSimplest.Print());
         Assert.Equal(Math.PI / (3 * Math.Sqrt(3)), notSimplest.Evaluate(), 1e-15);
     }
@@ -1175,11 +1175,11 @@ public class CalculusLimitationsDocTests
     [Fact]
     public void Line_integrals()
     {
-        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * new Pi());
+        var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * Expr.PI);
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse("1").LineIntegralExact(ellipse, "x", "y"));
         Assert.Throws<NotSupportedException>(() => Vector<Expr>.Parse("[a*y, x]").Potential("x", "y"));
         Assert.Equal("2 * π", Vector<Expr>.Parse("[-y/(x^2 + y^2), x/(x^2 + y^2)]").LineIntegralExact(
-            new Curve("t", Vector<Expr>.Parse("[cos(t), sin(t)]"), 0, 2 * new Pi()), "x", "y").Print());
+            new Curve("t", Vector<Expr>.Parse("[cos(t), sin(t)]"), 0, 2 * Expr.PI), "x", "y").Print());
     }
 
     [Fact]

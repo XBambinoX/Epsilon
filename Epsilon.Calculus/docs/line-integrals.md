@@ -25,8 +25,8 @@ the first with `closed: true`, and `Join` puts curves one after another:
 
 ```csharp
 var t = new Variable("t");
-var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
-var helix = new Curve("t", Vector<Expr>.Parse("[cos(t), sin(t), t]"), 0, 2 * new Pi());
+var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * Expr.PI);
+var helix = new Curve("t", Vector<Expr>.Parse("[cos(t), sin(t), t]"), 0, 2 * Expr.PI);
 var segment = Curve.Segment([0, 0], [1, 2]);
 var triangle = Curve.Polygon([[0, 0], [1, 0], [0, 1]], closed: true);
 var there = Curve.Join(segment, Curve.Segment([1, 2], [3, 2]));
@@ -60,7 +60,7 @@ ExprParser.Parse("1").LineIntegralExact(catenary, "x", "y").Print();         // 
 Other variables are constants, in the curve and in the integrand:
 
 ```csharp
-var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * new Pi());
+var circleOfRadius = new Curve("t", Vector<Expr>.Parse("[R*cos(t), R*sin(t)]"), 0, 2 * Expr.PI);
 ExprParser.Parse("1").LineIntegralExact(circleOfRadius, "x", "y").Print();   // 2 * π * abs(R)
 ```
 
@@ -113,7 +113,7 @@ and `LineIntegralExact` exactly, as [exact definite integrals](exact-integration
 length of an ellipse is an elliptic integral, which has no exact value here:
 
 ```csharp
-var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * new Pi());
+var ellipse = new Curve("t", Vector<Expr>.Parse("[2*cos(t), sin(t)]"), 0, 2 * Expr.PI);
 
 ExprParser.Parse("1").LineIntegral(ellipse, "x", "y");        // 9.688448220547672
 ExprParser.Parse("1").LineIntegralExact(ellipse, "x", "y");

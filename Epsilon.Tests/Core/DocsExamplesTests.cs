@@ -170,9 +170,17 @@ public class ExpressionsDocTests
     }
 
     [Fact]
+    public void Constants()
+    {
+        Assert.Equal("2 * π * x", (2 * Expr.PI * X).Print());
+        Assert.Equal("e^x", Expr.E.Pow(X).Print());
+        Assert.Equal("-1", (Expr.I * Expr.I).Simplify().Print());
+    }
+
+    [Fact]
     public void Node_types()
     {
-        Assert.Equal("sin(x) + π", (new Sin(X) + new Pi()).Print());
+        Assert.Equal("sin(x) + π", (new Sin(X) + Expr.PI).Print());
     }
 
     [Fact]

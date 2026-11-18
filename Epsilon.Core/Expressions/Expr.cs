@@ -360,6 +360,13 @@ public abstract class Expr : IEquatable<Expr>
     /// <summary>This expression raised to <paramref name="exponent"/>: x.Pow(2) is x^2.</summary>
     public Expr Pow(Expr exponent) => new Power(this, exponent);
 
+    /// <summary>The constant pi, a <see cref="Epsilon.Core.Pi"/> node: <c>2 * Expr.PI</c>.</summary>
+    public static Expr PI { get; } = new Pi();
+    /// <summary>Euler's number e, an <see cref="EulerNumber"/> node: <c>Expr.E.Pow(x)</c>.</summary>
+    public static Expr E { get; } = new EulerNumber();
+    /// <summary>The imaginary unit i, an <see cref="ImaginaryUnit"/> node: <c>3 + 2 * Expr.I</c>.</summary>
+    public static Expr I { get; } = new ImaginaryUnit();
+
     /// <summary>An exact integer constant, so numbers mix with expressions: <c>2 * x</c>.</summary>
     public static implicit operator Expr(int value) => new Constant(value);
     /// <summary>An exact integer constant.</summary>

@@ -4636,3 +4636,30 @@ public class ReadmeExamplesTests
         Assert.Equal("Unknown identifier 'sen' at position 0. Declared variables: x.", ex.Message);
     }
 }
+
+public class PredefinedConstantTests
+{
+    [Fact]
+    public void Are_the_constant_nodes_and_equal_to_the_parsed_ones()
+    {
+        Assert.IsType<Pi>(Expr.PI);
+        Assert.IsType<EulerNumber>(Expr.E);
+        Assert.IsType<ImaginaryUnit>(Expr.I);
+
+        Assert.Equal(ExprParser.Parse("pi"), Expr.PI);
+        Assert.Equal(ExprParser.Parse("e"), Expr.E);
+        Assert.Equal(ExprParser.Parse("i"), Expr.I);
+        Assert.Same(Expr.PI, Expr.PI);
+    }
+
+    [Fact]
+    public void Build_expressions_like_any_node()
+    {
+        var x = new Variable("x");
+
+        Assert.Equal("0", (new Sin(Expr.PI * x) - new Sin(x * Expr.PI)).Simplify().Print());
+        Assert.Equal(Math.E * Math.E, Expr.E.Pow(2).Evaluate(), 12);
+        Assert.Equal(-1, (Expr.I * Expr.I).Simplify().Evaluate());
+        Assert.Equal(new ComplexNumber(3, 2), (3 + 2 * Expr.I).EvaluateComplex(new Dictionary<string, ComplexNumber>()));
+    }
+}

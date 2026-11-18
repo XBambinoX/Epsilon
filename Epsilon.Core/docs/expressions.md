@@ -40,6 +40,16 @@ fraction. For values such as 1/3 that have no short decimal form, use `Rational`
 `double.NaN` and infinities have no exact value and throw `ArgumentException`. See
 [Numbers](numbers.md).
 
+### Constants
+
+`Expr.PI`, `Expr.E` and `Expr.I` are pi, Euler's number and the imaginary unit:
+
+```csharp
+(2 * Expr.PI * x).Print();               // 2 * π * x
+Expr.E.Pow(x).Print();                   // e^x
+(Expr.I * Expr.I).Simplify().Print();    // -1
+```
+
 ## Node types
 
 All node types are public, so you can also construct them directly:
@@ -53,7 +63,7 @@ All node types are public, so you can also construct them directly:
 | Other functions | `Exp`, `Ln`, `Sqrt`, `NthRoot`, `Abs`, `Sign`, `Floor`, `Ceiling`, `Round`, `Min`, `Max` |
 
 ```csharp
-Expr f = new Sin(x) + new Pi();
+Expr f = new Sin(x) + Expr.PI;
 f.Print();   // sin(x) + π
 ```
 
