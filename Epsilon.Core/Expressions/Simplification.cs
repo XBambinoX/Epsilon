@@ -26,11 +26,17 @@ public static class Simplifier
     /// <param name="mode">See <see cref="Simplify(Expr, SimplifyMode)"/>.</param>
     /// <returns>An equivalent expression in canonical form.</returns>
     public static Expr Simplify(this Expr expr, Assumptions assumptions, SimplifyMode mode = SimplifyMode.Generic) =>
-        SimplifyCached(expr, assumptions, mode, new Dictionary<Expr, Expr>());
+        SimplifyCached(expr, assumptions, mode, new SimplifyCache());
 
     // One call simplifies the same subtrees over and over: every fixpoint step re-simplifies
-    // all children
-    private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    // all children. Sums that didn't come out simpler over a common denominator are kept too:
+    // the next step would try them again.
+    private sealed class SimplifyCache : Dictionary<Expr, Expr>
+    {
+        public HashSet<Expr> Uncombined { get; } = [];
+    }
+
+    private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         if (cache.TryGetValue(expr, out Expr? cached))
             return cached;
@@ -98,7 +104,7 @@ public static class Simplifier
         return count;
     }
 
-    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr SimplifyOnce(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         if (expr is Add or Subtract)
             return SimplifySum(expr, assumptions, mode, cache).Canonicalize();
@@ -292,7 +298,7 @@ public static class Simplifier
         expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
 
     // Sums never get here: SimplifySum handles a whole Add/Subtract chain at once.
-    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         Expr combinedProduct = CombineProductFactors(expr, assumptions, mode);
         if (!combinedProduct.Equals(expr))
@@ -1420,7 +1426,7 @@ public static class Simplifier
     // all of them in one pass. Simplifying every prefix of the chain as a node of its own, as for
     // other nodes, took time growing with the square of the number of terms and recursed once per
     // term; binary rules such as sec^2 - tan^2 = 1 also fired only on neighbouring terms.
-    private static Expr SimplifySum(Expr sum, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
+    private static Expr SimplifySum(Expr sum, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         var raw = CollectTerms(sum, term => SimplifyCached(term, assumptions, mode, cache));
 
@@ -1462,7 +1468,7 @@ public static class Simplifier
         combined.RemoveAll(t => t.Coefficient.IsZero);
         MergeLogarithms(combined);
         MergeExponentialLogarithms(combined, ref constantSum);
-        CombineFractions(combined, ref constantSum, mode);
+        CombineFractions(combined, ref constantSum, mode, cache);
         if (cancelled.Count > 0)
             KeepUndefinedCancelledTerms(combined, cancelled, assumptions, mode, cache);
         Expr result = BuildSum(combined, constantSum);
@@ -1477,7 +1483,7 @@ public static class Simplifier
     // either mode
     private static void KeepUndefinedCancelledTerms(
         List<(Rational Coefficient, Expr Term)> terms, List<Expr> cancelled, Assumptions assumptions, SimplifyMode mode,
-        Dictionary<Expr, Expr> cache)
+        SimplifyCache cache)
     {
         HashSet<(DomainKind, Expr)>? domain = null;
 
@@ -1520,13 +1526,17 @@ public static class Simplifier
     // cancels: x/(x + 1) + 1/(x + 1) = 1, sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1) = 1/sqrt(x^2 + 1), and
     // a Laplacian whose terms add up to 0 is 0. Where nothing cancels, the terms keep their form:
     // exp(c)/c - 1/c, 1/x + 1/y.
-    private static void CombineFractions(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant, SimplifyMode mode)
+    private static void CombineFractions(List<(Rational Coefficient, Expr Term)> terms, ref Rational constant, SimplifyMode mode, SimplifyCache cache)
     {
         if (t_combiningFractions || !terms.Any(t => HasDenominator(t.Term)))
             return;
 
         foreach (List<int> component in LinkedByDenominators(terms))
         {
+            Expr sum = BuildSum([.. component.Select(i => terms[i])], Rational.Zero).Canonicalize();
+            if (cache.Uncombined.Contains(sum))
+                continue;
+
             Expr after;
             Rational weight;
             bool cancelled;
@@ -1540,10 +1550,12 @@ public static class Simplifier
             {
                 t_combiningFractions = false;
             }
-            bool simpler = (DenominatorWeight(after) < weight || cancelled) &&
-                NodeCount(after) < NodeCount(BuildSum([.. component.Select(i => terms[i])], Rational.Zero));
+            bool simpler = (DenominatorWeight(after) < weight || cancelled) && NodeCount(after) < NodeCount(sum);
             if (!simpler)
+            {
+                cache.Uncombined.Add(sum);
                 continue;
+            }
 
             foreach (int i in component)
                 terms[i] = (Rational.Zero, terms[i].Term);
@@ -2327,7 +2339,7 @@ public static class Simplifier
     // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x), 2/(-x - 1) = -2/(x + 1).
     // Both sides are multiplied by the same nonzero number, so the domain stays the same.
     private static bool TryReduceConstantFactors(
-        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
 
@@ -2437,7 +2449,7 @@ public static class Simplifier
     }
 
     private static bool TryCancelCommonFactors(
-        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
+        Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
 
