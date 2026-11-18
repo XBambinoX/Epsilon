@@ -904,7 +904,8 @@ public static class Simplifier
         Multiply(var t, Constant c) => (c.Value, t),
         // (2 * sin(t)^2) * R, the chain that Canonicalize builds: the 2 is deeper on the left.
         Multiply(Multiply l, var r) when ExtractCoefficient(l) is ({ IsOne: false } c, var inner) => (c, new Multiply(inner, r)),
-        Divide(var t, Constant c) when !c.Value.IsZero => (Rational.One / c.Value, t),
+        // -4sqrt(3) / 97 is sqrt(3) with -4/97, not -4sqrt(3) with 1/97.
+        Divide(var t, Constant c) when !c.Value.IsZero && ExtractCoefficient(t) is var (k, inner) => (k / c.Value, inner),
         _ => (Rational.One, expr)
     };
 

@@ -53,7 +53,7 @@ ExprParser.Parse("sqrt(x^2 + x) - x").Limit("x", inf).Print();    // 1/2
 ExprParser.Parse("x^7/exp(x)").Limit("x", inf).Print();           // 0
 ExprParser.Parse("ln(x)/x").Limit("x", inf).Print();              // 0
 ExprParser.Parse("(2^x + 3^x)^(1/x)").Limit("x", inf).Print();    // 3
-ExprParser.Parse("atan(x)").Limit("x", double.NegativeInfinity).Print();    // (-1/2) * π
+ExprParser.Parse("atan(x)").Limit("x", double.NegativeInfinity).Print();    // -π / 2
 ExprParser.Parse("x*exp(x)").Limit("x", double.NegativeInfinity).Print();   // 0
 ```
 

@@ -53,7 +53,7 @@ partner keeps its form:
 ```csharp
 ExprParser.Parse("x/(2*y) + x/(3*y)").Simplify().Print();               // 5x / (6y)
 ExprParser.Parse("x*sqrt(2) + x/sqrt(2)").Simplify().Print();           // 3sqrt(2) * x / 2
-ExprParser.Parse("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))").Simplify().Print(); // (2/9) * π * sqrt(3)
+ExprParser.Parse("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))").Simplify().Print(); // 2 * π * sqrt(3) / 9
 ExprParser.Parse("2*(a - b) + 2*(b - a)").Simplify().Print();           // 0
 ExprParser.Parse("x/sqrt(3)").Simplify().Print();                       // x / sqrt(3)
 ```
@@ -189,7 +189,7 @@ in a sum they merge where the coefficients are multiples of the smallest one:
 ```csharp
 ExprParser.Parse("ln(9)").Simplify().Print();                           // 2ln(3)
 ExprParser.Parse("ln(1/8)").Simplify().Print();                         // -3ln(2)
-ExprParser.Parse("(1/2)*ln(1/2) - (1/2)*ln(1/3)").Simplify().Print();   // (1/2) * ln(3/2)
+ExprParser.Parse("(1/2)*ln(1/2) - (1/2)*ln(1/3)").Simplify().Print();   // ln(3/2) / 2
 ExprParser.Parse("ln(6) - ln(2) - ln(3)").Simplify().Print();           // 0
 ```
 
@@ -230,7 +230,7 @@ denominator is a number: then every term is divided. Negative powers are left as
 
 ```csharp
 ExprParser.Parse("(x + 1)^2/(x - 1)").Expand().Print();   // (x^2 + 2x + 1) / (x - 1)
-ExprParser.Parse("(x + 1)^2/2").Expand().Print();         // (1/2) * x^2 + x + 1/2
+ExprParser.Parse("(x + 1)^2/2").Expand().Print();         // x^2 / 2 + x + 1/2
 ExprParser.Parse("(x + 1)^-2").Expand().Print();          // (x + 1)^-2
 ```
 

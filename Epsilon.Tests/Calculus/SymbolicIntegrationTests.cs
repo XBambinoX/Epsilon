@@ -172,7 +172,7 @@ public class SymbolicIntegrationTests
     [Fact]
     public void Squares_reciprocals_and_products_of_trigonometric_functions()
     {
-        Assert.Equal("(1/2) * x - (1/4) * sin(2x)", Integral("sin(x)^2"));
+        Assert.Equal("x / 2 - sin(2x) / 4", Integral("sin(x)^2"));
         Assert.Equal("tan(x)", Integral("sec(x)^2"));
         Assert.Equal("tan(x)", Integral("1/cos(x)^2"));
         Assert.Equal("sec(x)", Integral("sec(x)*tan(x)"));
@@ -185,9 +185,9 @@ public class SymbolicIntegrationTests
         Assert.Equal("atan(x)", Integral("1/(1 + x^2)"));
         Assert.Equal("atan(x / 2) / 2", Integral("1/(x^2 + 4)"));
         Assert.Equal("atan((x + 1) / 2) / 2", Integral("1/(x^2 + 2*x + 5)"));
-        Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", Integral("1/(x^2 - 1)"));
+        Assert.Equal("ln(abs((x - 1) / (x + 1))) / 2", Integral("1/(x^2 - 1)"));
         Assert.Equal("-1 / (x + 1)", Integral("1/(x^2 + 2*x + 1)"));
-        Assert.Equal("(1/2) * ln(x^2 + 1)", Integral("x/(x^2 + 1)"));
+        Assert.Equal("ln(x^2 + 1) / 2", Integral("x/(x^2 + 1)"));
         Assert.Equal("ln(abs((x - sqrt(2)) / (x + sqrt(2)))) / (2sqrt(2))", Integral("1/(x^2 - 2)"));
     }
 
@@ -219,17 +219,17 @@ public class SymbolicIntegrationTests
         Assert.Equal("asin(x)", Integral("1/sqrt(1 - x^2)"));
         Assert.Equal("asinh(x)", Integral("1/sqrt(x^2 + 1)"));
         Assert.Equal("ln(abs(x + sqrt(x^2 - 1)))", Integral("1/sqrt(x^2 - 1)"));
-        Assert.Equal("(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)", Integral("sqrt(1 - x^2)"));
+        Assert.Equal("sqrt(-x^2 + 1) * x / 2 + asin(x) / 2", Integral("sqrt(1 - x^2)"));
         Assert.Equal("sqrt(x^2 + 1)", Integral("x/sqrt(x^2 + 1)"));
     }
 
     [Fact]
     public void Polynomials_are_divided_and_products_expanded()
     {
-        Assert.Equal("(1/3) * x^3 + (1/2) * x^2", Integral("x*(x + 1)"));
-        Assert.Equal("(1/2) * x^2 + ln(abs(x))", Integral("(x^2 + 1)/x"));
+        Assert.Equal("x^3 / 3 + x^2 / 2", Integral("x*(x + 1)"));
+        Assert.Equal("x^2 / 2 + ln(abs(x))", Integral("(x^2 + 1)/x"));
         Assert.Equal("x + 2ln(abs(x - 1))", Integral("(x + 1)/(x - 1)"));
-        Assert.Equal("(1/2) * x - (3/4) * ln(abs(2x + 3))", Integral("x/(2*x + 3)"));
+        Assert.Equal("x / 2 - 3ln(abs(2x + 3)) / 4", Integral("x/(2*x + 3)"));
         Assert.Equal("x - atan(x)", Integral("x^2/(x^2 + 1)"));
     }
 
@@ -324,7 +324,7 @@ public class SymbolicIntegrationTests
             Assert.True((derivative.EvaluateComplex(at) - expected).Magnitude <= 1e-12 * Math.Max(1, expected.Magnitude));
         }
 
-        Assert.Equal("(1/2) * ln(x^2 + 1) - atan(x) * i", Integral("1/(x + i)"));
+        Assert.Equal("ln(x^2 + 1) / 2 - atan(x) * i", Integral("1/(x + i)"));
         Assert.Equal("-cos(x) * i + sin(x)", Integral("exp(i*x)"));
     }
 
@@ -357,7 +357,7 @@ public class SymbolicIntegrationTests
     public void The_imaginary_unit_as_a_constant_factor_or_term()
     {
         Assert.Equal("i * x^2 / 2", Integral("i*x"));
-        Assert.Equal("(1/2) * x^2 + i * x", Integral("x + i"));
+        Assert.Equal("x^2 / 2 + i * x", Integral("x + i"));
         Assert.Equal("i * ln(abs(x))", Integral("i/x"));
         Assert.Equal("-x^2 / 2", Integral("i^2*x"));
     }

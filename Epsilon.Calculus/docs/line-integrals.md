@@ -51,7 +51,7 @@ ExprParser.Parse("1").LineIntegralExact(triangle, "x", "y").Print();         // 
 ExprParser.Parse("x^2 + y^2").LineIntegralExact(circle, "x", "y").Print();   // 2 * π
 
 var graph = new Curve("x", Vector<Expr>.Parse("[x, x^2]"), 0, 1);
-ExprParser.Parse("x").LineIntegralExact(graph, "x", "y").Print();            // (1/12) * (5sqrt(5) - 1)
+ExprParser.Parse("x").LineIntegralExact(graph, "x", "y").Print();            // (5sqrt(5) - 1) / 12
 
 var catenary = new Curve("t", Vector<Expr>.Parse("[t, cosh(t)]"), 0, 1);
 ExprParser.Parse("1").LineIntegralExact(catenary, "x", "y").Print();         // sinh(1)

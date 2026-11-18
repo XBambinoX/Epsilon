@@ -23,7 +23,7 @@ f.Gradient("x", "y").Print();                    // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));     // LocalMinimum
 ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // exp(x) * x - exp(x)
 ExprParser.Parse("sin(x)/x").Limit("x", 0).Print();                 // 1
-ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // (1/4) * π
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // π / 4
 ```
 
 ## Installation
@@ -50,15 +50,15 @@ f.Hessian("x", "y").Print();      // [[2y, 2x], [2x, -sin(y)]]
 f.Laplacian("x", "y").Print();    // 2y - sin(y)
 
 // Antiderivatives
-ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // (1/2) * ln(x) * x^2 - (1/4) * x^2
-ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // ln(x) * x^2 / 2 - x^2 / 4
+ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // ln(abs((x - 1) / (x + 1))) / 2
 
 // Series and limits
-ExprParser.Parse("exp(x)").Series("x", 0, 3).Print();     // 1 + x + (1/2) * x^2 + (1/6) * x^3 + O(x^4)
+ExprParser.Parse("exp(x)").Series("x", 0, 3).Print();     // 1 + x + x^2 / 2 + x^3 / 6 + O(x^4)
 ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print();   // e
 
 // Definite integrals, exactly
-ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();   // (1/4) * π
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();   // π / 4
 
 // and numerically
 ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);
@@ -130,8 +130,8 @@ factors, over the roots of cubic and quartic factors in radicals, and rational f
 and cos by Bioche's rules or by t = tan(x/2):
 
 ```csharp
-ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // (1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))
-ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)
+ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // ln(abs(x - 1)) / 3 + 2ln(abs(x + 2)) / 3
+ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + 3atan(x) / 8
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();   // cos(x) - 2atan(cos(x))
 ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ```
@@ -146,8 +146,8 @@ pole, and `Limit` finds a limit exactly, from both sides or one and at inf and -
 exponentials and logarithms compete:
 
 ```csharp
-ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();    // 1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)
-ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print();    // x^-1 + (1/6) * x + O(x^2)
+ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();    // 1 - x^2 / 6 + x^4 / 120 + O(x^5)
+ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print();    // x^-1 + x / 6 + O(x^2)
 
 ExprParser.Parse("x*ln(x)").Limit("x", 0).Print();                             // 0
 ExprParser.Parse("1/x").Limit("x", 0, LimitDirection.Right).Print();           // inf
@@ -164,7 +164,7 @@ as the Gaussian and Dirichlet integrals, come from a table. A divergent integral
 var inf = double.PositiveInfinity;
 
 ExprParser.Parse("ln(x)").IntegrateExact("x", 0, 1).Print();            // -1
-ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();    // (1/4) * π * sqrt(2)
+ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();    // π * sqrt(2) / 4
 ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();   // sqrt(π)
 ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();       // π / 2
 

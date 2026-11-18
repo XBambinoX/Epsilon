@@ -164,8 +164,8 @@ public class ExpressionsDocTests
     [Fact]
     public void Numbers()
     {
-        Assert.Equal("(1/10) * x", (0.1 * X).Print());
-        Assert.Equal("(1/3) * x", (new Rational(1, 3) * X).Print());
+        Assert.Equal("x / 10", (0.1 * X).Print());
+        Assert.Equal("x / 3", (new Rational(1, 3) * X).Print());
         Assert.Throws<ArgumentException>(() => (Expr)double.NaN);
     }
 
@@ -319,7 +319,7 @@ public class SimplificationDocTests
     [InlineData("(x + 1) - 1", "x")]
     [InlineData("x/(2*y) + x/(3*y)", "5x / (6y)")]
     [InlineData("x*sqrt(2) + x/sqrt(2)", "3sqrt(2) * x / 2")]
-    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "(2/9) * π * sqrt(3)")]
+    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "2 * π * sqrt(3) / 9")]
     [InlineData("2*(a - b) + 2*(b - a)", "0")]
     [InlineData("x/sqrt(3)", "x / sqrt(3)")]
     [InlineData("x^(1/2)", "sqrt(x)")]
@@ -377,7 +377,7 @@ public class SimplificationDocTests
     [InlineData("ln(e^2)", "2")]
     [InlineData("ln(9)", "2ln(3)")]
     [InlineData("ln(1/8)", "-3ln(2)")]
-    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "(1/2) * ln(3/2)")]
+    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "ln(3/2) / 2")]
     [InlineData("ln(6) - ln(2) - ln(3)", "0")]
     [InlineData("1/(sqrt(3) + 2)", "-sqrt(3) + 2")]
     [InlineData("-2/(2*sqrt(2) + 4) + 1", "sqrt(2) / 2")]
@@ -419,7 +419,7 @@ public class SimplificationDocTests
     [InlineData("(x + 1)*(x - 1)", "x^2 - 1")]
     [InlineData("sin((x + 1)^2)", "sin(x^2 + 2x + 1)")]
     [InlineData("(x + 1)^2/(x - 1)", "(x^2 + 2x + 1) / (x - 1)")]
-    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]
+    [InlineData("(x + 1)^2/2", "x^2 / 2 + x + 1/2")]
     [InlineData("(x + 1)^-2", "(x + 1)^-2")]
     public void Expanding(string input, string expected)
     {
@@ -576,10 +576,10 @@ public class FactoringDocTests
     [InlineData("(x^2 - 1)*(x - 1)", "(x + 1) * (x - 1)^2")]
     [InlineData("x^3 - 3x^2 + 3x - 1", "(x - 1)^3")]
     [InlineData("2x^2 - x - 1", "2 * (x + 1/2) * (x - 1)")]
-    [InlineData("0.5x^2 - 0.5", "(1/2) * (x + 1) * (x - 1)")]
+    [InlineData("0.5x^2 - 0.5", "(x + 1) * (x - 1) / 2")]
     [InlineData("x^4 + x^2 + 1", "(x^2 - x + 1) * (x^2 + x + 1)")]
     [InlineData("x^4 - 5x^2 + 6", "(x + sqrt(2)) * (x + sqrt(3)) * (x - sqrt(2)) * (x - sqrt(3))")]
-    [InlineData("x^2 - x - 1", "(x + (1/2) * sqrt(5) - 1/2) * (x - (1/2) * sqrt(5) - 1/2)")]
+    [InlineData("x^2 - x - 1", "(x + sqrt(5) / 2 - 1/2) * (x - sqrt(5) / 2 - 1/2)")]
     [InlineData("x^4 - 1", "(x^2 + 1) * (x + 1) * (x - 1)")]
     public void Real(string input, string expected)
     {

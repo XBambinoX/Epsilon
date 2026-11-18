@@ -22,8 +22,8 @@ public class LineIntegralTests
     [InlineData("1", "[cos(t), sin(t), t]", "0", "2*pi", "x,y,z", "2 * π * sqrt(2)")]
     [InlineData("z", "[cos(t), sin(t), t]", "0", "2*pi", "x,y,z", "2π^2 * sqrt(2)")]
     [InlineData("1", "[a*cos(t), a*sin(t), b*t]", "0", "2*pi", "x,y,z", "2 * π * sqrt(a^2 + b^2)")]
-    [InlineData("1", "[t, t^2]", "0", "1", "x,y", "(1/4) * asinh(2) + (1/2) * sqrt(5)")]
-    [InlineData("x", "[t, t^2]", "0", "1", "x,y", "(1/12) * (5sqrt(5) - 1)")]
+    [InlineData("1", "[t, t^2]", "0", "1", "x,y", "asinh(2) / 4 + sqrt(5) / 2")]
+    [InlineData("x", "[t, t^2]", "0", "1", "x,y", "(5sqrt(5) - 1) / 12")]
     [InlineData("1", "[t, cosh(t)]", "0", "1", "x,y", "sinh(1)")]
     [InlineData("1", "[cosh(t), t]", "0", "1", "x,y", "sinh(1)")]
     [InlineData("1", "[2*t, 2*cosh(t)]", "0", "1", "x,y", "2sinh(1)")]
@@ -116,7 +116,7 @@ public class LineIntegralTests
     // The curve's parameter may share a name with a variable: the graph y = x^2 by x.
     [Fact]
     public void The_parameter_may_be_named_as_a_variable() =>
-        Assert.Equal("(1/12) * (5sqrt(5) - 1)", ExprParser.Parse("x").LineIntegralExact(new Curve("x", Vector<Expr>.Parse("[x, x^2]"), 0, 1), "x", "y").Print());
+        Assert.Equal("(5sqrt(5) - 1) / 12", ExprParser.Parse("x").LineIntegralExact(new Curve("x", Vector<Expr>.Parse("[x, x^2]"), 0, 1), "x", "y").Print());
 
     [Theory]
     [InlineData("[2*x*y, x^2]", "x,y", "x^2 * y")]

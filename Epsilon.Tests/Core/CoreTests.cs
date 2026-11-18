@@ -143,7 +143,7 @@ public class SimplifierTests
     [Theory]
     [InlineData("-(-2*y^2)", "2y^2")]          // was --2y^2
     [InlineData("-(-2*y^2*x)", "2y^2 * x")]
-    [InlineData("-(-1/2*y)", "(1/2) * y")]     // was -(-1/2) * y
+    [InlineData("-(-1/2*y)", "y / 2")]     // was -(-1/2) * y
     [InlineData("-(-2/y)", "2 / y")]
     [InlineData("-(-y/2)", "y / 2")]
     [InlineData("-(-2*x/y)", "2x / y")]
@@ -905,7 +905,7 @@ public class DifferentiationTests
     [Fact]
     public void NthRoot_derivative_matches_numerical_approximation()
     {
-        // d/dx nthroot(x, 3) = (1/3) * x^(-2/3)
+        // d/dx nthroot(x, 3) = x^(-2/3) / 3
         Expr expr = ExprParser.Parse("nthroot(x, 3)");
         Expr derivative = expr.Differentiate();
         double atPoint = 8.0;
@@ -1545,7 +1545,7 @@ public class PolynomialFactoringTests
     [InlineData("(x - 2)^4", "(x - 2)^4", "(x - 2)^4")]
     [InlineData("(x + 1)*(x - 2)*x", "(x + 1) * (x - 2) * x", "(x + 1) * (x - 2) * x")]
     [InlineData("3(x - 1)^2 (x + 2)", "3 * (x + 2) * (x - 1)^2", "3 * (x + 2) * (x - 1)^2")]
-    [InlineData("(x + 1)^2/2", "(1/2) * (x + 1)^2", "(1/2) * (x + 1)^2")]
+    [InlineData("(x + 1)^2/2", "(x + 1)^2 / 2", "(x + 1)^2 / 2")]
     [InlineData("(x^2 + 1)*(x - 1)", "(x^2 + 1) * (x - 1)", "(x + i) * (x - 1) * (x - i)")]
     public void Factors_a_polynomial_that_is_not_expanded(string input, string real, string complex)
     {
@@ -2352,7 +2352,7 @@ public class ExactFactoringTests
 
     [Theory]
     [InlineData("x^2 - 2", "(x + sqrt(2)) * (x - sqrt(2))")]           // was x - 14142135623731/10000000000000
-    [InlineData("x^2 - x - 1", "(x + (1/2) * sqrt(5) - 1/2) * (x - (1/2) * sqrt(5) - 1/2)")]
+    [InlineData("x^2 - x - 1", "(x + sqrt(5) / 2 - 1/2) * (x - sqrt(5) / 2 - 1/2)")]
     [InlineData("x^4 - 5x^2 + 6", "(x + sqrt(2)) * (x + sqrt(3)) * (x - sqrt(2)) * (x - sqrt(3))")]
     [InlineData("6x^2 - 5x + 1", "6 * (x - 1/3) * (x - 1/2)")]
     [InlineData("x^4 + 5x^2 + 4", "(x^2 + 1) * (x^2 + 4)")]         // irreducible quadratics kept
@@ -2817,11 +2817,11 @@ public class LogarithmOfRationalTests
     [InlineData("ln(2/3)", "ln(2/3)")]
     [InlineData("ln(6)", "ln(6)")]
     [InlineData("ln(-2)", "ln(-2)")]
-    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "(1/2) * ln(3/2)")]
+    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "ln(3/2) / 2")]
     [InlineData("ln(6) - ln(2) - ln(3)", "0")]
     [InlineData("ln(12) - 2*ln(2)", "ln(3)")]
     [InlineData("ln(2) + x + ln(3)", "x + ln(6)")]
-    [InlineData("(1/2)*ln(2) + (1/3)*ln(3)", "(1/3) * ln(3) + (1/2) * ln(2)")]   // not multiples
+    [InlineData("(1/2)*ln(2) + (1/3)*ln(3)", "ln(3) / 3 + ln(2) / 2")]   // not multiples
     public void Logarithms_of_rational_numbers_take_out_powers_and_merge(string input, string expected)
     {
         Expr expr = ExprParser.Parse(input);
@@ -2870,7 +2870,7 @@ public class ExponentialLogarithmTests
     [InlineData("exp(x + ln(y))", "exp(x) * y", "exp(x + ln(y))")]
     [InlineData("exp(ln(x) - ln(y))", "x / y", "exp(ln(x) - ln(y))")]
     [InlineData("exp(x - 2*ln(x))", "exp(x) / x^2", "exp(x - 2ln(x))")]
-    [InlineData("exp(ln(x)/2 - 1)", "exp(-1) * sqrt(x)", "exp((1/2) * ln(x) - 1)")]
+    [InlineData("exp(ln(x)/2 - 1)", "exp(-1) * sqrt(x)", "exp(ln(x) / 2 - 1)")]
     public void Logarithms_leave_an_exponential_where_their_arguments_are_positive(string input, string generic, string strict)
     {
         Expr expr = ExprParser.Parse(input);
@@ -2940,7 +2940,7 @@ public class CommonDenominatorTests
     [InlineData("x + 1/x", "x + 1 / x")]
     [InlineData("exp(c)/c - 1/c", "exp(c) / c - 1 / c")]
     [InlineData("a/(x + 1) + b/(x + 1)", "a / (x + 1) + b / (x + 1)")]
-    [InlineData("(1/2)*sqrt(u) - 1/(2*sqrt(u))", "(1/2) * sqrt(u) - 1 / (2sqrt(u))")]
+    [InlineData("(1/2)*sqrt(u) - 1/(2*sqrt(u))", "sqrt(u) / 2 - 1 / (2sqrt(u))")]
     [InlineData("x/sqrt(3) + y/sqrt(3)", "x / sqrt(3) + y / sqrt(3)")]      // numbers below link nothing
     public void Fractions_that_cancel_are_put_over_a_common_denominator(string input, string expected)
     {
@@ -2966,7 +2966,7 @@ public class CommonDenominatorTests
     [InlineData("1/(1 + 1/x)^2", "x^2 / (x + 1)^2", "1 / (1 / x + 1)^2")]
     [InlineData("2/(sqrt(x) + 1/sqrt(x))", "2sqrt(x) / (x + 1)", "2 / (1 / sqrt(x) + sqrt(x))")]
     [InlineData("(1 + 1/x)/y", "(1 / x + 1) / y", "(1 / x + 1) / y")]                   // only below
-    [InlineData("1/(x/2 + 1)", "1 / ((1/2) * x + 1)", "1 / ((1/2) * x + 1)")]            // numbers aren't fractions
+    [InlineData("1/(x/2 + 1)", "1 / (x / 2 + 1)", "1 / (x / 2 + 1)")]            // numbers aren't fractions
     public void A_sum_with_fractions_in_a_denominator_goes_over_its_common_denominator(string input, string generic, string strict)
     {
         Expr expr = ExprParser.Parse(input);
@@ -3012,7 +3012,7 @@ public class CommonDenominatorTests
 public class NumericMultipleTests
 {
     [Theory]
-    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "(2/9) * π * sqrt(3)")]
+    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "2 * π * sqrt(3) / 9")]
     [InlineData("x*sqrt(2) + x/sqrt(2)", "3sqrt(2) * x / 2")]
     [InlineData("sqrt(2)*x/y + x/(y*sqrt(2))", "3sqrt(2) * x / (2y)")]
     [InlineData("x/(2*y) + x/(3*y)", "5x / (6y)")]
@@ -3402,7 +3402,7 @@ public class ExprOperatorTests
         Expr f = 0.5 * X * X + 2 * X - 1;
 
         Assert.Equal(0.5 * 3 * 3 + 2 * 3 - 1, f.Evaluate(3.0));
-        Assert.Equal("(1/2) * x^2 + 2x - 1", f.Simplify().Print());
+        Assert.Equal("x^2 / 2 + 2x - 1", f.Simplify().Print());
         Assert.Equal("x + 2", f.Differentiate("x").Simplify().Print());
     }
 
@@ -4224,7 +4224,7 @@ public class ExpandTests
     }
 
     [Theory]
-    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]   // dividing by a number divides every term
+    [InlineData("(x + 1)^2/2", "x^2 / 2 + x + 1/2")]   // dividing by a number divides every term
     [InlineData("(x + 1)^2/(x - 1)^2", "(x^2 + 2x + 1) / (x^2 - 2x + 1)")]
     [InlineData("((x + 1)/y)^2", "(x^2 + 2x + 1) / y^2")]
     [InlineData("x*(y + (x + 1)/y)", "x * y + (x^2 + x) / y")]
@@ -4305,8 +4305,22 @@ public class PrintStyleTests
     [InlineData("3 * (x + 1)^2", "3(x + 1)^2")]
     [InlineData("3 * 2^x", "3 * 2^x")]       // "32^x" would be a different number
     [InlineData("x * y", "x * y")]           // never juxtapose two letters: c*o*s is not cos
-    [InlineData("3/4 * x", "(3/4) * x")]     // "3/4x" would read as 3/(4x)
+    [InlineData("3/4 * x", "3x / 4")]     // "3/4x" would read as 3/(4x)
     public void Writes_an_integer_coefficient_next_to_the_first_factor(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Theory]
+    [InlineData("atan(1) - atan(0)", "π / 4")]
+    [InlineData("(1/4)*pi", "π / 4")]
+    [InlineData("(-4/97)*sqrt(3) + 40/97", "-4sqrt(3) / 97 + 40/97")]
+    [InlineData("(-3/4)*ln(y) + x", "x - 3ln(y) / 4")]
+    [InlineData("(-1/2)*x^2 + (1/24)*x^4 + 1", "x^4 / 24 - x^2 / 2 + 1")]
+    [InlineData("(1/2)*(x + 1)*y", "(x + 1) * y / 2")]
+    [InlineData("(3/4)*2^x", "3 * 2^x / 4")]
+    [InlineData("(1/3)*ln(2) + (1/9)*pi*sqrt(3)", "ln(2) / 3 + π * sqrt(3) / 9")]
+    public void Writes_a_fractional_coefficient_as_a_division(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
     }

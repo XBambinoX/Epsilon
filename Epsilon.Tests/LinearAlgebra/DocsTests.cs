@@ -1346,7 +1346,7 @@ public class LinearAlgebraLeastSquaresDocTests
 
         var parabola = Matrix<Expr>.Create(5, 3, (i, j) => (Expr)(int)Math.Pow(i - 2, j));
         Assert.Equal("[[1, -2, 4], [1, -1, 1], [1, 0, 0], [1, 1, 1], [1, 2, 4]]", parabola.Print());
-        Assert.Equal("(12/35) * b + (12/35) * d + (17/35) * c - (3/35) * a - (3/35) * f",
+        Assert.Equal("12b / 35 + 12d / 35 + 17c / 35 - 3a / 35 - 3f / 35",
             parabola.LeastSquares(Vector<Expr>.Parse("[a, b, c, d, f]"))[0].Print());
 
         Assert.Equal("[(p * u + q * v + r * w) / (p^2 + q^2 + r^2)]",

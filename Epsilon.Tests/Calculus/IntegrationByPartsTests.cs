@@ -71,7 +71,7 @@ public class IntegrationByPartsTests
     [Fact]
     public void Logarithms_and_inverse_functions()
     {
-        Assert.Equal("(1/2) * ln(x) * x^2 - (1/4) * x^2", Integral("x*ln(x)"));
+        Assert.Equal("ln(x) * x^2 / 2 - x^2 / 4", Integral("x*ln(x)"));
         Assert.Equal("2x + ln(x)^2 * x - 2ln(x) * x", Integral("ln(x)^2"));
         Assert.Equal("ln(x^2 + 1) * x - 2x + 2atan(x)", Integral("ln(x^2 + 1)"));
         Assert.Equal("asin(x)^2 * x - 2x + 2asin(x) * sqrt(-x^2 + 1)", Integral("asin(x)^2"));
@@ -82,7 +82,7 @@ public class IntegrationByPartsTests
     public void Integrals_that_come_back_to_themselves()
     {
         Assert.Equal("(exp(x) * sin(x) - cos(x) * exp(x)) / 2", Integral("exp(x)*sin(x)"));
-        Assert.Equal("(2/13) * cos(3x) * exp(2x) + (3/13) * exp(2x) * sin(3x)", Integral("exp(2*x)*cos(3*x)"));
+        Assert.Equal("2cos(3x) * exp(2x) / 13 + 3exp(2x) * sin(3x) / 13", Integral("exp(2*x)*cos(3*x)"));
         Assert.Equal("(sin(ln(x)) * x - cos(ln(x)) * x) / 2", Integral("sin(ln(x))"));
     }
 
@@ -90,28 +90,28 @@ public class IntegrationByPartsTests
     [Fact]
     public void Sinh_and_cosh_times_sin_and_cos()
     {
-        Assert.Equal("(1/2) * cos(x) * sinh(x) + (1/2) * cosh(x) * sin(x)", Integral("cosh(x)*cos(x)"));
+        Assert.Equal("cos(x) * sinh(x) / 2 + cosh(x) * sin(x) / 2", Integral("cosh(x)*cos(x)"));
         Assert.Equal("(cosh(x) * sin(x) - cos(x) * sinh(x)) / 2", Integral("sinh(x)*sin(x)"));
-        Assert.Equal("(2/13) * sin(3x) * sinh(2x) - (3/13) * cos(3x) * cosh(2x)", Integral("cosh(2*x)*sin(3*x)"));
+        Assert.Equal("2sin(3x) * sinh(2x) / 13 - 3cos(3x) * cosh(2x) / 13", Integral("cosh(2*x)*sin(3*x)"));
     }
 
     // With the same rate the two steps give I = A + I, so sinh is written in exponentials instead.
     [Fact]
     public void An_exponential_times_sinh() =>
-        Assert.Equal("-(1/2) * x + (1/4) * exp(2x)", Integral("exp(x)*sinh(x)"));
+        Assert.Equal("-x / 2 + exp(2x) / 4", Integral("exp(x)*sinh(x)"));
 
     [Fact]
     public void Reduction_formulas_of_sec_and_csc()
     {
-        Assert.Equal("(1/2) * ln(abs(sec(x) + tan(x))) + (1/2) * sec(x) * tan(x)", Integral("sec(x)^3"));
-        Assert.Equal("(-1/2) * cot(x) * csc(x) - (1/2) * ln(abs(cot(x) + csc(x)))", Integral("csc(x)^3"));
+        Assert.Equal("ln(abs(sec(x) + tan(x))) / 2 + sec(x) * tan(x) / 2", Integral("sec(x)^3"));
+        Assert.Equal("-cot(x) * csc(x) / 2 - ln(abs(cot(x) + csc(x))) / 2", Integral("csc(x)^3"));
     }
 
     [Fact]
     public void After_a_substitution()
     {
         Assert.Equal("2exp(sqrt(x)) * sqrt(x) - 2exp(sqrt(x))", Integral("exp(sqrt(x))"));
-        Assert.Equal("(1/2) * exp(x^2) * x^2 - (1/2) * exp(x^2)", Integral("x^3*exp(x^2)"));
+        Assert.Equal("exp(x^2) * x^2 / 2 - exp(x^2) / 2", Integral("x^3*exp(x^2)"));
     }
 
     // Integration by parts made u = x - 1 a better choice than the root, and the expansion lost
@@ -119,8 +119,8 @@ public class IntegrationByPartsTests
     [Fact]
     public void Substitution_keeps_its_forms()
     {
-        Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(x^2 + 1)^(5/2) / 5 - (x^2 + 1)^(3/2) / 3", Integral("x^3*sqrt(x^2 + 1)"));
+        Assert.Equal("(-x^2 + 1)^(3/2) / 3 - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
     // Non-elementary.
