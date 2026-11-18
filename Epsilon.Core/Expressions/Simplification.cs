@@ -29,11 +29,13 @@ public static class Simplifier
         SimplifyCached(expr, assumptions, mode, new SimplifyCache());
 
     // One call simplifies the same subtrees over and over: every fixpoint step re-simplifies
-    // all children. Sums that didn't come out simpler over a common denominator are kept too:
-    // the next step would try them again.
+    // all children. Sums that didn't come out simpler over a common denominator, and quotients
+    // whose sums didn't divide, are kept too: the next step, which checks the result, would try
+    // them again.
     private sealed class SimplifyCache : Dictionary<Expr, Expr>
     {
         public HashSet<Expr> Uncombined { get; } = [];
+        public HashSet<Expr> Undivided { get; } = [];
     }
 
     private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
@@ -331,7 +333,7 @@ public static class Simplifier
                 return cancelled!;
 
             case Divide(var numerator, var denominator)
-                when TryCancelPolynomialFactors(numerator, denominator, assumptions, mode, out Expr? divided):
+                when TryCancelPolynomialFactors(expr, numerator, denominator, assumptions, mode, cache, out Expr? divided):
                 return divided!;
 
             case Divide(Constant a, Constant b) when !b.Value.IsZero:
@@ -2400,10 +2402,11 @@ public static class Simplifier
     // (x^2 - 1)/(x - 1) = x + 1, (x - 1)/(x^2 - 1) = 1/(x + 1): a sum on one side that divides a
     // multiplied-out factor of the other side, or the whole of it, as a polynomial cancels. Like
     // x/x = 1 this gains the zeros of the sum, so Strict mode needs it provably nonzero.
-    private static bool TryCancelPolynomialFactors(Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, out Expr? result)
+    private static bool TryCancelPolynomialFactors(
+        Expr quotient, Expr n, Expr d, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache, out Expr? result)
     {
         result = null;
-        if (!HasSumFactor(n) && !HasSumFactor(d))
+        if (!HasSumFactor(n) && !HasSumFactor(d) || cache.Undivided.Contains(quotient))
             return false;
 
         var (top, topFactors) = ExtractFactors(n);
@@ -2411,7 +2414,10 @@ public static class Simplifier
         var polynomials = new AtomPolynomials();
         if (!TryDivideBySum(polynomials, ref top, topFactors, bottomFactors, assumptions, mode) &&
             !TryDivideBySum(polynomials, ref bottom, bottomFactors, topFactors, assumptions, mode))
+        {
+            cache.Undivided.Add(quotient);
             return false;
+        }
 
         Expr numerator = BuildProduct(top, topFactors), denominator = BuildProduct(bottom, bottomFactors);
         result = IsConstantOne(denominator) ? numerator : new Divide(numerator, denominator);
