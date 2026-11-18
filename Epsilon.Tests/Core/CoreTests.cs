@@ -533,6 +533,28 @@ public class ComplexRootMultiplicityTests
         Assert.True((roots[1] - ComplexNumber.ImaginaryUnit).Magnitude < 1e-9);
     }
 
+    [Theory]
+    [InlineData("x*ln(x)", 1.0)]                    // also 5.8e-246 + 1e-246i
+    [InlineData("x^2*ln(x)", 1.0)]                  // also -2.4e-112
+    [InlineData("(x - 1)*ln(x - 1)", 2.0)]          // also 1 - 7e-248i
+    [InlineData("x^2/x")]                           // was -3e-170
+    [InlineData("(x - 1)^2/(x - 1)")]               // was 1 + 1.5e-168i
+    public void No_root_where_the_expression_is_undefined(string input, params double[] expected)
+    {
+        var roots = ExprParser.Parse(input).FindComplexRoots(-3, 3, -3, 3).OrderBy(z => z.Real).ToList();
+
+        Assert.Equal(expected.Length, roots.Count);
+        for (int i = 0; i < expected.Length; i++)
+            Assert.True((roots[i] - expected[i]).Magnitude < 1e-12, $"{roots[i]} is not {expected[i]}");
+    }
+
+    [Fact]
+    public void A_tiny_root_stays_where_it_is()
+    {
+        Assert.Equal(new ComplexNumber(1e-120, 0), Assert.Single(ExprParser.Parse("x - 1e-120").FindComplexRoots(-3, 3, -3, 3)));
+        Assert.Equal(ComplexNumber.Zero, Assert.Single(ExprParser.Parse("x^3").FindComplexRoots(-3, 3, -3, 3)));
+    }
+
     [Fact]
     public void Close_simple_roots_stay_apart()
     {

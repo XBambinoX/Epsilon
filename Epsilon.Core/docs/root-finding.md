@@ -99,6 +99,14 @@ The roots come in no particular order. A root is found only if some starting poi
 converges to it, so there is no completeness guarantee; increase `gridSteps` for more starting
 points.
 
+As on the real line, a point where the expression is undefined is not a root, even if the
+expression tends to 0 there:
+
+```csharp
+ExprParser.Parse("x*ln(x)").FindComplexRoots(-2, 2, -2, 2);   // [1]
+ExprParser.Parse("x^2/x").FindComplexRoots(-2, 2, -2, 2);     // []
+```
+
 Each root is reported once, a multiple root too. Roots so close that `|f| < 1e-10` on the
 whole segment between them can't be told apart and are reported as one:
 

@@ -422,9 +422,12 @@ public static class RootFindingExtensions
                 if (!found || root is not ComplexNumber r)
                     continue;
 
-                var (polished, residual) = PolishComplexRoot(f, df, d2f, r);
-                if (IsWithinBounds(polished, reMin, reMax, imMin, imMax))
-                    AddComplexRoot(roots, f, polished, residual);
+                if (PolishComplexRoot(f, df, d2f, r) is not var (polished, residual) ||
+                    ResolveComplexPlateau(f, polished, residual) is not { } resolved)
+                    continue;
+
+                if (IsWithinBounds(resolved, reMin, reMax, imMin, imMax))
+                    AddComplexRoot(roots, f, resolved, residual);
             }
         }
 
@@ -485,7 +488,9 @@ public static class RootFindingExtensions
     // roots around 0.99999. Newton's method on f/f', whose roots are all simple, converges
     // quadratically whatever m is: z -= f f' / (f'^2 - f f''). A step is kept only if it lowers
     // |f|: once rounding noise dominates next to the root, a step can jump far away from it.
-    private static (ComplexNumber Root, double Residual) PolishComplexRoot(
+    // A step onto a point where f is undefined means there was no root, only a hole that f
+    // tends to 0 at: x^2/x steps onto 0, (x - 1)^2/(x - 1) onto 1.
+    private static (ComplexNumber Root, double Residual)? PolishComplexRoot(
         Func<ComplexNumber, ComplexNumber> f, Func<ComplexNumber, ComplexNumber> df,
         Func<ComplexNumber, ComplexNumber> d2f, ComplexNumber z)
     {
@@ -499,13 +504,35 @@ public static class RootFindingExtensions
                 break;
 
             ComplexNumber fNext = f(next);
-            if (!(fNext.Magnitude < fz.Magnitude)) // also stops on NaN
+            if (!double.IsFinite(fNext.Real) || !double.IsFinite(fNext.Imaginary))
+                return null;
+            if (!(fNext.Magnitude < fz.Magnitude))
                 break;
 
             (z, fz) = (next, fNext);
         }
 
         return (z, fz.Magnitude);
+    }
+
+    // Towards a point where f is undefined but tends to 0, f can underflow to 0 first:
+    // x^2*ln(x) at 1e-162, or x*ln(x) still creeping at 5e-246 when polishing ends. As on the
+    // real line, parts of a root below UnderflowPlateauLimit are such leftovers and the point
+    // without them decides: no root where f is undefined, else that point if f is no larger
+    // there (1, not 1 + 1e-276i).
+    private static ComplexNumber? ResolveComplexPlateau(Func<ComplexNumber, ComplexNumber> f, ComplexNumber z, double residual)
+    {
+        var snapped = new ComplexNumber(
+            Math.Abs(z.Real) < UnderflowPlateauLimit ? 0 : z.Real,
+            Math.Abs(z.Imaginary) < UnderflowPlateauLimit ? 0 : z.Imaginary);
+        if (snapped == z)
+            return z;
+
+        ComplexNumber atSnapped = f(snapped);
+        if (!double.IsFinite(atSnapped.Real) || !double.IsFinite(atSnapped.Imaginary))
+            return null;
+
+        return atSnapped.Magnitude <= residual ? snapped : z;
     }
 
     // Keeps one entry per root: the candidate with the smallest |f|.

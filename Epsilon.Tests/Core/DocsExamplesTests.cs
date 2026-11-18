@@ -668,6 +668,9 @@ public class RootFindingDocTests
         Assert.Equal(-2 * Math.PI, exp[0].Imaginary, precision: 9);
         Assert.Equal(0, exp[1].Imaginary, precision: 9);
         Assert.Equal(2 * Math.PI, exp[2].Imaginary, precision: 9);
+
+        Assert.Equal(ComplexNumber.One, Assert.Single(ExprParser.Parse("x*ln(x)").FindComplexRoots(-2, 2, -2, 2)));
+        Assert.Empty(ExprParser.Parse("x^2/x").FindComplexRoots(-2, 2, -2, 2));
     }
 
     [Fact]
