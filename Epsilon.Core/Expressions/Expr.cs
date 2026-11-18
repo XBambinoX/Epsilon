@@ -429,9 +429,15 @@ public sealed class Constant : Expr
     /// A constant from the shortest decimal form of <paramref name="value"/>: 0.1 becomes exactly 1/10.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="value"/> is NaN or infinite.</exception>
-    public Constant(double value) : this(Rational.FromDouble(value)) { }
+    public Constant(double value) : this(Exact(value)) { }
     /// <summary>An integer constant.</summary>
     public Constant(int value) : this(new Rational(value)) { }
+
+    private static Rational Exact(double value) => double.IsFinite(value)
+        ? Rational.FromDouble(value)
+        : throw new ArgumentException(
+            $"{Rational.DoubleName(value)} has no exact value, so it isn't a Constant; an infinite limit or bound goes to an overload that takes a double.",
+            nameof(value));
     // Without this, new Constant(5L) is ambiguous between the Rational and double overloads.
     /// <summary>An integer constant.</summary>
     public Constant(long value) : this(new Rational(value)) { }

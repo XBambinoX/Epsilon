@@ -1734,6 +1734,21 @@ public class CoreCoverageBatchTests
 public class RationalTests
 {
     [Theory]
+    [InlineData(double.PositiveInfinity, "double.PositiveInfinity")]
+    [InlineData(double.NegativeInfinity, "double.NegativeInfinity")]
+    [InlineData(double.NaN, "double.NaN")]
+    public void A_double_without_an_exact_value_is_named_in_the_exception(double value, string name)
+    {
+        var toExpr = Assert.Throws<ArgumentException>(() => (Expr)value);
+        Assert.StartsWith($"{name} has no exact value, so it isn't a Constant; an infinite limit or bound goes to an overload that takes a double.", toExpr.Message);
+        Assert.Equal("value", toExpr.ParamName);
+
+        var toRational = Assert.Throws<ArgumentException>(() => Rational.FromDouble(value));
+        Assert.StartsWith($"{name} has no exact value, so it isn't a Rational.", toRational.Message);
+        Assert.Equal("value", toRational.ParamName);
+    }
+
+    [Theory]
     [InlineData(1e-20, "1", "100000000000000000000")]
     [InlineData(1e20, "100000000000000000000", "1")]
     [InlineData(-2.5e-7, "-1", "4000000")]
