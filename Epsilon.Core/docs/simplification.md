@@ -267,6 +267,7 @@ More examples of the difference:
 |---|---|---|---|
 | `x^3/x` | `x^2` | `x^3 / x` | x = 0 |
 | `0/x` | `0` | `0 / x` | x = 0 |
+| `0*ln(x)` | `0` | `0 * ln(x)` | x <= 0 |
 | `1/(2/x)` | `x / 2` | `1 / (2 / x)` | x = 0 |
 | `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
 | `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
@@ -279,10 +280,12 @@ Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both mo
 expression is undefined, or before root finding. `SolveNumerically` simplifies `left - right`
 in Strict mode internally, so `x^2/x = 0` has no solution at 0.
 
-Even Generic mode never folds a literal `0/0` and never changes a value that is defined:
+Even Generic mode never folds a literal `0/0`, or 0 times something undefined everywhere, and
+never changes a value that is defined:
 
 ```csharp
-ExprParser.Parse("0/0").Simplify().Print();   // 0 / 0
+ExprParser.Parse("0/0").Simplify().Print();       // 0 / 0
+ExprParser.Parse("0*ln(0)").Simplify().Print();   // 0 * ln(0)
 ```
 
 ## Cost

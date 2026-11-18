@@ -140,8 +140,10 @@ public static class Printer
         // An integer coefficient is written next to the first factor (2x, -3x^2, 2cos(x) * y);
         // everything else keeps an explicit " * ". Juxtaposing two non-constant factors could
         // re-tokenize into something else: a * sinh(x) would print as "asinh(x)", and variables
-        // c, o, s as "cos".
+        // c, o, s as "cos". A 0 kept in front of a factor (0 * ln(x) in Strict mode) stays apart
+        // too: "0x" would look like a hexadecimal number.
         bool canUseImplicit = constantCount <= 1 &&
+                              constant?.Value.IsZero != true &&
                               rest.Count > 0 &&
                               CanBeImplicitFactor(rest[0]);
 

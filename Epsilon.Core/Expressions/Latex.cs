@@ -125,7 +125,7 @@ public static class LatexPrinter
             }
         }
 
-        bool canUseImplicit = constantCount <= 1 && rest.All(CanBeImplicitFactor);
+        bool canUseImplicit = constantCount <= 1 && constant?.Value.IsZero != true && rest.All(CanBeImplicitFactor);
 
         if (!canUseImplicit)
             return string.Join(" \\cdot ", factors.Select(f => LatexInternal(f, 3)));

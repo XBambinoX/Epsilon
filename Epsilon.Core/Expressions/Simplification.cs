@@ -125,6 +125,90 @@ public static class Simplifier
             ? !expr.IsProvablyNonPositive(assumptions)
             : expr.IsProvablyPositive(assumptions);
 
+    // For 0 * u = 0. Like 0/0, a u that is undefined whatever the variables are (1/0, x/0, ln(0))
+    // is never dropped; Strict mode also needs u provably defined: 0 * ln(x) keeps x > 0.
+    private static bool DefinedForDomain(Expr expr, Assumptions assumptions, SimplifyMode mode) =>
+        ScanConstantParts(expr) is not null &&
+        (mode == SimplifyMode.Generic || IsProvablyDefined(expr, assumptions));
+
+    // Whether expr has variables, or null when a part of it is undefined whatever they are: a
+    // part without variables that has no value (1/0, ln(0), 0^(-1/2)), or x/0.
+    private static bool? ScanConstantParts(Expr expr)
+    {
+        bool hasVariables = expr.Children.Length == 0 && expr.GetVariables().Count > 0;
+        bool lastHasVariables = false; // of a quotient, the denominator
+
+        foreach (Expr child in expr.Children)
+        {
+            if (ScanConstantParts(child) is not { } childHasVariables)
+                return null;
+
+            hasVariables |= childHasVariables;
+            lastHasVariables = childHasVariables;
+        }
+
+        if (!hasVariables)
+            return HasValue(expr) ? false : null;
+
+        return expr is Divide(_, var d) && !lastHasVariables && IsZeroValue(d) ? null : true;
+    }
+
+    private static readonly Dictionary<string, double> NoBindings = [];
+    private static readonly Dictionary<string, ComplexNumber> NoComplexBindings = [];
+
+    // A real value (min(1, π) has no complex one) or a complex one (i, asin(2)).
+    private static bool HasValue(Expr constant) =>
+        RealValue(constant) is { } x && double.IsFinite(x) ||
+        ComplexValue(constant) is { } z && double.IsFinite(z.Real) && double.IsFinite(z.Imaginary);
+
+    private static bool IsZeroValue(Expr constant) =>
+        RealValue(constant) is { } x ? x == 0 : ComplexValue(constant) == ComplexNumber.Zero;
+
+    private static double? RealValue(Expr constant)
+    {
+        try { return constant.Evaluate(NoBindings); }
+        catch (Exception e) when (e is ArithmeticException or InvalidOperationException or NotSupportedException) { return null; }
+    }
+
+    private static ComplexNumber? ComplexValue(Expr constant)
+    {
+        try { return constant.EvaluateComplex(NoComplexBindings); }
+        catch (Exception e) when (e is ArithmeticException or InvalidOperationException or NotSupportedException) { return null; }
+    }
+
+    // Whether expr has a real value for all values of its variables that the assumptions allow.
+    // Parts without variables were checked by ScanConstantParts.
+    private static bool IsProvablyDefined(Expr expr, Assumptions assumptions)
+    {
+        if (!HasVariables(expr))
+            return true;
+
+        return expr switch
+        {
+            Variable => true,
+            Add or Subtract or Multiply or Negate or Exp or Sin or Cos or Atan or Sinh or Cosh or Tanh or Asinh
+                or Sech or Abs or Sign or Floor or Ceiling or Round or Min or Max =>
+                expr.Children.All(child => IsProvablyDefined(child, assumptions)),
+            Divide(var n, var d) =>
+                IsProvablyDefined(n, assumptions) && IsProvablyDefined(d, assumptions) && d.IsProvablyNonZero(assumptions),
+            Power(var b, Constant e) when e.Value.IsInteger =>
+                IsProvablyDefined(b, assumptions) && (e.Value.Sign >= 0 || b.IsProvablyNonZero(assumptions)),
+            Power(var b, Constant e) =>
+                IsProvablyDefined(b, assumptions) &&
+                (e.Value.Sign > 0 ? b.IsProvablyNonNegative(assumptions) : b.IsProvablyPositive(assumptions)),
+            Power(var b, var e) =>
+                IsProvablyDefined(b, assumptions) && IsProvablyDefined(e, assumptions) && b.IsProvablyPositive(assumptions),
+            Sqrt(var a) => IsProvablyDefined(a, assumptions) && a.IsProvablyNonNegative(assumptions),
+            NthRoot(var a, Constant n) => IsProvablyDefined(a, assumptions) &&
+                                          (n.Value.IsInteger && !n.Value.Numerator.IsEven || a.IsProvablyNonNegative(assumptions)),
+            Ln(var a) => IsProvablyDefined(a, assumptions) && a.IsProvablyPositive(assumptions),
+            _ => false
+        };
+    }
+
+    private static bool HasVariables(Expr expr) =>
+        expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
+
     // Sums never get here: SimplifySum handles a whole Add/Subtract chain at once.
     private static Expr ApplyRules(Expr expr, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache)
     {
@@ -146,7 +230,8 @@ public static class Simplifier
 
             // Constant folding, 1 * x and equal-base merging for products are all done by
             // CombineProductFactors above; only 0 * x is deliberately left to this rule.
-            case Multiply(var l, var r) when l.Equals(new Constant(0)) || r.Equals(new Constant(0)):
+            case Multiply(var l, var r) when l.Equals(new Constant(0)) && DefinedForDomain(r, assumptions, mode) ||
+                                             r.Equals(new Constant(0)) && DefinedForDomain(l, assumptions, mode):
                 return new Constant(0);
 
             case Divide(var numerator, var denominator)

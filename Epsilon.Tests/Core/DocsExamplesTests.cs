@@ -386,6 +386,7 @@ public class SimplificationDocTests
     [InlineData("tan(pi/2)", "tan(π / 2)")]
     [InlineData("csc(0)", "csc(0)")]
     [InlineData("0/0", "0 / 0")]
+    [InlineData("0*ln(0)", "0 * ln(0)")]
     public void Generic(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
@@ -395,6 +396,7 @@ public class SimplificationDocTests
     [InlineData("x/x", "1", "x / x")]
     [InlineData("x^3/x", "x^2", "x^3 / x")]
     [InlineData("0/x", "0", "0 / x")]
+    [InlineData("0*ln(x)", "0", "0 * ln(x)")]
     [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
     [InlineData("sqrt(x)^2", "x", "sqrt(x)^2")]
     [InlineData("exp(ln(x))", "x", "exp(ln(x))")]

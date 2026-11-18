@@ -2648,8 +2648,35 @@ public class QuotientConstantFactorTests
     [InlineData("0/x", "0 / x")]
     [InlineData("2x/0", "2x / 0")]
     [InlineData("2*x*x^-1/4", "x^-1 * x / 2")]  // only the numbers change, x * x^-1 stays
+    [InlineData("0*ln(x)", "0 * ln(x)")]
+    [InlineData("0*x^-1", "0 * x^-1")]
+    [InlineData("0*sqrt(x)", "0 * sqrt(x)")]
+    [InlineData("0*tan(x)", "0 * tan(x)")]
+    [InlineData("0*(x/y)", "0 / y")]
+    [InlineData("0*sqrt(x^2 + 1)*exp(x)", "0")]  // defined everywhere
     public void Keeps_the_domain_in_strict_mode(string input, string expected)
     {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Fact]
+    public void Zero_times_a_factor_the_assumptions_define_is_zero_in_strict_mode()
+    {
+        var positive = Assumptions.None.AssumePositive("x");
+
+        Assert.Equal("0", ExprParser.Parse("0*ln(x)").Simplify(positive, SimplifyMode.Strict).Print());
+        Assert.Equal("0", ExprParser.Parse("0*x^(-1/2)").Simplify(positive, SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("0*ln(0)", "0 * ln(0)")]
+    [InlineData("0*0^(-1/2)", "0 * 0^(-1/2)")]
+    [InlineData("0*(1/0)", "0 / 0")]
+    [InlineData("0*(x/0)", "0 / 0")]
+    [InlineData("0*asin(2)", "0")]               // a complex number, but a number
+    public void Never_drops_a_factor_that_is_undefined_everywhere(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
         Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
     }
 
