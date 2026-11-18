@@ -38,12 +38,14 @@ public static class Simplifier
         public HashSet<Expr> Undivided { get; } = [];
     }
 
+    private readonly record struct Context(Assumptions Assumptions, SimplifyMode Mode, SimplifyCache Cache);
+
     private static Expr SimplifyCached(Expr expr, Assumptions assumptions, SimplifyMode mode, SimplifyCache cache)
     {
         if (cache.TryGetValue(expr, out Expr? cached))
             return cached;
 
-        Expr result = IterateToFixpoint(expr.Canonicalize(), e => SimplifyOnce(e, assumptions, mode, cache));
+        Expr result = IterateToFixpoint(expr.Canonicalize(), new Context(assumptions, mode, cache), static (e, c) => SimplifyOnce(e, c.Assumptions, c.Mode, c.Cache));
         cache[expr] = result;
         cache.TryAdd(result, result);
         return result;
@@ -57,7 +59,12 @@ public static class Simplifier
     // so far is a correct answer: the smallest one is returned instead of throwing at the user.
     // A repeated expression ends the loop at once, and the choice doesn't depend on where in
     // the cycle it was noticed.
-    internal static Expr IterateToFixpoint(Expr start, Func<Expr, Expr> step, int maxIterations = MaxSimplifyIterations)
+    internal static Expr IterateToFixpoint(Expr start, Func<Expr, Expr> step, int maxIterations = MaxSimplifyIterations) =>
+        IterateToFixpoint(start, step, static (e, f) => f(e), maxIterations);
+
+    // With the state passed along, so that the steps of Simplify, run for every subtree, need no
+    // closure: those were a good part of what the garbage collector had to clean up.
+    private static Expr IterateToFixpoint<TState>(Expr start, TState state, Func<Expr, TState, Expr> step, int maxIterations = MaxSimplifyIterations)
     {
         // Fast path: almost every call settles within a step or two. Simplify runs this for
         // every subtree, so the history below is only built for the rare slow cases.
@@ -65,7 +72,7 @@ public static class Simplifier
         int untracked = Math.Min(UntrackedIterations, maxIterations);
         for (int i = 0; i < untracked; i++)
         {
-            Expr next = step(current);
+            Expr next = step(current, state);
             if (next.Equals(current))
                 return next;
             current = next;
@@ -78,7 +85,7 @@ public static class Simplifier
 
         for (int i = untracked; i < maxIterations; i++)
         {
-            Expr next = step(current);
+            Expr next = step(current, state);
 
             if (next.Equals(current))
                 return next;
@@ -111,7 +118,7 @@ public static class Simplifier
         if (expr is Add or Subtract)
             return SimplifySum(expr, assumptions, mode, cache).Canonicalize();
 
-        Expr simplifiedChildren = expr.MapChildren(child => SimplifyCached(child, assumptions, mode, cache));
+        Expr simplifiedChildren = expr.MapChildren(new Context(assumptions, mode, cache), static (child, c) => SimplifyCached(child, c.Assumptions, c.Mode, c.Cache));
         return ApplyRules(simplifiedChildren, assumptions, mode, cache).Canonicalize();
     }
 

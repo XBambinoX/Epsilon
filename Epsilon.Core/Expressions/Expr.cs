@@ -229,14 +229,17 @@ public abstract class Expr : IEquatable<Expr>
     /// Applies <paramref name="map"/> to every child and rebuilds the node only if some child
     /// actually changed (by reference) - otherwise returns this node, allocating nothing.
     /// </summary>
-    public Expr MapChildren(Func<Expr, Expr> map)
+    public Expr MapChildren(Func<Expr, Expr> map) => MapChildren(map, static (child, f) => f(child));
+
+    // With the state passed along, for callers that run for every node and shouldn't allocate a closure.
+    internal Expr MapChildren<TState>(TState state, Func<Expr, TState, Expr> map)
     {
         ImmutableArray<Expr> children = Children;
         Expr[]? changed = null;
 
         for (int i = 0; i < children.Length; i++)
         {
-            Expr mapped = map(children[i]);
+            Expr mapped = map(children[i], state);
             if (!ReferenceEquals(mapped, children[i]))
             {
                 changed ??= [.. children];
