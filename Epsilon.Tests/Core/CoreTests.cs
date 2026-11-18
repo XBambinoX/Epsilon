@@ -156,6 +156,38 @@ public class SimplifierTests
         Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
     }
 
+    [Theory]
+    [InlineData("-(-2*x - 1)", "2x + 1")]                    // was -(-2x - 1)
+    [InlineData("-(1 - 2*x)", "2x - 1")]                     // was -(-2x + 1)
+    [InlineData("-(x - y)", "y - x")]
+    [InlineData("-(a*b + c)", "-a * b - c")]
+    [InlineData("exp(-(x + 1))", "exp(-x - 1)")]
+    [InlineData("x * (-(y + 1))", "x * (-y - 1)")]
+    [InlineData("-(x + 1)^2", "-(x + 1)^2")]                 // a power, not a sum
+    public void A_minus_in_front_of_a_sum_goes_into_its_terms(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(-(x + 1))^2", "(x + 1)^2")]
+    [InlineData("(-x - 1)^3", "-(x + 1)^3")]
+    [InlineData("cos(-x - 1)", "cos(x + 1)")]
+    [InlineData("sin(-x - 1)", "-sin(x + 1)")]
+    [InlineData("abs(-x - y)", "abs(x + y)")]
+    [InlineData("sin(1 - x)", "sin(-x + 1)")]                // both signs: no flip
+    [InlineData("2/(-x - 1)", "-2 / (x + 1)")]
+    public void A_sum_of_negative_terms_has_the_sign_of_its_terms(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    [Fact]
+    public void A_mixed_second_derivative_has_no_minus_in_front_of_a_sum() =>
+        Assert.Equal("2x * y^3 * exp(-x * y^2) - 2y * exp(-x * y^2)",
+            ExprParser.Parse("exp(-x*y^2)").Differentiate("x").Differentiate("y").Print());
+
     [Fact]
     public void A_negated_product_is_the_same_expression_as_its_negative_coefficient()
     {

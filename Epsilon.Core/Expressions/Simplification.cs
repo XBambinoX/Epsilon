@@ -288,6 +288,10 @@ public static class Simplifier
             case Negate(Negate(var a)):
                 return a;
 
+            // -(a - b) = b - a: a minus in front of a sum goes into its terms.
+            case Negate(var sum) when sum is Add or Subtract:
+                return BuildSum([.. CollectTerms(sum, term => term).Select(t => (-t.Coefficient, t.Term))], Rational.Zero);
+
             // -(-2/y) = 2/y, -(-y/2) = y/2: the minus cancels the sign of the numerator.
             case Negate(Divide(var n, var d)) when ConstantFactor(n).Sign < 0:
                 return new Divide(new Negate(n), d);
@@ -624,7 +628,8 @@ public static class Simplifier
                 Expr turns = new Multiply(new Constant(2 * m), new Pi());
                 return offset > 0 ? new Subtract(c, turns) : new Subtract(turns, c);
 
-            // sin(-u) = -sin(u), cos(-u) = cos(u). A sum keeps its form: sin(1 - x) stays.
+            // sin(-u) = -sin(u), cos(-u) = cos(u), also for a sum with only negative terms:
+            // (-x - 1)^2 = (x + 1)^2. A sum with both signs keeps its form: sin(1 - x) stays.
             case UnaryExpr f when IsOdd(f) && HasNegativeSign(f.Argument):
                 return new Negate(f.WithChildren([new Negate(f.Argument)]));
 
@@ -833,9 +838,11 @@ public static class Simplifier
     private static bool IsOdd(UnaryExpr f) =>
         f is Sin or Tan or Cot or Csc or Sinh or Tanh or Coth or Csch or Asin or Atan or Asinh or Atanh or Sign;
 
-    // -u, a negative number, a product with a negative coefficient or a quotient with one on top.
+    // -u, a negative number, a product with a negative coefficient, a quotient with one on top, or
+    // a sum of only such terms (the minus that was distributed over it).
     private static bool HasNegativeSign(Expr u) =>
-        ConstantFactor(u).Sign < 0 || u is Divide(var n, _) && ConstantFactor(n).Sign < 0;
+        ConstantFactor(u).Sign < 0 || u is Divide(var n, _) && ConstantFactor(n).Sign < 0 ||
+        u is Add or Subtract && CollectTerms(u, term => term).All(t => (t.Term is Constant c ? t.Coefficient * c.Value : t.Coefficient).Sign < 0);
 
     // Removes one occurrence of `factor` from a product: (2 * i, i) -> 2. `rest` is null when
     // the product was the factor itself.
@@ -2256,8 +2263,8 @@ public static class Simplifier
     }
 
     // The constant factors of a quotient are reduced like a fraction, with the sign in the
-    // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x). Both sides are
-    // multiplied by the same nonzero number, so the domain stays the same.
+    // numerator: 2x/2 = x, 4x/6 = 2x/3, x/(-2) = -x/2, (2y)/(4x) = y/(2x), 2/(-x - 1) = -2/(x + 1).
+    // Both sides are multiplied by the same nonzero number, so the domain stays the same.
     private static bool TryReduceConstantFactors(
         Expr numerator, Expr denominator, Assumptions assumptions, SimplifyMode mode, Dictionary<Expr, Expr> cache, out Expr? result)
     {
@@ -2267,6 +2274,9 @@ public static class Simplifier
         Rational top = ConstantFactor(numerator), bottom = ConstantFactor(denominator);
         if (top.IsZero || bottom.IsZero)
             return false;
+
+        if (denominator is Add or Subtract && HasNegativeSign(denominator))
+            bottom = -bottom;
 
         Rational ratio = top / bottom;
         if (top == new Rational(ratio.Numerator) && bottom == new Rational(ratio.Denominator))

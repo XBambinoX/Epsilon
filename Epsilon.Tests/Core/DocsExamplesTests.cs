@@ -367,6 +367,8 @@ public class SimplificationDocTests
     [InlineData("cos(-2x)", "cos(2x)")]
     [InlineData("atan(-x/2)", "-atan(x / 2)")]
     [InlineData("(-x)^3", "-x^3")]
+    [InlineData("-(x - y)", "y - x")]
+    [InlineData("cos(-x - 1)", "cos(x + 1)")]
     [InlineData("sin(pi/6)", "1/2")]
     [InlineData("cos(3pi/4)", "-sqrt(2) / 2")]
     [InlineData("acos(-1/2)", "2 * π / 3")]

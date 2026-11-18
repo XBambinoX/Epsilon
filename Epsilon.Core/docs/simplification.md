@@ -156,14 +156,17 @@ ExprParser.Parse("acos(cos(10))").Simplify().Print();   // 4 * π - 10
 
 **Odd and even functions** take the minus sign out of the argument: sin, tan, cot, csc, their
 hyperbolic versions, asin, atan, asinh, atanh, sign and odd roots are odd; cos, sec, cosh,
-sech and abs are even, and so are even powers. An argument that is a sum keeps its form, so
-`sin(1 - x)` stays:
+sech and abs are even, and so are even powers. A minus in front of a sum goes into its terms,
+and a sum of only negative terms gives its minus to the function; a sum with both signs keeps
+its form, so `sin(1 - x)` stays:
 
 ```csharp
 ExprParser.Parse("sin(-x) + sin(x)").Simplify().Print();   // 0
 ExprParser.Parse("cos(-2x)").Simplify().Print();           // cos(2x)
 ExprParser.Parse("atan(-x/2)").Simplify().Print();         // -atan(x / 2)
 ExprParser.Parse("(-x)^3").Simplify().Print();             // -x^3
+ExprParser.Parse("-(x - y)").Simplify().Print();           // y - x
+ExprParser.Parse("cos(-x - 1)").Simplify().Print();        // cos(x + 1)
 ```
 
 **Exact values of functions** at the usual points: the trigonometric functions at
