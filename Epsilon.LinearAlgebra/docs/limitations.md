@@ -24,13 +24,13 @@ when a limitation is lifted this page is updated with it. The expressions have
 
 - **No rank for symbolic matrices.** It depends on the values of the symbols; matrices of
   doubles and rationals have one.
-- **Characteristic polynomials of symbolic matrices print in the core's canonical order**,
+- **Characteristic polynomials of symbolic matrices print by the degree in all the symbols**,
   not by powers of the variable. The value is right; for numbers the order is the usual
   `t^2 - 4t + 3`:
 
   ```csharp
   Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print();
-  // a * d - b * c + t^2 + t * (-a - d)
+  // a * d - b * c + t^2 - t * (a + d)
   ```
 
 - **The simplifier knows few trigonometric identities.** It knows sin^2 + cos^2 = 1, also with

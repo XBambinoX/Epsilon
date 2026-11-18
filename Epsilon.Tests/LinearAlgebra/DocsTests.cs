@@ -958,8 +958,8 @@ public class LinearAlgebraFastCodeDocTests
         Assert.True((target - position(angles.ToArray())).Norm() < 1e-10);
         Assert.Equal((2, 3), (jacobian([0, 0, 0]).Rows, jacobian([0, 0, 0]).Columns));
 
-        Assert.Equal(15, tip.ToCSharp("Position", joints).Split('\n').Length);
-        Assert.Equal(30, tip.Jacobian(joints).ToCSharp("Jacobian", joints).Split('\n').Length);
+        Assert.Equal(14, tip.ToCSharp("Position", joints).Split('\n').Length);
+        Assert.Equal(25, tip.Jacobian(joints).ToCSharp("Jacobian", joints).Split('\n').Length);
     }
 }
 
@@ -1303,7 +1303,7 @@ public class LinearAlgebraLimitationsDocTests
     [Fact]
     public void Symbolic_matrices()
     {
-        Assert.Equal("a * d - b * c + t^2 + t * (-a - d)", Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print());
+        Assert.Equal("a * d - b * c + t^2 - t * (a + d)", Matrix<Expr>.Parse("[[a, b], [c, d]]").CharacteristicPolynomial("t").Print());
 
 
         Assert.Equal("cos(a) * cos(b) - sin(a) * sin(b)",

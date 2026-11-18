@@ -308,7 +308,7 @@ public static class Simplifier
 
             // -(a - b) = b - a: a minus in front of a sum goes into its terms.
             case Negate(var sum) when sum is Add or Subtract:
-                return BuildSum([.. CollectTerms(sum, term => term).Select(t => (-t.Coefficient, t.Term))], Rational.Zero);
+                return Negated(sum);
 
             // -(-2/y) = 2/y, -(-y/2) = y/2: the minus cancels the sign of the numerator.
             case Negate(Divide(var n, var d)) when ConstantFactor(n).Sign < 0:
@@ -1394,11 +1394,21 @@ public static class Simplifier
                 FlattenProduct(inner, factors, ref coefficient);
                 break;
 
+            // (a + 1)^2 * (-a - 1) = -(a + 1)^3: a sum of negative terms gives its minus to the
+            // coefficient, so that it merges with the same sum elsewhere.
+            case Add or Subtract when HasNegativeSign(expr):
+                coefficient = -coefficient;
+                factors.Add(Negated(expr).Canonicalize());
+                break;
+
             default:
                 factors.Add(expr);
                 break;
         }
     }
+
+    private static Expr Negated(Expr sum) =>
+        BuildSum([.. CollectTerms(sum, term => term).Select(t => (-t.Coefficient, t.Term))], Rational.Zero);
 
     private static Expr AddExponents(Expr e1, Expr e2) =>
         e1 is Constant c1 && e2 is Constant c2

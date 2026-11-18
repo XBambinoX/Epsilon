@@ -162,7 +162,7 @@ public class SimplifierTests
     [InlineData("-(x - y)", "y - x")]
     [InlineData("-(a*b + c)", "-a * b - c")]
     [InlineData("exp(-(x + 1))", "exp(-x - 1)")]
-    [InlineData("x * (-(y + 1))", "x * (-y - 1)")]
+    [InlineData("x * (-(y + 1))", "-x * (y + 1)")]           // in a product the minus goes to the coefficient
     [InlineData("-(x + 1)^2", "-(x + 1)^2")]                 // a power, not a sum
     public void A_minus_in_front_of_a_sum_goes_into_its_terms(string input, string expected)
     {
@@ -181,6 +181,22 @@ public class SimplifierTests
     public void A_sum_of_negative_terms_has_the_sign_of_its_terms(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+
+    // So that it merges with the same sum: (a + 1)^2 * (-a - 1) was left as it is.
+    [Theory]
+    [InlineData("(a + 1)^2 * (-a - 1)", "-(a + 1)^3")]
+    [InlineData("(-x^2 - 1)*(x^2 + 1)", "-(x^2 + 1)^2")]
+    [InlineData("x * (-a - b) / 2", "-x * (a + b) / 2")]
+    [InlineData("-(x + y)*z", "-z * (x + y)")]
+    [InlineData("2*(-a - b)", "-2 * (a + b)")]
+    [InlineData("-2*(-a - b)", "2 * (a + b)")]
+    [InlineData("(-x - y)/z", "(-x - y) / z")]                // not a product
+    [InlineData("y*(1 - x)", "y * (-x + 1)")]                 // both signs: no change
+    public void In_a_product_a_sum_of_negative_terms_gives_its_minus_to_the_coefficient(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
     }
 
     [Fact]
