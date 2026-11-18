@@ -270,6 +270,24 @@ public static class Simplifier
         known.Contains(condition) ||
         condition.Kind is DomainKind.NonZero or DomainKind.NonNegative && known.Contains((DomainKind.Positive, condition.Of));
 
+    private static Expr? ShorterSurd(Expr expr) =>
+        QuadraticSurd.Of(expr) is { } surd && surd.ToExpr() is var worked && NodeCount(worked) < NodeCount(expr) ? worked : null;
+
+    // The sign of a number's value, where that value is clear of the rounding of its largest part:
+    // cos(3pi/8) - sin(pi/8) is 0 but evaluates to about 1e-17, and gets no sign.
+    private static int? NumericSign(Expr constant)
+    {
+        if (HasVariables(constant) || RealValue(constant) is not { } value || !double.IsFinite(value))
+            return null;
+
+        return Math.Abs(value) > 1e-10 * LargestPart(constant) ? Math.Sign(value) : null;
+    }
+
+    private static double LargestPart(Expr constant) =>
+        constant.Children.Aggregate(
+            RealValue(constant) is { } value && double.IsFinite(value) ? Math.Abs(value) : double.PositiveInfinity,
+            (largest, part) => Math.Max(largest, LargestPart(part)));
+
     private static bool HasVariables(Expr expr) =>
         expr.Children.Length == 0 ? expr.GetVariables().Count > 0 : expr.Children.Any(HasVariables);
 
@@ -547,6 +565,13 @@ public static class Simplifier
                 when QuadraticSurd.Of(n) is { } top && QuadraticSurd.Of(d) is { B.IsZero: false } bottom && top / bottom is { } quotient:
                 return quotient.ToExpr();
 
+            // (sqrt(2) - 1)(sqrt(2) + 1) = 1: products and powers of such numbers, where that is shorter.
+            case Multiply(var l, var r) when (l is Add or Subtract || r is Add or Subtract) && ShorterSurd(expr) is { } worked:
+                return worked;
+
+            case Power(Add or Subtract, _) when ShorterSurd(expr) is { } worked:
+                return worked;
+
             // ln(1/2) = -ln(2), ln(9) = 2ln(3), ln(4/9) = 2ln(2/3); ln(2/3) and ln(6) stay.
             case Ln(Constant c) when c.Value.Sign > 0 && LogarithmOfRational(c.Value) is { } log:
                 return log;
@@ -577,6 +602,13 @@ public static class Simplifier
 
             case Sign(var a) when a.IsProvablyNegative(assumptions):
                 return new Constant(-1);
+
+            // abs(pi - 1) = pi - 1, sign(1 - pi) = -1: a number takes the sign of its value.
+            case Abs(var a) when NumericSign(a) is { } sign:
+                return sign > 0 ? a : new Negate(a);
+
+            case Sign(var a) when NumericSign(a) is { } sign:
+                return new Constant(sign);
 
             case Floor(Constant c):
                 return new Constant(c.Value.Floor());

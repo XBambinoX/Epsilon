@@ -205,7 +205,17 @@ exactly. Roots of two different numbers are left as they are:
 ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print();          // 2 - sqrt(3)
 ExprParser.Parse("-2/(2*sqrt(2) + 4) + 1").Simplify().Print();   // sqrt(2) / 2
 ExprParser.Parse("abs(1 - sqrt(2))").Simplify().Print();         // sqrt(2) - 1
+ExprParser.Parse("(sqrt(2) - 1)*(sqrt(2) + 1)").Simplify().Print();   // 1
 ExprParser.Parse("1/(sqrt(2) + sqrt(3))").Simplify().Print();    // 1 / (sqrt(2) + sqrt(3))
+```
+
+Other numbers get `abs` and `sign` from their value, where it is clear of rounding. A number
+that is 0 without being recognized as such, like `cos(3pi/8) - sin(pi/8)`, keeps its `abs`:
+
+```csharp
+ExprParser.Parse("abs(1 - pi)").Simplify().Print();                    // π - 1
+ExprParser.Parse("sign(cos(2))").Simplify().Print();                   // -1
+ExprParser.Parse("abs(cos(3pi/8) - sin(pi/8))").Simplify().Print();    // abs(cos(3 * π / 8) - sin(π / 8))
 ```
 
 Where a function is undefined it stays as it is: `tan(pi/2)` and `csc(0)` are not folded.

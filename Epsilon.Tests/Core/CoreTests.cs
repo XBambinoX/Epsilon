@@ -4663,3 +4663,35 @@ public class PredefinedConstantTests
         Assert.Equal(new ComplexNumber(3, 2), (3 + 2 * Expr.I).EvaluateComplex(new Dictionary<string, ComplexNumber>()));
     }
 }
+
+public class NumericSignTests
+{
+    [Theory]
+    [InlineData("abs(1 - pi)", "π - 1")]
+    [InlineData("abs(e - 3)", "3 - e")]
+    [InlineData("abs(ln(2) - 1)", "1 - ln(2)")]
+    [InlineData("abs(cos(2))", "-cos(2)")]
+    [InlineData("abs(pi - 355/113)", "355/113 - π")]                      // 2.7e-7, still clear of rounding
+    [InlineData("sign(1 - pi)", "-1")]
+    [InlineData("sign(atan(2) - 1)", "1")]
+    [InlineData("abs(cos(3*pi/8) - sin(pi/8))", "abs(cos(3 * π / 8) - sin(π / 8))")]   // 0, evaluates to ~1e-17
+    [InlineData("sign(nthroot(4, 8)^2 - sqrt(2))", "sign(nthroot(4, 8)^2 - sqrt(2))")]
+    [InlineData("abs(sin(cos(3*pi/8) - sin(pi/8)))", "abs(sin(cos(3 * π / 8) - sin(π / 8)))")]
+    [InlineData("abs(i - 1)", "abs(i - 1)")]                              // no real value
+    [InlineData("abs(x - pi)", "abs(x - π)")]
+    public void A_number_takes_the_sign_of_its_value_where_rounding_cannot_change_it(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify(SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("(sqrt(2) - 1)*(sqrt(2) + 1)", "1")]
+    [InlineData("sqrt(2)*(1 + sqrt(2))", "sqrt(2) + 2")]
+    [InlineData("(1 + sqrt(2))^-1", "sqrt(2) - 1")]
+    [InlineData("(sqrt(3) + 1)^2", "(sqrt(3) + 1)^2")]                    // not shorter worked out
+    public void Products_of_surds_are_worked_out_where_that_is_shorter(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
+    }
+}
