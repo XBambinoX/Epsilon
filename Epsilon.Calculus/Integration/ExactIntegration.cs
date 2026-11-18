@@ -267,7 +267,7 @@ public static class ExactIntegrationExtensions
                 if (Zero(low) && high.IsInfinite)
                     return HalfLine(f);
                 if (low.IsInfinite && Zero(high))
-                    return HalfLine(Reflected(f.Substitute(variable, -new Variable(variable)).Simplify()).Simplify());
+                    return HalfLine(f.Substitute(variable, -new Variable(variable)).Simplify());
                 if (Zero(low) && At(high, 1))
                     return ClassicIntegrals.Unit(f, variable);
                 if (Zero(low) && At(high, new Pi() / 2))
@@ -302,7 +302,7 @@ public static class ExactIntegrationExtensions
 
         private bool Even(Expr g)
         {
-            Expr difference = Reflected(g.Substitute(variable, -new Variable(variable)).Simplify()) - g;
+            Expr difference = g.Substitute(variable, -new Variable(variable)).Simplify() - g;
             return difference.Simplify() is Constant { Value.IsZero: true } || difference.Expand().Simplify() is Constant { Value.IsZero: true };
         }
 
@@ -328,7 +328,7 @@ public static class ExactIntegrationExtensions
 
         private bool Odd()
         {
-            Expr sum = Reflected(f.Substitute(variable, -new Variable(variable)).Simplify()) + f;
+            Expr sum = f.Substitute(variable, -new Variable(variable)).Simplify() + f;
             return sum.Simplify() is Constant { Value.IsZero: true } || sum.Expand().Simplify() is Constant { Value.IsZero: true };
         }
 
@@ -453,7 +453,7 @@ public static class ExactIntegrationExtensions
 
         private static Expr Tidied(Expr e)
         {
-            Expr tidy = MergedLogarithms(SeriesExpander.Tidy(Reflected(e)));
+            Expr tidy = MergedLogarithms(SeriesExpander.Tidy(e));
             if (QuadraticSurd.Of(tidy) is { } surd)
                 return surd.ToExpr();
 
@@ -512,73 +512,6 @@ public static class ExactIntegrationExtensions
                     break;
             }
         }
-
-        // sin(-u) = -sin(u), cos(-u) = cos(u), (-u)^3 = -u^3, exp(c ln(u)) = u^c and atan(tan(c)) =
-        // c - k pi, which the simplifier leaves as they are.
-        private static Expr Reflected(Expr e)
-        {
-            if (e.Children.Length > 0)
-                e = e.WithChildren([.. e.Children.Select(Reflected)]);
-
-            return e switch
-            {
-                Sin or Tan or Cot or Csc or Sinh or Tanh or Coth or Csch or Asin or Atan or Asinh or Atanh or Sign
-                    when Opposite(((UnaryExpr)e).Argument) is { } u => -e.WithChildren([u]),
-                Cos or Sec or Cosh or Sech or Abs when Opposite(((UnaryExpr)e).Argument) is { } u => e.WithChildren([u]),
-                NthRoot { Degree: Constant { Value: { IsInteger: true } n } } root when !n.Numerator.IsEven && Opposite(root.Argument) is { } u =>
-                    -new NthRoot(u, root.Degree),
-                Power { Exponent: Constant { Value: { IsInteger: true } k } } power when Opposite(power.Base) is { } u =>
-                    k.Numerator.IsEven ? new Power(u, power.Exponent) : -new Power(u, power.Exponent),
-                Exp { Argument: Multiply { Left: Constant c, Right: Ln ln } } => new Power(ln.Argument, c),
-                Exp { Argument: Negate { Argument: Ln ln } } => 1 / ln.Argument,
-                Abs abs when SignOf(abs.Argument) is { } sign => sign > 0 ? abs.Argument : -abs.Argument,
-                Atan { Argument: Tan tan } when Turns(tan.Argument) is { } k => tan.Argument - k * new Pi(),
-                Add or Subtract or Multiply or Divide or Power when e.GetVariables().Count == 0 && QuadraticSurd.Of(e) is { B.IsZero: false } surd => surd.ToExpr(),
-                _ => e,
-            };
-        }
-
-        // The multiple of pi nearest a constant, unless it is halfway between two.
-        private static long? Turns(Expr constant)
-        {
-            if (constant.GetVariables().Count > 0)
-                return null;
-
-            try
-            {
-                double turns = constant.Evaluate() / Math.PI;
-                return double.IsFinite(turns) && Math.Abs(Math.Abs(turns - Math.Floor(turns)) - 0.5) > 1e-9 ? (long)Math.Round(turns) : null;
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
-            }
-        }
-
-        private static int? SignOf(Expr constant)
-        {
-            if (constant.GetVariables().Count > 0)
-                return null;
-
-            try
-            {
-                double value = constant.Evaluate();
-                return Math.Abs(value) > 1e-12 ? Math.Sign(value) : null;
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
-            }
-        }
-
-        private static Expr? Opposite(Expr e) => e switch
-        {
-            Negate negate => negate.Argument,
-            Constant { Value.Sign: < 0 } c => new Constant(-c.Value),
-            Multiply { Left: Constant { Value.Sign: < 0 } c } product => new Constant(-c.Value) * product.Right,
-            Divide quotient when Opposite(quotient.Numerator) is { } u => u / quotient.Denominator,
-            _ => null,
-        };
 
         // a ln(p) + b ln(q) for rationals p, q > 0 and b a multiple of a is a ln(p q^(b/a)):
         // (1/2) ln(3/2) rather than (1/2) ln(1/2) - (1/2) ln(1/3), and -ln(2) rather than ln(1/2).

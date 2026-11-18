@@ -57,6 +57,10 @@ public class ExactIntegrationTests
     [InlineData("1/(x*ln(x))", "e", "e^2", "ln(2)")]
     [InlineData("1/cosh(x)", "-1", "1", "2atan(sinh(1))")]
     [InlineData("x*sin(x)", "-pi", "pi", "2 * π")]
+    // abs of the numbers at the ends: ln(abs(pi - 1)) = ln(pi - 1).
+    [InlineData("1/(x - 1)", "2", "pi", "ln(π - 1)")]
+    [InlineData("1/(x - e)", "0", "1", "ln(e - 1) - 1")]
+    [InlineData("sign(x - 1)", "0", "pi", "π - 2")]
     public void Newton_Leibniz(string expr, string a, string b, string integral) =>
         Assert.Equal(integral, Integral(expr, a, b).Print());
 
