@@ -2038,21 +2038,38 @@ public static class Simplifier
     // = (5/6) x/y. A term without a partner keeps its form, and so do different d: pi + sqrt(2) pi.
     private static void CollectNumericMultiples(List<(Rational Coefficient, Expr Term)> terms)
     {
-        var parts = new (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)[terms.Count];
-        var groups = new Dictionary<(Expr, System.Numerics.BigInteger), List<int>>();
+        // Equal terms were added up already, so without a number in some term nothing merges.
+        (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)[]? parts = null;
+        for (int i = 0; i < terms.Count; i++)
+        {
+            if (NumericFactor(terms[i].Term) is var (part, c, d))
+            {
+                parts ??= new (Expr, Rational, System.Numerics.BigInteger)[terms.Count];
+                parts[i] = (part, terms[i].Coefficient * c, d);
+            }
+        }
+        if (parts is null)
+            return;
+
+        var first = new Dictionary<(Expr, System.Numerics.BigInteger), int>();
         bool merges = false;
         for (int i = 0; i < terms.Count; i++)
         {
-            var (coefficient, term) = terms[i];
-            parts[i] = NumericFactor(term) is var (part, c, d) ? (part, coefficient * c, d) : (term, coefficient, 1);
+            if (parts[i].Part is null)
+                parts[i] = (terms[i].Term, terms[i].Coefficient, 1);
+            merges |= !first.TryAdd((parts[i].Part, parts[i].Radicand), i);
+        }
+        if (!merges)
+            return;
+
+        var groups = new Dictionary<(Expr, System.Numerics.BigInteger), List<int>>();
+        for (int i = 0; i < terms.Count; i++)
+        {
             var key = (parts[i].Part, parts[i].Radicand);
             if (!groups.TryGetValue(key, out List<int>? members))
                 groups[key] = members = [];
             members.Add(i);
-            merges |= members.Count > 1;
         }
-        if (!merges)
-            return;
 
         var removed = new HashSet<int>();
         foreach (List<int> members in groups.Values.Where(members => members.Count > 1))
@@ -2073,6 +2090,9 @@ public static class Simplifier
     // A product or quotient as c sqrt(d) times the rest; null when it holds no number.
     private static (Expr Part, Rational Coefficient, System.Numerics.BigInteger Radicand)? NumericFactor(Expr term)
     {
+        if (term is not (Multiply or Divide or Negate) || !HasNumberFactor(term))
+            return null;
+
         var top = new List<Expr>();
         var bottom = new List<Expr>();
         var numbers = new List<Expr>();
@@ -2104,8 +2124,6 @@ public static class Simplifier
             }
         }
 
-        if (term is not (Multiply or Divide or Negate))
-            return null;
         Split(term, false);
         if (numbers.Count == 0 && divisors.Count == 0)
             return null;
@@ -2119,6 +2137,16 @@ public static class Simplifier
         Expr rest = bottom.Count == 0 ? Product(top) : new Divide(Product(top), Product(bottom));
         return (rest.Canonicalize(), negative ? -c : c, radicand);
     }
+
+    // Whether NumericFactor finds a number among the factors, checked before it builds lists.
+    private static bool HasNumberFactor(Expr e) => e switch
+    {
+        Multiply(var l, var r) => HasNumberFactor(l) || HasNumberFactor(r),
+        Divide(var n, var d) => HasNumberFactor(n) || HasNumberFactor(d),
+        Negate(var a) => HasNumberFactor(a),
+        Constant or Sqrt(Constant { Value.Sign: > 0 }) => true,
+        _ => false,
+    };
 
     // s with c = s^2 r, from the square factors of the numerator and the denominator; null if 1.
     private static Rational? SquareFactor(Rational c)
