@@ -388,6 +388,11 @@ public static class Simplifier
             case Power(Sqrt(var b), var e2) when b is not Constant:
                 return CollapsedPower(expr, b, new Constant(Half), e2, assumptions, mode);
 
+            // sqrt(sqrt(x)) = x^(1/4), sqrt(x^(3/2)) = x^(3/4): a root of a root, as (x^(1/2))^(1/2).
+            case Sqrt(var a) when a is Sqrt(not Constant) or Power(not Constant, Constant { Value.IsInteger: false }):
+                IsPower(a, out Expr rootBase, out Expr rootExponent);
+                return CollapsedPower(expr, rootBase, rootExponent, new Constant(Half), assumptions, mode);
+
             // Still reachable: when CombineProductFactors may not add the exponents (Strict mode,
             // x^(1/2) * x^(1/2) would gain x < 0), the equal factors are squared as a whole instead.
             case Multiply(var b1, var b2) when b1.Equals(b2) && b1 is not Constant:
@@ -412,27 +417,27 @@ public static class Simplifier
             // x^n / x^m = x^(n-m); here and below sqrt(x) counts as x^(1/2).
             case Divide(var n, var d)
                 when IsPower(n, out Expr b1, out Expr e1) && IsPower(d, out Expr b2, out Expr e2) &&
-                     b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+                     b1.Equals(b2) && CanCancelPowers(b1, IsIntegerConstant(e1) && IsIntegerConstant(e2), assumptions, mode):
                 return new Power(b1, new Subtract(e1, e2));
 
             // x^n / x = x^(n-1)
             case Divide(var n, var b2)
-                when IsPower(n, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+                when IsPower(n, out Expr b1, out Expr e1) && b1.Equals(b2) && CanCancelPowers(b1, IsIntegerConstant(e1), assumptions, mode):
                 return new Power(b1, new Subtract(e1, new Constant(1)));
 
             // (x^n * c) / x = c * x^(n-1)
             case Divide(Multiply(var p, var c), var b2)
-                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && CanCancelPowers(b1, IsIntegerConstant(e1), assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // (c * x^n) / x = c * x^(n-1)
             case Divide(Multiply(var c, var p), var b2)
-                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+                when IsPower(p, out Expr b1, out Expr e1) && b1.Equals(b2) && CanCancelPowers(b1, IsIntegerConstant(e1), assumptions, mode):
                 return new Multiply(c, new Power(b1, new Subtract(e1, new Constant(1))));
 
             // x / x^n = x^(1-n)
             case Divide(var b1, var d)
-                when IsPower(d, out Expr b2, out Expr e2) && b1.Equals(b2) && NonZeroForDomain(b1, assumptions, mode):
+                when IsPower(d, out Expr b2, out Expr e2) && b1.Equals(b2) && CanCancelPowers(b1, IsIntegerConstant(e2), assumptions, mode):
                 return new Power(b1, new Subtract(new Constant(1), e2));
 
             // sin(x)^2 + cos(x)^2 = 1, sec(x)^2 - tan(x)^2 = 1, csc(x)^2 - cot(x)^2 = 1 and their
@@ -880,6 +885,14 @@ public static class Simplifier
         };
 
     private static readonly Rational Half = new(1, 2);
+
+    // b^e1 / b^e2 = b^(e1 - e2) gains b = 0 (x^3/x = x^2), and with a root among the exponents
+    // also b < 0 (sqrt(x)/x^(3/2) = 1/x), so Strict mode needs both ruled out.
+    private static bool CanCancelPowers(Expr b, bool integerExponents, Assumptions assumptions, SimplifyMode mode) =>
+        NonZeroForDomain(b, assumptions, mode) &&
+        (integerExponents || mode == SimplifyMode.Generic || b.IsProvablyNonNegative(assumptions));
+
+    private static bool IsIntegerConstant(Expr e) => e is Constant { Value.IsInteger: true };
 
     // b^e, with sqrt(b) taken as b^(1/2). The root of a number stays a factor of its own, for
     // ExactValues: sqrt(2)/2 is not 2^(-1/2).
@@ -2204,26 +2217,32 @@ public static class Simplifier
         return result;
     }
 
-    private static void CollectFactors(Expr expr, Dictionary<Expr, Rational> factors, ref Rational coefficient)
+    // With roots, x^(3/2) and sqrt(x) count as powers of x too; a root of a number stays a factor of
+    // its own, for ExactValues.
+    private static void CollectFactors(Expr expr, Dictionary<Expr, Rational> factors, ref Rational coefficient, bool roots)
     {
         switch (expr)
         {
             case Multiply(var l, var r):
-                CollectFactors(l, factors, ref coefficient);
-                CollectFactors(r, factors, ref coefficient);
+                CollectFactors(l, factors, ref coefficient, roots);
+                CollectFactors(r, factors, ref coefficient, roots);
                 break;
 
             case Negate(var inner):
                 coefficient = -coefficient;
-                CollectFactors(inner, factors, ref coefficient);
+                CollectFactors(inner, factors, ref coefficient, roots);
                 break;
 
             case Constant c:
                 coefficient *= c.Value;
                 break;
 
-            case Power(var b, Constant e) when e.Value.IsInteger:
+            case Power(var b, Constant e) when e.Value.IsInteger || roots && b is not Constant:
                 AddExponent(factors, b, e.Value);
+                break;
+
+            case Sqrt(var b) when roots && b is not Constant:
+                AddExponent(factors, b, Half);
                 break;
 
             default:
@@ -2239,11 +2258,11 @@ public static class Simplifier
             : exponent;
     }
 
-    private static (Rational Coefficient, Dictionary<Expr, Rational> Factors) ExtractFactors(Expr expr)
+    private static (Rational Coefficient, Dictionary<Expr, Rational> Factors) ExtractFactors(Expr expr, bool roots = false)
     {
         var factors = new Dictionary<Expr, Rational>();
         Rational coefficient = Rational.One;
-        CollectFactors(expr, factors, ref coefficient);
+        CollectFactors(expr, factors, ref coefficient, roots);
         return (coefficient, factors);
     }
 
@@ -2380,12 +2399,13 @@ public static class Simplifier
     {
         result = null;
 
-        var (numCoefficient, numFactors) = ExtractFactors(numerator);
-        var (denCoefficient, denFactors) = ExtractFactors(denominator);
+        var (numCoefficient, numFactors) = ExtractFactors(numerator, roots: true);
+        var (denCoefficient, denFactors) = ExtractFactors(denominator, roots: true);
 
         var cancellable = new List<Expr>();
         foreach (Expr baseExpr in numFactors.Keys)
-            if (denFactors.ContainsKey(baseExpr) && NonZeroForDomain(baseExpr, assumptions, mode))
+            if (denFactors.TryGetValue(baseExpr, out Rational denExponent) &&
+                CanCancelPowers(baseExpr, numFactors[baseExpr].IsInteger && denExponent.IsInteger, assumptions, mode))
                 cancellable.Add(baseExpr);
 
         if (cancellable.Count == 0)

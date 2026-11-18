@@ -148,5 +148,5 @@ is updated with it. The expressions have
 
   ```csharp
   var laplacian = ExprParser.Parse("x/(x^2 + y^2 + z^2)^(3/2)").Laplacian("x", "y", "z");
-  laplacian.Evaluate(("x", 1), ("y", 2), ("z", 3));   // -1.734723475976807E-18
+  laplacian.Evaluate(("x", 1), ("y", 2), ("z", 3));   // 1.734723475976807E-18
   ```

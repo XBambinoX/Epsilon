@@ -2799,7 +2799,15 @@ public class SquareRootAsPowerTests
     [InlineData("sqrt(x)*x^(1/3)", "x^(5/6)", "x^(5/6)")]
     [InlineData("sqrt(x)^3", "x^(3/2)", "sqrt(x)^3")]
     [InlineData("x/sqrt(x)", "sqrt(x)", "x / sqrt(x)")]
-    [InlineData("sqrt(x)/x", "x^(-1/2)", "sqrt(x) / x")]
+    [InlineData("sqrt(x)/x", "1 / sqrt(x)", "sqrt(x) / x")]
+    [InlineData("x^(3/2)/(2*x)", "sqrt(x) / 2", "x^(3/2) / (2x)")]           // was x^(3/2) / (2x) in both
+    [InlineData("3*x^(3/2)/(2*x)", "3sqrt(x) / 2", "3x^(3/2) / (2x)")]
+    [InlineData("sqrt(x)/(2*x)", "1 / (2sqrt(x))", "sqrt(x) / (2x)")]
+    [InlineData("x/(2*sqrt(x)) + sqrt(x)", "3sqrt(x) / 2", "3x / (2sqrt(x))")]
+    [InlineData("x*y^(1/2)/(x*y)", "1 / sqrt(y)", "x * sqrt(y) / (x * y)")]
+    [InlineData("x^(1/3)/x", "1 / x^(2/3)", "x^(1/3) / x")]
+    [InlineData("sqrt(x)^(1/2)", "x^(1/4)", "sqrt(sqrt(x))")]                 // was sqrt(sqrt(x))
+    [InlineData("sqrt(x^(3/2))", "x^(3/4)", "sqrt(x^(3/2))")]
     [InlineData("x^(3/2)/sqrt(x)", "x", "x^(3/2) / sqrt(x)")]
     [InlineData("sqrt(x)*sqrt(x)", "x", "sqrt(x)^2")]
     [InlineData("8^(1/2)", "2sqrt(2)", "2sqrt(2)")]
@@ -2811,6 +2819,27 @@ public class SquareRootAsPowerTests
         Expr expr = ExprParser.Parse(input);
         Assert.Equal(generic, expr.Simplify().Print());
         Assert.Equal(strict, expr.Simplify(SimplifyMode.Strict).Print());
+    }
+
+    // sqrt(x)/x^(3/2) = 1/x would gain x < 0: x != 0 is not enough in Strict mode.
+    [Fact]
+    public void Roots_cancel_in_strict_mode_only_for_a_base_known_not_to_be_negative()
+    {
+        Expr expr = ExprParser.Parse("sqrt(x)/x^(3/2)");
+
+        Assert.Equal("sqrt(x) / x^(3/2)", expr.Simplify(Assumptions.None.AssumeNonZero("x"), SimplifyMode.Strict).Print());
+        Assert.Equal("1 / x", expr.Simplify(Assumptions.None.AssumePositive("x"), SimplifyMode.Strict).Print());
+        Assert.Equal("x^3 / x", ExprParser.Parse("x^3/x").Simplify(SimplifyMode.Strict).Print());
+        Assert.Equal("x^2", ExprParser.Parse("x^3/x").Simplify(Assumptions.None.AssumeNonZero("x"), SimplifyMode.Strict).Print());
+    }
+
+    [Theory]
+    [InlineData("x^(3/2)", "3sqrt(x) / 2")]                          // was 3x^(3/2) / (2x)
+    [InlineData("x*sqrt(x)", "3sqrt(x) / 2")]                        // was 3x / (2sqrt(x))
+    [InlineData("x^(5/2)*ln(x)", "5x^(3/2) * ln(x) / 2 + x^(3/2)")]  // was 5x^(5/2) * ln(x) / (2x) + x^(3/2)
+    public void Derivatives_of_fractional_powers_cancel(string input, string expected)
+    {
+        Assert.Equal(expected, ExprParser.Parse(input).Differentiate("x").Print());
     }
 }
 

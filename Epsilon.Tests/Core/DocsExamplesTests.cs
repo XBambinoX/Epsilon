@@ -328,6 +328,7 @@ public class SimplificationDocTests
     [InlineData("(2x)/(4x)", "1/2")]
     [InlineData("(x^2*y)/(x*y)", "x")]
     [InlineData("x^3/x", "x^2")]
+    [InlineData("3x^(3/2)/(2x)", "3sqrt(x) / 2")]
     [InlineData("4x/6", "2x / 3")]
     [InlineData("x/(-2)", "-x / 2")]
     [InlineData("(x^2 - 1)/(x - 1)", "x + 1")]

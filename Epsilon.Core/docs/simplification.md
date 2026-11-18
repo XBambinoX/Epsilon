@@ -75,6 +75,7 @@ only where it is known not to be 0:
 ExprParser.Parse("(2x)/(4x)").Simplify().Print();             // 1/2
 ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();         // x
 ExprParser.Parse("x^3/x").Simplify().Print();                 // x^2
+ExprParser.Parse("3x^(3/2)/(2x)").Simplify().Print();         // 3sqrt(x) / 2
 ExprParser.Parse("4x/6").Simplify().Print();                  // 2x / 3
 ExprParser.Parse("x/(-2)").Simplify().Print();                // -x / 2
 ExprParser.Parse("(x^2 - 1)/(x - 1)").Simplify().Print();     // x + 1
