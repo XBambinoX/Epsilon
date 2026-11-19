@@ -106,14 +106,10 @@ public class EquationTests
     }
 
     [Fact]
-    public void Expressions_solve_as_equations()
+    public void Equations_of_expressions()
     {
-        Expr expr = ExprParser.Parse("2x - 6");
-
-        Assert.Equal("{3}", expr.Solve().Print());
-        Assert.Equal("{3}", expr.Solve("x").Print());
-        Assert.Equal("{3}", ExprParser.Parse("x").Solve(3).Print());
-        Assert.Equal("{b - a}", ExprParser.Parse("x + a").Solve(ExprParser.Parse("b"), "x").Print());
+        Assert.Equal("{3}", new Equation(ExprParser.Parse("2x - 6"), 0).Solve().Print());
+        Assert.Equal("{b - a}", new Equation(ExprParser.Parse("x + a"), ExprParser.Parse("b")).Solve("x").Print());
     }
 
     [Fact]
@@ -151,7 +147,6 @@ public class EquationTests
         Assert.Throws<ArgumentNullException>(() => Equation.Parse(null!));
         Assert.Throws<ArgumentNullException>(() => new Equation(null!, 0));
         Assert.Throws<ArgumentNullException>(() => Equation.Parse("x = 1").Solve(null!));
-        Assert.Throws<ArgumentNullException>(() => ((Expr)null!).Solve("x"));
     }
 }
 

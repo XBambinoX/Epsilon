@@ -77,14 +77,10 @@ public class PolynomialEquationTests
     }
 
     [Fact]
-    public void Expressions_solve_over_the_complex_numbers()
+    public void Solves_for_the_only_variable_over_the_complex_numbers()
     {
-        Expr expr = ExprParser.Parse("x^2 + 4");
-
-        Assert.Equal("{-2 * i, 2 * i}", expr.SolveComplex().Print());
-        Assert.Equal("{-2 * i, 2 * i}", expr.SolveComplex("x").Print());
-        Assert.Equal("{-i, i}", ExprParser.Parse("x^2").SolveComplex(-1).Print());
-        Assert.Equal("{-i, i}", ExprParser.Parse("x^2").SolveComplex(-1, "x").Print());
+        Assert.Equal("{-2 * i, 2 * i}", new Equation(ExprParser.Parse("x^2 + 4"), 0).SolveComplex().Print());
+        Assert.Equal("{-i, i}", Equation.Parse("t^2 = -1").SolveComplex().Print());
     }
 
     [Fact]
