@@ -105,9 +105,17 @@ public sealed class SolutionSet
     internal static SolutionSet Of(string variable, IEnumerable<Solution> solutions, IReadOnlyList<Expr> unsolved, bool complex = false)
     {
         var distinct = new List<Solution>();
+        var byValue = new Dictionary<Expr, List<Solution>>();
         foreach (Solution solution in solutions)
-            if (!distinct.Any(seen => seen.SameAs(solution)))
+        {
+            if (!byValue.TryGetValue(solution.Value, out List<Solution>? same))
+                byValue[solution.Value] = same = [];
+            if (!same.Any(seen => seen.SameAs(solution)))
+            {
+                same.Add(solution);
                 distinct.Add(solution);
+            }
+        }
 
         return new SolutionSet(variable, Ordered(distinct), false, [], unsolved, complex);
     }

@@ -31,15 +31,18 @@ internal static class RealRoots
     internal static List<double> InRange(Expr f, string variable, double from, double to)
     {
         if (double.IsFinite(from) && double.IsFinite(to))
-            return Scan(f, variable, static t => t, from, to, ScanSteps(f, variable, from, to));
+            return Scan(f, variable, Grid(f, variable, from, to));
 
         double edge = InfiniteMappingEdge;
-        return (double.IsInfinity(from), double.IsInfinity(to)) switch
+        Func<double, double> mapToX = (double.IsInfinity(from), double.IsInfinity(to)) switch
         {
-            (true, true) => Scan(f, variable, t => t / (1 - t * t), -1 + edge, 1 - edge, MinScanSteps),
-            (false, true) => Scan(f, variable, t => from + t / (1 - t), 0, 1 - edge, MinScanSteps),
-            _ => Scan(f, variable, t => to - t / (1 - t), 0, 1 - edge, MinScanSteps),
+            (true, true) => t => t / (1 - t * t),
+            (false, true) => t => from + t / (1 - t),
+            _ => t => to - t / (1 - t),
         };
+        double tMin = double.IsInfinity(from) && double.IsInfinity(to) ? -1 + edge : 0, tMax = 1 - edge;
+        return Scan(f, variable, [.. Enumerable.Range(0, MinScanSteps + 1)
+            .Select(i => mapToX(i == MinScanSteps ? tMax : tMin + i * (tMax - tMin) / MinScanSteps))]);
     }
 
     // A root near the guess by Newton's method, then polished while the steps make |f| smaller;
@@ -76,47 +79,71 @@ internal static class RealRoots
         return x;
     }
 
-    // A grid of 200 steps found 82 of the 318 zeros of sin(x) on [0, 1000]: where f oscillates
-    // through trigonometric functions of linear arguments, the grid gets 16 steps per pi of the
-    // fastest of them.
-    private static int ScanSteps(Expr f, string variable, double from, double to)
+    // At least 200 steps, and 16 per pi of each sine or cosine where it oscillates: a step of
+    // pi / (16 |u'(x)|) for sin(u). 200 even steps found 82 of the 318 zeros of sin(x) on
+    // [0, 1000], and 11 of the 31 of sin(1/x) on [0.01, 1], where 1/x speeds up towards 0.01.
+    private static double[] Grid(Expr f, string variable, double from, double to)
     {
-        double fastest = Frequencies(f, variable).DefaultIfEmpty(0).Max();
-        double steps = Math.Ceiling(16 * (to - from) * fastest / Math.PI);
-        return double.IsFinite(steps) ? (int)Math.Clamp(steps, MinScanSteps, MaxScanSteps) : MinScanSteps;
+        List<Func<double, double>> speeds = [.. Oscillating(f, variable).Select(argument => Slope(argument, variable)).OfType<Expr>()
+            .Select(slope => Function(slope, variable))];
+        double longest = (to - from) / MinScanSteps;
+        double Density(double x) =>
+            16 / Math.PI * speeds.Select(speed => Math.Abs(speed(x))).Where(double.IsFinite).DefaultIfEmpty(0).Max();
+
+        // Where that would take more than 100 000 points, as for sin(x) on [0, 1e6], all the steps
+        // grow alike, so that the grid still covers the whole range.
+        double needed = speeds.Count == 0 ? 0 : Enumerable.Range(0, 1000).Average(i => Density(from + (i + 0.5) * (to - from) / 1000)) * (to - from);
+        double scale = Math.Min(1, MaxScanSteps / needed);
+
+        // Past 100 000 points even so, as for sin(1/x) on [1e-9, 1], the rest gets the longest steps.
+        var xs = new List<double> { from };
+        for (double x = from; x < to;)
+        {
+            double density = xs.Count < MaxScanSteps ? scale * Density(x) : 0;
+            double next = Math.Min(x + Math.Min(1 / density, longest), to);
+            x = next > x ? next : to;
+            xs.Add(x);
+        }
+
+        return [.. xs];
     }
 
-    internal static IEnumerable<double> Frequencies(Expr expr, string variable)
+    // The arguments of the sines and cosines in f, as well as of tan, cot, sec and csc.
+    internal static IEnumerable<Expr> Oscillating(Expr f, string variable)
     {
-        if (expr is Sin or Cos or Tan or Cot or Sec or Csc
-            && Polynomials.Coefficients(((UnaryExpr)expr).Argument, variable, 1) is [_, var slope] && slope.GetVariables().Count == 0)
-            yield return Math.Abs(slope.Evaluate());
+        if (f is Sin or Cos or Tan or Cot or Sec or Csc && ((UnaryExpr)f).Argument.DependsOn(variable))
+            yield return ((UnaryExpr)f).Argument;
 
-        foreach (Expr child in expr.Children)
-            foreach (double frequency in Frequencies(child, variable))
-                yield return frequency;
+        foreach (Expr child in f.Children)
+            foreach (Expr argument in Oscillating(child, variable))
+                yield return argument;
     }
 
-    // Scans a grid in t (x = mapToX(t)) and reports three kinds of roots, each located to full
-    // double precision:
+    private static Expr? Slope(Expr argument, string variable)
+    {
+        try
+        {
+            return argument.Differentiate(variable);
+        }
+        catch (Exception e) when (e is NotSupportedException or NotImplementedException)
+        {
+            return null;
+        }
+    }
+
+    // Scans the grid xs and reports three kinds of roots, each located to full double precision:
     //   1. an exact zero on a grid point;
     //   2. a strict sign change between neighbours (odd multiplicity) - bisection on f;
     //   3. a touching root (even multiplicity, e.g. x^2 or (x-1)^2): |f| has a local minimum
     //      with no sign change around it - bisection on f', then accepted only if f ~ 0 there.
     // Zero is never a sign of its own, which would turn a grid hit on a double root into a
     // fake "sign change" and a second, slightly-off root next to it.
-    private static List<double> Scan(Expr f, string variable, Func<double, double> mapToX, double tMin, double tMax, int steps)
+    private static List<double> Scan(Expr f, string variable, double[] xs)
     {
-        double F(double x) => At(f, variable, x);
+        Func<double, double> F = Function(f, variable);
 
-        var xs = new double[steps + 1];
-        var fs = new double[steps + 1];
-        double tStep = (tMax - tMin) / steps;
-        for (int i = 0; i <= steps; i++)
-        {
-            xs[i] = mapToX(i == steps ? tMax : tMin + i * tStep);
-            fs[i] = F(xs[i]);
-        }
+        int steps = xs.Length - 1;
+        double[] fs = [.. xs.Select(F)];
 
         // Only needed for touching roots; built lazily since most scans never get there.
         Func<double, double>? derivative = null;
@@ -191,7 +218,7 @@ internal static class RealRoots
         try
         {
             Expr slope = f.Differentiate(variable);
-            return x => At(slope, variable, x);
+            return Function(slope, variable);
         }
         // floor and sign have no symbolic derivative, so touching roots can't be located.
         catch (Exception e) when (e is NotSupportedException or NotImplementedException)
@@ -299,6 +326,24 @@ internal static class RealRoots
     private static double FromOrderedBits(long ordered) =>
         BitConverter.Int64BitsToDouble(ordered >= 0 ? ordered : long.MinValue - ordered);
 
+    // One dictionary per function, with the variable overwritten on every call.
+    private static Func<double, double> Function(Expr f, string variable)
+    {
+        var bindings = new Dictionary<string, double>();
+        return x =>
+        {
+            bindings[variable] = x;
+            try
+            {
+                return f.Evaluate(bindings);
+            }
+            catch
+            {
+                return double.NaN;
+            }
+        };
+    }
+
     private static double At(Expr f, string variable, double x)
     {
         try
@@ -323,9 +368,13 @@ internal static class RealRoots
         }
     }
 
+    // The scan finds the roots in order but for a touching root, which lies before the root of
+    // the sign change after it at most: the last few are the only ones it can repeat.
     private static void Add(List<double> roots, double candidate)
     {
-        if (!roots.Any(root => Math.Abs(root - candidate) < MergeTolerance))
-            roots.Add(candidate);
+        for (int i = roots.Count - 1; i >= Math.Max(0, roots.Count - 4); i--)
+            if (Math.Abs(roots[i] - candidate) < MergeTolerance)
+                return;
+        roots.Add(candidate);
     }
 }

@@ -74,18 +74,19 @@ public sealed class NumericSolutionSet<T> where T : struct
 internal static class NumericSolutions
 {
     internal static NumericSolutionSet<double> Real(SolutionSet exact, Solver solver) =>
-        new(exact.Variable, [.. Values(exact, solver).Select(value => value.Real).Order()], exact);
+        new(exact.Variable, [.. Values(exact, solver).Select(value => value.Real)], exact);
 
     internal static NumericSolutionSet<ComplexNumber> Complex(SolutionSet exact, Solver solver) =>
-        new(exact.Variable, [.. Values(exact, solver).OrderBy(value => value.Real).ThenBy(value => value.Imaginary)], exact);
+        new(exact.Variable, Values(exact, solver), exact);
 
+    // In order, each once: next to each other after sorting, the same value twice is close.
     private static List<ComplexNumber> Values(SolutionSet exact, Solver solver)
     {
         var values = new List<ComplexNumber>();
-        foreach (Solution solution in exact.Solutions)
+        foreach (ComplexNumber value in exact.Solutions.Select(solution => solver.Number(solution.Value))
+            .OrderBy(value => value.Real).ThenBy(value => value.Imaginary))
         {
-            ComplexNumber value = solver.Number(solution.Value);
-            if (!values.Any(seen => (seen - value).Magnitude <= 1e-12 * Math.Max(1, value.Magnitude)))
+            if (values.Count == 0 || !((values[^1] - value).Magnitude <= 1e-12 * Math.Max(1, value.Magnitude)))
                 values.Add(value);
         }
 

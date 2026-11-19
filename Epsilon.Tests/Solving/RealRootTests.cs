@@ -41,12 +41,17 @@ public class RealRootTests
         Assert.Equal("(-inf, inf) if x >= 0", Equation.Parse("1 = 1").SolveNumerically("x", 0, double.PositiveInfinity).Print());
     }
 
-    [Fact]
-    public void Scans_finer_where_the_equation_oscillates()
-    {
-        // 200 steps found 82 of the zeros 0, pi, ..., 318 pi of sin(x) on [0, 1000].
-        Assert.Equal(319, Roots("sin(x) = 0", 0, 1000).Count);
-    }
+    // 200 even steps found 82 of the zeros 0, pi, ..., 318 pi of sin(x) on [0, 1000], and 11 of
+    // the 31 of sin(1/x) on [0.01, 1], which come closer together towards 0.01.
+    [Theory]
+    [InlineData("sin(x) = 0", 0, 1000, 319)]
+    [InlineData("sin(1/x) = 0", 0.01, 1, 31)]
+    [InlineData("sin(1/x) = 0", 0.001, 1, 318)]
+    [InlineData("sin(x^2) = 0", 0, 30, 287)]
+    [InlineData("cos(exp(x)) = 0", 0, 6, 128)]
+    [InlineData("sin(x) = 0", 0, 100000, 31831)] // more than 100 000 steps would be needed: they grow alike
+    public void Scans_finer_where_the_equation_oscillates_faster(string equation, double from, double to, int count) =>
+        Assert.Equal(count, Roots(equation, from, to).Count);
 
     [Theory]
     [InlineData("1/x = 0")]         // a sign change at a pole

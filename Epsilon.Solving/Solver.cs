@@ -43,7 +43,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             solutions.RemoveAll(solution => !Within(Number(solution.Value), low, high));
             if (unsolved.Count > 0)
             {
-                solutions.AddRange(Searched(difference, low, high, solutions));
+                solutions.AddRange(Searched(difference, low, high, [.. solutions.Select(solution => Number(solution.Value))]));
                 unsolved.Clear();
             }
         }
@@ -67,7 +67,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
 
     // The roots of the whole difference in the region, besides those already found: evaluating it
     // keeps out the points where the equation is undefined, the edges of its domain included.
-    private IEnumerable<Solution> Searched(Expr difference, ComplexNumber low, ComplexNumber high, List<Solution> found)
+    private IEnumerable<Solution> Searched(Expr difference, ComplexNumber low, ComplexNumber high, List<ComplexNumber> found)
     {
         IEnumerable<ComplexNumber> roots = complex
             ? ComplexRoots.InRectangle(difference, variable, low, high)
@@ -75,7 +75,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         List<Condition> signs = [.. SignAssumed()];
         foreach (ComplexNumber root in roots)
         {
-            if (found.Any(solution => (Number(solution.Value) - root).Magnitude <= 1e-6 * Math.Max(1, root.Magnitude)))
+            if (found.Any(number => (number - root).Magnitude <= 1e-6 * Math.Max(1, root.Magnitude)))
                 continue;
 
             Expr value = root.Imaginary == 0 ? root.Real : (new Constant(root.Real) + new Constant(root.Imaginary) * Expr.I).Simplify();

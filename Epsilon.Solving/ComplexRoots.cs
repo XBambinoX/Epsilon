@@ -30,7 +30,9 @@ internal static class ComplexRoots
             d2F = Function(slope.Differentiate(variable), variable);
 
         // Two starts per half period of the fastest sine or cosine along each side.
-        double fastest = RealRoots.Frequencies(f, variable).DefaultIfEmpty(0).Max();
+        double fastest = RealRoots.Oscillating(f, variable)
+            .Select(argument => Polynomials.Coefficients(argument, variable, 1) is [_, var slope] && slope.GetVariables().Count == 0 ? Math.Abs(slope.Evaluate()) : 0)
+            .DefaultIfEmpty(0).Max();
         int reSteps = GridSteps(high.Real - low.Real, fastest), imSteps = GridSteps(high.Imaginary - low.Imaginary, fastest);
 
         var roots = new List<(ComplexNumber Root, double Residual)>();
