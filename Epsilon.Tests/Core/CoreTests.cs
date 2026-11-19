@@ -4608,6 +4608,7 @@ public class ReadmeExamplesTests
 
         Assert.Equal("x^2 + 2x", (x * x + 3 * x - x).Simplify().Print());
         Assert.Equal("x^2 + 2x + 1", (x.Pow(2) + 2 * x + 1).Print());
+        Assert.Equal("π * cos(π * x)", new Sin(Expr.PI * x).Differentiate("x").Print());
     }
 
     [Fact]
@@ -4615,6 +4616,8 @@ public class ReadmeExamplesTests
     {
         Assert.Equal("3/10", ExprParser.Parse("0.1 + 0.2").Simplify().Print());
         Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
+        Assert.Equal("2 - sqrt(3)", ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print());
+        Assert.Equal("π - 1", ExprParser.Parse("abs(1 - pi)").Simplify().Print());
         Assert.Equal("(x + sqrt(2)) * (x - sqrt(2))", ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print());
     }
 

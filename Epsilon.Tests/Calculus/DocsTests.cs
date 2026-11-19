@@ -139,7 +139,7 @@ public class CalculusReadmeExamplesTests
     public void Line_integrals()
     {
         var t = new Variable("t");
-        var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
+        var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * Expr.PI);
 
         Assert.Equal("2 * π", ExprParser.Parse("1").LineIntegralExact(circle, "x", "y").Print());
         Assert.Equal("2 * π", Vector<Expr>.Parse("[-y, x]").LineIntegralExact(circle, "x", "y").Print());
@@ -173,7 +173,7 @@ public class CalculusReadmeExamplesTests
 
         Assert.IsType<double>(ExprParser.Parse("x").Integrate("x", 0, 1));
         Assert.Equal("1 - cos(314159265358979/100000000000000)", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print());
-        Assert.Equal("2", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, new Pi()).Print());
+        Assert.Equal("2", ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Expr.PI).Print());
     }
 }
 

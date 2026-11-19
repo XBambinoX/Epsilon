@@ -39,13 +39,15 @@ f.FindRealRoots(-10, 10);                // [0, 1]
 f.TryFactorReal("x").Factored.Print();   // x * (x - 1)^2
 ```
 
-Expressions can also be built with ordinary C# operators:
+Expressions can also be built with ordinary C# operators, with `Expr.PI`, `Expr.E` and
+`Expr.I` for pi, Euler's number and the imaginary unit:
 
 ```csharp
 var x = new Variable("x");
 
-(x * x + 3 * x - x).Simplify().Print();  // x^2 + 2x
-(x.Pow(2) + 2 * x + 1).Print();          // x^2 + 2x + 1
+(x * x + 3 * x - x).Simplify().Print();           // x^2 + 2x
+(x.Pow(2) + 2 * x + 1).Print();                   // x^2 + 2x + 1
+new Sin(Expr.PI * x).Differentiate("x").Print();  // π * cos(π * x)
 ```
 
 ## Features
@@ -57,6 +59,8 @@ Numbers are arbitrary-precision rationals, never floating point, so nothing is l
 ```csharp
 ExprParser.Parse("0.1 + 0.2").Simplify().Print();       // 3/10
 ExprParser.Parse("cos(3pi/4)").Simplify().Print();      // -sqrt(2) / 2
+ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print(); // 2 - sqrt(3)
+ExprParser.Parse("abs(1 - pi)").Simplify().Print();     // π - 1
 ExprParser.Parse("x^2 - 2").TryFactorReal("x").Factored.Print();
                                                          // (x + sqrt(2)) * (x - sqrt(2))
 ```

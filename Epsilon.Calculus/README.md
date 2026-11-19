@@ -198,7 +198,7 @@ vector field along its direction. `Potential` finds a function whose gradient a 
 
 ```csharp
 var t = new Variable("t");
-var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
+var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * Expr.PI);
 
 ExprParser.Parse("1").LineIntegralExact(circle, "x", "y").Print();           // 2 * π
 Vector<Expr>.Parse("[-y, x]").LineIntegralExact(circle, "x", "y").Print();   // 2 * π
@@ -215,7 +215,7 @@ Vector<Expr>.Parse("[2*x*y, x^2]").Potential("x", "y").Print();              // 
   and max, and floor, ceiling and round of a linear argument.
 - `Integrate("x", 0, 1)` with numbers for the limits is the numeric integral, a `double`; the
   exact one is `IntegrateExact`. A `double` limit or point is the decimal it prints as, so give
-  pi as `new Pi()`: `Math.PI` takes sin(x) from 0 to 314159265358979/100000000000000.
+  pi as `Expr.PI`: `Math.PI` takes sin(x) from 0 to 314159265358979/100000000000000.
 - The last digit or two of a numeric integral can differ from one system to another, whose C
   libraries round sinh, cosh and tanh differently in the last bit.
 - Gradients are the `Vector<T>` of Epsilon.LinearAlgebra, which clashes with that of
