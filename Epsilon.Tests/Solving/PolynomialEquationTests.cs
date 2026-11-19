@@ -70,10 +70,10 @@ public class PolynomialEquationTests
     [Fact]
     public void What_isnt_solved_yet_is_listed()
     {
-        SolutionSet solutions = Equation.Parse("x*(x^3 - 2) = 0").Solve();
+        SolutionSet solutions = Equation.Parse("x*(x^3 + a) = 0").Solve("x");
 
         Assert.Equal("{0, ...}", solutions.Print());
-        Assert.Equal("x^3 - 2", Assert.Single(solutions.Unsolved).Print());
+        Assert.Equal("x^3 + a", Assert.Single(solutions.Unsolved).Print());
     }
 
     [Fact]

@@ -21,7 +21,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         if (!numerator.DependsOn(variable))
             return EveryValueWhere(numerator, conditions);
 
-        var candidates = new List<Expr>();
+        var candidates = new List<Solution>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
             SolveFactor(factor, candidates, unsolved);
@@ -90,7 +90,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         return new Condition((-left).Simplify(assumptions), flipped, (-right).Simplify(assumptions));
     }
 
-    private void SolveFactor(Expr factor, List<Expr> candidates, List<Expr> unsolved)
+    private void SolveFactor(Expr factor, List<Solution> candidates, List<Expr> unsolved)
     {
         if (Polynomials.Coefficients(factor, variable, MaxDegree) is not { Length: >= 2 } coefficients)
         {
@@ -101,19 +101,85 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         switch (coefficients.Length - 1)
         {
             case 1 when IsNonZero(coefficients[1]):
-                candidates.Add((-coefficients[0] / coefficients[1]).Simplify(assumptions));
-                break;
+                candidates.Add(new Solution((-coefficients[0] / coefficients[1]).Simplify(assumptions), []));
+                return;
             case 2 when Quadratic(coefficients[0], coefficients[1], coefficients[2]) is { } roots:
-                candidates.AddRange(roots);
-                break;
+                candidates.AddRange(roots.Select(root => new Solution(root, [])));
+                return;
             case > 2 when Split(factor, coefficients.Length - 1) is { } parts:
                 foreach (Expr part in parts)
                     SolveFactor(part, candidates, unsolved);
-                break;
-            default:
-                unsolved.Add(factor);
-                break;
+                return;
         }
+
+        if (coefficients.Length > 3 && Polynomials.Rationals(coefficients) is { } rationals)
+        {
+            Rational[] squareFree = Polynomials.SquareFree(rationals);
+            if (squareFree.Length < rationals.Length)
+            {
+                SolveFactor(Polynomials.Of(squareFree.Select(coefficient => (Expr)coefficient), variable), candidates, unsolved);
+                return;
+            }
+
+            if (InRadicals(rationals) is { } roots)
+            {
+                candidates.AddRange(roots.Select(root => new Solution(root, [])));
+                return;
+            }
+        }
+
+        if (Approximately(coefficients) is { } approximations)
+            candidates.AddRange(approximations);
+        else
+            unsolved.Add(factor);
+    }
+
+    // The roots of a cubic or a quartic in radicals.
+    private List<Expr>? InRadicals(Rational[] p)
+    {
+        Rational[] monic = [.. p.Select(coefficient => coefficient / p[^1])];
+        if (monic.Length == 4)
+            return Radicals.Cubic(monic, complex);
+        if (monic.Length != 5 || Radicals.Quartic(monic, variable) is not { } quadratics)
+            return null;
+
+        var roots = new List<Expr>();
+        foreach (var (b, c) in quadratics)
+        {
+            if (Quadratic(c, b, 1) is not { } pair)
+                return null;
+            roots.AddRange(pair);
+        }
+
+        return roots;
+    }
+
+    // The roots of a polynomial with numbers for coefficients, found numerically: the real ones,
+    // or all of them over the complex numbers.
+    private List<Solution>? Approximately(Expr[] coefficients)
+    {
+        if (coefficients.Any(coefficient => coefficient.GetVariables().Count > 0))
+            return null;
+        ComplexNumber[] p = [.. coefficients.Select(coefficient => coefficient.EvaluateComplex())];
+        if (!p.All(coefficient => double.IsFinite(coefficient.Magnitude)) || NumericRoots.Of(p) is not { } roots)
+            return null;
+
+        var found = new List<Solution>();
+        foreach (ComplexNumber root in roots)
+        {
+            // A part that rounding alone could give is 0.
+            double tiny = 1e-10 * Math.Max(1, root.Magnitude);
+            double real = Math.Abs(root.Real) <= tiny ? 0 : root.Real, imaginary = Math.Abs(root.Imaginary) <= tiny ? 0 : root.Imaginary;
+            if (imaginary == 0)
+                found.Add(new Solution(Decimal(real), [], isApproximate: true));
+            else if (complex)
+                found.Add(new Solution((Decimal(real) + Decimal(imaginary) * Expr.I).Simplify(), [], isApproximate: true));
+        }
+
+        return found;
+
+        static Expr Decimal(double value) =>
+            Rational.FromDouble(double.Parse(Solution.Text(value), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     // a x^2 + b x + c = 0 by the discriminant, or null where its sign isn't known.
@@ -151,8 +217,9 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
 
     // The value as a solution, with the conditions on it that aren't decided; nothing where one
     // fails.
-    private IEnumerable<Solution> Admitted(Expr value, List<Condition> conditions)
+    private IEnumerable<Solution> Admitted(Solution candidate, List<Condition> conditions)
     {
+        Expr value = candidate.Value;
         var open = new List<Condition>();
         foreach (Condition condition in conditions)
         {
@@ -170,7 +237,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             }
         }
 
-        yield return new Solution(value, open);
+        yield return new Solution(value, open, candidate.IsApproximate);
     }
 
     private IEnumerable<Condition> SignAssumed()
@@ -257,7 +324,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         return double.IsFinite(value.Magnitude) && value.Magnitude > 1e-9;
     }
 
-    private static IEnumerable<Expr> Factors(Expr expr) => expr switch
+    internal static IEnumerable<Expr> Factors(Expr expr) => expr switch
     {
         Multiply product => Factors(product.Left).Concat(Factors(product.Right)),
         Negate negation => Factors(negation.Argument),

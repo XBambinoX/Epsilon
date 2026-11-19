@@ -18,6 +18,42 @@ internal static class Polynomials
         return coefficients[..(degree + 1)];
     }
 
+    // The sum of coefficients[k] x^k.
+    internal static Expr Of(IEnumerable<Expr> coefficients, string variable) =>
+        coefficients.Select((coefficient, k) => coefficient * new Power(new Variable(variable), k))
+            .Aggregate((sum, term) => sum + term).Simplify();
+
+    // The coefficients as rational numbers, or null if one isn't.
+    internal static Rational[]? Rationals(Expr[] coefficients) =>
+        coefficients.All(coefficient => coefficient is Constant) ? [.. coefficients.Select(coefficient => ((Constant)coefficient).Value)] : null;
+
+    // p / gcd(p, p'): the same roots, each once.
+    internal static Rational[] SquareFree(Rational[] p)
+    {
+        Rational[] derivative = [.. p.Skip(1).Select((coefficient, k) => coefficient * (k + 1))];
+        Rational[] a = p, b = derivative;
+        while (b.Length > 0)
+            (a, b) = (b, DivideOut(a, b).Remainder);
+        return a.Length > 1 ? DivideOut(p, a).Quotient : p;
+    }
+
+    private static (Rational[] Quotient, Rational[] Remainder) DivideOut(Rational[] a, Rational[] b)
+    {
+        var remainder = (Rational[])a.Clone();
+        var quotient = new Rational[Math.Max(a.Length - b.Length + 1, 0)];
+        for (int k = quotient.Length - 1; k >= 0; k--)
+        {
+            quotient[k] = remainder[k + b.Length - 1] / b[^1];
+            for (int j = 0; j < b.Length; j++)
+                remainder[k + j] -= quotient[k] * b[j];
+        }
+
+        int length = Math.Min(b.Length - 1, remainder.Length);
+        while (length > 0 && remainder[length - 1].IsZero)
+            length--;
+        return (quotient, remainder[..length]);
+    }
+
     private static bool AddTerms(Expr expr, string variable, int maxDegree, List<Expr>?[] parts, bool positive)
     {
         switch (expr)

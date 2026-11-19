@@ -51,20 +51,23 @@ public sealed class SolutionSet
     /// <summary>Whether every solution is listed, that is, nothing is <see cref="Unsolved"/>.</summary>
     public bool IsComplete => Unsolved.Count == 0;
 
+    /// <summary>Whether every solution listed is exact, none <see cref="Solution.IsApproximate"/>.</summary>
+    public bool IsExact => Solutions.All(solution => !solution.IsApproximate);
+
     /// <summary>Whether the equation is known to have no solution.</summary>
     public bool IsEmpty => IsComplete && !IsEveryValue && Solutions.Count == 0;
 
     /// <summary>
     /// The set as text: <c>{2, 3}</c>, <c>{-b / a} if a != 0</c>, <c>{}</c> for no solution,
-    /// <c>(-inf, inf)</c> for every real value (<c>C</c> for every complex one), and <c>...</c> for solutions that weren't found:
-    /// <c>{1, ...}</c>.
+    /// <c>(-inf, inf)</c> for every real value (<c>C</c> for every complex one), <c>~</c> before an
+    /// approximate value, and <c>...</c> for solutions that weren't found: <c>{1, ...}</c>.
     /// </summary>
     public string Print()
     {
         if (IsEveryValue)
             return (_complex ? "C" : "(-inf, inf)") + ConditionsText(Conditions);
 
-        var (items, shared) = Items(solution => solution.Value.Print(), solution => solution.Print());
+        var (items, shared) = Items(solution => solution.ValueText(), solution => solution.Print());
         if (!IsComplete)
             items.Add("...");
         return "{" + string.Join(", ", items) + "}" + ConditionsText(shared);
@@ -78,7 +81,7 @@ public sealed class SolutionSet
         if (IsEmpty)
             return "\\emptyset";
 
-        var (items, shared) = Items(solution => solution.Value.ToLatex(), solution => solution.ToLatex());
+        var (items, shared) = Items(solution => solution.ValueLatex(), solution => solution.ToLatex());
         if (!IsComplete)
             items.Add("\\ldots");
         return "\\left\\{" + string.Join(", ", items) + "\\right\\}" + ConditionsLatex(shared);
