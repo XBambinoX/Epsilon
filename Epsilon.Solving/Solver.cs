@@ -2,9 +2,18 @@ using Epsilon.Core;
 
 namespace Epsilon.Solving;
 
-internal sealed class Solver(string variable, Assumptions assumptions, bool complex)
+// Numeric, it finds the roots of polynomials it can't solve exactly as numbers, and skips the
+// radicals, which numbers give more accurately.
+internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false)
 {
     private const int MaxDegree = 64;
+
+    // In numeric mode, the quadratic with two roots each root came from: as a double, centre -
+    // half loses digits where the two nearly cancel, and Newton's method on it gets them back.
+    private readonly Dictionary<Expr, ComplexNumber[]> _quadratics = [];
+
+    // The roots found numerically, in full: as a Constant, a double keeps 15 digits.
+    private readonly Dictionary<Expr, ComplexNumber> _numbers = [];
 
     internal SolutionSet Solve(Expr left, Expr right)
     {
@@ -21,7 +30,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         if (!numerator.DependsOn(variable))
             return EveryValueWhere(numerator, conditions);
 
-        var candidates = new List<Solution>();
+        var candidates = new List<Expr>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
             SolveFactor(factor, candidates, unsolved);
@@ -90,7 +99,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         return new Condition((-left).Simplify(assumptions), flipped, (-right).Simplify(assumptions));
     }
 
-    private void SolveFactor(Expr factor, List<Solution> candidates, List<Expr> unsolved)
+    private void SolveFactor(Expr factor, List<Expr> candidates, List<Expr> unsolved)
     {
         if (Polynomials.Coefficients(factor, variable, MaxDegree) is not { Length: >= 2 } coefficients)
         {
@@ -101,10 +110,13 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         switch (coefficients.Length - 1)
         {
             case 1 when IsNonZero(coefficients[1]):
-                candidates.Add(new Solution((-coefficients[0] / coefficients[1]).Simplify(assumptions), []));
+                candidates.Add((-coefficients[0] / coefficients[1]).Simplify(assumptions));
                 return;
             case 2 when Quadratic(coefficients[0], coefficients[1], coefficients[2]) is { } roots:
-                candidates.AddRange(roots.Select(root => new Solution(root, [])));
+                candidates.AddRange(roots);
+                if (numeric && roots.Count == 2)
+                    foreach (Expr root in roots)
+                        _quadratics[root] = [.. coefficients.Select(coefficient => coefficient.EvaluateComplex())];
                 return;
             case > 2 when Split(factor, coefficients.Length - 1) is { } parts:
                 foreach (Expr part in parts)
@@ -121,18 +133,24 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
                 return;
             }
 
-            if (InRadicals(rationals) is { } roots)
+            if (!numeric && InRadicals(rationals) is { } roots)
             {
-                candidates.AddRange(roots.Select(root => new Solution(root, [])));
+                candidates.AddRange(roots);
                 return;
             }
         }
 
-        if (Approximately(coefficients) is { } approximations)
+        if (numeric && Approximately(coefficients) is { } approximations)
             candidates.AddRange(approximations);
         else
             unsolved.Add(factor);
     }
+
+    // A solution found in numeric mode, as a number to about full double precision.
+    internal ComplexNumber Number(Expr value) =>
+        _numbers.TryGetValue(value, out ComplexNumber number) ? number
+        : _quadratics.TryGetValue(value, out ComplexNumber[]? quadratic) ? NumericRoots.Polished(quadratic, value.EvaluateComplex())
+        : value.EvaluateComplex();
 
     // The roots of a cubic or a quartic in radicals.
     private List<Expr>? InRadicals(Rational[] p)
@@ -156,7 +174,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
 
     // The roots of a polynomial with numbers for coefficients, found numerically: the real ones,
     // or all of them over the complex numbers.
-    private List<Solution>? Approximately(Expr[] coefficients)
+    private List<Expr>? Approximately(Expr[] coefficients)
     {
         if (coefficients.Any(coefficient => coefficient.GetVariables().Count > 0))
             return null;
@@ -164,22 +182,21 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         if (!p.All(coefficient => double.IsFinite(coefficient.Magnitude)) || NumericRoots.Of(p) is not { } roots)
             return null;
 
-        var found = new List<Solution>();
+        var found = new List<Expr>();
         foreach (ComplexNumber root in roots)
         {
             // A part that rounding alone could give is 0.
             double tiny = 1e-10 * Math.Max(1, root.Magnitude);
             double real = Math.Abs(root.Real) <= tiny ? 0 : root.Real, imaginary = Math.Abs(root.Imaginary) <= tiny ? 0 : root.Imaginary;
-            if (imaginary == 0)
-                found.Add(new Solution(Decimal(real), [], isApproximate: true));
-            else if (complex)
-                found.Add(new Solution((Decimal(real) + Decimal(imaginary) * Expr.I).Simplify(), [], isApproximate: true));
+            if (imaginary != 0 && !complex)
+                continue;
+
+            Expr value = imaginary == 0 ? real : (new Constant(real) + new Constant(imaginary) * Expr.I).Simplify();
+            _numbers[value] = new ComplexNumber(real, imaginary);
+            found.Add(value);
         }
 
         return found;
-
-        static Expr Decimal(double value) =>
-            Rational.FromDouble(double.Parse(Solution.Text(value), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     // a x^2 + b x + c = 0 by the discriminant, or null where its sign isn't known.
@@ -217,9 +234,8 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
 
     // The value as a solution, with the conditions on it that aren't decided; nothing where one
     // fails.
-    private IEnumerable<Solution> Admitted(Solution candidate, List<Condition> conditions)
+    private IEnumerable<Solution> Admitted(Expr value, List<Condition> conditions)
     {
-        Expr value = candidate.Value;
         var open = new List<Condition>();
         foreach (Condition condition in conditions)
         {
@@ -237,7 +253,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             }
         }
 
-        yield return new Solution(value, open, candidate.IsApproximate);
+        yield return new Solution(value, open);
     }
 
     private IEnumerable<Condition> SignAssumed()

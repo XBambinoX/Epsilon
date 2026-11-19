@@ -44,6 +44,23 @@ internal static class NumericRoots
         return largest < 1e-9 ? z : null;
     }
 
+    // Newton's method from z near a simple root, while the steps are above rounding and make the
+    // value smaller.
+    internal static ComplexNumber Polished(ComplexNumber[] p, ComplexNumber z)
+    {
+        for (int k = 0; k < 8; k++)
+        {
+            var (value, slope) = Horner(p, z);
+            ComplexNumber step = value / slope;
+            if (!double.IsFinite(step.Magnitude) || step.Magnitude <= 1e-15 * z.Magnitude
+                || !(Horner(p, z - step).Value.Magnitude < value.Magnitude))
+                break;
+            z -= step;
+        }
+
+        return z;
+    }
+
     private static (ComplexNumber Value, ComplexNumber Slope) Horner(ComplexNumber[] p, ComplexNumber z)
     {
         ComplexNumber value = p[^1], slope = ComplexNumber.Zero;

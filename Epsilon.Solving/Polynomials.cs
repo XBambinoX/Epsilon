@@ -27,14 +27,22 @@ internal static class Polynomials
     internal static Rational[]? Rationals(Expr[] coefficients) =>
         coefficients.All(coefficient => coefficient is Constant) ? [.. coefficients.Select(coefficient => ((Constant)coefficient).Value)] : null;
 
-    // p / gcd(p, p'): the same roots, each once.
+    // p / gcd(p, p'): the same roots, each once; with coprime integer coefficients, the highest
+    // positive, where it differs from p.
     internal static Rational[] SquareFree(Rational[] p)
     {
         Rational[] derivative = [.. p.Skip(1).Select((coefficient, k) => coefficient * (k + 1))];
         Rational[] a = p, b = derivative;
         while (b.Length > 0)
             (a, b) = (b, DivideOut(a, b).Remainder);
-        return a.Length > 1 ? DivideOut(p, a).Quotient : p;
+        if (a.Length == 1)
+            return p;
+
+        Rational[] quotient = DivideOut(p, a).Quotient;
+        var lcm = quotient.Aggregate(System.Numerics.BigInteger.One, (l, c) => l / System.Numerics.BigInteger.GreatestCommonDivisor(l, c.Denominator) * c.Denominator);
+        var gcd = quotient.Aggregate(System.Numerics.BigInteger.Zero, (g, c) => System.Numerics.BigInteger.GreatestCommonDivisor(g, (c * new Rational(lcm)).Numerator));
+        Rational scale = new Rational(lcm) / new Rational(gcd) * quotient[^1].Sign;
+        return [.. quotient.Select(coefficient => coefficient * scale)];
     }
 
     private static (Rational[] Quotient, Rational[] Remainder) DivideOut(Rational[] a, Rational[] b)

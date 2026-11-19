@@ -81,6 +81,46 @@ public sealed class Equation
         return new Solver(variable, Assumptions.None, complex: true).Solve(Left, Right);
     }
 
+    /// <summary>Solves the equation numerically for its only variable; see <see cref="SolveNumerically(string, Assumptions?)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public NumericSolutionSet<double> SolveNumerically() => SolveNumerically(SingleVariable(Left, Right));
+
+    /// <summary>
+    /// The real solutions for <paramref name="variable"/> as numbers: those <see cref="Solve(string, Assumptions?)"/>
+    /// finds, evaluated, and every real root of a polynomial it can't solve exactly, as x^5 - x - 1.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="assumptions">
+    /// What is known about the unknown: an assumption about its sign leaves out the solutions that
+    /// don't meet it.
+    /// </param>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public NumericSolutionSet<double> SolveNumerically(string variable, Assumptions? assumptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        RequireOnly(variable);
+        var solver = new Solver(variable, assumptions ?? Assumptions.None, complex: false, numeric: true);
+        return NumericSolutions.Real(solver.Solve(Left, Right), solver);
+    }
+
+    /// <summary>Solves the equation numerically over the complex numbers for its only variable; see <see cref="SolveComplexNumerically(string)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public NumericSolutionSet<ComplexNumber> SolveComplexNumerically() => SolveComplexNumerically(SingleVariable(Left, Right));
+
+    /// <summary>
+    /// The complex solutions for <paramref name="variable"/> as numbers: those <see cref="SolveComplex(string)"/>
+    /// finds, evaluated, and every root of a polynomial it can't solve exactly.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public NumericSolutionSet<ComplexNumber> SolveComplexNumerically(string variable)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        RequireOnly(variable);
+        var solver = new Solver(variable, Assumptions.None, complex: true, numeric: true);
+        return NumericSolutions.Complex(solver.Solve(Left, Right), solver);
+    }
+
     /// <summary>The equation as text: <c>sin(x) = 1/2</c>.</summary>
     public string Print() => $"{Left.Print()} = {Right.Print()}";
 
@@ -89,6 +129,16 @@ public sealed class Equation
 
     /// <inheritdoc/>
     public override string ToString() => Print();
+
+    private void RequireOnly(string variable)
+    {
+        var others = new SortedSet<string>(Left.GetVariables(), StringComparer.Ordinal);
+        others.UnionWith(Right.GetVariables());
+        others.Remove(variable);
+        if (others.Count > 0)
+            throw new InvalidOperationException(
+                $"Expected no variable but {variable}, found [{string.Join(", ", others)}]. Substitute numbers for the others first.");
+    }
 
     private static string SingleVariable(Expr left, Expr right)
     {
