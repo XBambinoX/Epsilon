@@ -55,7 +55,7 @@ public class EquationTests
     [Fact]
     public void Nothing_enlarges_the_domain()
     {
-        Assert.False(Solved("x/x = 1").IsEveryValue);
+        Assert.Equal("(-inf, inf) if x != 0", Printed("x/x = 1"));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public class EquationTests
         Assert.Equal("{2}", Printed("x = 2", assumptions: positive));
         Assert.Equal("{}", Printed("x = -2", assumptions: positive));
         Assert.Equal("{}", Printed("x = 0", assumptions: Assumptions.None.AssumeNonZero("x")));
-        Assert.Equal("{-a} if -a > 0", Printed("x + a = 0", assumptions: positive));
+        Assert.Equal("{-a} if a < 0", Printed("x + a = 0", assumptions: positive));
         Assert.Equal("{}", Printed("x + a = 0", assumptions: positive.AssumePositive("a")));
     }
 

@@ -8,8 +8,11 @@ namespace Epsilon.Solving;
 /// </summary>
 public sealed class SolutionSet
 {
-    private SolutionSet(string variable, IReadOnlyList<Solution> solutions, bool isEveryValue, IReadOnlyList<Condition> conditions, IReadOnlyList<Expr> unsolved)
+    private readonly bool _complex;
+
+    private SolutionSet(string variable, IReadOnlyList<Solution> solutions, bool isEveryValue, IReadOnlyList<Condition> conditions, IReadOnlyList<Expr> unsolved, bool complex)
     {
+        _complex = complex;
         Variable = variable;
         Solutions = solutions;
         IsEveryValue = isEveryValue;
@@ -21,14 +24,15 @@ public sealed class SolutionSet
     public string Variable { get; }
 
     /// <summary>
-    /// The exact solutions, each once: ordered by value where they are numbers, otherwise in
-    /// the order they were found.
+    /// The exact solutions, each once: ordered by value where they are numbers (complex ones by
+    /// the real part, then the imaginary part), otherwise in the order they were found.
     /// </summary>
     public IReadOnlyList<Solution> Solutions { get; }
 
     /// <summary>
     /// Whether every value of the unknown is a solution, where both sides are defined and the
-    /// assumptions allow it: x + 1 = 1 + x. <see cref="Solutions"/> is empty then.
+    /// assumptions allow it: x + 1 = 1 + x. <see cref="Solutions"/> is empty then, and
+    /// <see cref="Conditions"/> says where the equation is defined, as <c>x != 0</c> for x/x = 1.
     /// </summary>
     public bool IsEveryValue { get; }
 
@@ -52,13 +56,13 @@ public sealed class SolutionSet
 
     /// <summary>
     /// The set as text: <c>{2, 3}</c>, <c>{-b / a} if a != 0</c>, <c>{}</c> for no solution,
-    /// <c>(-inf, inf)</c> for every value, and <c>...</c> for solutions that weren't found:
+    /// <c>(-inf, inf)</c> for every real value (<c>C</c> for every complex one), and <c>...</c> for solutions that weren't found:
     /// <c>{1, ...}</c>.
     /// </summary>
     public string Print()
     {
         if (IsEveryValue)
-            return "(-inf, inf)" + ConditionsText(Conditions);
+            return (_complex ? "C" : "(-inf, inf)") + ConditionsText(Conditions);
 
         var (items, shared) = Items(solution => solution.Value.Print(), solution => solution.Print());
         if (!IsComplete)
@@ -70,7 +74,7 @@ public sealed class SolutionSet
     public string ToLatex()
     {
         if (IsEveryValue)
-            return "(-\\infty, \\infty)" + ConditionsLatex(Conditions);
+            return (_complex ? "\\mathbb{C}" : "(-\\infty, \\infty)") + ConditionsLatex(Conditions);
         if (IsEmpty)
             return "\\emptyset";
 
@@ -98,34 +102,34 @@ public sealed class SolutionSet
     internal static string ConditionsLatex(IReadOnlyList<Condition> conditions) =>
         conditions.Count == 0 ? "" : " \\text{ if } " + string.Join(" \\text{ and } ", conditions.Select(condition => condition.ToLatex()));
 
-    internal static SolutionSet Of(string variable, IEnumerable<Solution> solutions, IReadOnlyList<Expr> unsolved)
+    internal static SolutionSet Of(string variable, IEnumerable<Solution> solutions, IReadOnlyList<Expr> unsolved, bool complex = false)
     {
         var distinct = new List<Solution>();
         foreach (Solution solution in solutions)
             if (!distinct.Any(seen => seen.SameAs(solution)))
                 distinct.Add(solution);
 
-        return new SolutionSet(variable, Ordered(distinct), false, [], unsolved);
+        return new SolutionSet(variable, Ordered(distinct), false, [], unsolved, complex);
     }
 
-    internal static SolutionSet EveryValue(string variable, IReadOnlyList<Condition> conditions) =>
-        new(variable, [], true, conditions, []);
+    internal static SolutionSet EveryValue(string variable, IReadOnlyList<Condition> conditions, bool complex = false) =>
+        new(variable, [], true, conditions, [], complex);
 
-    internal static SolutionSet Empty(string variable) => new(variable, [], false, [], []);
+    internal static SolutionSet Empty(string variable, bool complex = false) => new(variable, [], false, [], [], complex);
 
     private static List<Solution> Ordered(List<Solution> solutions)
     {
-        var values = new List<double>();
+        var values = new List<ComplexNumber>();
         foreach (Solution solution in solutions)
         {
             if (solution.Value.GetVariables().Count > 0)
                 return solutions;
-            double value = solution.Value.Evaluate();
-            if (!double.IsFinite(value))
+            ComplexNumber value = solution.Value.EvaluateComplex();
+            if (!double.IsFinite(value.Magnitude))
                 return solutions;
             values.Add(value);
         }
 
-        return [.. solutions.Zip(values).OrderBy(pair => pair.Second).Select(pair => pair.First)];
+        return [.. solutions.Zip(values).OrderBy(pair => pair.Second.Real).ThenBy(pair => pair.Second.Imaginary).Select(pair => pair.First)];
     }
 }

@@ -2,8 +2,10 @@ using Epsilon.Core;
 
 namespace Epsilon.Solving;
 
-internal sealed class Solver(string variable, Assumptions assumptions)
+internal sealed class Solver(string variable, Assumptions assumptions, bool complex)
 {
+    private const int MaxDegree = 64;
+
     internal SolutionSet Solve(Expr left, Expr right)
     {
         // Strict, so that no step enlarges the domain: x/x = 1 isn't 1 = 1 at x = 0.
@@ -14,52 +16,291 @@ internal sealed class Solver(string variable, Assumptions assumptions)
         if (!difference.DependsOn(variable))
             return WithoutUnknown(difference, left, right);
 
-        if (Polynomials.Coefficients(difference, variable, maxDegree: 1) is [var constant, var slope] && IsNonZero(slope))
-            return SolutionSet.Of(variable, Admitted((-constant / slope).Simplify(assumptions)), []);
+        List<Condition> conditions = [.. Domain.Conditions(difference, variable, complex), .. SignAssumed()];
+        Expr numerator = Together(difference).Numerator.Simplify(assumptions, SimplifyMode.Strict);
+        if (!numerator.DependsOn(variable))
+            return EveryValueWhere(numerator, conditions);
 
-        return SolutionSet.Of(variable, [], [difference]);
+        var candidates = new List<Expr>();
+        var unsolved = new List<Expr>();
+        foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
+            SolveFactor(factor, candidates, unsolved);
+
+        return SolutionSet.Of(variable, candidates.SelectMany(candidate => Admitted(candidate, conditions)), unsolved, complex);
     }
 
     private SolutionSet WithoutUnknown(Expr difference, Expr left, Expr right)
     {
         if (difference is Constant { Value.IsZero: true })
-            return SolutionSet.EveryValue(variable, []);
+            return SolutionSet.EveryValue(variable, [], complex);
         if (IsNonZero(difference))
-            return SolutionSet.Empty(variable);
-        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right)]);
+            return SolutionSet.Empty(variable, complex);
+        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right)], complex);
     }
 
-    // The value as a solution with the condition that the assumptions about the unknown's sign
-    // put on it, or nothing where they rule it out.
-    private IEnumerable<Solution> Admitted(Expr value)
+    // The numerator doesn't depend on the unknown: if it is 0, every value where the equation is
+    // defined is a solution.
+    private SolutionSet EveryValueWhere(Expr numerator, List<Condition> conditions)
     {
-        if (SignRequired() is not var (comparison, holds, fails))
+        if (numerator is not Constant { Value.IsZero: true })
         {
-            yield return new Solution(value, []);
-            yield break;
+            if (IsNonZero(numerator))
+                return SolutionSet.Empty(variable, complex);
+            conditions.Insert(0, new Condition(numerator, Comparison.Equal, 0));
         }
 
-        if (fails(value, assumptions))
-            yield break;
-        yield return new Solution(value, holds(value, assumptions) ? [] : [new Condition(value, comparison, 0)]);
+        var open = new List<Condition>();
+        foreach (Condition condition in conditions)
+        {
+            switch (Decide(condition))
+            {
+                case false:
+                    return SolutionSet.Empty(variable, complex);
+                case null:
+                    open.Add(Tidied(condition));
+                    break;
+            }
+        }
+
+        return SolutionSet.EveryValue(variable, open, complex);
     }
 
-    private (Comparison, Func<Expr, Assumptions, bool> Holds, Func<Expr, Assumptions, bool> Fails)? SignRequired()
+    // The number in a condition on the right and no minus in front on the left: a != 1 for
+    // a - 1 != 0, a < 0 for -a > 0.
+    private Condition Tidied(Condition condition)
     {
-        if (assumptions.IsPositive(variable))
-            return (Comparison.Greater, AssumptionAnalysis.IsProvablyPositive, AssumptionAnalysis.IsProvablyNonPositive);
-        if (assumptions.IsNegative(variable))
-            return (Comparison.Less, AssumptionAnalysis.IsProvablyNegative, AssumptionAnalysis.IsProvablyNonNegative);
-        if (assumptions.IsNonNegative(variable))
-            return (Comparison.GreaterOrEqual, AssumptionAnalysis.IsProvablyNonNegative, AssumptionAnalysis.IsProvablyNegative);
-        if (assumptions.IsNonPositive(variable))
-            return (Comparison.LessOrEqual, AssumptionAnalysis.IsProvablyNonPositive, AssumptionAnalysis.IsProvablyPositive);
-        if (assumptions.IsNonZero(variable))
-            return (Comparison.NotEqual, AssumptionAnalysis.IsProvablyNonZero, (value, _) => value is Constant { Value.IsZero: true });
-        return null;
+        Expr left = (condition.Left - condition.Right).Simplify(assumptions);
+        Expr right = 0;
+        if (left is Add { Right: Constant term } sum && sum.Left.GetVariables().Count > 0)
+            (left, right) = (sum.Left, new Constant(-term.Value));
+        else if (left is Subtract { Right: Constant subtracted } difference && difference.Left.GetVariables().Count > 0)
+            (left, right) = (difference.Left, subtracted);
+
+        if (!left.Print().StartsWith('-'))
+            return new Condition(left, condition.Comparison, right);
+
+        Comparison flipped = condition.Comparison switch
+        {
+            Comparison.Less => Comparison.Greater,
+            Comparison.LessOrEqual => Comparison.GreaterOrEqual,
+            Comparison.Greater => Comparison.Less,
+            Comparison.GreaterOrEqual => Comparison.LessOrEqual,
+            var same => same,
+        };
+        return new Condition((-left).Simplify(assumptions), flipped, (-right).Simplify(assumptions));
     }
 
-    // Numbers by their value too, as pi - 3, which the assumptions alone don't decide.
-    private bool IsNonZero(Expr expr) =>
-        expr.IsProvablyNonZero(assumptions) || new Sign(expr).Simplify(assumptions) is Constant { Value.IsZero: false };
+    private void SolveFactor(Expr factor, List<Expr> candidates, List<Expr> unsolved)
+    {
+        if (Polynomials.Coefficients(factor, variable, MaxDegree) is not { Length: >= 2 } coefficients)
+        {
+            unsolved.Add(factor);
+            return;
+        }
+
+        switch (coefficients.Length - 1)
+        {
+            case 1 when IsNonZero(coefficients[1]):
+                candidates.Add((-coefficients[0] / coefficients[1]).Simplify(assumptions));
+                break;
+            case 2 when Quadratic(coefficients[0], coefficients[1], coefficients[2]) is { } roots:
+                candidates.AddRange(roots);
+                break;
+            case > 2 when Split(factor, coefficients.Length - 1) is { } parts:
+                foreach (Expr part in parts)
+                    SolveFactor(part, candidates, unsolved);
+                break;
+            default:
+                unsolved.Add(factor);
+                break;
+        }
+    }
+
+    // a x^2 + b x + c = 0 by the discriminant, or null where its sign isn't known.
+    private List<Expr>? Quadratic(Expr c, Expr b, Expr a)
+    {
+        if (!IsNonZero(a))
+            return null;
+
+        // The centre and the distance to each root apart, so that their numbers cancel:
+        // -1 + sqrt(2), not (-2 + 2sqrt(2)) / 2.
+        Expr discriminant = (b * b - 4 * a * c).Simplify(assumptions);
+        Expr centre = (-b / (2 * a)).Simplify(assumptions);
+        Expr Half(Expr d) => (new Sqrt(d) / (2 * a)).Simplify(assumptions);
+        return SignOf(discriminant) switch
+        {
+            > 0 => [(centre - Half(discriminant)).Simplify(assumptions), (centre + Half(discriminant)).Simplify(assumptions)],
+            0 => [centre],
+            < 0 when complex => [(centre - Expr.I * Half(-discriminant)).Simplify(assumptions), (centre + Expr.I * Half(-discriminant)).Simplify(assumptions)],
+            < 0 => [],
+            null => null,
+        };
+    }
+
+    // The factors of a polynomial of higher degree with rational coefficients, each of a lower
+    // degree: its rational roots and the quadratics TryFactorReal finds.
+    private List<Expr>? Split(Expr polynomial, int degree)
+    {
+        var (factored, success) = polynomial.TryFactorReal(variable);
+        if (!success)
+            return null;
+
+        List<Expr> parts = [.. Factors(factored).Where(part => part.DependsOn(variable))];
+        return parts.All(part => Polynomials.Coefficients(part, variable, MaxDegree)?.Length - 1 < degree) ? parts : null;
+    }
+
+    // The value as a solution, with the conditions on it that aren't decided; nothing where one
+    // fails.
+    private IEnumerable<Solution> Admitted(Expr value, List<Condition> conditions)
+    {
+        var open = new List<Condition>();
+        foreach (Condition condition in conditions)
+        {
+            var at = new Condition(
+                condition.Left.Substitute(variable, value).Simplify(assumptions),
+                condition.Comparison,
+                condition.Right.Substitute(variable, value).Simplify(assumptions));
+            switch (Decide(at))
+            {
+                case false:
+                    yield break;
+                case null:
+                    open.Add(Tidied(at));
+                    break;
+            }
+        }
+
+        yield return new Solution(value, open);
+    }
+
+    private IEnumerable<Condition> SignAssumed()
+    {
+        if (complex)
+            yield break;
+
+        var x = new Variable(variable);
+        if (assumptions.IsPositive(variable))
+            yield return new Condition(x, Comparison.Greater, 0);
+        else if (assumptions.IsNegative(variable))
+            yield return new Condition(x, Comparison.Less, 0);
+        else if (assumptions.IsNonNegative(variable))
+            yield return new Condition(x, Comparison.GreaterOrEqual, 0);
+        else if (assumptions.IsNonPositive(variable))
+            yield return new Condition(x, Comparison.LessOrEqual, 0);
+        else if (assumptions.IsNonZero(variable))
+            yield return new Condition(x, Comparison.NotEqual, 0);
+    }
+
+    // Whether the condition holds, fails, or isn't known to do either.
+    private bool? Decide(Condition condition)
+    {
+        Expr difference = (condition.Left - condition.Right).Simplify(assumptions);
+        if (SignOf(difference) is int sign)
+        {
+            return condition.Comparison switch
+            {
+                Comparison.Equal => sign == 0,
+                Comparison.NotEqual => sign != 0,
+                Comparison.Less => sign < 0,
+                Comparison.LessOrEqual => sign <= 0,
+                Comparison.Greater => sign > 0,
+                _ => sign >= 0,
+            };
+        }
+
+        if (complex)
+            return condition.Comparison switch
+            {
+                Comparison.Equal when IsNonZero(difference) => false,
+                Comparison.NotEqual when IsNonZero(difference) => true,
+                _ => null,
+            };
+
+        return condition.Comparison switch
+        {
+            Comparison.Equal when difference.IsProvablyNonZero(assumptions) => false,
+            Comparison.NotEqual when difference.IsProvablyNonZero(assumptions) => true,
+            Comparison.Less when difference.IsProvablyNegative(assumptions) => true,
+            Comparison.Less when difference.IsProvablyNonNegative(assumptions) => false,
+            Comparison.LessOrEqual when difference.IsProvablyNonPositive(assumptions) => true,
+            Comparison.LessOrEqual when difference.IsProvablyPositive(assumptions) => false,
+            Comparison.Greater when difference.IsProvablyPositive(assumptions) => true,
+            Comparison.Greater when difference.IsProvablyNonPositive(assumptions) => false,
+            Comparison.GreaterOrEqual when difference.IsProvablyNonNegative(assumptions) => true,
+            Comparison.GreaterOrEqual when difference.IsProvablyNegative(assumptions) => false,
+            _ => null,
+        };
+    }
+
+    // The sign of a real number, by its value where the assumptions alone don't decide it (pi - 3);
+    // null for one that isn't known or isn't real.
+    private int? SignOf(Expr expr)
+    {
+        if (expr is Constant constant)
+            return constant.Value.Sign;
+        if (new Sign(expr).Simplify(assumptions) is Constant sign)
+            return sign.Value.Sign;
+        return expr.IsProvablyPositive(assumptions) ? 1 : expr.IsProvablyNegative(assumptions) ? -1 : null;
+    }
+
+    private bool IsNonZero(Expr expr)
+    {
+        if (SignOf(expr) is int sign)
+            return sign != 0;
+        if (expr.IsProvablyNonZero(assumptions))
+            return true;
+
+        // A complex number by its value, as 1 + i, which has no sign.
+        if (!complex || expr.GetVariables().Count > 0)
+            return false;
+        ComplexNumber value = expr.EvaluateComplex();
+        return double.IsFinite(value.Magnitude) && value.Magnitude > 1e-9;
+    }
+
+    private static IEnumerable<Expr> Factors(Expr expr) => expr switch
+    {
+        Multiply product => Factors(product.Left).Concat(Factors(product.Right)),
+        Negate negation => Factors(negation.Argument),
+        Power { Exponent: Constant { Value: { IsInteger: true } n } } power when n.Sign > 0 => Factors(power.Base),
+        _ => [expr],
+    };
+
+    // expr as a numerator over a denominator, with the fractions in it brought together.
+    private static (Expr Numerator, Expr Denominator) Together(Expr expr)
+    {
+        switch (expr)
+        {
+            case Add sum:
+                return Sum(Together(sum.Left), Together(sum.Right), subtract: false);
+            case Subtract difference:
+                return Sum(Together(difference.Left), Together(difference.Right), subtract: true);
+            case Negate negation:
+                var (n, d) = Together(negation.Argument);
+                return (-n, d);
+            case Multiply product:
+                var (leftNumerator, leftDenominator) = Together(product.Left);
+                var (rightNumerator, rightDenominator) = Together(product.Right);
+                return (leftNumerator * rightNumerator, Times(leftDenominator, rightDenominator));
+            case Divide quotient:
+                var (top, topDenominator) = Together(quotient.Numerator);
+                var (bottom, bottomDenominator) = Together(quotient.Denominator);
+                return (top * bottomDenominator, Times(topDenominator, bottom));
+            case Power { Exponent: Constant { Value: { IsInteger: true } k } } power when k.Sign < 0:
+                var (baseNumerator, baseDenominator) = Together(power.Base);
+                return (baseDenominator.Pow(-k), baseNumerator.Pow(-k));
+            default:
+                return (expr, 1);
+        }
+
+        static (Expr, Expr) Sum((Expr N, Expr D) left, (Expr N, Expr D) right, bool subtract)
+        {
+            if (left.D.Equals(right.D))
+                return (subtract ? left.N - right.N : left.N + right.N, left.D);
+            Expr leftPart = left.N * right.D, rightPart = right.N * left.D;
+            return (subtract ? leftPart - rightPart : leftPart + rightPart, Times(left.D, right.D));
+        }
+
+        static Expr Times(Expr a, Expr b) =>
+            a is Constant { Value.IsOne: true } ? b : b is Constant { Value.IsOne: true } ? a : a * b;
+    }
 }

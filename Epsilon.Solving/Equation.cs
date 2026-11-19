@@ -62,7 +62,23 @@ public sealed class Equation
     public SolutionSet Solve(string variable, Assumptions? assumptions = null)
     {
         ArgumentNullException.ThrowIfNull(variable);
-        return new Solver(variable, assumptions ?? Assumptions.None).Solve(Left, Right);
+        return new Solver(variable, assumptions ?? Assumptions.None, complex: false).Solve(Left, Right);
+    }
+
+    /// <summary>Solves the equation over the complex numbers for its only variable; see <see cref="SolveComplex(string)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public SolutionSet SolveComplex() => SolveComplex(SingleVariable(Left, Right));
+
+    /// <summary>
+    /// Solves the equation for <paramref name="variable"/> over the complex numbers, exactly:
+    /// x^2 + 1 = 0 gives i and -i. Polynomial and rational equations are solved; other parts
+    /// that depend on the unknown are left <see cref="SolutionSet.Unsolved"/>.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    public SolutionSet SolveComplex(string variable)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        return new Solver(variable, Assumptions.None, complex: true).Solve(Left, Right);
     }
 
     /// <summary>The equation as text: <c>sin(x) = 1/2</c>.</summary>
