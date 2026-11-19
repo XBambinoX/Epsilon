@@ -27,23 +27,23 @@ integrals of integrands without one, as exp(-x^2) over the line, come from a tab
 
 ```csharp
 ExprParser.Parse("x^2").IntegrateExact("x", 0, 1).Print();            // 1/3
-ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();    // (1/4) * π
-ExprParser.Parse("1/(x^2 - 1)").IntegrateExact("x", 2, 3).Print();    // (1/2) * ln(3/2)
-ExprParser.Parse("1/(x^3 + 1)").IntegrateExact("x", 0, 1).Print();    // π / (3sqrt(3)) + (1/3) * ln(2)
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();    // π / 4
+ExprParser.Parse("1/(x^2 - 1)").IntegrateExact("x", 2, 3).Print();    // ln(3/2) / 2
+ExprParser.Parse("1/(x^3 + 1)").IntegrateExact("x", 0, 1).Print();    // ln(2) / 3 + π * sqrt(3) / 9
 ExprParser.Parse("x^2").IntegrateExact("x", 1, 0).Print();            // -1/3
 ```
 
 The limits are expressions. A `double` is the decimal it prints as, as for
-[limits](limits.md#limits-at-a-point), so give pi as `new Pi()` or `ExprParser.Parse("pi")`.
+[limits](limits.md#limits-at-a-point), so give pi as `Expr.PI` or `ExprParser.Parse("pi")`.
 Without a variable name, the expression's only variable is taken:
 
 ```csharp
-ExprParser.Parse("sin(x)").IntegrateExact("x", 0, new Pi()).Print();                   // 2
+ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Expr.PI).Print();                   // 2
 ExprParser.Parse("exp(-x)").IntegrateExact("x", 0, ExprParser.Parse("ln(2)")).Print(); // 1/2
-ExprParser.Parse("sin(t)").IntegrateExact(0, new Pi()).Print();                        // 2
+ExprParser.Parse("sin(t)").IntegrateExact(0, Expr.PI).Print();                        // 2
 
 ExprParser.Parse("sin(x)").IntegrateExact("x", 0, Math.PI).Print();
-// -cos(314159265358979/100000000000000) + 1
+// 1 - cos(314159265358979/100000000000000)
 ```
 
 ## Singular limits and points inside
@@ -65,8 +65,8 @@ The integrand 1/(1 + tan(x)) is 0 at pi/2, but its antiderivative has tan(x) in 
 var f = ExprParser.Parse("1/(1 + tan(x))");
 
 f.Integrate("x").Print();
-// (1/2) * x + (-1/4) * ln(tan(x)^2 + 1) + (1/2) * ln(abs(tan(x) + 1))
-f.IntegrateExact("x", 0, ExprParser.Parse("pi/2")).Print();   // (1/4) * π
+// x / 2 - ln(sec(x)^2) / 4 + ln(abs(tan(x) + 1)) / 2
+f.IntegrateExact("x", 0, ExprParser.Parse("pi/2")).Print();   // π / 4
 ```
 
 ## Infinite limits
@@ -81,9 +81,9 @@ var inf = double.PositiveInfinity;
 ExprParser.Parse("exp(-x)").IntegrateExact("x", 0, inf).Print();                // 1
 ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", -inf, inf).Print();         // π
 ExprParser.Parse("exp(-x)*sin(x)").IntegrateExact("x", 0, inf).Print();         // 1/2
-ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();            // (1/4) * π * sqrt(2)
+ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();            // π * sqrt(2) / 4
 ExprParser.Parse("1/(sqrt(x)*(1 + x))").IntegrateExact("x", 0, inf).Print();    // π
-ExprParser.Parse("exp(-x)").IntegrateExact("x", new Pi(), inf).Print();         // exp(-π)
+ExprParser.Parse("exp(-x)").IntegrateExact("x", Expr.PI, inf).Print();         // exp(-π)
 ExprParser.Parse("1/x").IntegrateExact("x", 1, inf);
 // InvalidOperationException: The integral of 1 / x from 1 to inf diverges at inf.
 ```
@@ -106,9 +106,9 @@ ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();           
 ExprParser.Parse("exp(-x^2/2)/sqrt(2*pi)").IntegrateExact("x", -inf, inf).Print();  // 1
 ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();                   // π / 2
 ExprParser.Parse("sqrt(x)*exp(-x)").IntegrateExact("x", 0, inf).Print();            // sqrt(π) / 2
-ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print();           // (1/15) * π^4
-ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print();                // (-1/6) * π^2
-ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print();        // (1/2) * sqrt(π) + 1
+ExprParser.Parse("x^3/(exp(x) - 1)").IntegrateExact("x", 0, inf).Print();           // π^4 / 15
+ExprParser.Parse("ln(x)/(1 - x)").IntegrateExact("x", 0, 1).Print();                // -π^2 / 6
+ExprParser.Parse("exp(-x^2) + exp(-x)").IntegrateExact("x", 0, inf).Print();        // sqrt(π) / 2 + 1
 ```
 
 | Integrand | From, to | Value |
@@ -146,18 +146,18 @@ where tan(x/2) is, and there the limits from both sides are taken:
 ExprParser.Parse("1/(2 + cos(x))").IntegrateExact("x", 0, ExprParser.Parse("2*pi")).Print();
 // 2 * π / sqrt(3)
 ExprParser.Parse("1/(1 + sin(x))^2").IntegrateExact("x", 0, 3).Print();
-// -2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3) + 4/3
+// 4/3 - 2 * (3tan(3/2)^2 + 3tan(3/2) + 2) / (3(tan(3/2) + 1)^3)
 ```
 
-Where an antiderivative jumps while the integrand doesn't, the jumps are taken off.
-sec(x)^2/(1 + tan(x)^2) is 1 wherever it is defined, and by u = tan(x) its antiderivative is
-atan(tan(x)), which falls by pi at each pole of tan:
+Where an antiderivative jumps while the integrand doesn't, the jumps are taken off. By
+u = tan(x), the antiderivative of sec(x)^2/(4 + tan(x)^2) is atan(tan(x)/2)/2, which falls by
+pi/2 at each pole of tan:
 
 ```csharp
-var one = ExprParser.Parse("sec(x)^2/(1 + tan(x)^2)");
+var f = ExprParser.Parse("sec(x)^2/(4 + tan(x)^2)");
 
-one.Integrate("x").Print();                 // atan(tan(x))
-one.IntegrateExact("x", 0, 10).Print();     // 10
+f.Integrate("x").Print();                 // atan(tan(x) / 2) / 2
+f.IntegrateExact("x", 0, 10).Print();     // atan(tan(10) / 2) / 2 + 3 * π / 2
 ```
 
 ## Odd integrands
@@ -190,8 +190,8 @@ An integrand that isn't real on a part of the interval throws too:
 ```csharp
 ExprParser.Parse("1/x").IntegrateExact("x", -1, 1);
 // InvalidOperationException: The integral of 1 / x from -1 to 1 diverges at x = 0.
-ExprParser.Parse("tan(x)").IntegrateExact("x", 0, new Pi());
-// InvalidOperationException: The integral of tan(x) from 0 to π diverges at x = (1/2) * π.
+ExprParser.Parse("tan(x)").IntegrateExact("x", 0, Expr.PI);
+// InvalidOperationException: The integral of tan(x) from 0 to π diverges at x = π / 2.
 ExprParser.Parse("sqrt(x)").IntegrateExact("x", -1, 1);
 // InvalidOperationException: The integral of sqrt(x) from -1 to 1 doesn't exist: the integrand isn't real at x = -0.5.
 ```
@@ -203,8 +203,8 @@ antiderivative is continuous everywhere:
 
 ```csharp
 ExprParser.Parse("exp(c*x)").IntegrateExact("x", 0, 1).Print();               // exp(c) / c - 1 / c
-ExprParser.Parse("x^2").IntegrateExact("x", 0, new Variable("c")).Print();    // (1/3) * c^3
-ExprParser.Parse("exp(i*x)").IntegrateExact("x", 0, new Pi()).Print();        // 2 * i
+ExprParser.Parse("x^2").IntegrateExact("x", 0, new Variable("c")).Print();    // c^3 / 3
+ExprParser.Parse("exp(i*x)").IntegrateExact("x", 0, Expr.PI).Print();        // 2 * i
 ```
 
 Where whether the antiderivative is undefined or jumps between the limits depends on a symbol,
@@ -228,7 +228,6 @@ Where the integral isn't found, `IntegrateExact` throws `NotSupportedException`:
 | `exp(-c*x)` | 0, inf | it depends on the sign of c |
 | `1/(x + c)` | 0, 1 | whether the antiderivative ln(abs(x + c)) is undefined between the limits depends on c |
 | `(1 - sin(x))/(x + cos(x))` | -1, 0 | the antiderivative ln(abs(x + cos(x))) is undefined at -0.739..., which is found only numerically, and a limit at a decimal says nothing |
-| `1/(1 + cos(x)^4)` | 0, 10 | at pi/2 the logarithms in its antiderivative cancel, but their coefficients aren't simplified to show it |
 | `cos(1/x)/x^2` | -1, 1 | the antiderivative -sin(1/x) oscillates at 0 |
 
 ## How it works

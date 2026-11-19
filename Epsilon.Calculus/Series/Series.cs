@@ -60,7 +60,7 @@ public sealed class Series
         : Terms.Select(term => term.Coefficient * Raised(term.Exponent)).Aggregate((sum, term) => sum + term).Simplify();
 
     /// <summary>
-    /// The terms by increasing exponent and the remainder: <c>1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)</c>.
+    /// The terms by increasing exponent and the remainder: <c>1 - x^2 / 6 + x^4 / 120 + O(x^5)</c>.
     /// </summary>
     public string Print()
     {
@@ -92,7 +92,7 @@ public sealed class Series
         _ => SeriesExpander.Tidy(-c),
     };
 
-    private static bool Negative(Expr c) => c.Print() is var text && (text.StartsWith('-') || text.StartsWith("(-"));
+    private static bool Negative(Expr c) => c.Print().StartsWith('-');
 
     private Expr Raised(Rational exponent) => exponent.IsOne ? _base : new Power(_base, exponent);
 }

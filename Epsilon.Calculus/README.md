@@ -21,9 +21,9 @@ var f = ExprParser.Parse("x^3 - 3*x + y^2");
 
 f.Gradient("x", "y").Print();                    // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));     // LocalMinimum
-ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // exp(x) * x - exp(x)
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();                // x * exp(x) - exp(x)
 ExprParser.Parse("sin(x)/x").Limit("x", 0).Print();                 // 1
-ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // (1/4) * π
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // π / 4
 ```
 
 ## Installation
@@ -50,15 +50,15 @@ f.Hessian("x", "y").Print();      // [[2y, 2x], [2x, -sin(y)]]
 f.Laplacian("x", "y").Print();    // 2y - sin(y)
 
 // Antiderivatives
-ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // (1/2) * ln(x) * x^2 - (1/4) * x^2
-ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("x*ln(x)").Integrate("x").Print();       // x^2 * ln(x) / 2 - x^2 / 4
+ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();   // ln(abs((x - 1) / (x + 1))) / 2
 
 // Series and limits
-ExprParser.Parse("exp(x)").Series("x", 0, 3).Print();     // 1 + x + (1/2) * x^2 + (1/6) * x^3 + O(x^4)
+ExprParser.Parse("exp(x)").Series("x", 0, 3).Print();     // 1 + x + x^2 / 2 + x^3 / 6 + O(x^4)
 ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print();   // e
 
 // Definite integrals, exactly
-ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();   // (1/4) * π
+ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();   // π / 4
 
 // and numerically
 ExprParser.Parse("exp(-x^2)").Integrate(double.NegativeInfinity, double.PositiveInfinity);
@@ -81,7 +81,7 @@ var gradient = f.Gradient("x", "y");
 gradient.Evaluate(("x", 1), ("y", 2));        // [4, 0.5838531634528576]
 gradient.Compile("x", "y")(1, 2);             // [4, 0.5838531634528576]
 
-ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // 2x * y + x^2
+ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // x^2 + 2x * y
 Vector<Expr>.Parse("[x*y, y^2]").Divergence("x", "y").Print();               // 3y
 Vector<Expr>.Parse("[-y, x, 0]").Curl("x", "y", "z").Print();                // [0, 0, 2]
 ```
@@ -121,7 +121,7 @@ p;   // [1, 1]
 ```csharp
 ExprParser.Parse("2*x*cos(x^2)").Integrate("x").Print();          // sin(x^2)
 ExprParser.Parse("exp(x)*sin(x)").Integrate("x").Print();         // (exp(x) * sin(x) - cos(x) * exp(x)) / 2
-ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();         // 3nthroot(x, 3) * x / 4
+ExprParser.Parse("nthroot(x, 3)").Integrate("x").Print();         // 3x * nthroot(x, 3) / 4
 ExprParser.Parse("1/(x^2*sqrt(4 + x^2))").Integrate("x").Print(); // -sqrt(x^2 + 4) / (4x)
 ```
 
@@ -130,10 +130,10 @@ factors, over the roots of cubic and quartic factors in radicals, and rational f
 and cos by Bioche's rules or by t = tan(x/2):
 
 ```csharp
-ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // (1/3) * ln(abs(x - 1)) + (2/3) * ln(abs(x + 2))
-ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + (3/8) * atan(x)
+ExprParser.Parse("x/((x - 1)*(x + 2))").Integrate("x").Print();   // ln(abs(x - 1)) / 3 + 2ln(abs(x + 2)) / 3
+ExprParser.Parse("1/(x^2 + 1)^3").Integrate("x").Print();         // (3x^3 + 5x) / (8(x^2 + 1)^2) + 3atan(x) / 8
 ExprParser.Parse("sin(x)^3/(1 + cos(x)^2)").Integrate("x").Print();   // cos(x) - 2atan(cos(x))
-ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
+ExprParser.Parse("1/(2 + cos(x))").Integrate("x").Print();        // (x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)
 ```
 
 Where no antiderivative is found, or none made of elementary functions exists, `Integrate`
@@ -146,8 +146,8 @@ pole, and `Limit` finds a limit exactly, from both sides or one and at inf and -
 exponentials and logarithms compete:
 
 ```csharp
-ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();    // 1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)
-ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print();    // x^-1 + (1/6) * x + O(x^2)
+ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();    // 1 - x^2 / 6 + x^4 / 120 + O(x^5)
+ExprParser.Parse("1/sin(x)").Series("x", 0, 1).Print();    // x^-1 + x / 6 + O(x^2)
 
 ExprParser.Parse("x*ln(x)").Limit("x", 0).Print();                             // 0
 ExprParser.Parse("1/x").Limit("x", 0, LimitDirection.Right).Print();           // inf
@@ -164,7 +164,7 @@ as the Gaussian and Dirichlet integrals, come from a table. A divergent integral
 var inf = double.PositiveInfinity;
 
 ExprParser.Parse("ln(x)").IntegrateExact("x", 0, 1).Print();            // -1
-ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();    // (1/4) * π * sqrt(2)
+ExprParser.Parse("1/(x^4 + 1)").IntegrateExact("x", 0, inf).Print();    // π * sqrt(2) / 4
 ExprParser.Parse("exp(-x^2)").IntegrateExact("x", -inf, inf).Print();   // sqrt(π)
 ExprParser.Parse("sin(x)/x").IntegrateExact("x", 0, inf).Print();       // π / 2
 
@@ -198,7 +198,7 @@ vector field along its direction. `Potential` finds a function whose gradient a 
 
 ```csharp
 var t = new Variable("t");
-var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * new Pi());
+var circle = new Curve("t", [new Cos(t), new Sin(t)], 0, 2 * Expr.PI);
 
 ExprParser.Parse("1").LineIntegralExact(circle, "x", "y").Print();           // 2 * π
 Vector<Expr>.Parse("[-y, x]").LineIntegralExact(circle, "x", "y").Print();   // 2 * π
@@ -215,7 +215,7 @@ Vector<Expr>.Parse("[2*x*y, x^2]").Potential("x", "y").Print();              // 
   and max, and floor, ceiling and round of a linear argument.
 - `Integrate("x", 0, 1)` with numbers for the limits is the numeric integral, a `double`; the
   exact one is `IntegrateExact`. A `double` limit or point is the decimal it prints as, so give
-  pi as `new Pi()`: `Math.PI` takes sin(x) from 0 to 314159265358979/100000000000000.
+  pi as `Expr.PI`: `Math.PI` takes sin(x) from 0 to 314159265358979/100000000000000.
 - The last digit or two of a numeric integral can differ from one system to another, whose C
   libraries round sinh, cosh and tanh differently in the last bit.
 - Gradients are the `Vector<T>` of Epsilon.LinearAlgebra, which clashes with that of

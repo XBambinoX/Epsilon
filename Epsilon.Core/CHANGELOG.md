@@ -7,6 +7,91 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-19
+
+`Simplify` closes most of the gaps listed in the known limitations of 1.2.0, prints results
+in a more usual form, keeps the domain in Strict mode in more places, and is 1.3 to 2.8 times
+faster. Some results print differently; see Changed. Update `Epsilon.Calculus` to 1.1.1 together
+with this version: with 1.1.0, some antiderivatives come out with `0^-1` in them.
+
+### Added
+
+- `Expr.PI`, `Expr.E` and `Expr.I` for pi, Euler's number and the imaginary unit, so that
+  `new Pi()` and the like aren't needed: `2 * Expr.PI * x`.
+- The absolute value and the sign of a number come from its value: `abs(1 - pi)` gives `π - 1`,
+  `sign(cos(2))` gives `-1`. A number that is 0 but isn't recognized as such, like
+  `cos(3pi/8) - sin(pi/8)`, keeps its `abs`.
+- Products and powers of numbers a + b sqrt(d) are worked out where that is shorter:
+  `(sqrt(2) - 1)*(sqrt(2) + 1)` gives `1`.
+
+### Changed
+
+- Printing:
+  - a fractional coefficient is written as a division: `x^4 / 24 - x^2 / 2 + 1`, and pi/4
+    prints as `π / 4` whichever way it was built;
+  - the factors of a product come numbers first, then the variables and their powers by
+    name, then the rest: `x * exp(x)`, `a * x^2`, `x * (x + 1) * (x - 1)`;
+  - terms of the same degree come in lexicographic order, `x^2 * y + 3x * y^2`, and a sum
+    starts with a positive term of its leading degree: `x - a`, `2 - sqrt(3)`;
+  - a coefficient 0, kept in Strict mode, is written with `*`: `0 * ln(x)`.
+- A minus in front of a sum goes into its terms: `-(x - y)` gives `y - x`, and a second
+  derivative of exp(-x y^2) no longer prints as `-(-2x * y^3 * exp(-x * y^2) + ...)`. A sum of
+  only negative terms gives its minus away: `cos(-x - 1)` gives `cos(x + 1)`,
+  `(a + 1)^2 * (-a - 1)` gives `-(a + 1)^3` and `2/(-x - 1)` gives `-2 / (x + 1)`.
+- `sqrt(u)` and `u^(1/2)` are one expression, `sqrt(u)`, which counts as the power 1/2 among
+  other factors: `x*sqrt(x)` gives `x^(3/2)`, and `sqrt(x)/x` gives `1 / sqrt(x)`.
+- Strict mode keeps the domain where a product with 0 or terms that cancel would have
+  enlarged it: `0*ln(x)` stays `0 * ln(x)` and `x/y - x/y` gives `0 / y`, unless the
+  assumptions show the parts are defined; `Expand` does the same. Neither mode drops
+  something undefined everywhere: `0*ln(0)` stays.
+- `Rational.FromDouble` and the conversion of a double to an `Expr` name the value in the
+  exception as `double.PositiveInfinity`, the same in every culture, with `ParamName`
+  `value`.
+
+### Fixed
+
+- `0^(-1/2)`, `0^(-1/3)` and `0^(-1)` threw `DivideByZeroException` from `Simplify`; they now
+  stay as they are, like `0^-2`.
+- A negation cancels the sign of a negative product or quotient: `-(-2*y^2)` gives `2y^2`.
+- Rational powers of numbers are worked out where exact: `4^(-3/2)` gives `1/8`, `12^(3/2)`
+  gives `24sqrt(3)`.
+- Odd and even functions take the minus sign out of their argument: `sin(-x) + sin(x)`
+  gives `0`.
+- An exponential of a multiple of a logarithm is a power: `exp(2*ln(3))` gives `9`,
+  `exp(y*ln(x))` gives `x^y`.
+- Square roots leave the denominators of numbers, and the sign of such a number is known:
+  `1/(sqrt(3) + 2)` gives `2 - sqrt(3)`, `abs(1 - sqrt(2))` gives `sqrt(2) - 1`.
+- Logarithms of rational numbers take out perfect powers and merge in sums: `ln(9)` gives
+  `2ln(3)`, `ln(1/2)` gives `-ln(2)`.
+- An inverse function after its function gives the argument back: `tan(atan(x))` gives `x`,
+  `atan(tan(10))` gives `10 - 3 * π`.
+- Terms that differ only by a number add up, wherever the number is in them:
+  `(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))` gives `2 * π * sqrt(3) / 9`. So do terms that differ only
+  by the sign of a sum in them: `2*(a + b) + 2*(-a - b)` gives `0`.
+- Pythagorean identities with a common factor and for hyperbolic functions:
+  `R^2*cos(t)^2 + R^2*sin(t)^2` gives `R^2`, `cosh(t)^2 - sinh(t)^2` gives `1`.
+- Square roots: `sqrt(4*cosh(t)^2)` gives `2cosh(t)`, `sqrt(pi/4)` gives `sqrt(π) / 2`,
+  `sqrt(sqrt(x))` gives `x^(1/4)`.
+- Powers of e leave a logarithm and number multiples of logarithms leave an exponential:
+  `ln(exp(1)/(exp(1) + 1)) - ln(exp(-1)/(exp(-1) + 1))` gives `1`.
+- Fractions that cancel over a common denominator are put over it: `x/(x + 1) + 1/(x + 1)`
+  gives `1`, `1/(1 + 1/x)` gives `x / (x + 1)`, and the Laplacian of `ln(x^2 + y^2)` is `0`.
+- A sum that divides the other side of a quotient as a polynomial cancels:
+  `(x^2 - 1)/(x - 1)` gives `x + 1`. Fractional powers cancel in quotients:
+  `3*x^(3/2)/(2*x)` gives `3sqrt(x) / 2`.
+- `FindComplexRoots` reported phantom roots where the expression is undefined but tends to
+  0: `x*ln(x)` gave a root near 5e-246 next to 1, `x^2/x` one near 0.
+
+### Performance
+
+`Simplify` is 1.3 to 2.8 times faster and allocates 30% to 67% less on the workloads of
+`Epsilon.Benchmarks` (`WorkloadBenchmarks`, new): a dipole Laplacian takes 1.5 ms instead of
+4.2 ms, a mixed second derivative 0.23 ms instead of 0.60 ms, a sum of 1200 terms 3.8 ms
+instead of 6.3 ms, and integrals, limits and series of Epsilon.Calculus 21% to 30% less time.
+A canonical tree isn't canonicalized again, rationals compare without subtracting, a common
+denominator or a polynomial division that failed isn't tried again within one call, and the
+simplify loop builds far fewer lists, closures and sets.
+
 ## [1.2.0] - 2026-10-12
 
 ### Added
@@ -201,7 +286,8 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.2.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.3.0...HEAD
+[1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.2.0
 [1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.1
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.0

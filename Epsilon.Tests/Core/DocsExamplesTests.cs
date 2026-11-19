@@ -19,8 +19,8 @@ public class LimitationsDocTests
     public void Exact_values_only_at_the_usual_points()
     {
         Assert.Equal("sin(π / 12)", ExprParser.Parse("sin(pi/12)").Simplify().Print());
-        Assert.Equal("ln(8)", ExprParser.Parse("ln(8)").Simplify().Print());
-        Assert.Equal("8^(1/2)", ExprParser.Parse("8^(1/2)").Simplify().Print());
+        Assert.Equal("16^(1/3)", ExprParser.Parse("16^(1/3)").Simplify().Print());
+        Assert.Equal("ln(6)", ExprParser.Parse("ln(6)").Simplify().Print());
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class GettingStartedDocTests
         Assert.Equal(20, h.Evaluate(2));
 
         Assert.Equal([0.0, 4.0], h.FindRealRoots(-10, 10));
-        Assert.Equal("-5 * (t - 4) * t", h.TryFactorReal("t").Factored.Print());
+        Assert.Equal("-5t * (t - 4)", h.TryFactorReal("t").Factored.Print());
         Assert.Equal("-5t^{2} + 20t", h.ToLatex());
     }
 
@@ -164,15 +164,23 @@ public class ExpressionsDocTests
     [Fact]
     public void Numbers()
     {
-        Assert.Equal("(1/10) * x", (0.1 * X).Print());
-        Assert.Equal("(1/3) * x", (new Rational(1, 3) * X).Print());
+        Assert.Equal("x / 10", (0.1 * X).Print());
+        Assert.Equal("x / 3", (new Rational(1, 3) * X).Print());
         Assert.Throws<ArgumentException>(() => (Expr)double.NaN);
+    }
+
+    [Fact]
+    public void Constants()
+    {
+        Assert.Equal("2 * π * x", (2 * Expr.PI * X).Print());
+        Assert.Equal("e^x", Expr.E.Pow(X).Print());
+        Assert.Equal("-1", (Expr.I * Expr.I).Simplify().Print());
     }
 
     [Fact]
     public void Node_types()
     {
-        Assert.Equal("sin(x) + π", (new Sin(X) + new Pi()).Print());
+        Assert.Equal("sin(x) + π", (new Sin(X) + Expr.PI).Print());
     }
 
     [Fact]
@@ -247,7 +255,7 @@ public class ParsingDocTests
     {
         Assert.Equal(-9, ExprParser.Parse("-x^2").Evaluate(3));
         Assert.Equal(512, ExprParser.Parse("2^3^2").Evaluate(0));
-        Assert.Equal("(x / 2) * y", ExprParser.Parse("x/2y").Print());
+        Assert.Equal("y * (x / 2)", ExprParser.Parse("x/2y").Print());
     }
 
     [Fact]
@@ -304,11 +312,12 @@ public class SimplificationDocTests
 {
     [Theory]
     [InlineData("sqrt(x^2)", "abs(x)")]
-    [InlineData("(x^2)^(1/2)", "(x^2)^(1/2)")]
+    [InlineData("(x^2)^(1/3)", "(x^2)^(1/3)")]
     [InlineData("(x^2)^3", "x^6")]
     [InlineData("1/3 + 1/6", "1/2")]
     [InlineData("2^-2", "1/4")]
     [InlineData("sqrt(9/4)", "3/2")]
+    [InlineData("8^(-2/3)", "1/4")]
     [InlineData("nthroot(-8, 3)", "-2")]
     [InlineData("round(5/2)", "3")]
     [InlineData("2x + 3x", "5x")]
@@ -316,31 +325,83 @@ public class SimplificationDocTests
     [InlineData("2*x*3*x", "6x^2")]
     [InlineData("x*(-y)*x", "-x^2 * y")]
     [InlineData("(x + 1) - 1", "x")]
+    [InlineData("x/(2*y) + x/(3*y)", "5x / (6y)")]
+    [InlineData("x*sqrt(2) + x/sqrt(2)", "3sqrt(2) * x / 2")]
+    [InlineData("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))", "2 * π * sqrt(3) / 9")]
+    [InlineData("2*(a - b) + 2*(b - a)", "0")]
+    [InlineData("x/sqrt(3)", "x / sqrt(3)")]
+    [InlineData("x^(1/2)", "sqrt(x)")]
+    [InlineData("x*sqrt(x)", "x^(3/2)")]
+    [InlineData("sqrt(y) - y^(1/2)", "0")]
     [InlineData("(2x)/(4x)", "1/2")]
     [InlineData("(x^2*y)/(x*y)", "x")]
     [InlineData("x^3/x", "x^2")]
+    [InlineData("3x^(3/2)/(2x)", "3sqrt(x) / 2")]
     [InlineData("4x/6", "2x / 3")]
     [InlineData("x/(-2)", "-x / 2")]
+    [InlineData("(x^2 - 1)/(x - 1)", "x + 1")]
+    [InlineData("(x^3 - y^3)/(x - y)", "x^2 + x * y + y^2")]
+    [InlineData("x/(x + 1) + 1/(x + 1)", "1")]
+    [InlineData("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)", "1 / sqrt(x^2 + 1)")]
+    [InlineData("1/x + 1/y", "1 / x + 1 / y")]
+    [InlineData("1/(1 + 1/x)", "x / (x + 1)")]
+    [InlineData("1/((y^2/z^2 + 1)*z)", "z / (y^2 + z^2)")]
     [InlineData("2sin(x)^2 + 2cos(x)^2 + 1", "3")]
     [InlineData("1 - sin(x)^2", "cos(x)^2")]
     [InlineData("sec(x)^2 - tan(x)^2", "1")]
     [InlineData("y - csc(x)^2 + cot(x)^2", "y - 1")]
     [InlineData("2sec(x)^2 - tan(x)^2", "sec(x)^2 + 1")]
+    [InlineData("1 + tan(x)^2", "sec(x)^2")]
+    [InlineData("r^2*cos(t)^2 + r^2*sin(t)^2", "r^2")]
+    [InlineData("1 + sinh(t)^2", "cosh(t)^2")]
     [InlineData("sin(x)/cos(x)", "tan(x)")]
     [InlineData("ln(exp(x))", "x")]
     [InlineData("exp(ln(x))", "x")]
+    [InlineData("exp(2ln(x))", "x^2")]
     [InlineData("sqrt(x)^2", "x")]
     [InlineData("tan(x)*cot(x)", "1")]
+    [InlineData("ln(exp(x)/(exp(x) + 1))", "x - ln(exp(x) + 1)")]
+    [InlineData("exp(x - ln(exp(x) + 1))", "exp(x) / (exp(x) + 1)")]
+    [InlineData("ln(exp(1) + 1) - ln(exp(-1) + 1)", "1")]
+    [InlineData("sqrt(4*cosh(t)^2)", "2cosh(t)")]
+    [InlineData("sqrt(2*x^2)", "sqrt(2) * abs(x)")]
+    [InlineData("sqrt(x^4)", "x^2")]
+    [InlineData("sqrt(x^2*y)", "sqrt(x^2 * y)")]
+    [InlineData("sqrt(pi/4)", "sqrt(π) / 2")]
+    [InlineData("sqrt(8*x)", "2sqrt(2x)")]
+    [InlineData("tan(atan(x))", "x")]
+    [InlineData("atan(tan(10))", "10 - 3 * π")]
+    [InlineData("acos(cos(10))", "4 * π - 10")]
+    [InlineData("sin(-x) + sin(x)", "0")]
+    [InlineData("cos(-2x)", "cos(2x)")]
+    [InlineData("atan(-x/2)", "-atan(x / 2)")]
+    [InlineData("(-x)^3", "-x^3")]
+    [InlineData("-(x - y)", "y - x")]
+    [InlineData("cos(-x - 1)", "cos(x + 1)")]
     [InlineData("sin(pi/6)", "1/2")]
     [InlineData("cos(3pi/4)", "-sqrt(2) / 2")]
     [InlineData("acos(-1/2)", "2 * π / 3")]
     [InlineData("sqrt(8)", "2sqrt(2)")]
     [InlineData("1/sqrt(2)", "sqrt(2) / 2")]
+    [InlineData("12^(3/2)", "24sqrt(3)")]
     [InlineData("2sin(pi/3)", "sqrt(3)")]
     [InlineData("ln(e^2)", "2")]
+    [InlineData("ln(9)", "2ln(3)")]
+    [InlineData("ln(1/8)", "-3ln(2)")]
+    [InlineData("(1/2)*ln(1/2) - (1/2)*ln(1/3)", "ln(3/2) / 2")]
+    [InlineData("ln(6) - ln(2) - ln(3)", "0")]
+    [InlineData("1/(sqrt(3) + 2)", "2 - sqrt(3)")]
+    [InlineData("-2/(2*sqrt(2) + 4) + 1", "sqrt(2) / 2")]
+    [InlineData("abs(1 - sqrt(2))", "sqrt(2) - 1")]
+    [InlineData("(sqrt(2) - 1)*(sqrt(2) + 1)", "1")]
+    [InlineData("1/(sqrt(2) + sqrt(3))", "1 / (sqrt(2) + sqrt(3))")]
+    [InlineData("abs(1 - pi)", "π - 1")]
+    [InlineData("sign(cos(2))", "-1")]
+    [InlineData("abs(cos(3pi/8) - sin(pi/8))", "abs(cos(3 * π / 8) - sin(π / 8))")]
     [InlineData("tan(pi/2)", "tan(π / 2)")]
     [InlineData("csc(0)", "csc(0)")]
     [InlineData("0/0", "0 / 0")]
+    [InlineData("0*ln(0)", "0 * ln(0)")]
     public void Generic(string input, string expected)
     {
         Assert.Equal(expected, ExprParser.Parse(input).Simplify().Print());
@@ -350,9 +411,12 @@ public class SimplificationDocTests
     [InlineData("x/x", "1", "x / x")]
     [InlineData("x^3/x", "x^2", "x^3 / x")]
     [InlineData("0/x", "0", "0 / x")]
+    [InlineData("0*ln(x)", "0", "0 * ln(x)")]
+    [InlineData("x/y - x/y", "0", "0 / y")]
     [InlineData("1/(2/x)", "x / 2", "1 / (2 / x)")]
     [InlineData("sqrt(x)^2", "x", "sqrt(x)^2")]
     [InlineData("exp(ln(x))", "x", "exp(ln(x))")]
+    [InlineData("sin(asin(x))", "x", "sin(asin(x))")]
     [InlineData("tan(x)*cot(x)", "1", "cot(x) * tan(x)")]
     [InlineData("sin(x)/cos(x)", "tan(x)", "tan(x)")]
     public void Generic_vs_strict(string input, string generic, string strict)
@@ -373,7 +437,7 @@ public class SimplificationDocTests
     [InlineData("(x + 1)*(x - 1)", "x^2 - 1")]
     [InlineData("sin((x + 1)^2)", "sin(x^2 + 2x + 1)")]
     [InlineData("(x + 1)^2/(x - 1)", "(x^2 + 2x + 1) / (x - 1)")]
-    [InlineData("(x + 1)^2/2", "(1/2) * x^2 + x + 1/2")]
+    [InlineData("(x + 1)^2/2", "x^2 / 2 + x + 1/2")]
     [InlineData("(x + 1)^-2", "(x + 1)^-2")]
     public void Expanding(string input, string expected)
     {
@@ -445,9 +509,9 @@ public class AssumptionsDocTests
 public class DifferentiationDocTests
 {
     [Theory]
-    [InlineData("sin(x^2)", "2cos(x^2) * x")]
+    [InlineData("sin(x^2)", "2x * cos(x^2)")]
     [InlineData("x/(x + 1)", "1 / (x + 1)^2")]
-    [InlineData("x^x", "(ln(x) + 1) * x^x")]
+    [InlineData("x^x", "x^x * (ln(x) + 1)")]
     [InlineData("sqrt(x)", "1 / (2sqrt(x))")]
     [InlineData("log(x, 2)", "1 / (ln(2) * x)")]
     [InlineData("nthroot(x, 3)", "1 / (3nthroot(x, 3)^2)")]
@@ -493,7 +557,7 @@ public class DifferentiationDocTests
     [Fact]
     public void Partial_and_higher()
     {
-        Assert.Equal("6y^2 * x", ExprParser.Parse("x^2*y^3").Differentiate("x").Differentiate("y").Print());
+        Assert.Equal("6x * y^2", ExprParser.Parse("x^2*y^3").Differentiate("x").Differentiate("y").Print());
         Assert.Equal("12x^2", ExprParser.Parse("x^4").Differentiate("x").Differentiate("x").Print());
         Assert.Equal("0", ExprParser.Parse("x^2").Differentiate("y").Print());
     }
@@ -526,14 +590,14 @@ public class FactoringDocTests
 {
     [Theory]
     [InlineData("x^2 - 5x + 6", "(x - 2) * (x - 3)")]
-    [InlineData("x^3 - x", "(x + 1) * (x - 1) * x")]
+    [InlineData("x^3 - x", "x * (x + 1) * (x - 1)")]
     [InlineData("(x^2 - 1)*(x - 1)", "(x + 1) * (x - 1)^2")]
     [InlineData("x^3 - 3x^2 + 3x - 1", "(x - 1)^3")]
     [InlineData("2x^2 - x - 1", "2 * (x + 1/2) * (x - 1)")]
-    [InlineData("0.5x^2 - 0.5", "(1/2) * (x + 1) * (x - 1)")]
+    [InlineData("0.5x^2 - 0.5", "(x + 1) * (x - 1) / 2")]
     [InlineData("x^4 + x^2 + 1", "(x^2 - x + 1) * (x^2 + x + 1)")]
     [InlineData("x^4 - 5x^2 + 6", "(x + sqrt(2)) * (x + sqrt(3)) * (x - sqrt(2)) * (x - sqrt(3))")]
-    [InlineData("x^2 - x - 1", "(x + (1/2) * sqrt(5) - 1/2) * (x - (1/2) * sqrt(5) - 1/2)")]
+    [InlineData("x^2 - x - 1", "(x + sqrt(5) / 2 - 1/2) * (x - sqrt(5) / 2 - 1/2)")]
     [InlineData("x^4 - 1", "(x^2 + 1) * (x + 1) * (x - 1)")]
     public void Real(string input, string expected)
     {
@@ -622,6 +686,9 @@ public class RootFindingDocTests
         Assert.Equal(-2 * Math.PI, exp[0].Imaginary, precision: 9);
         Assert.Equal(0, exp[1].Imaginary, precision: 9);
         Assert.Equal(2 * Math.PI, exp[2].Imaginary, precision: 9);
+
+        Assert.Equal(ComplexNumber.One, Assert.Single(ExprParser.Parse("x*ln(x)").FindComplexRoots(-2, 2, -2, 2)));
+        Assert.Empty(ExprParser.Parse("x^2/x").FindComplexRoots(-2, 2, -2, 2));
     }
 
     [Fact]
@@ -762,7 +829,7 @@ public class OutputDocTests
     [InlineData("x^2/2 + sin(x)", "x^2 / 2 + sin(x)")]
     [InlineData("sqrt(x) + |y|", "abs(y) + sqrt(x)")]
     [InlineData("2pi", "2 * π")]
-    [InlineData("2cos(x)*y", "2cos(x) * y")]
+    [InlineData("2cos(x)*y", "2y * cos(x)")]
     [InlineData("3 * 2^x", "3 * 2^x")]
     [InlineData("(-2)^x", "(-2)^x")]
     [InlineData("x^(1/2)", "x^(1 / 2)")]

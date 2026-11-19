@@ -14,7 +14,7 @@ public class RepositoryReadmeExamplesTests
         Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 
         Assert.Equal("3x^2 - 4x + 1", f.Differentiate("x").Print());
-        Assert.Equal("(x - 1)^2 * x", f.TryFactorReal("x").Factored.Print());
+        Assert.Equal("x * (x - 1)^2", f.TryFactorReal("x").Factored.Print());
         Assert.Equal([0.0, 1.0], f.FindRealRoots(-10, 10));
         Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
     }
@@ -38,8 +38,8 @@ public class RepositoryReadmeExamplesTests
 
         Assert.Equal("[3x^2 - 3, 2y]", f.Gradient("x", "y").Print());
         Assert.Equal(CriticalPointKind.LocalMinimum, f.ClassifyCriticalPoint(("x", 1), ("y", 0)));
-        Assert.Equal("exp(x) * x - exp(x)", ExprParser.Parse("x*exp(x)").Integrate("x").Print());
-        Assert.Equal("(1/2) * ln(abs((x - 1) / (x + 1)))", ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print());
+        Assert.Equal("x * exp(x) - exp(x)", ExprParser.Parse("x*exp(x)").Integrate("x").Print());
+        Assert.Equal("ln(abs((x - 1) / (x + 1))) / 2", ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print());
         Assert.Equal("e", ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print());
         Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity).Print());
         Assert.Equal(-4, ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1));

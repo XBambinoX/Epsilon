@@ -34,7 +34,7 @@ using Epsilon.Core;
 Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 
 f.Differentiate("x").Print();                        // 3x^2 - 4x + 1
-f.TryFactorReal("x").Factored.Print();               // (x - 1)^2 * x
+f.TryFactorReal("x").Factored.Print();               // x * (x - 1)^2
 f.FindRealRoots(-10, 10);                            // [0, 1]
 ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ```
@@ -69,8 +69,8 @@ var f = ExprParser.Parse("x^3 - 3*x + y^2");
 
 f.Gradient("x", "y").Print();                                // [3x^2 - 3, 2y]
 f.ClassifyCriticalPoint(("x", 1), ("y", 0));                 // LocalMinimum
-ExprParser.Parse("x*exp(x)").Integrate("x").Print();         // exp(x) * x - exp(x)
-ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();      // (1/2) * ln(abs((x - 1) / (x + 1)))
+ExprParser.Parse("x*exp(x)").Integrate("x").Print();         // x * exp(x) - exp(x)
+ExprParser.Parse("1/(x^2 - 1)").Integrate("x").Print();      // ln(abs((x - 1) / (x + 1))) / 2
 ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print();   // e
 ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity).Print();   // sqrt(π)
 ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1);             // -4

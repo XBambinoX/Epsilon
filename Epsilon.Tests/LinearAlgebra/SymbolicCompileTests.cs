@@ -253,7 +253,7 @@ public class SymbolicJacobianTests
     {
         var polar = Vector<Expr>.Parse("[r * cos(t), r * sin(t)]", ["r", "t"]);
 
-        Assert.Equal("[[cos(t), -sin(t) * r], [sin(t), cos(t) * r]]", polar.Jacobian(["r", "t"]).Print());
+        Assert.Equal("[[cos(t), -r * sin(t)], [sin(t), r * cos(t)]]", polar.Jacobian(["r", "t"]).Print());
     }
 
     [Fact]

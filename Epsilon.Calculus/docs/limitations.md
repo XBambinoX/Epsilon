@@ -1,6 +1,6 @@
 # Known limitations
 
-What version 1.1.0 of `Epsilon.Calculus` doesn't do yet. Each example is checked
+What version 1.1.1 of `Epsilon.Calculus` doesn't do yet. Each example is checked
 by a test (in `Epsilon.Tests/Calculus/DocsTests.cs`), so when a limitation is lifted this page
 is updated with it. The expressions have
 [limitations of their own](../../Epsilon.Core/docs/limitations.md).
@@ -11,7 +11,7 @@ is updated with it. The expressions have
   integrated, having no elementary antiderivative. And where the two sides of the gap of a
   square root differ and Euler's substitution leaves irrational coefficients, they are
   integrated apart and joined by a sign, whose derivative the core doesn't have yet:
-  `1/((x - pi)*sqrt(x^2 - 2*x))` gives an antiderivative with sign(x - 1) in it.
+  `1/((x - pi)*sqrt(x^2 - 1))` gives an antiderivative with sign(x) in it.
 - **Rational functions with a factor of degree 5 or more** over the rationals that divides no
   x^n - a, such as `1/(x^5 - x - 1)`. The antiderivative is a sum over the roots of the factor,
   which can't be written in radicals in general.
@@ -25,9 +25,10 @@ is updated with it. The expressions have
 - **Rational functions with symbols or irrational numbers in the denominator.** In
   `1/(x^2 + a^2)` the sign of the quadratic depends on a symbol, and partial fractions need
   rational coefficients, so `1/(x^3 + pi)` isn't integrated either. A quadratic with any numeric
-  coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)), but Bioche's
-  rules and t = tan(x/2) leave fractions with irrational coefficients that the core doesn't bring
-  to a common denominator: `1/(sqrt(2) + cos(x))^2` and `1/(pi + cos(x)^2)` aren't integrated.
+  coefficients, as in 1/(x^2 + pi), is in the table, and so is 1/(sqrt(2) + cos(x)). With
+  irrational coefficients Bioche's rules and t = tan(x/2) give long antiderivatives with nested
+  radicals that the simplifier doesn't denest: `1/(sqrt(2) + cos(x))^2` gives about 700
+  characters, and its limits at pi aren't found, so `IntegrateExact` over pi throws.
 - **floor, ceiling and round are integrated only alone and of linear arguments**: `x*floor(x)`,
   `floor(x)^2` and `floor(x^2)` throw `NotSupportedException`. Their definite integrals are
   [numbers](numeric-integration.md#kinks-jumps-and-peaks) all the same.
@@ -42,7 +43,7 @@ is updated with it. The expressions have
 
   ```csharp
   ExprParser.Parse("min(x, 1)").Integrate("x").Print();
-  // ((1/2) * x^2 + x - (1/2) * abs(x - 1) * (x - 1)) / 2
+  // (x^2 / 2 + x - abs(x - 1) * (x - 1) / 2) / 2
   ExprParser.Parse("1/(x^2 + 1/2)^2").Integrate("x").Print();
   // 2atan(sqrt(2) * x) / sqrt(2) + 2x / (2x^2 + 1)
   ExprParser.Parse("x^3/(x - 1)").Integrate("x").Differentiate("x").Print();
@@ -89,13 +90,11 @@ is updated with it. The expressions have
 - **A point found only numerically**: where the antiderivative may be undefined at a root that
   isn't found exactly, as ln(abs(x + cos(x))) at -0.739..., `IntegrateExact` throws
   `NotSupportedException`: a limit at a decimal next to a pole is finite.
-- **Constants that cancel aren't always seen to**: `1/(1 + cos(x)^4)` from 0 to 10 throws, since
-  at pi/2 the coefficients of the logarithms in its antiderivative add up to 0 without the
-  simplifier showing it.
 - **Symbols in the limits only where the antiderivative is continuous everywhere**: `1/x` from
   1 to c, which is ln(c) for c > 0, throws.
-- **Results aren't always in their simplest form**: `1/(1 + exp(x))` from -1 to 1 is
-  ln(exp(1) / (exp(1) + 1)) - ln(exp(-1) / (exp(-1) + 1)), which is 1.
+- **Results aren't always in their simplest form**: `1/(2 + sin(x))` from 0 to pi/2 is
+  π / (2sqrt(3)) - 2atan(-sqrt(3) + 2) / sqrt(3), which is π / (3sqrt(3)): the simplifier doesn't
+  know that atan(2 - sqrt(3)) = pi/12.
 
 ## Line integrals
 
@@ -134,6 +133,9 @@ is updated with it. The expressions have
 - **A coefficient with a symbol is taken as other than 0**, as in series, and with symbols the
   side an expression isn't real on isn't left out: `sqrt(x - a)` at x = a throws, though from
   the right it is 0.
+- **A number within rounding of 0 that the simplifier doesn't show to be 0 has no sign**, so
+  the limit isn't found: `(sqrt(2*sqrt(2) + 3) - sqrt(2) - 1)*x` at inf, which is 0, throws, as
+  sqrt(2sqrt(2) + 3) = sqrt(2) + 1 isn't seen.
 - **A point given as a double is its decimal**: `tan(x)` at `Math.PI / 2` is
   tan(15707963267949/10000000000000), a number, not a limit from two sides of a pole.
 
@@ -141,11 +143,10 @@ is updated with it. The expressions have
 
 - **floor, ceiling, round, sign, min and max have no derivatives** in the core yet, so
   gradients and Hessians of expressions with them throw `NotSupportedException`.
-- **Fractions aren't brought to a common denominator**, so a Laplacian or a curl that is 0 may
-  show only in value:
+- **A zero may show only in value** where a sum doesn't cancel against its fractional powers,
+  as in the Laplacian of the dipole x/r^3:
 
   ```csharp
-  var laplacian = ExprParser.Parse("ln(x^2 + y^2)").Laplacian("x", "y");
-  laplacian.Print();   // (-4x^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2 + (-4y^2 + 2 * (x^2 + y^2)) / (x^2 + y^2)^2
-  laplacian.Evaluate(("x", 1), ("y", 2));   // 0
+  var laplacian = ExprParser.Parse("x/(x^2 + y^2 + z^2)^(3/2)").Laplacian("x", "y", "z");
+  laplacian.Evaluate(("x", 1), ("y", 2), ("z", 3));   // 1.734723475976807E-18
   ```

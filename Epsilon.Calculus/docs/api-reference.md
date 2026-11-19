@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon.Calculus` package, version 1.1.0.
+Every public type and member of the `Epsilon.Calculus` package, version 1.1.1.
 All types are in the namespace `Epsilon.Calculus`. Each entry has a one-line description; the
 [guides](README.md) explain the details, and your IDE shows the full XML documentation for every
 member.
@@ -152,7 +152,7 @@ A series c (x - a)^q + ... + O((x - a)^Order) with rational exponents.
 | `bool RightSided` | Whether the series holds only for x > a, as for sqrt(x) at 0. |
 | `Expr Coefficient(Rational exponent)` | The coefficient of (x - a)^exponent, 0 where there is no term. Throws `ArgumentOutOfRangeException` for an exponent of `Order` or more. |
 | `Expr ToExpr()` | The sum of the terms as an expression in the variable. |
-| `string Print()` | The terms by increasing exponent and the remainder, as in `1 - (1/6) * x^2 + O(x^3)`; `ToString` is the same. |
+| `string Print()` | The terms by increasing exponent and the remainder, as in `1 - x^2 / 6 + O(x^3)`; `ToString` is the same. |
 
 ## Limits
 

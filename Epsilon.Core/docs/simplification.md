@@ -17,7 +17,7 @@ is left alone: a missed simplification is always safer than a wrong one.
 
 ```csharp
 ExprParser.Parse("sqrt(x^2)").Simplify().Print();     // abs(x)
-ExprParser.Parse("(x^2)^(1/2)").Simplify().Print();   // (x^2)^(1/2)
+ExprParser.Parse("(x^2)^(1/3)").Simplify().Print();   // (x^2)^(1/3)   (x^(2/3) is undefined for x < 0)
 ExprParser.Parse("(x^2)^3").Simplify().Print();       // x^6
 ```
 
@@ -30,6 +30,7 @@ result is exact:
 ExprParser.Parse("1/3 + 1/6").Simplify().Print();    // 1/2
 ExprParser.Parse("2^-2").Simplify().Print();         // 1/4
 ExprParser.Parse("sqrt(9/4)").Simplify().Print();    // 3/2
+ExprParser.Parse("8^(-2/3)").Simplify().Print();     // 1/4
 ExprParser.Parse("nthroot(-8, 3)").Simplify().Print(); // -2
 ExprParser.Parse("round(5/2)").Simplify().Print();   // 3
 ```
@@ -45,19 +46,65 @@ ExprParser.Parse("x*(-y)*x").Simplify().Print();      // -x^2 * y
 ExprParser.Parse("(x + 1) - 1").Simplify().Print();   // x
 ```
 
-**Common factors cancel** in quotients, and the numbers in them reduce like a fraction:
+A number anywhere in a term counts as its coefficient, square roots of numbers included, and so
+does the sign of a sum in it, so terms that differ only by one add up. A term without such a
+partner keeps its form:
 
 ```csharp
-ExprParser.Parse("(2x)/(4x)").Simplify().Print();       // 1/2
-ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();   // x
-ExprParser.Parse("x^3/x").Simplify().Print();           // x^2
-ExprParser.Parse("4x/6").Simplify().Print();            // 2x / 3
-ExprParser.Parse("x/(-2)").Simplify().Print();          // -x / 2
+ExprParser.Parse("x/(2*y) + x/(3*y)").Simplify().Print();               // 5x / (6y)
+ExprParser.Parse("x*sqrt(2) + x/sqrt(2)").Simplify().Print();           // 3sqrt(2) * x / 2
+ExprParser.Parse("(1/6)*pi*sqrt(3) + pi/(6*sqrt(3))").Simplify().Print(); // 2 * π * sqrt(3) / 9
+ExprParser.Parse("2*(a - b) + 2*(b - a)").Simplify().Print();           // 0
+ExprParser.Parse("x/sqrt(3)").Simplify().Print();                       // x / sqrt(3)
+```
+
+A power 1/2 is written as a square root, and a square root counts as the power 1/2 among the
+other factors:
+
+```csharp
+ExprParser.Parse("x^(1/2)").Simplify().Print();             // sqrt(x)
+ExprParser.Parse("x*sqrt(x)").Simplify().Print();           // x^(3/2)
+ExprParser.Parse("sqrt(y) - y^(1/2)").Simplify().Print();   // 0
+```
+
+**Common factors cancel** in quotients, and the numbers in them reduce like a fraction. A sum
+that divides a multiplied-out sum on the other side as a polynomial cancels too; in Strict mode
+only where it is known not to be 0:
+
+```csharp
+ExprParser.Parse("(2x)/(4x)").Simplify().Print();             // 1/2
+ExprParser.Parse("(x^2*y)/(x*y)").Simplify().Print();         // x
+ExprParser.Parse("x^3/x").Simplify().Print();                 // x^2
+ExprParser.Parse("3x^(3/2)/(2x)").Simplify().Print();         // 3sqrt(x) / 2
+ExprParser.Parse("4x/6").Simplify().Print();                  // 2x / 3
+ExprParser.Parse("x/(-2)").Simplify().Print();                // -x / 2
+ExprParser.Parse("(x^2 - 1)/(x - 1)").Simplify().Print();     // x + 1
+ExprParser.Parse("(x^3 - y^3)/(x - y)").Simplify().Print();   // x^2 + x * y + y^2
+```
+
+**Fractions that cancel are put over a common denominator**: terms that share a base in their
+denominators, or a root in one and the other, are added up as one fraction with the numerator
+multiplied out, and kept that way where something then cancels. Where nothing does, the terms
+keep their form. In Strict mode a denominator that may be 0 is kept:
+
+```csharp
+ExprParser.Parse("x/(x + 1) + 1/(x + 1)").Simplify().Print();                     // 1
+ExprParser.Parse("sqrt(x^2 + 1) - x^2/sqrt(x^2 + 1)").Simplify().Print();         // 1 / sqrt(x^2 + 1)
+ExprParser.Parse("1/x + 1/y").Simplify().Print();                                 // 1 / x + 1 / y
+```
+
+A sum with fractions in a denominator always goes over its common denominator, which moves up.
+Where that denominator is 0 the quotient wasn't defined, so Strict mode needs it known not to be 0:
+
+```csharp
+ExprParser.Parse("1/(1 + 1/x)").Simplify().Print();           // x / (x + 1)
+ExprParser.Parse("1/((y^2/z^2 + 1)*z)").Simplify().Print();   // z / (y^2 + z^2)
 ```
 
 **Identities.** The Pythagorean identities (`sin^2 + cos^2 = 1`, `sec^2 - tan^2 = 1`,
-`csc^2 - cot^2 = 1`) work across a whole sum, with any coefficients and other terms in
-between:
+`csc^2 - cot^2 = 1`) and their hyperbolic forms (`cosh^2 - sinh^2 = 1`, `sech^2 + tanh^2 = 1`,
+`coth^2 - csch^2 = 1`) work across a whole sum, with any coefficients, a common factor and
+other terms in between:
 
 ```csharp
 ExprParser.Parse("2sin(x)^2 + 2cos(x)^2 + 1").Simplify().Print();   // 3
@@ -65,11 +112,63 @@ ExprParser.Parse("1 - sin(x)^2").Simplify().Print();                // cos(x)^2
 ExprParser.Parse("sec(x)^2 - tan(x)^2").Simplify().Print();         // 1
 ExprParser.Parse("y - csc(x)^2 + cot(x)^2").Simplify().Print();     // y - 1
 ExprParser.Parse("2sec(x)^2 - tan(x)^2").Simplify().Print();        // sec(x)^2 + 1
+ExprParser.Parse("1 + tan(x)^2").Simplify().Print();                // sec(x)^2
+ExprParser.Parse("r^2*cos(t)^2 + r^2*sin(t)^2").Simplify().Print(); // r^2
+ExprParser.Parse("1 + sinh(t)^2").Simplify().Print();               // cosh(t)^2
 ExprParser.Parse("sin(x)/cos(x)").Simplify().Print();               // tan(x)
 ```
 
-Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `sqrt(x)^2 = x`, `tan(x) * cot(x) = 1`, `abs` of
-a non-negative expression, and more.
+Also `ln(exp(x)) = x`, `exp(ln(x)) = x`, `exp(2ln(x)) = x^2`, `sqrt(x)^2 = x`,
+`tan(x) * cot(x) = 1`, `abs` of a non-negative expression, and more.
+
+**Powers of e leave a logarithm**: `ln(exp(x) * y) = x + ln(y)`, since `exp(x) > 0`. The other
+way, logarithms with a number in front leave an exponential, on the terms of `exp(ln(x)) = x`.
+Logarithms of sums of powers of e add up where one sum is the other times a power of e:
+
+```csharp
+ExprParser.Parse("ln(exp(x)/(exp(x) + 1))").Simplify().Print();            // x - ln(exp(x) + 1)
+ExprParser.Parse("exp(x - ln(exp(x) + 1))").Simplify().Print();            // exp(x) / (exp(x) + 1)
+ExprParser.Parse("ln(exp(1) + 1) - ln(exp(-1) + 1)").Simplify().Print();   // 1
+```
+
+**Even powers leave a square root** where the rest under it is known to be non-negative, and
+so do the square factors of a number in it. `abs` of an expression known to be positive, such
+as `cosh` or `exp`, is the expression:
+
+```csharp
+ExprParser.Parse("sqrt(4*cosh(t)^2)").Simplify().Print();   // 2cosh(t)
+ExprParser.Parse("sqrt(2*x^2)").Simplify().Print();         // sqrt(2) * abs(x)
+ExprParser.Parse("sqrt(x^4)").Simplify().Print();           // x^2
+ExprParser.Parse("sqrt(x^2*y)").Simplify().Print();         // sqrt(x^2 * y)
+ExprParser.Parse("sqrt(pi/4)").Simplify().Print();          // sqrt(π) / 2
+ExprParser.Parse("sqrt(8*x)").Simplify().Print();           // 2sqrt(2x)
+```
+
+**An inverse function after its function** gives the argument back: `tan(atan(x)) = x`,
+`asinh(sinh(x)) = x`, `acosh(cosh(x)) = abs(x)` and the like. Where the inverse is defined only
+on part of the line, as for `sin(asin(x))`, that holds in Generic mode. At a number, the
+inverse trigonometric functions land in their principal range:
+
+```csharp
+ExprParser.Parse("tan(atan(x))").Simplify().Print();    // x
+ExprParser.Parse("atan(tan(10))").Simplify().Print();   // 10 - 3 * π
+ExprParser.Parse("acos(cos(10))").Simplify().Print();   // 4 * π - 10
+```
+
+**Odd and even functions** take the minus sign out of the argument: sin, tan, cot, csc, their
+hyperbolic versions, asin, atan, asinh, atanh, sign and odd roots are odd; cos, sec, cosh,
+sech and abs are even, and so are even powers. A minus in front of a sum goes into its terms,
+and a sum of only negative terms gives its minus to the function; a sum with both signs keeps
+its form, so `sin(1 - x)` stays:
+
+```csharp
+ExprParser.Parse("sin(-x) + sin(x)").Simplify().Print();   // 0
+ExprParser.Parse("cos(-2x)").Simplify().Print();           // cos(2x)
+ExprParser.Parse("atan(-x/2)").Simplify().Print();         // -atan(x / 2)
+ExprParser.Parse("(-x)^3").Simplify().Print();             // -x^3
+ExprParser.Parse("-(x - y)").Simplify().Print();           // y - x
+ExprParser.Parse("cos(-x - 1)").Simplify().Print();        // cos(x + 1)
+```
 
 **Exact values of functions** at the usual points: the trigonometric functions at
 multiples of pi/6 and pi/4, `asin`, `acos` and `atan` at the matching values, `ln(1)`,
@@ -83,8 +182,40 @@ ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ExprParser.Parse("acos(-1/2)").Simplify().Print();   // 2 * π / 3
 ExprParser.Parse("sqrt(8)").Simplify().Print();      // 2sqrt(2)
 ExprParser.Parse("1/sqrt(2)").Simplify().Print();    // sqrt(2) / 2
+ExprParser.Parse("12^(3/2)").Simplify().Print();     // 24sqrt(3)
 ExprParser.Parse("2sin(pi/3)").Simplify().Print();   // sqrt(3)
 ExprParser.Parse("ln(e^2)").Simplify().Print();      // 2
+```
+
+Logarithms of rational numbers take out a perfect power and write `ln(1/n)` as `-ln(n)`, and
+in a sum they merge where the coefficients are multiples of the smallest one:
+
+```csharp
+ExprParser.Parse("ln(9)").Simplify().Print();                           // 2ln(3)
+ExprParser.Parse("ln(1/8)").Simplify().Print();                         // -3ln(2)
+ExprParser.Parse("(1/2)*ln(1/2) - (1/2)*ln(1/3)").Simplify().Print();   // ln(3/2) / 2
+ExprParser.Parse("ln(6) - ln(2) - ln(3)").Simplify().Print();           // 0
+```
+
+A number divided by a sum with a square root, such as `sqrt(3) + 2`, is multiplied by the
+conjugate, so no root is left in the denominator, and the sign of such a number is known
+exactly. Roots of two different numbers are left as they are:
+
+```csharp
+ExprParser.Parse("1/(sqrt(3) + 2)").Simplify().Print();          // 2 - sqrt(3)
+ExprParser.Parse("-2/(2*sqrt(2) + 4) + 1").Simplify().Print();   // sqrt(2) / 2
+ExprParser.Parse("abs(1 - sqrt(2))").Simplify().Print();         // sqrt(2) - 1
+ExprParser.Parse("(sqrt(2) - 1)*(sqrt(2) + 1)").Simplify().Print();   // 1
+ExprParser.Parse("1/(sqrt(2) + sqrt(3))").Simplify().Print();    // 1 / (sqrt(2) + sqrt(3))
+```
+
+Other numbers get `abs` and `sign` from their value, where it is clear of rounding. A number
+that is 0 without being recognized as such, like `cos(3pi/8) - sin(pi/8)`, keeps its `abs`:
+
+```csharp
+ExprParser.Parse("abs(1 - pi)").Simplify().Print();                    // π - 1
+ExprParser.Parse("sign(cos(2))").Simplify().Print();                   // -1
+ExprParser.Parse("abs(cos(3pi/8) - sin(pi/8))").Simplify().Print();    // abs(cos(3 * π / 8) - sin(π / 8))
 ```
 
 Where a function is undefined it stays as it is: `tan(pi/2)` and `csc(0)` are not folded.
@@ -113,7 +244,7 @@ denominator is a number: then every term is divided. Negative powers are left as
 
 ```csharp
 ExprParser.Parse("(x + 1)^2/(x - 1)").Expand().Print();   // (x^2 + 2x + 1) / (x - 1)
-ExprParser.Parse("(x + 1)^2/2").Expand().Print();         // (1/2) * x^2 + x + 1/2
+ExprParser.Parse("(x + 1)^2/2").Expand().Print();         // x^2 / 2 + x + 1/2
 ExprParser.Parse("(x + 1)^-2").Expand().Print();          // (x + 1)^-2
 ```
 
@@ -150,9 +281,12 @@ More examples of the difference:
 |---|---|---|---|
 | `x^3/x` | `x^2` | `x^3 / x` | x = 0 |
 | `0/x` | `0` | `0 / x` | x = 0 |
+| `0*ln(x)` | `0` | `0 * ln(x)` | x <= 0 |
+| `x/y - x/y` | `0` | `0 / y` | y = 0 |
 | `1/(2/x)` | `x / 2` | `1 / (2 / x)` | x = 0 |
 | `sqrt(x)^2` | `x` | `sqrt(x)^2` | x < 0 |
 | `exp(ln(x))` | `x` | `exp(ln(x))` | x ≤ 0 |
+| `sin(asin(x))` | `x` | `sin(asin(x))` | abs(x) > 1 |
 | `tan(x)*cot(x)` | `1` | `cot(x) * tan(x)` | multiples of π/2 |
 
 Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both modes.
@@ -161,10 +295,12 @@ Rewrites that change no domain, like `sin(x)/cos(x) = tan(x)`, happen in both mo
 expression is undefined, or before root finding. `SolveNumerically` simplifies `left - right`
 in Strict mode internally, so `x^2/x = 0` has no solution at 0.
 
-Even Generic mode never folds a literal `0/0` and never changes a value that is defined:
+Even Generic mode never folds a literal `0/0`, or 0 times something undefined everywhere, and
+never changes a value that is defined:
 
 ```csharp
-ExprParser.Parse("0/0").Simplify().Print();   // 0 / 0
+ExprParser.Parse("0/0").Simplify().Print();       // 0 / 0
+ExprParser.Parse("0*ln(0)").Simplify().Print();   // 0 * ln(0)
 ```
 
 ## Cost

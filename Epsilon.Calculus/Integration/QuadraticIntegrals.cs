@@ -42,19 +42,13 @@ internal sealed class QuadraticIntegrals
         if (p.GetVariables().Count > 0)
             return null;
 
-        Expr b, c;
-        try
-        {
-            b = first.Substitute(variable, 0).Simplify();
-            c = q.Substitute(variable, 0).Simplify();
-        }
-        catch (DivideByZeroException)
-        {
-            // Not a polynomial, as ((u + 1/u)/2 + 2) u: the core's Simplify throws on 0^-1.
-            return null;
-        }
-
+        Expr b = first.Substitute(variable, 0).Simplify();
+        Expr c = q.Substitute(variable, 0).Simplify();
         if (b.GetVariables().Count > 0 || c.GetVariables().Count > 0)
+            return null;
+
+        // Not a polynomial, as ((u + 1/u)/2 + 2) u: undefined at 0, with 0^-1 in c.
+        if (!double.IsFinite(b.Evaluate()) || !double.IsFinite(c.Evaluate()))
             return null;
 
         Expr h = (-b / (2 * p)).Simplify();

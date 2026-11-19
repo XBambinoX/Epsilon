@@ -10,7 +10,7 @@ a symbolic equation solver and protection against deep nesting. The only excepti
 `min`/`max` over the complex numbers, which can't exist mathematically. See the
 [roadmap](../README.md#roadmap) for the order.
 
-Everything here reflects version 1.2.0. Each example is checked by a test
+Everything here reflects version 1.3.0. Each example is checked by a test
 (in `Epsilon.Tests/Core/DocsExamplesTests.cs`), so when a limitation is lifted this page is
 updated with it.
 
@@ -30,22 +30,23 @@ ExprParser.Parse("x^2 - y^2").TryFactorReal("x").Success;   // false: other vari
 ### Exact values only at the usual points
 
 `Simplify` knows the trigonometric functions at multiples of pi/6 and pi/4, their inverses at
-the matching values, and square roots of rational numbers
-([details](simplification.md#what-it-does)). Other angles, logarithms of other numbers and
-roots written as powers are left as they are:
+the matching values, square roots and logarithms of rational numbers
+([details](simplification.md#what-it-does)). Other angles and roots of numbers that aren't
+exact, other than square roots, are left as they are, and a logarithm is not split into the
+logarithms of primes:
 
 ```csharp
 ExprParser.Parse("sin(pi/12)").Simplify().Print();   // sin(π / 12)   (not (sqrt(6) - sqrt(2)) / 4)
-ExprParser.Parse("ln(8)").Simplify().Print();        // ln(8)         (not 3ln(2))
-ExprParser.Parse("8^(1/2)").Simplify().Print();      // 8^(1/2)       (not 2sqrt(2))
+ExprParser.Parse("16^(1/3)").Simplify().Print();     // 16^(1/3)      (not 2 * 2^(1/3))
+ExprParser.Parse("ln(6)").Simplify().Print();        // ln(6)         (not ln(2) + ln(3))
 ```
 
 `Evaluate` still gives the numeric values.
 
 ### Few identities
 
-`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1` and the `sec`/`tan`,
-`csc`/`cot` forms), `sin/cos = tan` and similar quotients, and inverse pairs such as
+`Simplify` knows the Pythagorean identities (`sin(x)^2 + cos(x)^2 = 1`, the `sec`/`tan` and
+`csc`/`cot` forms and the hyperbolic ones), `sin/cos = tan` and similar quotients, and inverse pairs such as
 `ln(exp(x)) = x`. It does not apply double-angle formulas or logarithm rules:
 
 ```csharp

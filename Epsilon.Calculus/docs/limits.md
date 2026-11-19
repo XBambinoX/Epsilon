@@ -32,7 +32,7 @@ ExprParser.Parse("1/(x - 2)^2").Limit("x", 2).Print();         // inf
 
 The point is an `Expr`, or a `double`, which is taken as the decimal it prints as, as for
 [series](series.md#taylor-series): `Math.PI` is 314159265358979/100000000000000, so give pi as
-`ExprParser.Parse("pi")` or `new Pi()`. Without a variable name, the expression's only variable
+`ExprParser.Parse("pi")` or `Expr.PI`. Without a variable name, the expression's only variable
 is taken:
 
 ```csharp
@@ -53,7 +53,7 @@ ExprParser.Parse("sqrt(x^2 + x) - x").Limit("x", inf).Print();    // 1/2
 ExprParser.Parse("x^7/exp(x)").Limit("x", inf).Print();           // 0
 ExprParser.Parse("ln(x)/x").Limit("x", inf).Print();              // 0
 ExprParser.Parse("(2^x + 3^x)^(1/x)").Limit("x", inf).Print();    // 3
-ExprParser.Parse("atan(x)").Limit("x", double.NegativeInfinity).Print();    // (-1/2) * π
+ExprParser.Parse("atan(x)").Limit("x", double.NegativeInfinity).Print();    // -π / 2
 ExprParser.Parse("x*exp(x)").Limit("x", double.NegativeInfinity).Print();   // 0
 ```
 

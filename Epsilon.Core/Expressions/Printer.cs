@@ -113,6 +113,7 @@ public static class Printer
         var factors = new List<Expr>();
         FlattenMultiply(left, factors);
         FlattenMultiply(right, factors);
+        factors = SumTerms.FactorsInDisplayOrder(factors);
 
         Constant? constant = null;
         int constantCount = 0;
@@ -131,28 +132,38 @@ public static class Printer
             }
         }
 
+        // A fractional coefficient is written as a division, the form Simplify gives c * pi:
+        // x / 2, -3ln(y) / 4, (x + 1) / 2, so that pi / 4 prints one way whichever tree it is.
+        if (constantCount == 1 && rest.Count > 0 && !constant!.Value.IsInteger)
+            return $"{PrintScaled(new Rational(constant.Value.Numerator), rest)} / {constant.Value.Denominator}";
+
         // An integer coefficient is written next to the first factor (2x, -3x^2, 2cos(x) * y);
         // everything else keeps an explicit " * ". Juxtaposing two non-constant factors could
         // re-tokenize into something else: a * sinh(x) would print as "asinh(x)", and variables
-        // c, o, s as "cos". A fractional coefficient would read as a division: "1/2x" looks
-        // like 1/(2x).
+        // c, o, s as "cos". A 0 kept in front of a factor (0 * ln(x) in Strict mode) stays apart
+        // too: "0x" would look like a hexadecimal number.
         bool canUseImplicit = constantCount <= 1 &&
+                              constant?.Value.IsZero != true &&
                               rest.Count > 0 &&
-                              (constant is null || constant.Value.IsInteger) &&
                               CanBeImplicitFactor(rest[0]);
 
-        if (!canUseImplicit)
-            return string.Join(" * ", factors.Select(f => PrintInternal(f, 3)));
+        return canUseImplicit
+            ? PrintScaled(constant?.Value ?? Rational.One, rest)
+            : string.Join(" * ", factors.Select(f => PrintInternal(f, 3)));
+    }
 
-        var coefficient = constant?.Value ?? Rational.One;
+    // An integer coefficient times the factors: 2x * y, -sin(x), 3 * 2^x, -(x + 1) * y.
+    private static string PrintScaled(Rational coefficient, List<Expr> factors)
+    {
         string sign = coefficient.Sign < 0 ? "-" : "";
         var absCoefficient = coefficient.Abs();
-        string coefficientPart = absCoefficient.IsOne ? "" : absCoefficient.ToString();
+        Expr head = factors[0];
 
-        string first = $"{sign}{coefficientPart}{PrintInternal(rest[0], Precedence(rest[0]))}";
-        return rest.Count == 1
-            ? first
-            : string.Join(" * ", rest.Skip(1).Select(f => PrintInternal(f, 3)).Prepend(first));
+        string first = CanBeImplicitFactor(head)
+            ? $"{(absCoefficient.IsOne ? "" : absCoefficient.ToString())}{PrintInternal(head, Precedence(head))}"
+            : absCoefficient.IsOne ? PrintInternal(head, 3) : $"{absCoefficient} * {PrintInternal(head, 3)}";
+
+        return sign + string.Join(" * ", factors.Skip(1).Select(f => PrintInternal(f, 3)).Prepend(first));
     }
 
     private static void FlattenMultiply(Expr expr, List<Expr> factors)

@@ -91,8 +91,27 @@ internal sealed class Gruntz(string variable)
             throw new NotSupportedException($"{simplified.Print()} isn't real.");
 
         double value = simplified.Evaluate();
-        return double.IsNaN(value) ? throw new NotSupportedException($"{simplified.Print()} isn't a number.") : Math.Sign(value);
+        if (double.IsNaN(value))
+            throw new NotSupportedException($"{simplified.Print()} isn't a number.");
+
+        // A value within rounding of 0 next to the size of its terms may be 0 the simplifier
+        // doesn't see, as with sqrt(2sqrt(2) + 3) - sqrt(2) - 1: its sign isn't taken.
+        if (Math.Abs(value) <= MaxRoundingShare * Magnitude(simplified))
+            throw new NotSupportedException($"Whether {simplified.Print()} is 0 isn't known.");
+        return Math.Sign(value);
     }
+
+    private const double MaxRoundingShare = 1e-10;
+
+    // The size of the terms a constant is made of, |a| + |b| for a - b.
+    private static double Magnitude(Expr c) => c switch
+    {
+        Add or Subtract => Magnitude(c.Children[0]) + Magnitude(c.Children[1]),
+        Negate negate => Magnitude(negate.Argument),
+        Multiply product => Magnitude(product.Left) * Magnitude(product.Right),
+        Divide quotient => Magnitude(quotient.Numerator) / Math.Abs(quotient.Denominator.Evaluate()),
+        _ => Math.Abs(c.Evaluate()),
+    };
 
     // The coefficient and exponent of the lowest term c w^e of e with its mrv set written in w.
     private (Expr Coefficient, Rational Exponent) LeadingTerm(Expr e)
@@ -110,7 +129,10 @@ internal sealed class Gruntz(string variable)
         List<Expr> elements = omega;
         if (omega.IndexOf(_x) is var level and >= 0)
         {
-            elements = [.. omega.Select(element => element.Substitute(variable, new Exp(_x)).Simplify())];
+            // Only the arguments are simplified: Simplify writes exp(ln(1/x)/x) as (1/x)^(1/x).
+            elements = [.. omega.Select(element => element is Exp exp
+                ? new Exp(exp.Argument.Substitute(variable, new Exp(_x)).Simplify())
+                : element.Substitute(variable, new Exp(_x)).Simplify())];
             arguments[level] = _x;
         }
 
@@ -162,11 +184,18 @@ internal sealed class Gruntz(string variable)
         }
 
         var expander = new SeriesExpander(w.Name, 0, sign > 0 ? -g : g);
-        f = f.Simplify();
+        f = Exponentials(f.Simplify());
         if (expander.Valuation(f) is not { } exponent)
             return (0, 0);
 
         return (expander.Expand(f, exponent + 1).Leading.Simplify(), exponent);
+    }
+
+    // Simplify writes exp(c ln(u)) as u^c, which the expansion in w can't raise to a c with x in it.
+    private static Expr Exponentials(Expr e)
+    {
+        e = e.MapChildren(Exponentials);
+        return e is Power { Exponent: not Constant } power ? new Exp(power.Exponent * new Ln(power.Base)) : e;
     }
 
     private Rational Ratio(Expr a, Expr b)

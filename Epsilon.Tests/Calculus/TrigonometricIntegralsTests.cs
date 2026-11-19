@@ -45,6 +45,8 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(cos(x) + cosh(1))")]
     [InlineData("1/(cos(x) - sqrt(5))")]
     [InlineData("1/(sqrt(3) + cos(x/2))")]
+    [InlineData("1/(pi + cos(x)^2)")]                    // Bioche's fractions put together by the core
+    [InlineData("1/(sqrt(2) + cos(x))^2")]
     [InlineData("1/(1 + 2*cos(x))")]
     [InlineData("1/(1/2 + cos(x))")]
     [InlineData("1/(sqrt(2) + sin(x) + cos(x))")]
@@ -90,6 +92,9 @@ public class TrigonometricIntegralsTests
     [InlineData("1/(1 + sinh(x))")]
     [InlineData("1/(sinh(x)^2*cosh(x))")]
     [InlineData("cosh(x)^2/sinh(x)^2")]
+    [InlineData("cos(2*(x + 1))*cos(2*x + 2)")]   // the same argument written two ways: was 0^-1 in the result
+    [InlineData("sin(3*(x - 1))*sin(3*x - 3)")]
+    [InlineData("sin(2*(x + 1))*cos(2*x + 2)")]
     public void The_derivative_of_the_antiderivative_is_the_integrand(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -120,21 +125,30 @@ public class TrigonometricIntegralsTests
     // Odd in cos: t = sin x.
     [Fact]
     public void Odd_in_cos() =>
-        Assert.Equal("(1/3) * sin(x)^3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
+        Assert.Equal("sin(x)^3 / 3 - 1 / sin(x) - 2sin(x)", Integral("cos(x)^5/sin(x)^2"));
 
     // Even in both together: t = tan x, with atan(tan(x)/2) written as the angle that goes on.
     [Fact]
     public void Even_in_both()
     {
-        Assert.Equal("(1/3) * tan(x)^3", Integral("sin(x)^2/cos(x)^4"));
-        Assert.Equal("(1/2) * (x + atan(-sin(2x) / (cos(2x) + 3)))", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
-        Assert.Equal("(1/2) * x - tan(x) / (2tan(x)^2 + 2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
+        Assert.Equal("tan(x)^3 / 3", Integral("sin(x)^2/cos(x)^4"));
+        Assert.Equal("(x - atan(sin(2x) / (cos(2x) + 3))) / 2", Integral("1/(sin(x)^2 + 4*cos(x)^2)"));
+        Assert.Equal("x / 2 - tan(x) / (2sec(x)^2)", Integral("tan(x)^2/(1 + tan(x)^2)"));
     }
 
     // Where several rules apply, the shortest result: t = tan x here.
     [Fact]
     public void The_shortest_of_the_rules() =>
         Assert.Equal("ln(abs(tan(x)))", Integral("1/(sin(x)*cos(x))"));
+
+    // The same linear argument written two ways is the same: cos(a - b) was cos(0 x + c), and
+    // its integral divided by 0.
+    [Fact]
+    public void Products_of_equal_arguments_written_differently()
+    {
+        Assert.Equal("(x + sin(4x + 4) / 4) / 2", Integral("cos(2*(x + 1))*cos(2*x + 2)"));
+        Assert.Equal("sec(2 * (x + 1)) / 2", Integral("sec(2*(x + 1))*tan(2*x + 2)"));
+    }
 
     // sin(k x) and cos(k x) by the multiple-angle formulas, and any linear argument.
     [Fact]
@@ -157,19 +171,19 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void Linear_in_cos_and_sin_over_linear_in_cos_and_sin()
     {
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
-        Assert.Equal("(1/4) * (x + 2atan(sin(x) / (-cos(x) + 3)))", Integral("1/(5 - 3*cos(x))"));
-        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
-        Assert.Equal("(x + 2atan(-sin(x) / (cos(x) + exp(1)))) / sinh(1)", Integral("1/(cos(x) + cosh(1))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + sqrt(3) + 2))) / sqrt(3)", Integral("1/(2 + cos(x))"));
+        Assert.Equal("(x + 2atan(sin(x) / (-cos(x) + 3))) / 4", Integral("1/(5 - 3*cos(x))"));
+        Assert.Equal("x - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("1/(sqrt(2) + cos(x))"));
+        Assert.Equal("(x - 2atan(sin(x) / (cos(x) + exp(1)))) / sinh(1)", Integral("1/(cos(x) + cosh(1))"));
         Assert.Equal("10 * (x + 2atan((4cos(x) - 9sin(x)) / (4sin(x) + 9cos(x) + sqrt(3) + 10))) / sqrt(3)",
             Integral("1/(1 + 0.9*cos(x) + 0.4*sin(x))"));
 
-        Assert.Equal("(1/4) * ln(abs((-4cos(x) + 3sin(x) + 5) / (5sin(x) + 3)))", Integral("1/(3 + 5*sin(x))"));
-        Assert.Equal("ln(abs((-cos(x) + sin(x) + sqrt(2)) / (cos(x) + sin(x)))) / sqrt(2)", Integral("1/(sin(x) + cos(x))"));
+        Assert.Equal("ln(abs((3sin(x) - 4cos(x) + 5) / (5sin(x) + 3))) / 4", Integral("1/(3 + 5*sin(x))"));
+        Assert.Equal("ln(abs((sin(x) - cos(x) + sqrt(2)) / (cos(x) + sin(x)))) / sqrt(2)", Integral("1/(sin(x) + cos(x))"));
 
         Assert.Equal("x + cos(x) / (sin(x) + 1)", Integral("sin(x)/(1 + sin(x))"));
         Assert.Equal("sin(x) / (cos(x) + 1) - ln(abs(cos(x) + 1))", Integral("(1 + sin(x))/(1 + cos(x))"));
-        Assert.Equal("x + 2atan(-sin(x) / (cos(x) + sqrt(2) + 1)) - ln(abs(cos(x) + sqrt(2)))", Integral("(1 + sin(x))/(sqrt(2) + cos(x))"));
+        Assert.Equal("x - ln(abs(cos(x) + sqrt(2))) - 2atan(sin(x) / (cos(x) + sqrt(2) + 1))", Integral("(1 + sin(x))/(sqrt(2) + cos(x))"));
     }
 
     // atan(p tan(u) + q) jumped by pi where tan u does, and F(2 pi) - F(0) of 1/(2 + cos(x)) was 0.
@@ -209,25 +223,25 @@ public class TrigonometricIntegralsTests
 
     [Fact]
     public void By_parts_with_the_half_angle() =>
-        Assert.Equal("tan(x / 2) * x + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
+        Assert.Equal("x * tan(x / 2) + 2ln(abs(cos(x / 2)))", Integral("x/(1 + cos(x))"));
 
     // sqrt(q) for q = p((x - h)^2 + k) with p, k < 0: x - h = sqrt(-k) sin(a), sqrt(q) a multiple of cos(a).
     [Fact]
     public void Square_roots_by_sin()
     {
-        Assert.Equal("-(1/2) * sqrt(-x^2 + 1) * x + (1/2) * asin(x)", Integral("x^2/sqrt(1 - x^2)"));
+        Assert.Equal("-x * sqrt(-x^2 + 1) / 2 + asin(x) / 2", Integral("x^2/sqrt(1 - x^2)"));
         Assert.Equal("-sqrt(-x^2 + 4) / x - asin(x / 2)", Integral("sqrt(4 - x^2)/x^2"));
-        Assert.Equal("(1/2) * asin(x) * x^2 + (1/4) * sqrt(-x^2 + 1) * x - (1/4) * asin(x)", Integral("x*asin(x)"));
+        Assert.Equal("x^2 * asin(x) / 2 + x * sqrt(-x^2 + 1) / 4 - asin(x) / 4", Integral("x*asin(x)"));
     }
 
     // p, k > 0: x - h = sqrt(k) sinh(a), sqrt(q) a multiple of cosh(a).
     [Fact]
     public void Square_roots_by_sinh()
     {
-        Assert.Equal("(1/4) * x^3 * sqrt(x^2 + 1) + (1/8) * sqrt(x^2 + 1) * x - (1/8) * asinh(x)", Integral("x^2*sqrt(x^2 + 1)"));
+        Assert.Equal("x^3 * sqrt(x^2 + 1) / 4 + x * sqrt(x^2 + 1) / 8 - asinh(x) / 8", Integral("x^2*sqrt(x^2 + 1)"));
         Assert.Equal("-sqrt(x^2 + 4) / (4x)", Integral("1/(x^2*sqrt(4 + x^2))"));
         Assert.Equal("x / sqrt(x^2 + 1)", Integral("1/(1 + x^2)^(3/2)"));
-        Assert.Equal("(1/2) * sqrt(x^2 + 2x + 5) * x - asinh((1/2) * x + 1/2) - (3/2) * sqrt(x^2 + 2x + 5)", Integral("x^2/sqrt(x^2 + 2*x + 5)"));
+        Assert.Equal("x * sqrt(x^2 + 2x + 5) / 2 - asinh(x / 2 + 1/2) - 3sqrt(x^2 + 2x + 5) / 2", Integral("x^2/sqrt(x^2 + 2*x + 5)"));
     }
 
     // p > 0 > k: x - h = s sqrt(-k) cosh(a) for the sign s of x - h, so the result holds on both
@@ -236,9 +250,9 @@ public class TrigonometricIntegralsTests
     public void Square_roots_by_cosh()
     {
         Assert.Equal("sqrt(x^2 - 1) / x", Integral("1/(x^2*sqrt(x^2 - 1))"));
-        Assert.Equal("sqrt(x^2 - 1) / (2x^2) + (1/2) * atan(sqrt(x^2 - 1))", Integral("1/(x^3*sqrt(x^2 - 1))"));
-        Assert.Equal("(1/4) * x^3 * sqrt(x^2 - 1) - (1/8) * sqrt(x^2 - 1) * x - (1/8) * ln(abs(x + sqrt(x^2 - 1)))", Integral("x^2*sqrt(x^2 - 1)"));
-        Assert.Equal("(1/2) * sqrt(x^2 - 2x) * x + (3/2) * ln(abs(x + sqrt(x^2 - 2x) - 1)) + (3/2) * sqrt(x^2 - 2x)", Integral("x^2/sqrt(x^2 - 2*x)"));
+        Assert.Equal("sqrt(x^2 - 1) / (2x^2) + atan(sqrt(x^2 - 1)) / 2", Integral("1/(x^3*sqrt(x^2 - 1))"));
+        Assert.Equal("x^3 * sqrt(x^2 - 1) / 4 - x * sqrt(x^2 - 1) / 8 - ln(abs(x + sqrt(x^2 - 1))) / 8", Integral("x^2*sqrt(x^2 - 1)"));
+        Assert.Equal("x * sqrt(x^2 - 2x) / 2 + 3ln(abs(x + sqrt(x^2 - 2x) - 1)) / 2 + 3sqrt(x^2 - 2x) / 2", Integral("x^2/sqrt(x^2 - 2*x)"));
     }
 
     // Where the sides of the gap differ, Euler's t = x + sqrt(q/p) takes both at once. These were
@@ -251,6 +265,7 @@ public class TrigonometricIntegralsTests
     [InlineData("x/((x + 5)*sqrt(x^2 - 2*x))")]
     [InlineData("1/(x*sqrt(2*x^2 - 4*x))")]
     [InlineData("1/(x*sqrt(3*x^2 - 2*x))")]
+    [InlineData("1/((x - pi)*sqrt(x^2 - 2*x))")]       // one formula on both sides since polynomials cancel
     public void Both_sides_of_the_gap_by_Euler_s_substitution(string integrand)
     {
         var f = ExprParser.Parse(integrand);
@@ -267,11 +282,11 @@ public class TrigonometricIntegralsTests
     [Fact]
     public void Both_sides_of_the_gap_apart()
     {
-        var f = ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 2*x))");
+        var f = ExprParser.Parse("1/((x - pi)*sqrt(x^2 - 1))");
         var antiderivative = f.Integrate("x");
-        Assert.Contains("sign(x - 1)", antiderivative.Print());
+        Assert.Contains("sign(x)", antiderivative.Print());
 
-        foreach (double x in new[] { -3.0, -0.5, 2.5, 4.0 })
+        foreach (double x in new[] { -3.0, -1.5, 2.5, 4.0 })
         {
             const double h = 1e-5;
             double slope = (antiderivative.Evaluate(("x", x + h)) - antiderivative.Evaluate(("x", x - h))) / (2 * h);

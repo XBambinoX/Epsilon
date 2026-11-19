@@ -229,14 +229,17 @@ public abstract class Expr : IEquatable<Expr>
     /// Applies <paramref name="map"/> to every child and rebuilds the node only if some child
     /// actually changed (by reference) - otherwise returns this node, allocating nothing.
     /// </summary>
-    public Expr MapChildren(Func<Expr, Expr> map)
+    public Expr MapChildren(Func<Expr, Expr> map) => MapChildren(map, static (child, f) => f(child));
+
+    // With the state passed along, for callers that run for every node and shouldn't allocate a closure.
+    internal Expr MapChildren<TState>(TState state, Func<Expr, TState, Expr> map)
     {
         ImmutableArray<Expr> children = Children;
         Expr[]? changed = null;
 
         for (int i = 0; i < children.Length; i++)
         {
-            Expr mapped = map(children[i]);
+            Expr mapped = map(children[i], state);
             if (!ReferenceEquals(mapped, children[i]))
             {
                 changed ??= [.. children];
@@ -306,8 +309,33 @@ public abstract class Expr : IEquatable<Expr>
         return variables;
     }
 
+    // Whether any variable occurs, without building the set GetVariables returns.
+    internal bool HasVariables()
+    {
+        ImmutableArray<Expr> children = Children;
+        if (children.Length == 0)
+            return this is Variable || GetVariables().Count > 0;
+
+        foreach (Expr child in children)
+            if (child.HasVariables())
+                return true;
+        return false;
+    }
+
     /// <summary>Whether <paramref name="variable"/> occurs in the expression.</summary>
-    public virtual bool DependsOn(string variable) => GetVariables().Contains(variable);
+    public virtual bool DependsOn(string variable)
+    {
+        // Child by child, out at the first: building the set of all the variables for one name
+        // was a good part of what integration allocated.
+        ImmutableArray<Expr> children = Children;
+        if (children.Length == 0)
+            return GetVariables().Contains(variable);
+
+        foreach (Expr child in children)
+            if (child.DependsOn(variable))
+                return true;
+        return false;
+    }
 
     /// <summary>
     /// Replaces every occurrence of <paramref name="variable"/> with <paramref name="replacement"/>.
@@ -360,6 +388,13 @@ public abstract class Expr : IEquatable<Expr>
     /// <summary>This expression raised to <paramref name="exponent"/>: x.Pow(2) is x^2.</summary>
     public Expr Pow(Expr exponent) => new Power(this, exponent);
 
+    /// <summary>The constant pi, a <see cref="Epsilon.Core.Pi"/> node: <c>2 * Expr.PI</c>.</summary>
+    public static Expr PI { get; } = new Pi();
+    /// <summary>Euler's number e, an <see cref="EulerNumber"/> node: <c>Expr.E.Pow(x)</c>.</summary>
+    public static Expr E { get; } = new EulerNumber();
+    /// <summary>The imaginary unit i, an <see cref="ImaginaryUnit"/> node: <c>3 + 2 * Expr.I</c>.</summary>
+    public static Expr I { get; } = new ImaginaryUnit();
+
     /// <summary>An exact integer constant, so numbers mix with expressions: <c>2 * x</c>.</summary>
     public static implicit operator Expr(int value) => new Constant(value);
     /// <summary>An exact integer constant.</summary>
@@ -382,6 +417,9 @@ public abstract class Expr : IEquatable<Expr>
     /// <inheritdoc/>
     public override bool Equals(object? obj) => obj is Expr other && Equals(other);
     private int _hashCode;
+
+    // Set on what Canonicalize returns: an immutable tree that is canonical stays so.
+    internal bool IsCanonical { get; set; }
 
     /// <inheritdoc/>
     public override int GetHashCode()
@@ -429,9 +467,15 @@ public sealed class Constant : Expr
     /// A constant from the shortest decimal form of <paramref name="value"/>: 0.1 becomes exactly 1/10.
     /// </summary>
     /// <exception cref="ArgumentException"><paramref name="value"/> is NaN or infinite.</exception>
-    public Constant(double value) : this(Rational.FromDouble(value)) { }
+    public Constant(double value) : this(Exact(value)) { }
     /// <summary>An integer constant.</summary>
     public Constant(int value) : this(new Rational(value)) { }
+
+    private static Rational Exact(double value) => double.IsFinite(value)
+        ? Rational.FromDouble(value)
+        : throw new ArgumentException(
+            $"{Rational.DoubleName(value)} has no exact value, so it isn't a Constant; an infinite limit or bound goes to an overload that takes a double.",
+            nameof(value));
     // Without this, new Constant(5L) is ambiguous between the Rational and double overloads.
     /// <summary>An integer constant.</summary>
     public Constant(long value) : this(new Rational(value)) { }
@@ -501,6 +545,9 @@ public sealed class Variable(string name) : Expr
 
     /// <inheritdoc/>
     public override IReadOnlySet<string> GetVariables() => new HashSet<string> { Name };
+
+    /// <inheritdoc/>
+    public override bool DependsOn(string variable) => variable == Name;
 
     /// <inheritdoc/>
     public override Expr Substitute(string variable, Expr replacement) => variable == Name ? replacement : this;

@@ -33,12 +33,22 @@ through its shortest decimal form, so `0.1` becomes exactly `1/10`, not the near
 fraction. For values such as 1/3 that have no short decimal form, use `Rational`:
 
 ```csharp
-(0.1 * x).Print();                   // (1/10) * x
-(new Rational(1, 3) * x).Print();    // (1/3) * x
+(0.1 * x).Print();                   // x / 10
+(new Rational(1, 3) * x).Print();    // x / 3
 ```
 
 `double.NaN` and infinities have no exact value and throw `ArgumentException`. See
 [Numbers](numbers.md).
+
+### Constants
+
+`Expr.PI`, `Expr.E` and `Expr.I` are pi, Euler's number and the imaginary unit:
+
+```csharp
+(2 * Expr.PI * x).Print();               // 2 * π * x
+Expr.E.Pow(x).Print();                   // e^x
+(Expr.I * Expr.I).Simplify().Print();    // -1
+```
 
 ## Node types
 
@@ -53,7 +63,7 @@ All node types are public, so you can also construct them directly:
 | Other functions | `Exp`, `Ln`, `Sqrt`, `NthRoot`, `Abs`, `Sign`, `Floor`, `Ceiling`, `Round`, `Min`, `Max` |
 
 ```csharp
-Expr f = new Sin(x) + new Pi();
+Expr f = new Sin(x) + Expr.PI;
 f.Print();   // sin(x) + π
 ```
 

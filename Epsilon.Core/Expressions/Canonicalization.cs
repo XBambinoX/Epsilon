@@ -9,16 +9,24 @@ public static class Canonicalizer
     /// already returns canonical expressions. A tree that is already canonical is returned as the
     /// same instance; otherwise the parts that don't change are reused.
     /// </summary>
-    public static Expr Canonicalize(this Expr expr) => expr switch
+    public static Expr Canonicalize(this Expr expr)
     {
-        Add add => CanonicalizeAddChain(add),
-        Multiply multiply => CanonicalizeMultiplyChain(multiply),
+        if (expr.IsCanonical)
+            return expr;
 
-        // Every other node type: recurse into children via the shared walker,
-        // reusing Canonicalize itself so nested Add/Multiply chains still get
-        // flattened and sorted, not just generically rebuilt.
-        _ => expr.MapChildren(static child => child.Canonicalize())
-    };
+        Expr result = expr switch
+        {
+            Add add => CanonicalizeAddChain(add),
+            Multiply multiply => CanonicalizeMultiplyChain(multiply),
+
+            // Every other node type: recurse into children via the shared walker,
+            // reusing Canonicalize itself so nested Add/Multiply chains still get
+            // flattened and sorted, not just generically rebuilt.
+            _ => expr.MapChildren(static child => child.Canonicalize())
+        };
+        result.IsCanonical = true;
+        return result;
+    }
 
     // ---- Add: flatten -> canonicalize each term in place -> sort globally -> rebuild ----
 
@@ -163,7 +171,7 @@ public static class Canonicalizer
     // Total order used to sort terms and factors: by node type name, then by payload
     // (Constant value, Variable name), then child by child. Generic over Children, so
     // it covers every node type without listing them.
-    private static int StructuralCompare(Expr a, Expr b)
+    internal static int StructuralCompare(Expr a, Expr b)
     {
         if (ReferenceEquals(a, b))
             return 0;

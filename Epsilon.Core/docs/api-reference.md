@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.2.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.3.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 
@@ -83,6 +83,7 @@ The immutable expression tree that everything else works on. Guide: [Expressions
 |---|---|
 | `+ - * /` (binary), `-` (unary) | Build `Add`, `Subtract`, `Multiply`, `Divide`, `Negate` nodes, without simplifying. |
 | `Expr Pow(Expr exponent)` | Builds a `Power` node: `x.Pow(2)` is `x^2`. |
+| `static Expr PI`, `static Expr E`, `static Expr I` | Pi, Euler's number and the imaginary unit, as shared `Pi`, `EulerNumber` and `ImaginaryUnit` nodes: `2 * Expr.PI`. |
 | implicit from `int`, `long`, `Rational` | An exact `Constant`. |
 | implicit from `double` | A `Constant` from the shortest decimal form (`0.1` → `1/10`); throws `ArgumentException` for NaN and infinities. |
 

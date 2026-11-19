@@ -65,7 +65,7 @@ p;   // [0.9999999997962964, -1.9999999999999998]: the minimum is at (1, -2)
 The rate of change of a function along a direction is the gradient dotted with it:
 
 ```csharp
-ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // 2x * y + x^2
+ExprParser.Parse("x^2*y").DirectionalDerivative([1, 1], "x", "y").Print();   // x^2 + 2x * y
 ```
 
 The direction isn't normalized. Along a unit vector the result is the rate per unit of length;
@@ -80,7 +80,7 @@ The direction can be symbolic, such as the unit vector at an angle t:
 
 ```csharp
 f.DirectionalDerivative(Vector<Expr>.Parse("[cos(t), sin(t)]"), "x", "y").Print();
-// 2cos(t) * x * y + (x^2 + cos(y)) * sin(t)
+// 2x * y * cos(t) + (x^2 + cos(y)) * sin(t)
 ```
 
 ## Errors

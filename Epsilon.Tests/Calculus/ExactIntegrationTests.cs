@@ -34,29 +34,34 @@ public class ExactIntegrationTests
     [Theory]
     [InlineData("x^2", "0", "1", "1/3")]
     [InlineData("x^2", "1", "0", "-1/3")]
-    [InlineData("1/(1 + x^2)", "0", "1", "(1/4) * π")]
+    [InlineData("1/(1 + x^2)", "0", "1", "π / 4")]
     [InlineData("sin(x)", "0", "pi", "2")]
     [InlineData("1/x", "1", "e", "1")]
     [InlineData("1/x", "-e", "-1", "-1")]
     [InlineData("exp(-x)", "0", "ln(2)", "1/2")]
-    [InlineData("x*exp(-x)", "0", "1", "-2exp(-1) + 1")]
-    [InlineData("atan(x)", "0", "1", "(-1/2) * ln(2) + (1/4) * π")]
-    [InlineData("asin(x)", "0", "1", "(1/2) * π - 1")]
+    [InlineData("x*exp(-x)", "0", "1", "1 - 2exp(-1)")]
+    [InlineData("atan(x)", "0", "1", "π / 4 - ln(2) / 2")]
+    [InlineData("asin(x)", "0", "1", "π / 2 - 1")]
     [InlineData("acos(x)", "-1", "1", "π")]
-    [InlineData("1/(x^2 - 1)", "2", "3", "(1/2) * ln(3/2)")]
-    [InlineData("1/(4 - x^2)", "-1", "1", "(1/2) * ln(3)")]
-    [InlineData("1/(x^2 - 2)", "0", "1", "ln(-2sqrt(2) + 3) / (2sqrt(2))")]
-    [InlineData("x/(x^4 - 1)", "2", "3", "(1/4) * ln(4/3)")]
-    [InlineData("1/(x^3 + 1)", "0", "1", "π / (3sqrt(3)) + (1/3) * ln(2)")]
-    [InlineData("1/(x^2 + 4)", "-2", "2*sqrt(3)", "(7/24) * π")]
+    [InlineData("1/(x^2 - 1)", "2", "3", "ln(3/2) / 2")]
+    [InlineData("1/(4 - x^2)", "-1", "1", "ln(3) / 2")]
+    [InlineData("1/(x^2 - 2)", "0", "1", "ln(3 - 2sqrt(2)) / (2sqrt(2))")]
+    [InlineData("x/(x^4 - 1)", "2", "3", "ln(4/3) / 4")]
+    [InlineData("1/(x^3 + 1)", "0", "1", "ln(2) / 3 + π * sqrt(3) / 9")]
+    [InlineData("sqrt(3)/(x^2 + 1) + 1/(x^2 + 3)", "0", "1", "11 * π * sqrt(3) / 36")]   // π sqrt(3)/3 + π/(6 sqrt(3)) added up
+    [InlineData("1/(x^2 + 4)", "-2", "2*sqrt(3)", "7 * π / 24")]
     [InlineData("1/(x*sqrt(x^2 - 2*x))", "2", "4", "sqrt(2) / 2")]
-    [InlineData("1/(x*sqrt(x^2 - 1))", "1", "2", "(1/3) * π")]
+    [InlineData("1/(x*sqrt(x^2 - 1))", "1", "2", "π / 3")]
     [InlineData("1/sqrt(x^2 - 1)", "1", "2", "ln(sqrt(3) + 2)")]
-    [InlineData("sqrt(1 - x^2)", "-1", "1", "(1/2) * π")]
+    [InlineData("sqrt(1 - x^2)", "-1", "1", "π / 2")]
     [InlineData("ln(x)/x", "1", "e", "1/2")]
     [InlineData("1/(x*ln(x))", "e", "e^2", "ln(2)")]
     [InlineData("1/cosh(x)", "-1", "1", "2atan(sinh(1))")]
     [InlineData("x*sin(x)", "-pi", "pi", "2 * π")]
+    // abs of the numbers at the ends: ln(abs(pi - 1)) = ln(pi - 1).
+    [InlineData("1/(x - 1)", "2", "pi", "ln(π - 1)")]
+    [InlineData("1/(x - e)", "0", "1", "ln(e - 1) - 1")]
+    [InlineData("sign(x - 1)", "0", "pi", "π - 2")]
     public void Newton_Leibniz(string expr, string a, string b, string integral) =>
         Assert.Equal(integral, Integral(expr, a, b).Print());
 
@@ -76,7 +81,7 @@ public class ExactIntegrationTests
     [InlineData("1/sqrt(x)", "0", "4", "4")]
     [InlineData("x/sqrt(4 - x^2)", "0", "2", "2")]
     [InlineData("1/nthroot(x, 3)", "-1", "8", "9/2")]
-    [InlineData("1/(1 + tan(x))", "0", "pi/2", "(1/4) * π")]
+    [InlineData("1/(1 + tan(x))", "0", "pi/2", "π / 4")]
     [InlineData("x*atan(1/x)", "-1", "1", "1")]
     public void Where_the_antiderivative_is_undefined_its_limit_is_taken(string expr, string a, string b, string integral) =>
         Assert.Equal(integral, Integral(expr, a, b).Print());
@@ -94,7 +99,7 @@ public class ExactIntegrationTests
     // is atan(tan(x)), which falls by pi at each pole of tan.
     [Theory]
     [InlineData("sec(x)^2/(1 + tan(x)^2)", "0", "10", "10")]
-    [InlineData("sec(x)^2/(4 + tan(x)^2)", "0", "10", "(1/2) * atan(tan(10) / 2) + (3/2) * π")]
+    [InlineData("sec(x)^2/(4 + tan(x)^2)", "0", "10", "atan(tan(10) / 2) / 2 + 3 * π / 2")]
     public void The_jumps_of_the_antiderivative_are_taken_off(string expr, string a, string b, string integral)
     {
         Assert.Equal(integral, Integral(expr, a, b).Print());
@@ -122,6 +127,7 @@ public class ExactIntegrationTests
     [InlineData("1/(2 - cos(x))^3", 0, 10)]
     [InlineData("1/(2 + tan(x)^2)", 0, 10)]
     [InlineData("1/(sin(x)^4 + cos(x)^4)", 0, 10)]
+    [InlineData("1/(1 + cos(x)^4)", 0, 10)]          // log coefficients c(a - b) + c(b - a) cancel at pi/2
     [InlineData("1/(sin(x) + cos(x) + 2)", 0, 10)]
     [InlineData("sin(x)/(1 + sin(x)^2)", 0, 10)]
     [InlineData("1/(1 + sin(x))", 0, 4)]
@@ -141,8 +147,8 @@ public class ExactIntegrationTests
     [InlineData("1/x^2", "-1", "1", "0")]
     [InlineData("1/x^3", "-1", "1", "0")]
     [InlineData("exp(1/x)/x^2", "-1", "1", "0")]
-    [InlineData("tan(x)", "0", "pi", "(1/2) * π")]
-    [InlineData("cos(x)/(sin(x) - 1/2)", "0", "1", "(1/6) * π")]
+    [InlineData("tan(x)", "0", "pi", "π / 2")]
+    [InlineData("cos(x)/(sin(x) - 1/2)", "0", "1", "π / 6")]
     [InlineData("1/(1 + sin(x))^2", "0", "2*pi", "3 * π / 2")]
     [InlineData("1/(x - 1)", "1", "2", "1")]
     public void Diverges(string expr, string a, string b, string at)
@@ -156,27 +162,27 @@ public class ExactIntegrationTests
     [InlineData("exp(-x)", "inf", "0", "-1")]
     [InlineData("exp(-x)", "pi", "inf", "exp(-π)")]
     [InlineData("1/(1 + x^2)", "-inf", "inf", "π")]
-    [InlineData("1/(1 + x^2)", "sqrt(3)", "inf", "(1/6) * π")]
-    [InlineData("1/(1 + x^2)", "-inf", "1", "(3/4) * π")]
+    [InlineData("1/(1 + x^2)", "sqrt(3)", "inf", "π / 6")]
+    [InlineData("1/(1 + x^2)", "-inf", "1", "3 * π / 4")]
     [InlineData("1/x^2", "1", "inf", "1")]
     [InlineData("x^3*exp(-x)", "0", "inf", "6")]
     [InlineData("x*exp(x)", "-inf", "0", "-1")]
     [InlineData("exp(-x)*sin(x)", "0", "inf", "1/2")]
     [InlineData("exp(-2*x)*cos(3*x)", "0", "inf", "2/13")]
     [InlineData("exp(-x)*cos(x)^2", "0", "inf", "3/5")]
-    [InlineData("1/(x^4 + 1)", "0", "inf", "(1/4) * π * sqrt(2)")]
-    [InlineData("1/(x^3 + 1)", "0", "inf", "(2/9) * π * sqrt(3)")]
-    [InlineData("1/(1 + x^2)^2", "-inf", "inf", "(1/2) * π")]
+    [InlineData("1/(x^4 + 1)", "0", "inf", "π * sqrt(2) / 4")]
+    [InlineData("1/(x^3 + 1)", "0", "inf", "2 * π * sqrt(3) / 9")]
+    [InlineData("1/(1 + x^2)^2", "-inf", "inf", "π / 2")]
     [InlineData("1/((x + 1)*(x + 2))", "0", "inf", "ln(2)")]
-    [InlineData("1/(x^2 - 1)", "2", "inf", "(1/2) * ln(3)")]
+    [InlineData("1/(x^2 - 1)", "2", "inf", "ln(3) / 2")]
     [InlineData("ln(x)/x^2", "1", "inf", "1")]
     [InlineData("1/(x*ln(x)^2)", "e", "inf", "1")]
     [InlineData("1/(1 + exp(x))", "0", "inf", "ln(2)")]
     [InlineData("1/cosh(x)", "-inf", "inf", "π")]
-    [InlineData("atan(x)/(1 + x^2)", "0", "inf", "(1/8) * π^2")]
+    [InlineData("atan(x)/(1 + x^2)", "0", "inf", "π^2 / 8")]
     [InlineData("1/(sqrt(x)*(1 + x))", "0", "inf", "π")]
     [InlineData("exp(-sqrt(x))/sqrt(x)", "0", "inf", "2")]
-    [InlineData("1/(x*sqrt(x^2 - 1))", "-inf", "-1", "(-1/2) * π")]
+    [InlineData("1/(x*sqrt(x^2 - 1))", "-inf", "-1", "-π / 2")]
     [InlineData("exp(x)", "-inf", "c", "exp(c)")]
     [InlineData("exp(-x)", "inf", "inf", "0")]
     public void Infinite_limits(string expr, string a, string b, string integral) =>
@@ -214,13 +220,13 @@ public class ExactIntegrationTests
     [InlineData("exp(-x^2)", "inf", "0", "-sqrt(π) / 2")]
     [InlineData("exp(-x^2/2)/sqrt(2*pi)", "-inf", "inf", "1")]
     [InlineData("x^2*exp(-x^2/2)/sqrt(2*pi)", "-inf", "inf", "1")]
-    [InlineData("x^2*exp(-x^2)", "-inf", "inf", "(1/2) * sqrt(π)")]
+    [InlineData("x^2*exp(-x^2)", "-inf", "inf", "sqrt(π) / 2")]
     [InlineData("x^4*exp(-x^2)", "0", "inf", "3sqrt(π) / 8")]
-    [InlineData("(1 + x^2)*exp(-x^2)", "-inf", "inf", "(3/2) * sqrt(π)")]
+    [InlineData("(1 + x^2)*exp(-x^2)", "-inf", "inf", "3sqrt(π) / 2")]
     [InlineData("exp(-(x-1)^2)", "-inf", "inf", "sqrt(π)")]
     [InlineData("exp(-2*x^2 + 3*x + 1)", "-inf", "inf", "exp(17/8) * sqrt(π / 2)")]
-    [InlineData("x*exp(-2*x^2 + 3*x + 1)", "-inf", "inf", "(3/4) * exp(17/8) * sqrt(π / 2)")]
-    [InlineData("x^3*exp(-x^2 + x)", "-inf", "inf", "(7/8) * exp(1/4) * sqrt(π)")]
+    [InlineData("x*exp(-2*x^2 + 3*x + 1)", "-inf", "inf", "3exp(17/8) * sqrt(π / 2) / 4")]
+    [InlineData("x^3*exp(-x^2 + x)", "-inf", "inf", "7exp(1/4) * sqrt(π) / 8")]
     [InlineData("cos(x)*exp(-x^2)", "-inf", "inf", "exp(-1/4) * sqrt(π)")]
     [InlineData("cos(x)*exp(-x^2)", "0", "inf", "exp(-1/4) * sqrt(π) / 2")]
     [InlineData("cos(2*x)*exp(-x^2 + x)", "-inf", "inf", "cos(1) * exp(-3/4) * sqrt(π)")]
@@ -237,20 +243,20 @@ public class ExactIntegrationTests
     [InlineData("exp(-2*x)*sin(3*x)/x", "0", "inf", "atan(3/2)")]
     [InlineData("sin(x^2)", "0", "inf", "sqrt(π / 2) / 2")]
     [InlineData("cos(x^2)", "-inf", "inf", "sqrt(π / 2)")]
-    [InlineData("x/(exp(x) - 1)", "0", "inf", "(1/6) * π^2")]
-    [InlineData("x^3/(exp(x) - 1)", "0", "inf", "(1/15) * π^4")]
+    [InlineData("x/(exp(x) - 1)", "0", "inf", "π^2 / 6")]
+    [InlineData("x^3/(exp(x) - 1)", "0", "inf", "π^4 / 15")]
     [InlineData("x^5/(exp(2*x) - 1)", "0", "inf", "π^6 / 504")]
-    [InlineData("x/(exp(x) + 1)", "0", "inf", "(1/12) * π^2")]
-    [InlineData("x^3/(exp(x) + 1)", "0", "inf", "(7/120) * π^4")]
-    [InlineData("ln(x)/(1 - x)", "0", "1", "(-1/6) * π^2")]
-    [InlineData("ln(x)/(x - 1)", "0", "1", "(1/6) * π^2")]
-    [InlineData("ln(x)/(1 + x)", "0", "1", "(-1/12) * π^2")]
-    [InlineData("ln(1 + x)/x", "0", "1", "(1/12) * π^2")]
-    [InlineData("ln(1 - x)/x", "0", "1", "(-1/6) * π^2")]
+    [InlineData("x/(exp(x) + 1)", "0", "inf", "π^2 / 12")]
+    [InlineData("x^3/(exp(x) + 1)", "0", "inf", "7π^4 / 120")]
+    [InlineData("ln(x)/(1 - x)", "0", "1", "-π^2 / 6")]
+    [InlineData("ln(x)/(x - 1)", "0", "1", "π^2 / 6")]
+    [InlineData("ln(x)/(1 + x)", "0", "1", "-π^2 / 12")]
+    [InlineData("ln(1 + x)/x", "0", "1", "π^2 / 12")]
+    [InlineData("ln(1 - x)/x", "0", "1", "-π^2 / 6")]
     [InlineData("ln(sin(x))", "0", "pi/2", "-ln(2) * π / 2")]
     [InlineData("ln(cos(x))", "0", "pi/2", "-ln(2) * π / 2")]
     [InlineData("ln(sin(x))", "0", "pi", "-ln(2) * π")]
-    [InlineData("exp(-x^2) + exp(-x)", "0", "inf", "(1/2) * sqrt(π) + 1")]
+    [InlineData("exp(-x^2) + exp(-x)", "0", "inf", "sqrt(π) / 2 + 1")]
     public void Classic_integrals(string expr, string a, string b, string integral)
     {
         Expr value = Improper(expr, a, b);
@@ -302,7 +308,7 @@ public class ExactIntegrationTests
         Assert.Equal("1", f.IntegrateExact(0, Inf).Print());
         Assert.Equal("exp(-π)", f.IntegrateExact(new Pi(), Inf).Print());
         Assert.Equal("-exp(-π)", f.IntegrateExact(Inf, new Pi()).Print());
-        Assert.Equal("-exp(-1) + 1", f.IntegrateExact(new Constant(0), new Constant(1)).Print());
+        Assert.Equal("1 - exp(-1)", f.IntegrateExact(new Constant(0), new Constant(1)).Print());
         Assert.Equal("1/2", ExprParser.Parse("x").IntegrateExact("x", 0, 1).Print());
         Assert.Throws<ArgumentException>(() => f.IntegrateExact(0, double.NaN));
     }
@@ -316,8 +322,8 @@ public class ExactIntegrationTests
 
     [Theory]
     [InlineData("exp(c*x)", "0", "1", "exp(c) / c - 1 / c")]
-    [InlineData("c/(1 + x^2)", "0", "1", "(1/4) * π * c")]
-    [InlineData("x^2", "0", "c", "(1/3) * c^3")]
+    [InlineData("c/(1 + x^2)", "0", "1", "π * c / 4")]
+    [InlineData("x^2", "0", "c", "c^3 / 3")]
     [InlineData("x^2 + c", "-1", "1", "2c + 2/3")]
     public void Other_variables_are_constants(string expr, string a, string b, string integral) =>
         Assert.Equal(integral, Integral(expr, a, b).Print());
@@ -333,7 +339,7 @@ public class ExactIntegrationTests
 
     [Theory]
     [InlineData("exp(i*x)", "0", "pi", "2 * i")]
-    [InlineData("1/(x + i)", "-1", "1", "(-1/2) * i * π")]
+    [InlineData("1/(x + i)", "-1", "1", "-i * π / 2")]
     public void The_imaginary_unit(string expr, string a, string b, string integral) =>
         Assert.Equal(integral, Integral(expr, a, b).Print());
 

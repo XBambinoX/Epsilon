@@ -71,7 +71,7 @@ public class SubstitutionTests
         Assert.Equal("sin(x^2)", Integral("2*x*cos(x^2)"));
         Assert.Equal("ln(x)^2 / 2", Integral("ln(x)/x"));
         Assert.Equal("exp(sin(x))", Integral("cos(x)*exp(sin(x))"));
-        Assert.Equal("(1/3) * ln(abs(x^3 + 1))", Integral("x^2/(x^3 + 1)"));
+        Assert.Equal("ln(abs(x^3 + 1)) / 3", Integral("x^2/(x^3 + 1)"));
         Assert.Equal("atan(x)^2 / 2", Integral("atan(x)/(1 + x^2)"));
     }
 
@@ -80,7 +80,7 @@ public class SubstitutionTests
     [Fact]
     public void Powers_of_the_part()
     {
-        Assert.Equal("(1/2) * atan(x^2)", Integral("x/(1 + x^4)"));
+        Assert.Equal("atan(x^2) / 2", Integral("x/(1 + x^4)"));
         Assert.Equal("atan(exp(x))", Integral("exp(x)/(1 + exp(2*x))"));
         Assert.Equal("tan(x)^4 / 4", Integral("sec(x)^2*tan(x)^3"));
     }
@@ -89,27 +89,27 @@ public class SubstitutionTests
     [Fact]
     public void The_rest_written_in_the_part()
     {
-        Assert.Equal("(1/5) * (x^2 + 1)^(5/2) - (1/3) * (x^2 + 1)^(3/2)", Integral("x^3*sqrt(x^2 + 1)"));
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(x^2 + 1)^(5/2) / 5 - (x^2 + 1)^(3/2) / 3", Integral("x^3*sqrt(x^2 + 1)"));
+        Assert.Equal("(-x^2 + 1)^(3/2) / 3 - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
     }
 
     // x = u^2 - 1 for u = sqrt(x + 1), x = u^3 - 1 for u = nthroot(x + 1, 3).
     [Fact]
     public void x_written_in_a_root()
     {
-        Assert.Equal("(2/5) * sqrt(x + 1)^5 - (2/3) * sqrt(x + 1)^3", Integral("x*sqrt(x + 1)"));
-        Assert.Equal("-2atan(sqrt(x)) + 2sqrt(x)", Integral("sqrt(x)/(1 + x)"));
-        Assert.Equal("(3/7) * nthroot(x + 1, 3)^7 - (3/4) * nthroot(x + 1, 3)^4", Integral("x*nthroot(x + 1, 3)"));
+        Assert.Equal("2(x + 1)^(5/2) / 5 - 2(x + 1)^(3/2) / 3", Integral("x*sqrt(x + 1)"));
+        Assert.Equal("2sqrt(x) - 2atan(sqrt(x))", Integral("sqrt(x)/(1 + x)"));
+        Assert.Equal("3nthroot(x + 1, 3)^7 / 7 - 3nthroot(x + 1, 3)^4 / 4", Integral("x*nthroot(x + 1, 3)"));
     }
 
     [Fact]
     public void Powers_of_sin_and_cos()
     {
-        Assert.Equal("(1/3) * cos(x)^3 - cos(x)", Integral("sin(x)^3"));
-        Assert.Equal("(1/8) * x - (1/32) * sin(4x)", Integral("sin(x)^2*cos(x)^2"));
-        Assert.Equal("(3/8) * x + (1/32) * sin(4x) - (1/4) * sin(2x)", Integral("sin(x)^4"));
-        Assert.Equal("(1/3) * cosh(x)^3 - cosh(x)", Integral("sinh(x)^3"));
-        Assert.Equal("ln(abs(cos(x))) + (1/2) * sec(x)^2", Integral("tan(x)^3"));
+        Assert.Equal("cos(x)^3 / 3 - cos(x)", Integral("sin(x)^3"));
+        Assert.Equal("x / 8 - sin(4x) / 32", Integral("sin(x)^2*cos(x)^2"));
+        Assert.Equal("3x / 8 + sin(4x) / 32 - sin(2x) / 4", Integral("sin(x)^4"));
+        Assert.Equal("cosh(x)^3 / 3 - cosh(x)", Integral("sinh(x)^3"));
+        Assert.Equal("ln(abs(cos(x))) + tan(x)^2 / 2", Integral("tan(x)^3"));
     }
 
     // x * sqrt(x) used to stay a product, which Simplify doesn't merge.
@@ -125,5 +125,5 @@ public class SubstitutionTests
     // g(0) of a part that is singular at 0 used to reach the core's Simplify, which throws for 0^(-1/2).
     [Fact]
     public void A_part_singular_at_0() =>
-        Assert.Equal("(1/3) * (-x^2 + 1)^(3/2) - (-x^2 + 1)^(1/2)", Integral("x^3/sqrt(1 - x^2)"));
+        Assert.Equal("(-x^2 + 1)^(3/2) / 3 - sqrt(-x^2 + 1)", Integral("x^3/sqrt(1 - x^2)"));
 }

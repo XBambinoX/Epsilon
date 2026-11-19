@@ -62,10 +62,12 @@ public class LimitTests
     [InlineData("ln(x)^ln(x)/x", "inf")]
     [InlineData("ln(1 + exp(x))/x", "1")]
     [InlineData("exp(x)/(exp(x) + 1)", "1")]
-    [InlineData("atan(x)", "(1/2) * π")]
+    [InlineData("atan(x)", "π / 2")]
     [InlineData("x*(atan(x) - pi/2)", "-1")]
-    [InlineData("atan(x)/2 + x/(2*(x^2 + 1))", "(1/4) * π")]
+    [InlineData("atan(x)/2 + x/(2*(x^2 + 1))", "π / 4")]
     [InlineData("-exp(-x)*(x^2 + 2*x + 2)", "0")]
+    [InlineData("(exp(x) + x)^(1/x)", "e")]
+    [InlineData("exp(2*ln(x))/x^2", "1")]
     public void At_infinity(string expr, string limit) => Assert.Equal(limit, At(expr, Inf));
 
     [Theory]
@@ -73,7 +75,7 @@ public class LimitTests
     [InlineData("x^2", "inf")]
     [InlineData("x^3", "-inf")]
     [InlineData("nthroot(x, 3)", "-inf")]
-    [InlineData("atan(x)", "(-1/2) * π")]
+    [InlineData("atan(x)", "-π / 2")]
     [InlineData("ln(1 + exp(x))/x", "0")]
     [InlineData("asinh(x)", "-inf")]
     public void At_minus_infinity(string expr, string limit) => Assert.Equal(limit, At(expr, double.NegativeInfinity));
@@ -195,7 +197,7 @@ public class LimitTests
         Assert.Equal("a", At("sin(a*x)/x", "0"));
         Assert.Equal("a", At("(exp(a*x) - 1)/x", "0"));
         Assert.Equal("exp(a)", At("(1 + a/x)^x", Inf));
-        Assert.Equal("(1/2) * a", At("sqrt(x^2 + a*x) - x", Inf));
+        Assert.Equal("a / 2", At("sqrt(x^2 + a*x) - x", Inf));
         Assert.Equal("2a", At("(x^2 - a^2)/(x - a)", "a"));
         Assert.Equal("inf", At("1/(x - a)", "a", LimitDirection.Right));
         Assert.Equal("0", At("x^n*exp(-x)", Inf));

@@ -46,10 +46,14 @@ public static class Expander
 
             case Negate(var argument):
             {
-                var sum = new TermSum();
+                var sum = new TermSum(mode);
                 sum.Add(Rational.MinusOne, ExpandTerms(argument, mode));
                 return sum;
             }
+
+            // Kept by Simplify because u may be undefined: it stays for the final Simplify.
+            case Multiply(Constant { Value.IsZero: true }, var rest):
+                return TermSum.Of(mode, Rational.Zero, rest);
 
             case Multiply(var left, var right):
                 return Multiply(ExpandTerms(left, mode), ExpandTerms(right, mode), mode);
@@ -62,7 +66,7 @@ public static class Expander
 
             // Constants, variables, functions, other powers: only the children are expanded.
             default:
-                return TermSum.Of(Rational.One, expr.MapChildren(child => ExpandTerms(child, mode).ToExpr()));
+                return TermSum.Of(mode, Rational.One, expr.MapChildren(child => ExpandTerms(child, mode).ToExpr()));
         }
     }
 
@@ -75,7 +79,7 @@ public static class Expander
 
     private static TermSum Multiply(TermSum left, TermSum right, SimplifyMode mode)
     {
-        var product = new TermSum();
+        var product = new TermSum(mode);
         foreach (var (a, x) in left.Terms)
             foreach (var (b, y) in right.Terms)
                 product.Add(a * b, MultiplyTerms(x, y, mode));
@@ -107,9 +111,9 @@ public static class Expander
     {
         // The only constant term is 1 (TermSum keeps the value in the coefficient).
         if (x is Constant)
-            return TermSum.Of(Rational.One, y);
+            return TermSum.Of(mode, Rational.One, y);
         if (y is Constant)
-            return TermSum.Of(Rational.One, x);
+            return TermSum.Of(mode, Rational.One, x);
 
         // Simplify would put the product of the numerators together without multiplying it
         // out: x * (x + 1)/y -> (x + 1) * x / y. So fractions are multiplied here.
@@ -127,7 +131,7 @@ public static class Expander
         Expr product = new Multiply(x, y).Simplify(mode);
         return HasSomethingToExpand(product)
             ? ExpandTerms(product, mode)
-            : TermSum.Of(Rational.One, product);
+            : TermSum.Of(mode, Rational.One, product);
     }
 
     private static bool HasSomethingToExpand(Expr product) => product switch
@@ -148,7 +152,7 @@ public static class Expander
 
         if (bottom is Constant c && !c.Value.IsZero)
         {
-            var scaled = new TermSum();
+            var scaled = new TermSum(mode);
             scaled.Add(Rational.One / c.Value, top);
             return scaled;
         }
@@ -156,27 +160,31 @@ public static class Expander
         // A single term keeps its coefficient out of the fraction, so 2x/y and x/y are like terms.
         var terms = top.Terms.ToList();
         return terms.Count == 1
-            ? TermSum.Of(terms[0].Coefficient, new Divide(terms[0].Term, bottom))
-            : TermSum.Of(Rational.One, new Divide(top.ToExpr(), bottom));
+            ? TermSum.Of(mode, terms[0].Coefficient, new Divide(terms[0].Term, bottom))
+            : TermSum.Of(mode, Rational.One, new Divide(top.ToExpr(), bottom));
     }
 
     // A sum being expanded: distinct terms with rational coefficients, in order of first
     // appearance. Like terms are added up as they come, which keeps powers of sums from
     // growing exponentially. The constant part is the coefficient of the term 1.
-    private sealed class TermSum
+    private sealed class TermSum(SimplifyMode mode)
     {
         private readonly List<(Rational Coefficient, Expr Term)> _terms = [];
         private readonly Dictionary<Expr, int> _index = [];
 
-        public static TermSum Of(Rational coefficient, Expr term)
+        // Terms that added up to 0 but may be undefined somewhere, like ln(x) in Strict mode:
+        // they stay, with coefficient 0, for the final Simplify to keep or drop like any sum.
+        private readonly HashSet<Expr> _cancelledButUndefined = [];
+
+        public static TermSum Of(SimplifyMode mode, Rational coefficient, Expr term)
         {
-            var sum = new TermSum();
+            var sum = new TermSum(mode);
             sum.Add(coefficient, term);
             return sum;
         }
 
         public IEnumerable<(Rational Coefficient, Expr Term)> Terms =>
-            _terms.Where(t => !t.Coefficient.IsZero);
+            _terms.Where(t => !t.Coefficient.IsZero || _cancelledButUndefined.Contains(t.Term));
 
         // A constant factor goes into the coefficient, so 2x and -x are like terms of x.
         public void Add(Rational coefficient, Expr term)
@@ -209,18 +217,20 @@ public static class Expander
 
         private void Accumulate(Rational coefficient, Expr term)
         {
-            if (coefficient.IsZero)
-                return;
-
             if (_index.TryGetValue(term, out int i))
             {
-                _terms[i] = (_terms[i].Coefficient + coefficient, _terms[i].Term);
+                coefficient += _terms[i].Coefficient;
+                _terms[i] = (coefficient, term);
             }
             else
             {
                 _index[term] = _terms.Count;
                 _terms.Add((coefficient, term));
             }
+
+            if (coefficient.IsZero && !_cancelledButUndefined.Contains(term) &&
+                !Simplifier.DefinedForDomain(term, Assumptions.None, mode))
+                _cancelledButUndefined.Add(term);
         }
 
         public Expr ToExpr()

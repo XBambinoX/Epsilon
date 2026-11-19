@@ -7,6 +7,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-19
+
+The release for `Epsilon` 1.3.0, which it needs: it depends on `Epsilon` 1.3.0 or later and
+`Epsilon.LinearAlgebra` 1.5.0 or later. Version 1.1.0 together with `Epsilon` 1.3.0 gives some
+antiderivatives with `0^-1` in them, as 1/(2 + cosh(x)) did; update both.
+
+### Fixed
+
+- A product of sines and cosines of one argument written two ways, as
+  cos(2(x + 1)) cos(2x + 2), threw `DivideByZeroException`; it gives
+  `(x + sin(4x + 4) / 4) / 2`.
+- A limit whose leading coefficient is 0 but comes out as a tiny number in rounding was
+  reported as inf or -inf; it throws `NotSupportedException` saying it isn't known whether
+  the coefficient is 0.
+- A series printed `+ -` before a negative term, as in `... + -x^3 * (-a - b) / 12`.
+- Integrals, limits and series work with what `Epsilon` 1.3.0 simplifies: 1/(2 + cosh(x)) and
+  the powers of tan(x) are integrated as before.
+
+### Changed
+
+- Results print in the forms of `Epsilon` 1.3.0: the integral of x exp(x) is
+  `x * exp(x) - exp(x)`, and that of 1/(1 + exp(x)) is `x - ln(exp(x) + 1)`. With its new
+  simplifications, more definite integrals are found, such as 1/(1 + cos(x)^4) from 0 to 10,
+  and more antiderivatives, such as 1/(pi + cos(x)^2) and 1/(sqrt(2) + cos(x))^2.
+- Integrals, limits and series take 21% to 30% less time, with the faster `Simplify`.
+- The documentation gives pi as `Expr.PI`.
+- The workarounds for what `Epsilon` 1.2.0 didn't simplify are gone; the public API is
+  unchanged.
+
 ## [1.1.0] - 2026-11-03
 
 Series, limits, exact definite integrals and line integrals. It depends on `Epsilon` 1.2.0 or
@@ -191,6 +220,7 @@ later.
 
 See [Known limitations](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/calculus-v1.1.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/calculus-v1.1.1...HEAD
+[1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.1.1
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.1.0
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.0.0

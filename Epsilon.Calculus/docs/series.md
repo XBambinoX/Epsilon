@@ -19,9 +19,9 @@ of something that vanishes there, they are fractions, as in a Puiseux series.
 The terms go up to the power given, and the remainder is of the next one:
 
 ```csharp
-ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();   // 1 - (1/6) * x^2 + (1/120) * x^4 + O(x^5)
-ExprParser.Parse("exp(x)").Series("x", 0, 4).Print();     // 1 + x + (1/2) * x^2 + (1/6) * x^3 + (1/24) * x^4 + O(x^5)
-ExprParser.Parse("tan(x)").Series("x", 0, 5).Print();     // x + (1/3) * x^3 + (2/15) * x^5 + O(x^6)
+ExprParser.Parse("sin(x)/x").Series("x", 0, 4).Print();   // 1 - x^2 / 6 + x^4 / 120 + O(x^5)
+ExprParser.Parse("exp(x)").Series("x", 0, 4).Print();     // 1 + x + x^2 / 2 + x^3 / 6 + x^4 / 24 + O(x^5)
+ExprParser.Parse("tan(x)").Series("x", 0, 5).Print();     // x + x^3 / 3 + 2x^5 / 15 + O(x^6)
 ```
 
 sin(x)/x is 0/0 at 0, but its series is that of sin(x) divided by x term by term. At any other
@@ -29,17 +29,17 @@ point the powers are of x - a:
 
 ```csharp
 ExprParser.Parse("ln(x)").Series("x", 1, 3).Print();
-// (x - 1) - (1/2) * (x - 1)^2 + (1/3) * (x - 1)^3 + O((x - 1)^4)
+// (x - 1) - (x - 1)^2 / 2 + (x - 1)^3 / 3 + O((x - 1)^4)
 ExprParser.Parse("sin(x)").Series("x", ExprParser.Parse("pi/2"), 2).Print();
-// 1 - (1/2) * (x - (1/2) * π)^2 + O((x - (1/2) * π)^3)
+// 1 - (x - π / 2)^2 / 2 + O((x - π / 2)^3)
 ```
 
 The point is an `Expr`. A `double` is taken as the decimal it prints as, so `Math.PI / 2` is
-15707963267949/10000000000000, not pi/2: give pi as `ExprParser.Parse("pi/2")` or `new Pi() / 2`.
+15707963267949/10000000000000, not pi/2: give pi as `ExprParser.Parse("pi/2")` or `Expr.PI / 2`.
 Without a variable name, the expression's only variable is taken:
 
 ```csharp
-ExprParser.Parse("sin(t)").Series(0, 3).Print();   // t - (1/6) * t^3 + O(t^4)
+ExprParser.Parse("sin(t)").Series(0, 3).Print();   // t - t^3 / 6 + O(t^4)
 ```
 
 ## The terms
@@ -55,7 +55,7 @@ series.Coefficient(2).Print();               // -1/2
 series.Coefficient(3).Print();               // 0
 series.Order;                                // 5
 series.Terms.Count;                          // 3
-series.ToExpr().Print();                     // (1/24) * x^4 + (-1/2) * x^2 + 1
+series.ToExpr().Print();                     // x^4 / 24 - x^2 / 2 + 1
 series.ToExpr().Evaluate(("x", 0.1));        // 0.9950041666666667
 Math.Cos(0.1);                               // 0.9950041652780258
 ```
@@ -67,10 +67,10 @@ Math.Cos(0.1);                               // 0.9950041652780258
 Quotients are divided from their lowest terms, so a pole gives negative powers:
 
 ```csharp
-ExprParser.Parse("1/sin(x)").Series("x", 0, 3).Print();         // x^-1 + (1/6) * x + (7/360) * x^3 + O(x^4)
-ExprParser.Parse("1/(exp(x) - 1)").Series("x", 0, 3).Print();   // x^-1 - 1/2 + (1/12) * x - (1/720) * x^3 + O(x^4)
+ExprParser.Parse("1/sin(x)").Series("x", 0, 3).Print();         // x^-1 + x / 6 + 7x^3 / 360 + O(x^4)
+ExprParser.Parse("1/(exp(x) - 1)").Series("x", 0, 3).Print();   // x^-1 - 1/2 + x / 12 - x^3 / 720 + O(x^4)
 ExprParser.Parse("tan(x)").Series("x", ExprParser.Parse("pi/2"), 1).Print();
-// -(x - (1/2) * π)^-1 + (1/3) * (x - (1/2) * π) + O((x - (1/2) * π)^2)
+// -(x - π / 2)^-1 + (x - π / 2) / 3 + O((x - π / 2)^2)
 ```
 
 ## Roots: Puiseux series
@@ -81,7 +81,7 @@ gives powers that are fractions, and the order is the next one that can come:
 ```csharp
 var root = ExprParser.Parse("sqrt(x + x^2)").Series("x", 0, 2);
 
-root.Print();        // x^(1/2) + (1/2) * x^(3/2) + O(x^(5/2))
+root.Print();        // x^(1/2) + x^(3/2) / 2 + O(x^(5/2))
 root.Order;          // 5/2
 root.RightSided;     // True
 ```
@@ -95,7 +95,7 @@ an odd degree holds on both sides:
 ```csharp
 ExprParser.Parse("sqrt(x^2)").Series("x", 0, 2).Print();               // x + O(x^3)
 ExprParser.Parse("sqrt(x^2)").Series("x", 0, 2).RightSided;            // True
-ExprParser.Parse("nthroot(x^3 + x^4, 3)").Series("x", 0, 2).Print();   // x + (1/3) * x^2 + O(x^3)
+ExprParser.Parse("nthroot(x^3 + x^4, 3)").Series("x", 0, 2).Print();   // x + x^2 / 3 + O(x^3)
 ExprParser.Parse("nthroot(x^3 + x^4, 3)").Series("x", 0, 2).RightSided;   // False
 ```
 
@@ -112,8 +112,8 @@ ExprParser.Parse("acosh(x)").Series("x", 1, 2).Print();
 Other variables are constants, in the expression and in the point:
 
 ```csharp
-ExprParser.Parse("exp(a*x)").Series("x", 0, 2).Print();    // 1 + a * x + (1/2) * a^2 * x^2 + O(x^3)
-ExprParser.Parse("1/(x - a)").Series("x", 0, 2).Print();   // -1 / a - (1 / a^2) * x - (1 / a^3) * x^2 + O(x^3)
+ExprParser.Parse("exp(a*x)").Series("x", 0, 2).Print();    // 1 + a * x + a^2 * x^2 / 2 + O(x^3)
+ExprParser.Parse("1/(x - a)").Series("x", 0, 2).Print();   // -1 / a - x * (1 / a^2) - x^2 * (1 / a^3) + O(x^3)
 ExprParser.Parse("sin(x)").Series("x", ExprParser.Parse("a"), 2).Print();
 // sin(a) + cos(a) * (x - a) - (sin(a) / 2) * (x - a)^2 + O((x - a)^3)
 ```

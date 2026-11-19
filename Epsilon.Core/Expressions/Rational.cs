@@ -131,12 +131,16 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
     /// <exception cref="ArgumentException"><paramref name="value"/> is NaN or infinite.</exception>
     public static Rational FromDouble(double value)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value))
-            throw new ArgumentException($"Cannot represent {value} as a Rational.");
+        if (!double.IsFinite(value))
+            throw new ArgumentException($"{DoubleName(value)} has no exact value, so it isn't a Rational.", nameof(value));
 
         string text = value.ToString("G15", System.Globalization.CultureInfo.InvariantCulture);
         return FromDecimalString(text);
     }
+
+    // ToString of an infinity depends on the culture; the C# name doesn't.
+    internal static string DoubleName(double value) =>
+        double.IsNaN(value) ? "double.NaN" : value > 0 ? "double.PositiveInfinity" : "double.NegativeInfinity";
 
     // Parses an exact decimal like "-12.5", optionally in scientific notation ("1.5E-20"),
     // which is what double.ToString("G15") produces for very large or very small values.
@@ -207,13 +211,13 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
     /// <summary>Value inequality.</summary>
     public static bool operator !=(Rational a, Rational b) => !a.Equals(b);
     /// <summary>Exact comparison.</summary>
-    public static bool operator <(Rational a, Rational b) => (a - b).Sign < 0;
+    public static bool operator <(Rational a, Rational b) => a.CompareTo(b) < 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator >(Rational a, Rational b) => (a - b).Sign > 0;
+    public static bool operator >(Rational a, Rational b) => a.CompareTo(b) > 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator <=(Rational a, Rational b) => (a - b).Sign <= 0;
+    public static bool operator <=(Rational a, Rational b) => a.CompareTo(b) <= 0;
     /// <summary>Exact comparison.</summary>
-    public static bool operator >=(Rational a, Rational b) => (a - b).Sign >= 0;
+    public static bool operator >=(Rational a, Rational b) => a.CompareTo(b) >= 0;
 
     /// <summary>Value equality (both sides are in lowest terms, so this is exact).</summary>
     public bool Equals(Rational other) => Numerator == other.Numerator && Denominator == other.Denominator;
@@ -222,7 +226,15 @@ public readonly struct Rational : IEquatable<Rational>, IComparable<Rational>,
     /// <inheritdoc/>
     public override int GetHashCode() => HashCode.Combine(Numerator, Denominator);
     /// <summary>Exact ordering: negative, zero or positive as this value is less than, equal to or greater than <paramref name="other"/>.</summary>
-    public int CompareTo(Rational other) => (this - other).Sign;
+    public int CompareTo(Rational other)
+    {
+        // The denominators are positive, so the cross products compare as the values do, without
+        // the reduced difference a subtraction would build.
+        BigInteger d = Denominator, otherD = other.Denominator;
+        return d.IsOne && otherD.IsOne
+            ? Numerator.CompareTo(other.Numerator)
+            : (Numerator * otherD).CompareTo(other.Numerator * d);
+    }
 
     /// <inheritdoc/>
     // Invariant culture: some cultures (sv-SE, fi-FI, ...) use U+2212 as the minus sign,

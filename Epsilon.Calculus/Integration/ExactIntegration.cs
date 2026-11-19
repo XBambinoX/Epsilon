@@ -182,8 +182,6 @@ public static class ExactIntegrationExtensions
 
     private sealed class Definite(Expr f, string variable, Bound a, Bound b)
     {
-        private const int MaxLogarithmPower = 16;
-
         private string Integral => $"The integral of {f.Print()} from {a.Print()} to {b.Print()}";
 
         public Expr Value()
@@ -267,7 +265,7 @@ public static class ExactIntegrationExtensions
                 if (Zero(low) && high.IsInfinite)
                     return HalfLine(f);
                 if (low.IsInfinite && Zero(high))
-                    return HalfLine(Reflected(f.Substitute(variable, -new Variable(variable)).Simplify()).Simplify());
+                    return HalfLine(f.Substitute(variable, -new Variable(variable)).Simplify());
                 if (Zero(low) && At(high, 1))
                     return ClassicIntegrals.Unit(f, variable);
                 if (Zero(low) && At(high, new Pi() / 2))
@@ -302,7 +300,7 @@ public static class ExactIntegrationExtensions
 
         private bool Even(Expr g)
         {
-            Expr difference = Reflected(g.Substitute(variable, -new Variable(variable)).Simplify()) - g;
+            Expr difference = g.Substitute(variable, -new Variable(variable)).Simplify() - g;
             return difference.Simplify() is Constant { Value.IsZero: true } || difference.Expand().Simplify() is Constant { Value.IsZero: true };
         }
 
@@ -328,7 +326,7 @@ public static class ExactIntegrationExtensions
 
         private bool Odd()
         {
-            Expr sum = Reflected(f.Substitute(variable, -new Variable(variable)).Simplify()) + f;
+            Expr sum = f.Substitute(variable, -new Variable(variable)).Simplify() + f;
             return sum.Simplify() is Constant { Value.IsZero: true } || sum.Expand().Simplify() is Constant { Value.IsZero: true };
         }
 
@@ -453,174 +451,8 @@ public static class ExactIntegrationExtensions
 
         private static Expr Tidied(Expr e)
         {
-            Expr tidy = MergedLogarithms(SeriesExpander.Tidy(Reflected(e)));
-            if (QuadraticSurd.Of(tidy) is { } surd)
-                return surd.ToExpr();
-
-            Expr collected = Collected(tidy);
-            return collected.Print().Length < tidy.Print().Length ? collected : tidy;
-        }
-
-        // Terms that differ by a factor a + b sqrt(d) only, added up: (1/6) pi sqrt(3) + pi/(6 sqrt(3))
-        // is 2 sqrt(3) pi/9.
-        private static Expr Collected(Expr e)
-        {
-            var terms = new List<Expr>();
-            Terms(e, false, terms);
-            var groups = new List<(Expr Part, QuadraticSurd Coefficient)>();
-            foreach (Expr term in terms)
-            {
-                List<Expr> factors = [], divisors = [];
-                Factors(term, factors, divisors);
-                bool Numeric(Expr factor) => factor.GetVariables().Count == 0 && QuadraticSurd.Of(factor) is not null;
-                Expr Product(IEnumerable<Expr> part) => part.Aggregate((Expr)1, (product, factor) => product * factor);
-
-                Expr rest = (Product(factors.Where(factor => !Numeric(factor))) / Product(divisors.Where(factor => !Numeric(factor)))).Simplify();
-                if (QuadraticSurd.Of(Product(factors.Where(Numeric)) / Product(divisors.Where(Numeric))) is not { } coefficient)
-                    return e;
-
-                int i = groups.FindIndex(group => group.Part.Equals(rest) && (group.Coefficient + coefficient) is not null);
-                if (i < 0)
-                    groups.Add((rest, coefficient));
-                else
-                    groups[i] = (rest, (groups[i].Coefficient + coefficient)!.Value);
-            }
-
-            return groups.Count == terms.Count
-                ? e
-                : groups.Aggregate((Expr)0, (sum, group) => sum + group.Coefficient.ToExpr() * group.Part).Simplify();
-        }
-
-        private static void Factors(Expr e, List<Expr> factors, List<Expr> divisors)
-        {
-            switch (e)
-            {
-                case Multiply product:
-                    Factors(product.Left, factors, divisors);
-                    Factors(product.Right, factors, divisors);
-                    break;
-                case Divide quotient:
-                    Factors(quotient.Numerator, factors, divisors);
-                    Factors(quotient.Denominator, divisors, factors);
-                    break;
-                case Negate negate:
-                    factors.Add(-1);
-                    Factors(negate.Argument, factors, divisors);
-                    break;
-                default:
-                    factors.Add(e);
-                    break;
-            }
-        }
-
-        // sin(-u) = -sin(u), cos(-u) = cos(u), (-u)^3 = -u^3, exp(c ln(u)) = u^c and atan(tan(c)) =
-        // c - k pi, which the simplifier leaves as they are.
-        private static Expr Reflected(Expr e)
-        {
-            if (e.Children.Length > 0)
-                e = e.WithChildren([.. e.Children.Select(Reflected)]);
-
-            return e switch
-            {
-                Sin or Tan or Cot or Csc or Sinh or Tanh or Coth or Csch or Asin or Atan or Asinh or Atanh or Sign
-                    when Opposite(((UnaryExpr)e).Argument) is { } u => -e.WithChildren([u]),
-                Cos or Sec or Cosh or Sech or Abs when Opposite(((UnaryExpr)e).Argument) is { } u => e.WithChildren([u]),
-                NthRoot { Degree: Constant { Value: { IsInteger: true } n } } root when !n.Numerator.IsEven && Opposite(root.Argument) is { } u =>
-                    -new NthRoot(u, root.Degree),
-                Power { Exponent: Constant { Value: { IsInteger: true } k } } power when Opposite(power.Base) is { } u =>
-                    k.Numerator.IsEven ? new Power(u, power.Exponent) : -new Power(u, power.Exponent),
-                Exp { Argument: Multiply { Left: Constant c, Right: Ln ln } } => new Power(ln.Argument, c),
-                Exp { Argument: Negate { Argument: Ln ln } } => 1 / ln.Argument,
-                Abs abs when SignOf(abs.Argument) is { } sign => sign > 0 ? abs.Argument : -abs.Argument,
-                Atan { Argument: Tan tan } when Turns(tan.Argument) is { } k => tan.Argument - k * new Pi(),
-                Add or Subtract or Multiply or Divide or Power when e.GetVariables().Count == 0 && QuadraticSurd.Of(e) is { B.IsZero: false } surd => surd.ToExpr(),
-                _ => e,
-            };
-        }
-
-        // The multiple of pi nearest a constant, unless it is halfway between two.
-        private static long? Turns(Expr constant)
-        {
-            if (constant.GetVariables().Count > 0)
-                return null;
-
-            try
-            {
-                double turns = constant.Evaluate() / Math.PI;
-                return double.IsFinite(turns) && Math.Abs(Math.Abs(turns - Math.Floor(turns)) - 0.5) > 1e-9 ? (long)Math.Round(turns) : null;
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
-            }
-        }
-
-        private static int? SignOf(Expr constant)
-        {
-            if (constant.GetVariables().Count > 0)
-                return null;
-
-            try
-            {
-                double value = constant.Evaluate();
-                return Math.Abs(value) > 1e-12 ? Math.Sign(value) : null;
-            }
-            catch (InvalidOperationException)
-            {
-                return null;
-            }
-        }
-
-        private static Expr? Opposite(Expr e) => e switch
-        {
-            Negate negate => negate.Argument,
-            Constant { Value.Sign: < 0 } c => new Constant(-c.Value),
-            Multiply { Left: Constant { Value.Sign: < 0 } c } product => new Constant(-c.Value) * product.Right,
-            Divide quotient when Opposite(quotient.Numerator) is { } u => u / quotient.Denominator,
-            _ => null,
-        };
-
-        // a ln(p) + b ln(q) for rationals p, q > 0 and b a multiple of a is a ln(p q^(b/a)):
-        // (1/2) ln(3/2) rather than (1/2) ln(1/2) - (1/2) ln(1/3), and -ln(2) rather than ln(1/2).
-        private static Expr MergedLogarithms(Expr e)
-        {
-            var terms = new List<Expr>();
-            Terms(e, false, terms);
-            var logs = new List<(Rational Coefficient, Rational Argument)>();
-            var rest = new List<Expr>();
-            foreach (Expr term in terms)
-            {
-                if (Logarithm(term) is { } log)
-                    logs.Add(log);
-                else
-                    rest.Add(term);
-            }
-
-            if (logs.Count == 0)
-                return e;
-
-            Rational unit = logs.Select(log => log.Coefficient.Abs()).Min();
-            if (logs.Any(log => !(log.Coefficient / unit).IsInteger || (log.Coefficient / unit).Abs() > MaxLogarithmPower))
-                return e;
-
-            Rational product = logs.Aggregate(Rational.One, (p, log) => p * log.Argument.Pow((int)(log.Coefficient / unit).Numerator));
-            if (product.Numerator.IsOne)
-                (unit, product) = (-unit, 1 / product);
-
-            for (int k = MaxLogarithmPower; k >= 2; k--)
-                if (Root(product.Numerator, k) is { } top && Root(product.Denominator, k) is { } bottom)
-                {
-                    (unit, product) = (unit * k, new Rational(top, bottom));
-                    break;
-                }
-
-            return rest.Aggregate(new Constant(unit) * new Ln(new Constant(product)), (sum, term) => sum + term).Simplify();
-        }
-
-        private static System.Numerics.BigInteger? Root(System.Numerics.BigInteger a, int k)
-        {
-            var r = new System.Numerics.BigInteger(Math.Round(Math.Pow((double)a, 1.0 / k)));
-            return System.Numerics.BigInteger.Pow(r, k) == a ? r : null;
+            Expr tidy = SeriesExpander.Tidy(e);
+            return QuadraticSurd.Of(tidy) is { } surd ? surd.ToExpr() : tidy;
         }
 
         private static void Terms(Expr e, bool negated, List<Expr> terms)
@@ -643,15 +475,6 @@ public static class ExactIntegrationExtensions
                     break;
             }
         }
-
-        private static (Rational Coefficient, Rational Argument)? Logarithm(Expr term) => term switch
-        {
-            Ln { Argument: Constant { Value: { Sign: > 0 } r } } => (Rational.One, r),
-            Multiply { Left: Constant c, Right: var log } when Logarithm(log) is var (k, r) => (c.Value * k, r),
-            Divide { Numerator: var log, Denominator: Constant { Value.IsZero: false } c } when Logarithm(log) is var (k, r) => (k / c.Value, r),
-            Negate negate when Logarithm(negate.Argument) is var (k, r) => (-k, r),
-            _ => null,
-        };
 
         private static bool Negligible(Expr jump, Expr scale)
         {
