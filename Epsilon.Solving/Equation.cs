@@ -129,7 +129,7 @@ public sealed class Equation
         ArgumentNullException.ThrowIfNull(variable);
         RequireRange(from, to);
         RequireOnly(variable);
-        var solver = new Solver(variable, assumptions ?? Assumptions.None, complex: false, numeric: true, range: (from, to));
+        var solver = new Solver(variable, assumptions ?? Assumptions.None, complex: false, numeric: true, region: (from, to));
         return NumericSolutions.Real(solver.Solve(Left, Right), solver);
     }
 
@@ -168,6 +168,58 @@ public sealed class Equation
         RequireOnly(variable);
         var solver = new Solver(variable, Assumptions.None, complex: true, numeric: true);
         return NumericSolutions.Complex(solver.Solve(Left, Right), solver);
+    }
+
+    /// <summary>Solves the equation numerically in a rectangle for its only variable; see <see cref="SolveComplexNumerically(string, ComplexNumber, ComplexNumber)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public NumericSolutionSet<ComplexNumber> SolveComplexNumerically(ComplexNumber from, ComplexNumber to) =>
+        SolveComplexNumerically(SingleVariable(Left, Right), from, to);
+
+    /// <summary>
+    /// The complex solutions for <paramref name="variable"/> in the rectangle with the corners
+    /// <paramref name="from"/> (lower left) and <paramref name="to"/> (upper right), as numbers:
+    /// those of <see cref="SolveComplexNumerically(string)"/> in it, and those of the parts it
+    /// doesn't solve, as exp(x) - 1, found by Newton's method from every point of a grid.
+    /// Points where the equation is undefined are never solutions.
+    /// </summary>
+    /// <remarks>
+    /// Without a completeness guarantee: a solution is found only if some start of the grid
+    /// converges to it. The grid is finer where the equation oscillates through sines and cosines.
+    /// </remarks>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="from">The lower left corner.</param>
+    /// <param name="to">The upper right corner.</param>
+    /// <exception cref="ArgumentException">A corner isn't finite, or <paramref name="from"/> isn't below and left of <paramref name="to"/>.</exception>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public NumericSolutionSet<ComplexNumber> SolveComplexNumerically(string variable, ComplexNumber from, ComplexNumber to)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        if (!double.IsFinite(from.Magnitude) || !double.IsFinite(to.Magnitude))
+            throw new ArgumentException("A corner of the rectangle isn't a finite number.");
+        if (!(from.Real < to.Real && from.Imaginary < to.Imaginary))
+            throw new ArgumentException($"Expected the lower left corner first, got {from} and {to}.");
+        RequireOnly(variable);
+        var solver = new Solver(variable, Assumptions.None, complex: true, numeric: true, region: (from, to));
+        return NumericSolutions.Complex(solver.Solve(Left, Right), solver);
+    }
+
+    /// <summary>Looks for a complex solution near a guess for the only variable; see <see cref="FindComplexRoot(string, ComplexNumber)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public ComplexNumber? FindComplexRoot(ComplexNumber near) => FindComplexRoot(SingleVariable(Left, Right), near);
+
+    /// <summary>
+    /// A complex solution for <paramref name="variable"/> by Newton's method from <paramref name="near"/>,
+    /// to about full double precision. Which solution it finds depends on the guess.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="near">Where to start.</param>
+    /// <returns>The solution, or null if the iteration doesn't converge.</returns>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public ComplexNumber? FindComplexRoot(string variable, ComplexNumber near)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        RequireOnly(variable);
+        return ComplexRoots.Near((Left - Right).Simplify(SimplifyMode.Strict), variable, near);
     }
 
     /// <summary>The equation as text: <c>sin(x) = 1/2</c>.</summary>

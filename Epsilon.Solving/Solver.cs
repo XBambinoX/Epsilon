@@ -3,9 +3,10 @@ using Epsilon.Core;
 namespace Epsilon.Solving;
 
 // Numeric, it finds the roots of polynomials it can't solve exactly as numbers, and skips the
-// radicals, which numbers give more accurately. With a range too, it keeps the solutions in it
-// and scans it for those of the rest.
-internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false, (double From, double To)? range = null)
+// radicals, which numbers give more accurately. With a region too, an interval of the real line
+// or a rectangle of the complex plane between two corners, it keeps the solutions in it and
+// searches it for those of the rest.
+internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false, (ComplexNumber Low, ComplexNumber High)? region = null)
 {
     private const int MaxDegree = 64;
 
@@ -37,12 +38,12 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             SolveFactor(factor, candidates, unsolved);
 
         List<Solution> solutions = [.. candidates.SelectMany(candidate => Admitted(candidate, conditions))];
-        if (range is var (from, to))
+        if (region is var (low, high))
         {
-            solutions.RemoveAll(solution => Number(solution.Value).Real is var x && !(from <= x && x <= to));
+            solutions.RemoveAll(solution => !Within(Number(solution.Value), low, high));
             if (unsolved.Count > 0)
             {
-                solutions.AddRange(Scanned(difference, from, to, solutions));
+                solutions.AddRange(Searched(difference, low, high, solutions));
                 unsolved.Clear();
             }
         }
@@ -50,28 +51,34 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         return SolutionSet.Of(variable, solutions, unsolved, complex);
     }
 
-    // Where every value is a solution, the range it is in.
+    private bool Within(ComplexNumber z, ComplexNumber low, ComplexNumber high) =>
+        low.Real <= z.Real && z.Real <= high.Real && (!complex || low.Imaginary <= z.Imaginary && z.Imaginary <= high.Imaginary);
+
+    // Where every real value is a solution, the interval it is in.
     private IEnumerable<Condition> InRange()
     {
-        if (range is not var (from, to))
+        if (complex || region is not var (low, high))
             yield break;
-        if (double.IsFinite(from))
-            yield return new Condition(new Variable(variable), Comparison.GreaterOrEqual, from);
-        if (double.IsFinite(to))
-            yield return new Condition(new Variable(variable), Comparison.LessOrEqual, to);
+        if (double.IsFinite(low.Real))
+            yield return new Condition(new Variable(variable), Comparison.GreaterOrEqual, low.Real);
+        if (double.IsFinite(high.Real))
+            yield return new Condition(new Variable(variable), Comparison.LessOrEqual, high.Real);
     }
 
-    // The roots of the whole difference in the range, besides those already found: evaluating it
+    // The roots of the whole difference in the region, besides those already found: evaluating it
     // keeps out the points where the equation is undefined, the edges of its domain included.
-    private IEnumerable<Solution> Scanned(Expr difference, double from, double to, List<Solution> found)
+    private IEnumerable<Solution> Searched(Expr difference, ComplexNumber low, ComplexNumber high, List<Solution> found)
     {
+        IEnumerable<ComplexNumber> roots = complex
+            ? ComplexRoots.InRectangle(difference, variable, low, high)
+            : RealRoots.InRange(difference, variable, low.Real, high.Real).Select(root => new ComplexNumber(root));
         List<Condition> signs = [.. SignAssumed()];
-        foreach (double root in RealRoots.InRange(difference, variable, from, to))
+        foreach (ComplexNumber root in roots)
         {
-            if (found.Any(solution => Math.Abs(Number(solution.Value).Real - root) <= 1e-6 * Math.Max(1, Math.Abs(root))))
+            if (found.Any(solution => (Number(solution.Value) - root).Magnitude <= 1e-6 * Math.Max(1, root.Magnitude)))
                 continue;
 
-            Expr value = root;
+            Expr value = root.Imaginary == 0 ? root.Real : (new Constant(root.Real) + new Constant(root.Imaginary) * Expr.I).Simplify();
             if (signs.Any(sign => Decide(new Condition(value, sign.Comparison, sign.Right)) == false))
                 continue;
 

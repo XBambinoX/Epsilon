@@ -86,7 +86,7 @@ internal static class RealRoots
         return double.IsFinite(steps) ? (int)Math.Clamp(steps, MinScanSteps, MaxScanSteps) : MinScanSteps;
     }
 
-    private static IEnumerable<double> Frequencies(Expr expr, string variable)
+    internal static IEnumerable<double> Frequencies(Expr expr, string variable)
     {
         if (expr is Sin or Cos or Tan or Cot or Sec or Csc
             && Polynomials.Coefficients(((UnaryExpr)expr).Argument, variable, 1) is [_, var slope] && slope.GetVariables().Count == 0)
