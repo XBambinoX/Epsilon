@@ -1,0 +1,90 @@
+using Epsilon.Core;
+
+namespace Epsilon.Solving;
+
+/// <summary>An equation, left = right, to solve for one of its variables.</summary>
+public sealed class Equation
+{
+    /// <summary>The equation <paramref name="left"/> = <paramref name="right"/>.</summary>
+    public Equation(Expr left, Expr right)
+    {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        Left = left;
+        Right = right;
+    }
+
+    /// <summary>The left side.</summary>
+    public Expr Left { get; }
+
+    /// <summary>The right side.</summary>
+    public Expr Right { get; }
+
+    /// <summary>
+    /// Reads an equation, two expressions in the syntax of <see cref="ExprParser.Parse"/> with
+    /// <c>=</c> between them: <c>sin(x) = 1/2</c>.
+    /// </summary> 
+    /// <param name="input">The equation.</param>
+    /// <param name="variableNames">The names of the variables, as for <see cref="ExprParser.Parse"/>.</param>
+    /// <exception cref="FormatException">
+    /// The input has no <c>=</c> or more than one, or a side is malformed. Positions in the
+    /// message count from the start of the whole input.
+    /// </exception>
+    public static Equation Parse(string input, params string[] variableNames)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+        int equals = input.IndexOf('=');
+        if (equals < 0)
+            throw new FormatException("An equation needs '=' between its two sides.");
+        int another = input.IndexOf('=', equals + 1);
+        if (another >= 0)
+            throw new FormatException($"An equation has one '=', but there is another at position {another}.");
+
+        // Spaces in place of the left side keep the positions the parser reports for the right one.
+        Expr left = ExprParser.Parse(input[..equals], variableNames);
+        Expr right = ExprParser.Parse(new string(' ', equals + 1) + input[(equals + 1)..], variableNames);
+        return new Equation(left, right);
+    }
+
+    /// <summary>Solves the equation for its only variable; see <see cref="Solve(string, Assumptions?)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public SolutionSet Solve() => Solve(SingleVariable(Left, Right));
+
+    /// <summary>
+    /// Solves the equation for <paramref name="variable"/> over the real numbers, exactly. The
+    /// other variables are parameters, real numbers that the solutions may contain.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="assumptions">
+    /// What is known about the variables. An assumption about the sign of the unknown leaves out
+    /// the solutions that don't meet it.
+    /// </param>
+    public SolutionSet Solve(string variable, Assumptions? assumptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        return new Solver(variable, assumptions ?? Assumptions.None).Solve(Left, Right);
+    }
+
+    /// <summary>The equation as text: <c>sin(x) = 1/2</c>.</summary>
+    public string Print() => $"{Left.Print()} = {Right.Print()}";
+
+    /// <summary>The equation in LaTeX.</summary>
+    public string ToLatex() => $"{Left.ToLatex()} = {Right.ToLatex()}";
+
+    /// <inheritdoc/>
+    public override string ToString() => Print();
+
+    private static string SingleVariable(Expr left, Expr right)
+    {
+        var variables = new SortedSet<string>(left.GetVariables(), StringComparer.Ordinal);
+        variables.UnionWith(right.GetVariables());
+        return variables.Count switch
+        {
+            0 => "x",
+            1 => variables.Min!,
+            _ => throw new InvalidOperationException(
+                $"Expected exactly 1 variable, found {variables.Count}: [{string.Join(", ", variables)}]. " +
+                "Name the unknown with the overload that takes it."),
+        };
+    }
+}
