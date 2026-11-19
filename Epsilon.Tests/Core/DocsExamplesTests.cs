@@ -877,7 +877,8 @@ public static class ApiReferencePages
                     System.Reflection.FieldInfo f => f.IsPublic || f.IsFamily,
                     _ => false
                 };
-                if (visible)
+                // <Clone>$ of a record can't be called from C#.
+                if (visible && !member.Name.Contains('<'))
                     yield return $"{typeName}.{(member.Name == "Item" ? "this" : member.Name)}";   // an indexer is written this[...]
             }
         }

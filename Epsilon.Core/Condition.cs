@@ -1,6 +1,4 @@
-using Epsilon.Core;
-
-namespace Epsilon.Solving;
+namespace Epsilon.Core;
 
 /// <summary>How the two sides of a <see cref="Condition"/> compare.</summary>
 public enum Comparison
@@ -25,13 +23,16 @@ public enum Comparison
 }
 
 /// <summary>
-/// A condition a solution holds under, such as <c>a != 0</c> for the solution -b / a of
-/// a*x + b = 0: one that the assumptions don't prove and don't rule out.
+/// Two expressions compared, such as <c>a != 0</c> or <c>x &lt;= 1</c>: the condition a
+/// solution of an equation holds under, as a != 0 for -b / a.
 /// </summary>
 public sealed record Condition
 {
-    internal Condition(Expr left, Comparison comparison, Expr right)
+    /// <summary>The condition <paramref name="left"/> <paramref name="comparison"/> <paramref name="right"/>.</summary>
+    public Condition(Expr left, Comparison comparison, Expr right)
     {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
         Left = left;
         Comparison = comparison;
         Right = right;

@@ -215,6 +215,25 @@ Conservative proofs about whole expressions: `false` means "not proven", not "fa
 | `bool IsProvablyNonNegative(this Expr expr, Assumptions assumptions)` | Proves expr ≥ 0. |
 | `bool IsProvablyNonPositive(this Expr expr, Assumptions assumptions)` | Proves expr ≤ 0. |
 
+### `Condition` (sealed record)
+
+Two expressions compared, such as `a != 0` or `x <= 1`. Equal when both sides and the
+comparison are.
+
+| Member | Description |
+|---|---|
+| `Condition(Expr left, Comparison comparison, Expr right)` | The condition `left comparison right`. |
+| `Expr Left` | The left side. |
+| `Comparison Comparison` | How the sides compare. |
+| `Expr Right` | The right side. |
+| `string Print()` | As text: `a != 0`, `x <= 1`. |
+| `string ToLatex()` | In LaTeX: `a \neq 0`, `x \leq 1`. |
+
+### `Comparison` (enum)
+
+`Equal` (`=`), `NotEqual` (`!=`), `Less` (`<`), `LessOrEqual` (`<=`), `Greater` (`>`),
+`GreaterOrEqual` (`>=`).
+
 ---
 
 ## Factoring

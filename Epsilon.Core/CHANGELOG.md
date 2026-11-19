@@ -12,6 +12,12 @@ equations both exactly and numerically. This release removes public members: cod
 them moves to `Epsilon.Solving`. `Epsilon.Calculus` 1.1.x calls them too, so update it to 1.2.0
 together with this version.
 
+### Added
+
+- `Condition` and `Comparison`: two expressions compared, such as `a != 0` or `x <= 1`, with
+  `Print` and `ToLatex`. `Epsilon.Solving` gives the conditions its solutions hold under as
+  these.
+
 ### Removed
 
 - `RootFindingExtensions` and `RootFinder`, with all their members. In `Epsilon.Solving`:
