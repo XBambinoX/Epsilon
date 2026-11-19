@@ -3,8 +3,9 @@ using Epsilon.Core;
 namespace Epsilon.Solving;
 
 // Numeric, it finds the roots of polynomials it can't solve exactly as numbers, and skips the
-// radicals, which numbers give more accurately.
-internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false)
+// radicals, which numbers give more accurately. With a range too, it keeps the solutions in it
+// and scans it for those of the rest.
+internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false, (double From, double To)? range = null)
 {
     private const int MaxDegree = 64;
 
@@ -35,16 +36,57 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
             SolveFactor(factor, candidates, unsolved);
 
-        return SolutionSet.Of(variable, candidates.SelectMany(candidate => Admitted(candidate, conditions)), unsolved, complex);
+        List<Solution> solutions = [.. candidates.SelectMany(candidate => Admitted(candidate, conditions))];
+        if (range is var (from, to))
+        {
+            solutions.RemoveAll(solution => Number(solution.Value).Real is var x && !(from <= x && x <= to));
+            if (unsolved.Count > 0)
+            {
+                solutions.AddRange(Scanned(difference, from, to, solutions));
+                unsolved.Clear();
+            }
+        }
+
+        return SolutionSet.Of(variable, solutions, unsolved, complex);
+    }
+
+    // Where every value is a solution, the range it is in.
+    private IEnumerable<Condition> InRange()
+    {
+        if (range is not var (from, to))
+            yield break;
+        if (double.IsFinite(from))
+            yield return new Condition(new Variable(variable), Comparison.GreaterOrEqual, from);
+        if (double.IsFinite(to))
+            yield return new Condition(new Variable(variable), Comparison.LessOrEqual, to);
+    }
+
+    // The roots of the whole difference in the range, besides those already found: evaluating it
+    // keeps out the points where the equation is undefined, the edges of its domain included.
+    private IEnumerable<Solution> Scanned(Expr difference, double from, double to, List<Solution> found)
+    {
+        List<Condition> signs = [.. SignAssumed()];
+        foreach (double root in RealRoots.InRange(difference, variable, from, to))
+        {
+            if (found.Any(solution => Math.Abs(Number(solution.Value).Real - root) <= 1e-6 * Math.Max(1, Math.Abs(root))))
+                continue;
+
+            Expr value = root;
+            if (signs.Any(sign => Decide(new Condition(value, sign.Comparison, sign.Right)) == false))
+                continue;
+
+            _numbers[value] = root;
+            yield return new Solution(value, []);
+        }
     }
 
     private SolutionSet WithoutUnknown(Expr difference, Expr left, Expr right)
     {
         if (difference is Constant { Value.IsZero: true })
-            return SolutionSet.EveryValue(variable, [], complex);
+            return SolutionSet.EveryValue(variable, [.. InRange()], complex);
         if (IsNonZero(difference))
             return SolutionSet.Empty(variable, complex);
-        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right)], complex);
+        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right), .. InRange()], complex);
     }
 
     // The numerator doesn't depend on the unknown: if it is 0, every value where the equation is
@@ -71,7 +113,7 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             }
         }
 
-        return SolutionSet.EveryValue(variable, open, complex);
+        return SolutionSet.EveryValue(variable, [.. open, .. InRange()], complex);
     }
 
     // The number in a condition on the right and no minus in front on the left: a != 1 for

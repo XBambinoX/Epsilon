@@ -103,6 +103,55 @@ public sealed class Equation
         return NumericSolutions.Real(solver.Solve(Left, Right), solver);
     }
 
+    /// <summary>Solves the equation numerically in a range for its only variable; see <see cref="SolveNumerically(string, double, double, Assumptions?)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public NumericSolutionSet<double> SolveNumerically(double from, double to) => SolveNumerically(SingleVariable(Left, Right), from, to);
+
+    /// <summary>
+    /// The real solutions for <paramref name="variable"/> in [<paramref name="from"/>, <paramref name="to"/>]
+    /// as numbers: those of <see cref="SolveNumerically(string, Assumptions?)"/> in the range, and
+    /// those of the parts it doesn't solve, as sin(x) or x - cos(x), found by scanning the range.
+    /// Points where the equation is undefined are never solutions.
+    /// </summary>
+    /// <remarks>
+    /// The scan steps through the range on a grid, finer where the equation oscillates through
+    /// sines and cosines; solutions closer together than a step can be missed. An infinite limit
+    /// is scanned through a change of variable, with steps that get longer far from 0.
+    /// </remarks>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="from">The lower end of the range; may be -infinity.</param>
+    /// <param name="to">The upper end of the range; may be infinity.</param>
+    /// <param name="assumptions">What is known about the unknown, as for <see cref="SolveNumerically(string, Assumptions?)"/>.</param>
+    /// <exception cref="ArgumentException">A limit is NaN, or <paramref name="from"/> isn't less than <paramref name="to"/>.</exception>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public NumericSolutionSet<double> SolveNumerically(string variable, double from, double to, Assumptions? assumptions = null)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        RequireRange(from, to);
+        RequireOnly(variable);
+        var solver = new Solver(variable, assumptions ?? Assumptions.None, complex: false, numeric: true, range: (from, to));
+        return NumericSolutions.Real(solver.Solve(Left, Right), solver);
+    }
+
+    /// <summary>Looks for a solution near a guess for the only variable; see <see cref="FindRoot(string, double)"/>.</summary>
+    /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
+    public double? FindRoot(double near) => FindRoot(SingleVariable(Left, Right), near);
+
+    /// <summary>
+    /// A real solution for <paramref name="variable"/> by Newton's method from <paramref name="near"/>,
+    /// to about full double precision. Which solution it finds depends on the guess.
+    /// </summary>
+    /// <param name="variable">The unknown.</param>
+    /// <param name="near">Where to start.</param>
+    /// <returns>The solution, or null if the iteration doesn't converge (a flat slope, divergence, too many steps).</returns>
+    /// <exception cref="InvalidOperationException">The equation has a variable other than <paramref name="variable"/>.</exception>
+    public double? FindRoot(string variable, double near)
+    {
+        ArgumentNullException.ThrowIfNull(variable);
+        RequireOnly(variable);
+        return RealRoots.Near((Left - Right).Simplify(SimplifyMode.Strict), variable, near);
+    }
+
     /// <summary>Solves the equation numerically over the complex numbers for its only variable; see <see cref="SolveComplexNumerically(string)"/>.</summary>
     /// <exception cref="InvalidOperationException">The equation has more than one variable.</exception>
     public NumericSolutionSet<ComplexNumber> SolveComplexNumerically() => SolveComplexNumerically(SingleVariable(Left, Right));
@@ -129,6 +178,14 @@ public sealed class Equation
 
     /// <inheritdoc/>
     public override string ToString() => Print();
+
+    private static void RequireRange(double from, double to)
+    {
+        if (double.IsNaN(from) || double.IsNaN(to))
+            throw new ArgumentException("A limit of the range is NaN.");
+        if (!(from < to))
+            throw new ArgumentException(FormattableString.Invariant($"Expected the lower limit below the upper one, got [{from}, {to}]."));
+    }
 
     private void RequireOnly(string variable)
     {
