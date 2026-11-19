@@ -8,8 +8,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
-  <!-- NuGet package. It depends on Epsilon and Epsilon.LinearAlgebra at the <Version> of their
-       csproj files, so both must name released versions with everything this project uses. -->
+  <!-- NuGet package. It depends on Epsilon, Epsilon.LinearAlgebra and Epsilon.Solving at the
+       <Version> of their csproj files, so all must name released versions with everything this
+       project uses. -->
   <PropertyGroup>
     <PackageId>Epsilon.Calculus</PackageId>
     <!-- Not passed as -p:Version when packing: a global Version would reach the referenced
@@ -41,6 +42,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
     <ProjectReference Include="..\Epsilon.LinearAlgebra\Epsilon.LinearAlgebra.csproj" />
+    <ProjectReference Include="..\Epsilon.Solving\Epsilon.Solving.csproj" />
   </ItemGroup>
 
 </Project>
