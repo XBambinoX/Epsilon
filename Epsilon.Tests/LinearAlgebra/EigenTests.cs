@@ -1,6 +1,7 @@
 using Xunit;
 using Epsilon.Core;
 using Epsilon.LinearAlgebra;
+using Epsilon.Solving;
 
 namespace Epsilon.Tests.LinearAlgebra;
 
@@ -57,7 +58,7 @@ public class NumericSymmetricEigenTests
         {
             var entries = Matrix<int>.Create(3, 3, (_, _) => random.Next(-5, 6));
             var symmetric = Matrix<int>.Create(3, 3, (i, j) => entries[Math.Max(i, j), Math.Min(i, j)]);
-            var roots = symmetric.Map(e => (Expr)e).CharacteristicPolynomial("t").FindRealRoots();
+            var roots = new Equation(symmetric.Map(e => (Expr)e).CharacteristicPolynomial("t"), 0).SolveNumerically().Values;
             var values = symmetric.Map(e => (double)e).SymmetricEigen().Values;
             if (roots.Count != 3)
                 continue;   // a repeated root

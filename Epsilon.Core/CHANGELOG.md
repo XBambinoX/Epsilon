@@ -7,6 +7,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Root finding moves out of the core into the new package `Epsilon.Solving`, which solves
+equations both exactly and numerically. This release removes public members: code that calls
+them moves to `Epsilon.Solving`. `Epsilon.Calculus` 1.1.x calls them too, so update it to 1.2.0
+together with this version.
+
+### Removed
+
+- `RootFindingExtensions` and `RootFinder`, with all their members. In `Epsilon.Solving`:
+
+  | Epsilon 1.3 | Epsilon.Solving |
+  |---|---|
+  | `expr.FindRealRoots(from, to)` | `new Equation(expr, 0).SolveNumerically(from, to).Values` |
+  | `left.SolveNumerically(right, from, to)` | `new Equation(left, right).SolveNumerically(from, to).Values` |
+  | `expr.FindComplexRoots(reMin, reMax, imMin, imMax)` | `new Equation(expr, 0).SolveComplexNumerically(new(reMin, imMin), new(reMax, imMax)).Values` |
+  | `left.SolveComplexNumerically(right, reMin, reMax, imMin, imMax)` | `new Equation(left, right).SolveComplexNumerically(new(reMin, imMin), new(reMax, imMax)).Values` |
+  | `expr.TryFindRoot(guess)` | `new Equation(expr, 0).FindRoot(near: guess)`, null if not found |
+  | `expr.TryFindComplexRoot(guess)` | `new Equation(expr, 0).FindComplexRoot(near: guess)` |
+
+  Values for the other variables, `fixedBindings` before, are substituted first:
+  `expr.Substitute("a", 2)`. `scanSteps`, `gridSteps`, `tolerance` and `maxIterations` are
+  gone: the grids are chosen from the expression, and roots come to about full double precision.
+
 ## [1.3.0] - 2026-11-19
 
 `Simplify` closes most of the gaps listed in the known limitations of 1.2.0, prints results

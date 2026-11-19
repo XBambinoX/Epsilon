@@ -27,23 +27,24 @@ h.Print();        // -5t^2 + 20t
 h.Evaluate(1);    // 15
 ```
 
-**Differentiate** to get the velocity, and find when it is zero — the top of the flight:
+**Differentiate** to get the velocity, and factor it to see when it is zero — the top of
+the flight:
 
 ```csharp
 Expr v = h.Differentiate("t");
 
-v.Print();              // -10t + 20
-v.FindRealRoots();      // [2]
-h.Evaluate(2);          // 20
+v.Print();                               // -10t + 20
+v.TryFactorReal("t").Factored.Print();   // -10 * (t - 2)
+h.Evaluate(2);                           // 20
 ```
 
-**Find when the ball lands** — the roots of the height — either numerically or exactly by
-factoring:
+**Find when the ball lands** — the roots of the height — by factoring:
 
 ```csharp
-h.FindRealRoots(-10, 10);                // [0, 4]
 h.TryFactorReal("t").Factored.Print();   // -5t * (t - 4)
 ```
+
+Equations in general, `20t - 5t^2 = 0` among them, are solved by the Epsilon.Solving package.
 
 **Write it as LaTeX** for a report:
 
@@ -74,5 +75,4 @@ height.Differentiate("t").Print();    // -10t + 20
   expressions, in detail.
 - [Simplification](simplification.md) — the heart of the library, and its domain
   guarantee.
-- [Root finding](root-finding.md) — solving equations numerically.
 - [Known limitations](limitations.md) — before you rely on something, check it's there.

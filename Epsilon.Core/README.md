@@ -7,8 +7,8 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://github.com/XBambinoX/Epsilon/blob/main/LICENSE.txt)
 
-**Symbolic math for .NET.** Parse formulas, simplify them exactly, differentiate, factor
-polynomials and find roots — with no dependencies beyond the .NET base library.
+**Symbolic math for .NET.** Parse formulas, simplify them exactly, differentiate and factor
+polynomials — with no dependencies beyond the .NET base library.
 
 ```csharp
 Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
@@ -35,7 +35,6 @@ Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 f.Evaluate(3);                           // 12
 f.Differentiate("x").Print();            // 3x^2 - 4x + 1
 f.Differentiate("x").ToLatex();          // 3x^{2} - 4x + 1
-f.FindRealRoots(-10, 10);                // [0, 1]
 f.TryFactorReal("x").Factored.Print();   // x * (x - 1)^2
 ```
 
@@ -109,20 +108,6 @@ Symbolic derivatives, partial derivatives included, returned already simplified:
 ExprParser.Parse("x^2 * y + y^3").Differentiate("y").Print();   // x^2 + 3y^2
 ```
 
-### Root finding
-
-All real roots in a range — including infinite ranges, double roots and roots on the edge
-of the domain — and complex roots via Newton's method:
-
-```csharp
-ExprParser.Parse("sqrt(1 - x^2)").FindRealRoots();              // [-1, 1]
-ExprParser.Parse("sin(x)").SolveNumerically(0.5, -4, 4);
-                                                                 // ≈ [-3.665, 0.524, 2.618]
-ExprParser.Parse("x^2 + 1").FindComplexRoots(-2, 2, -2, 2);      // ≈ [-i, i]
-```
-
-Points where the expression is undefined are never reported as roots.
-
 ### Real and complex evaluation, text and LaTeX output
 
 ```csharp
@@ -167,7 +152,7 @@ ExprParser.Parse("sen(x)", "x");
 The [guides](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/README.md) cover every
 feature in detail: [parsing](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/parsing.md),
 [simplification](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/simplification.md),
-[root finding](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/root-finding.md) and more;
+[factoring](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/factoring.md) and more;
 the [API reference](https://github.com/XBambinoX/Epsilon/blob/main/Epsilon.Core/docs/api-reference.md)
 lists every public type and member.
 Before relying on something, check the

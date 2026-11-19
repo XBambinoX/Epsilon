@@ -148,6 +148,8 @@ public class RealRootTests
     [InlineData("x - 10", 5, 10, new[] { 10.0 })]          // a root on the upper limit
     [InlineData("x^2", double.NegativeInfinity, double.PositiveInfinity, new[] { 0.0 })]
     [InlineData("x^3", -0.37, 3, new[] { 0.0 })]           // x^3 underflows to 0 on a plateau of tiny x
+    [InlineData("x", -0.37, 3, new[] { 0.0 })]             // 0 exactly, where the grid misses it
+    [InlineData("tan(x)", -0.37, 3, new[] { 0.0 })]
     public void The_scan_finds_each_root_once(string f, double from, double to, double[] expected) =>
         Assert.Equal(expected, RealRoots.InRange(ExprParser.Parse(f), "x", from, to), new Close(9));
 
@@ -155,8 +157,13 @@ public class RealRootTests
     [InlineData("x^2 + 0.0000001")] // a small positive minimum
     [InlineData("x^2 + 1")]
     [InlineData("x^2 / x")]         // 0 next to 0, undefined at it
+    [InlineData("(x - 0.5)^2 / (x - 0.5)")]
     public void The_scan_finds_no_false_roots(string f) =>
-        Assert.Empty(RealRoots.InRange(ExprParser.Parse(f), "x", -5, 50));
+        Assert.Empty(RealRoots.InRange(ExprParser.Parse(f), "x", -0.37, 50));
+
+    [Fact]
+    public void The_scan_ignores_a_pole_next_to_a_domain_edge() =>
+        Assert.Empty(RealRoots.InRange(ExprParser.Parse("1 / sqrt(x)"), "x", double.NegativeInfinity, double.PositiveInfinity));
 
     private sealed class Close(int digits) : IEqualityComparer<double>
     {

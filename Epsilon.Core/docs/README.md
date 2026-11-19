@@ -19,7 +19,6 @@ documentation, which your IDE shows as you type.
 | [Assumptions](assumptions.md) | Telling the simplifier what you know about variables |
 | [Differentiation](differentiation.md) | Derivatives, partial and higher derivatives, supported functions |
 | [Factoring](factoring.md) | Exact polynomial factoring over the reals and the complex numbers |
-| [Root finding](root-finding.md) | Real and complex roots, equations, Newton's method, accuracy |
 | [Evaluation](evaluation.md) | Real and complex evaluation, undefined points, branch conventions, compiling to fast delegates |
 | [Output](output.md) | `Print`, `ToString` and `ToLatex` |
 | [Numbers](numbers.md) | `Rational`, `ComplexNumber` and the constants |

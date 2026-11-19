@@ -2,6 +2,7 @@ using System.Globalization;
 using Xunit;
 using Epsilon.Core;
 using Epsilon.LinearAlgebra;
+using Epsilon.Solving;
 
 namespace Epsilon.Tests.LinearAlgebra;
 
@@ -1295,7 +1296,7 @@ public class SymbolicDeterminantTests
         var p = Matrix<Expr>.FromRows([2, 1], [1, 2]).CharacteristicPolynomial("t");
 
         Assert.Equal("t^2 - 4t + 3", p.Print());
-        Assert.Equal([1.0, 3.0], p.FindRealRoots());
+        Assert.Equal("{1, 3}", new Equation(p, 0).Solve().Print());
         AssertSame(P("t^2 - (a + d)*t + a*d - b*c"), Abcd.CharacteristicPolynomial("t"));
         Assert.Equal(new Constant(1), Matrix<Expr>.FromRows().CharacteristicPolynomial("t"));
     }

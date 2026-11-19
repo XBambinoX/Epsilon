@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The guide to symbolic matrices finds the eigenvalues from the characteristic polynomial with
+  `Equation` from `Epsilon.Solving`, as `Epsilon` 1.4.0 has no root finding.
+
 ## [1.5.0] - 2026-10-14
 
 It depends on `Epsilon` 1.2.0 or later, as before.

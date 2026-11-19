@@ -71,25 +71,11 @@ public class LimitationsDocTests
     {
         Assert.Throws<NotSupportedException>(() => ExprParser.Parse(input).EvaluateComplex(new ComplexNumber(1.5, 1)));
     }
-
-    [Fact]
-    public void Real_roots_grid()
-    {
-        Assert.Equal(11, ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1).Count);
-        Assert.Equal(31, ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1, 5000).Count);
-        Assert.Equal([1.0], ExprParser.Parse("(x - 1)*(x - 1.0000001)").FindRealRoots(-10, 10));
-    }
 }
 
 // Additions to Epsilon.Core/docs/limitations.md found while writing the guides.
 public class LimitationsDocAdditionsTests
 {
-    [Fact]
-    public void Underflow_is_reported_as_a_root()
-    {
-        Assert.Equal([-500000013.6409661], ExprParser.Parse("exp(x)").FindRealRoots());
-        Assert.Equal(4, ExprParser.Parse("exp(-x^2)").FindRealRoots().Count);
-    }
 
     [Fact]
     public void Variable_names_are_letters_only()
@@ -111,10 +97,9 @@ public class GettingStartedDocTests
 
         Expr v = h.Differentiate("t");
         Assert.Equal("-10t + 20", v.Print());
-        Assert.Equal([2.0], v.FindRealRoots());
+        Assert.Equal("-10 * (t - 2)", v.TryFactorReal("t").Factored.Print());
         Assert.Equal(20, h.Evaluate(2));
 
-        Assert.Equal([0.0, 4.0], h.FindRealRoots(-10, 10));
         Assert.Equal("-5t * (t - 4)", h.TryFactorReal("t").Factored.Print());
         Assert.Equal("-5t^{2} + 20t", h.ToLatex());
     }
@@ -631,101 +616,6 @@ public class FactoringDocTests
         var (factored, success) = ExprParser.Parse("x^3 - 2").TryFactorReal("x");
         Assert.False(success);
         Assert.Equal("x^3 - 2", factored.Print());
-    }
-}
-
-public class RootFindingDocTests
-{
-    [Fact]
-    public void Real_roots()
-    {
-        Assert.Equal([-1.4142135623730951, 1.414213562373095], ExprParser.Parse("x^2 - 2").FindRealRoots());
-        Assert.Equal([1.414213562373095], ExprParser.Parse("x^2 - 2").FindRealRoots(0, 10));
-
-        Assert.Equal([0.0], ExprParser.Parse("x^2").FindRealRoots());
-        Assert.Equal([0.0], ExprParser.Parse("sqrt(x)").FindRealRoots());
-        Assert.Equal([1.0], ExprParser.Parse("ln(x)").FindRealRoots());
-        Assert.Equal([0.0], ExprParser.Parse("tan(x)").FindRealRoots(-2, 2));
-        Assert.Empty(ExprParser.Parse("x^2/x").FindRealRoots(-1, 1));
-        Assert.Empty(ExprParser.Parse("1/x").FindRealRoots());
-    }
-
-    [Fact]
-    public void Infinite_range_periodic()
-    {
-        Assert.Equal(7, ExprParser.Parse("sin(x)").FindRealRoots().Count);
-    }
-
-    [Fact]
-    public void Equations()
-    {
-        Assert.Equal([0.0, 2.0], ExprParser.Parse("x^2").SolveNumerically(ExprParser.Parse("2x"), -10, 10));
-        Assert.Equal([0.7390851332151607], ExprParser.Parse("cos(x)").SolveNumerically(ExprParser.Parse("x")));
-        Assert.Equal([0.5235987755982989, 2.6179938779914944], ExprParser.Parse("sin(x)").SolveNumerically(0.5, 0, 4));
-    }
-
-    [Fact]
-    public void Several_variables()
-    {
-        var a = new Dictionary<string, double> { ["a"] = 9 };
-        Assert.Equal([-3.0, 3.0], ExprParser.Parse("x^2 - a").FindRealRoots("x", a));
-    }
-
-    [Fact]
-    public void Complex_roots()
-    {
-        var cube = ExprParser.Parse("x^3 - 1").FindComplexRoots(-2, 2, -2, 2).OrderBy(z => z.Imaginary).ToList();
-        Assert.Equal(3, cube.Count);
-        Assert.Equal(-0.5, cube[0].Real, precision: 9);
-        Assert.Equal(-Math.Sqrt(3) / 2, cube[0].Imaginary, precision: 9);
-        Assert.Equal(1, cube[1].Real, precision: 9);
-        Assert.Equal(Math.Sqrt(3) / 2, cube[2].Imaginary, precision: 9);
-
-        var exp = ExprParser.Parse("exp(x)").SolveComplexNumerically(1, -1, 1, -7, 7).OrderBy(z => z.Imaginary).ToList();
-        Assert.Equal(3, exp.Count);
-        Assert.Equal(-2 * Math.PI, exp[0].Imaginary, precision: 9);
-        Assert.Equal(0, exp[1].Imaginary, precision: 9);
-        Assert.Equal(2 * Math.PI, exp[2].Imaginary, precision: 9);
-
-        Assert.Equal(ComplexNumber.One, Assert.Single(ExprParser.Parse("x*ln(x)").FindComplexRoots(-2, 2, -2, 2)));
-        Assert.Empty(ExprParser.Parse("x^2/x").FindComplexRoots(-2, 2, -2, 2));
-    }
-
-    [Fact]
-    public void Complex_roots_multiple_and_close()
-    {
-        ComplexNumber doubleRoot = Assert.Single(ExprParser.Parse("x^2 - 2x + 1").FindComplexRoots(-2, 2, -2, 2));
-        Assert.True((doubleRoot - 1).Magnitude < 1e-12);
-
-        var close = ExprParser.Parse("(x - 1)*(x - 1.001)").FindComplexRoots(-2, 2, -2, 2).OrderBy(z => z.Real).ToList();
-        Assert.Equal(2, close.Count);
-        Assert.Equal(1, close[0].Real, precision: 12);
-        Assert.Equal(1.001, close[1].Real, precision: 12);
-
-        ComplexNumber tripleRoot = Assert.Single(ExprParser.Parse("x^3 - 3x^2 + 3x - 1").FindComplexRoots(-2, 2, -2, 2));
-        Assert.True((tripleRoot - 1).Magnitude < 1e-8);
-    }
-
-    [Fact]
-    public void Newton()
-    {
-        Assert.Equal((1.4142135623746899, true), ExprParser.Parse("x^2 - 2").TryFindRoot(1));
-        Assert.Equal((null, false), ExprParser.Parse("x^2 + 1").TryFindRoot(1));
-
-        var (root, found) = ExprParser.Parse("x^2 + 1").TryFindComplexRoot(new ComplexNumber(1, 1));
-        Assert.True(found);
-        Assert.Equal(1, root!.Value.Imaginary, precision: 9);
-        Assert.Equal(0, root.Value.Real, precision: 9);
-    }
-
-    [Fact]
-    public void Errors()
-    {
-        Assert.Throws<ArgumentException>(() => ExprParser.Parse("x").FindRealRoots(1, 0));
-        Assert.Throws<ArgumentException>(() => ExprParser.Parse("x").FindRealRoots(double.NaN, 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExprParser.Parse("x").FindRealRoots(0, 1, 1));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExprParser.Parse("x").FindComplexRoots(0, 1, 0, 1, 0));
-        Assert.Throws<InvalidOperationException>(() => ExprParser.Parse("x*y").FindRealRoots());
     }
 }
 

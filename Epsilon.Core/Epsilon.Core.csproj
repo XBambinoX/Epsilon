@@ -17,8 +17,8 @@
          the packages built on the core depend on Epsilon >= this version. -->
     <Version>1.3.0</Version>
     <Authors>Max Zakharov</Authors>
-    <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly, find real and complex roots and compile formulas to fast delegates. No dependencies.</Description>
-    <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;roots;parser;latex;compile</PackageTags>
+    <Description>Symbolic math for .NET: parse formulas, simplify them exactly with rational arithmetic and domain-safe rules, differentiate, factor polynomials exactly and compile formulas to fast delegates. No dependencies.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;algebra;simplify;derivative;polynomial;factoring;parser;latex;compile</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
     <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>

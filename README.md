@@ -35,7 +35,6 @@ Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 
 f.Differentiate("x").Print();                        // 3x^2 - 4x + 1
 f.TryFactorReal("x").Factored.Print();               // x * (x - 1)^2
-f.FindRealRoots(-10, 10);                            // [0, 1]
 ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ```
 

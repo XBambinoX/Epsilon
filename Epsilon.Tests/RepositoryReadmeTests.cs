@@ -15,7 +15,6 @@ public class RepositoryReadmeExamplesTests
 
         Assert.Equal("3x^2 - 4x + 1", f.Differentiate("x").Print());
         Assert.Equal("x * (x - 1)^2", f.TryFactorReal("x").Factored.Print());
-        Assert.Equal([0.0, 1.0], f.FindRealRoots(-10, 10));
         Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
     }
 

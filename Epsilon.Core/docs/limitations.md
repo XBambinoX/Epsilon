@@ -5,8 +5,8 @@ limitations below are therefore things the library *doesn't do yet*, not wrong a
 few places where a result can surprise you are marked **⚠**.
 
 **All of this is planned to be addressed in upcoming versions of the core** — exact
-values at more points, more identities, piecewise derivatives, complex rounding functions,
-a symbolic equation solver and protection against deep nesting. The only exception is
+values at more points, more identities, piecewise derivatives, complex rounding functions
+and protection against deep nesting. The only exception is
 `min`/`max` over the complex numbers, which can't exist mathematically. See the
 [roadmap](../README.md#roadmap) for the order.
 
@@ -67,12 +67,6 @@ ExprParser.Parse("x*x").Simplify().Equals(ExprParser.Parse("x^2"));   // true
 Even after `Simplify`, two equal expressions can have different forms (see the sections
 above), so `false` means "not shown to be equal", not "different".
 
-### No symbolic equation solver
-
-There is no way yet to solve `sin(x) = 1/2` symbolically as `π/6 + 2πk, 5π/6 + 2πk`. Use
-`SolveNumerically` for numeric solutions in a range. A symbolic solver is planned (see the
-[roadmap](../README.md#roadmap)).
-
 ## Parsing and output
 
 - Variable names consist of letters only: `v0`, `x_1` or `x'` can't be declared.
@@ -100,38 +94,6 @@ ExprParser.Parse("floor(x)").Differentiate("x");   // NotSupportedException
   throw `NotSupportedException` (planned). `min` and `max` never will: complex numbers are
   not ordered.
 
-## Root finding
-
-Both root finders are numeric and work in `double` precision.
-
-### Real roots
-
-`FindRealRoots` scans a grid (200 intervals by default) and refines every sign change,
-touching point and domain edge. Roots can be missed where the function oscillates faster
-than the grid, and roots closer than `1e-6` are reported once:
-
-```csharp
-ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1).Count;          // 11 of the 31 roots
-ExprParser.Parse("sin(1/x)").FindRealRoots(0.01, 1, 5000).Count;     // 31
-ExprParser.Parse("(x - 1)*(x - 1.0000001)").FindRealRoots(-10, 10);  // [1]
-```
-
-Increase `scanSteps` or narrow the range when that matters.
-
-### ⚠ Underflow is reported as a root
-
-Where a function is positive but so small that it becomes exactly `0.0` in `double`
-arithmetic, `FindRealRoots` takes that point for a root. `exp(x)` has no roots, but underflows
-to 0 below x ≈ -745:
-
-```csharp
-ExprParser.Parse("exp(x)").FindRealRoots();              // [-500000013.6409661]
-ExprParser.Parse("exp(-x^2)").FindRealRoots().Count;     // 4, all spurious
-```
-
-Keep the range where the function is representable, or check a root by evaluating
-something that doesn't underflow (for `exp`, its logarithm).
-
 ## Robustness
 
 - **⚠ Very deep expressions can still overflow the stack in `Simplify` and `Differentiate`.**
@@ -145,7 +107,7 @@ something that doesn't underflow (for `exp`, its logarithm).
 
 ## Not in the package
 
-Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`, gradients, Hessians
-and integrals in `Epsilon.Calculus`. Their known limitations are on pages of their own:
+Matrices and vectors are in the separate package `Epsilon.LinearAlgebra`, equations in
+`Epsilon.Solving`, gradients, Hessians and integrals in `Epsilon.Calculus`. Their known limitations are on pages of their own:
 [linear algebra](../../Epsilon.LinearAlgebra/docs/limitations.md),
 [calculus](../../Epsilon.Calculus/docs/limitations.md).

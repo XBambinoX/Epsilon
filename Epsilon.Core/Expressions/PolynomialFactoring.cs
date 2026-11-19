@@ -11,8 +11,8 @@ public static class PolynomialFactoring
     /// roots ever appear in the result. Rational roots become linear factors, and a quadratic
     /// factor with a positive discriminant is split with square roots:
     /// x^2 - 2 -> (x - sqrt(2)) * (x + sqrt(2)). A factor whose roots can't be written that
-    /// way (x^3 - 2, or x^2 + 1 over the reals) is kept as a polynomial - use FindRealRoots
-    /// for numeric roots. Returns (original expression, false) if the input isn't a
+    /// way (x^3 - 2, or x^2 + 1 over the reals) is kept as a polynomial; Epsilon.Solving finds
+    /// its roots. Returns (original expression, false) if the input isn't a
     /// polynomial in `variable`, or if nothing could be factored.
     /// </summary>
     public static (Expr Factored, bool Success) TryFactorReal(this Expr expr, string variable) =>

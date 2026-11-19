@@ -1,6 +1,7 @@
 using Xunit;
 using Epsilon.Core;
 using Epsilon.LinearAlgebra;
+using Epsilon.Solving;
 // The alias that the README suggests against the clash with System.Numerics.Vector<T>.
 using RealVector = Epsilon.LinearAlgebra.Vector<double>;
 // The aliases of the fixed-size types in the README and the docs pages.
@@ -657,14 +658,13 @@ public class LinearAlgebraSymbolicMatricesDocTests
 
         var p = Matrix<Expr>.Parse("[[2, 1], [1, 2]]").CharacteristicPolynomial("t");
         Assert.Equal("t^2 - 4t + 3", p.Print());
-        Assert.Equal([1.0, 3.0], p.FindRealRoots());
+        Assert.Equal("{1, 3}", new Equation(p, 0).Solve().Print());
         Assert.Throws<ArgumentException>(() => M.CharacteristicPolynomial("a"));
 
         var s = Matrix<Expr>.Parse("[[2, 0, 0], [0, 3, 4], [0, 4, 9]]");
         var cp = s.CharacteristicPolynomial("t");
         Assert.Equal("t^3 - 14t^2 + 35t - 22", cp.Print());
         Assert.Equal("(t - 1) * (t - 2) * (t - 11)", cp.TryFactorReal("t").Factored.Print());
-        Assert.Equal([1, 1.9999999999999993, 11], cp.FindRealRoots());
     }
 
     [Fact]

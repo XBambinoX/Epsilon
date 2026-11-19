@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Depends on `Epsilon.Solving`, which now finds the points numeric integrals are split at:
+  `Epsilon` 1.4.0 has no root finding of its own. Update `Epsilon` and this package together.
+
 ## [1.1.1] - 2026-11-19
 
 The release for `Epsilon` 1.3.0, which it needs: it depends on `Epsilon` 1.3.0 or later and
