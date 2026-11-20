@@ -15,8 +15,9 @@ public sealed class Solution
         Conditions = conditions;
     }
 
-    // The family start + period * index.
-    internal Solution(Expr start, Expr period, string index, IReadOnlyList<Condition> conditions)
+    // The family start + period * index, with the assumptions it was solved under, which decide
+    // its conditions at one index.
+    internal Solution(Expr start, Expr period, string index, IReadOnlyList<Condition> conditions, Assumptions assumptions)
     {
         Term = (period * new Variable(index)).Simplify();
         Value = start is Constant { Value.IsZero: true } ? Term : new Add(start, Term);
@@ -24,7 +25,10 @@ public sealed class Solution
         Period = period;
         Index = index;
         Conditions = conditions;
+        _assumptions = assumptions;
     }
+
+    private readonly Assumptions? _assumptions;
 
     /// <summary>
     /// The value of the unknown, exact. It may contain the other variables, and for a family,
@@ -55,6 +59,14 @@ public sealed class Solution
 
     private Expr? Term { get; }
 
+    /// <summary>
+    /// The value of a family at one value of <see cref="Index"/>, with the conditions that remain on
+    /// the other variables; null where the conditions on the index leave it out: π * k with
+    /// <c>k != 0</c> is π at 1 and nothing at 0. A single value is itself at every index.
+    /// </summary>
+    /// <param name="index">The value of <see cref="Index"/>.</param>
+    public Solution? At(int index) => Index is null ? this : Solver.At(this, index, _assumptions!);
+
     /// <summary>The value, and its conditions after <c>if</c>: <c>-b / a if a != 0</c>.</summary>
     public string Print() => ValueText(value => value.Print()) + SolutionSet.ConditionsText(Conditions);
 
@@ -69,7 +81,7 @@ public sealed class Solution
         Term is null || Start is Constant { Value.IsZero: true } ? print(Value) : print(Start) + " + " + print(Term);
 
     internal Solution With(IReadOnlyList<Condition> conditions) =>
-        Index is null ? new Solution(Value, conditions) : new Solution(Start, Period!, Index, conditions);
+        Index is null ? new Solution(Value, conditions) : new Solution(Start, Period!, Index, conditions, _assumptions!);
 
     internal bool SameAs(Solution other) =>
         Value.Equals(other.Value) && Conditions.SequenceEqual(other.Conditions);

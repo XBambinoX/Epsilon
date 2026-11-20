@@ -124,6 +124,40 @@ public class PeriodicEquationTests
     }
 
     [Theory]
+    [InlineData("sin(x)/x = 0", 1, "π")]
+    [InlineData("sin(x)/x = 0", -2, "-2 * π")]
+    [InlineData("sin(x) = 1/2", 2, "25 * π / 6")]
+    [InlineData("sin(x)*ln(x) = 0", 3, "3 * π")]
+    [InlineData("sin(x) = a", 1, "asin(a) + 2 * π if a >= -1 and a <= 1")]
+    public void At_gives_one_value_of_a_family(string equation, int index, string expected) =>
+        Assert.Equal(expected, Equation.Parse(equation).Solve("x").Solutions[0].At(index)!.Print());
+
+    [Theory]
+    [InlineData("sin(x)/x = 0", 0)]
+    [InlineData("sin(x)/(x^2 - pi^2) = 0", -1)]
+    [InlineData("sin(x)*ln(x) = 0", 0)]
+    [InlineData("sin(x)*sqrt(x) = 0", -1)]
+    public void At_an_index_the_conditions_leave_out_there_is_none(string equation, int index) =>
+        Assert.Null(Equation.Parse(equation).Solve().Solutions[0].At(index));
+
+    [Fact]
+    public void At_decides_by_the_assumptions_the_equation_was_solved_under()
+    {
+        Solution family = Equation.Parse("sin(x) = 0").Solve("x", Assumptions.None.AssumePositive("x")).Solutions[0];
+
+        Assert.Null(family.At(0));
+        Assert.Equal("3 * π", family.At(3)!.Print());
+    }
+
+    [Fact]
+    public void A_single_value_is_itself_at_every_index()
+    {
+        Solution one = Equation.Parse("x = 1").Solve().Solutions[0];
+
+        Assert.Same(one, one.At(5));
+    }
+
+    [Theory]
     [InlineData("sin(2x + 1) = 1/3")]
     [InlineData("cos(x/3) = -0.2")]
     [InlineData("tan(5x) = 7")]

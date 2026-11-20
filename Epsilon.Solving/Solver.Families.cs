@@ -90,11 +90,11 @@ internal sealed partial class Solver
         if (upper is { } high)
             rest.Add(new Condition(k, Comparison.LessOrEqual, high));
         rest.AddRange(excluded.Select(n => new Condition(k, Comparison.NotEqual, n)));
-        return new Solution(start, period, _index, rest);
+        return new Solution(start, period, _index, rest, assumptions);
     }
 
     // The one value of a family its conditions leave.
-    private Solution? Single(Expr start, Expr period, Rational index, List<Condition> conditions)
+    private Solution? Single(Expr start, Expr period, Rational index, IReadOnlyList<Condition> conditions)
     {
         var open = new List<Condition>();
         foreach (Condition condition in Reindexed(conditions, index))
@@ -111,6 +111,11 @@ internal sealed partial class Solver
 
         return new Solution((start + index * period).Simplify(assumptions), open);
     }
+
+    // The family at one index. Deciding conditions doesn't need the unknown, so the index stands in.
+    internal static Solution? At(Solution family, Rational index, Assumptions assumptions) =>
+        new Solver(family.Index!, assumptions, complex: false) { _index = family.Index! }
+            .Single(family.Start, family.Period!, index, family.Conditions);
 
     // The conditions with the index replaced: k + 1 for k where the start moved back a period.
     private List<Condition> Reindexed(IReadOnlyList<Condition> conditions, Expr replacement) =>

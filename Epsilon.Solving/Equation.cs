@@ -54,7 +54,8 @@ public sealed class Equation
     /// Solves the equation for <paramref name="variable"/> over the real numbers, exactly. The
     /// other variables are parameters, real numbers that the solutions may contain. A periodic
     /// function gives families of solutions, one value a period: sin(x) = 1/2 at
-    /// π / 6 + 2 * π * k and 5 * π / 6 + 2 * π * k for every integer k (see <see cref="Solution.Period"/>).
+    /// π / 6 + 2 * π * k and 5 * π / 6 + 2 * π * k for every integer k (see <see cref="Solution.Period"/>;
+    /// <see cref="Solution.At"/> gives one of the values).
     /// </summary>
     /// <param name="variable">The unknown.</param>
     /// <param name="assumptions">
