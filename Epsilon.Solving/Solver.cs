@@ -39,19 +39,25 @@ internal sealed partial class Solver(
 
         var candidates = new List<Expr>();
         var isolated = new List<(Solution Solution, Expr Factor)>();
+        var rationalized = new List<(Solution Solution, List<Condition> Needs)>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
         {
-            if (!complex && Polynomials.Coefficients(factor, variable, MaxDegree) is null && Isolated(factor) is { } found)
+            if (complex || Polynomials.Coefficients(factor, variable, MaxDegree) is not null)
+                SolveFactor(factor, candidates, unsolved);
+            else if (Isolated(factor) is { } found)
                 isolated.AddRange(found.Select(solution => (solution, factor)));
+            else if (Rationalized(factor) is { } squared)
+                rationalized.AddRange(squared);
             else
                 SolveFactor(factor, candidates, unsolved);
         }
 
-        // Where the factor is defined holds by how its solutions were found.
+        // Where the factor is defined holds by how isolated solutions were found.
         List<Solution> solutions = Reduced([
             .. candidates.SelectMany(candidate => Admitted(new Solution(candidate, []), conditions)),
             .. isolated.SelectMany(item => Admitted(item.Solution, [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
+            .. rationalized.SelectMany(item => Admitted(item.Solution, [.. conditions, .. item.Needs])),
         ]);
         if (region is var (low, high))
         {
