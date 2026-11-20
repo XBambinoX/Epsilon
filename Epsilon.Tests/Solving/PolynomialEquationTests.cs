@@ -46,10 +46,10 @@ public class PolynomialEquationTests
     // A product is 0 where a factor is and every factor is defined.
     [Theory]
     [InlineData("x*sin(x) = 0", "{0, ...}")]
-    [InlineData("x*ln(x) = 0", "{...}")]
-    [InlineData("sqrt(x)*(x + 1) = 0", "{...}")]
+    [InlineData("x*ln(x) = 0", "{1}")]
+    [InlineData("sqrt(x)*(x + 1) = 0", "{0}")]
     [InlineData("tan(x)*(x - pi/2) = 0", "{...}")]
-    [InlineData("asin(x)*(x - 2) = 0", "{...}")]
+    [InlineData("asin(x)*(x - 2) = 0", "{0}")]
     public void Products_are_zero_where_a_defined_factor_is(string equation, string expected) => Assert.Equal(expected, Printed(equation));
 
     [Fact]

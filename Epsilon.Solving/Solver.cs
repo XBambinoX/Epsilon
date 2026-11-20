@@ -6,16 +6,18 @@ namespace Epsilon.Solving;
 // radicals, which numbers give more accurately. With a region too, an interval of the real line
 // or a rectangle of the complex plane between two corners, it keeps the solutions in it and
 // searches it for those of the rest.
-internal sealed class Solver(string variable, Assumptions assumptions, bool complex, bool numeric = false, (ComplexNumber Low, ComplexNumber High)? region = null)
+// A solver for an equation inside another shares its numbers.
+internal sealed partial class Solver(
+    string variable, Assumptions assumptions, bool complex, bool numeric = false, (ComplexNumber Low, ComplexNumber High)? region = null, Solver? outer = null)
 {
     private const int MaxDegree = 64;
 
     // In numeric mode, the quadratic with two roots each root came from: as a double, centre -
     // half loses digits where the two nearly cancel, and Newton's method on it gets them back.
-    private readonly Dictionary<Expr, ComplexNumber[]> _quadratics = [];
+    private readonly Dictionary<Expr, ComplexNumber[]> _quadratics = outer?._quadratics ?? [];
 
     // The roots found numerically, in full: as a Constant, a double keeps 15 digits.
-    private readonly Dictionary<Expr, ComplexNumber> _numbers = [];
+    private readonly Dictionary<Expr, ComplexNumber> _numbers = outer?._numbers ?? [];
 
     internal SolutionSet Solve(Expr left, Expr right)
     {
@@ -33,11 +35,22 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
             return EveryValueWhere(numerator, conditions);
 
         var candidates = new List<Expr>();
+        var isolated = new List<(Solution Solution, Expr Factor)>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
-            SolveFactor(factor, candidates, unsolved);
+        {
+            if (!complex && Polynomials.Coefficients(factor, variable, MaxDegree) is null && Isolated(factor) is { } found)
+                isolated.AddRange(found.Select(solution => (solution, factor)));
+            else
+                SolveFactor(factor, candidates, unsolved);
+        }
 
-        List<Solution> solutions = [.. candidates.SelectMany(candidate => Admitted(candidate, conditions))];
+        // Where the factor is defined holds by how its solutions were found.
+        List<Solution> solutions = [
+            .. candidates.SelectMany(candidate => Admitted(candidate, [], conditions)),
+            .. isolated.SelectMany(item => Admitted(item.Solution.Value, item.Solution.Conditions,
+                [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
+        ];
         if (region is var (low, high))
         {
             solutions.RemoveAll(solution => !Within(Number(solution.Value), low, high));
@@ -283,9 +296,9 @@ internal sealed class Solver(string variable, Assumptions assumptions, bool comp
 
     // The value as a solution, with the conditions on it that aren't decided; nothing where one
     // fails.
-    private IEnumerable<Solution> Admitted(Expr value, List<Condition> conditions)
+    private IEnumerable<Solution> Admitted(Expr value, IReadOnlyList<Condition> given, List<Condition> conditions)
     {
-        var open = new List<Condition>();
+        var open = new List<Condition>(given);
         foreach (Condition condition in conditions)
         {
             var at = new Condition(
