@@ -52,7 +52,9 @@ public sealed class Equation
 
     /// <summary>
     /// Solves the equation for <paramref name="variable"/> over the real numbers, exactly. The
-    /// other variables are parameters, real numbers that the solutions may contain.
+    /// other variables are parameters, real numbers that the solutions may contain. A periodic
+    /// function gives families of solutions, one value a period: sin(x) = 1/2 at
+    /// π / 6 + 2 * π * k and 5 * π / 6 + 2 * π * k for every integer k (see <see cref="Solution.Period"/>).
     /// </summary>
     /// <param name="variable">The unknown.</param>
     /// <param name="assumptions">
@@ -88,6 +90,8 @@ public sealed class Equation
     /// <summary>
     /// The real solutions for <paramref name="variable"/> as numbers: those <see cref="Solve(string, Assumptions?)"/>
     /// finds, evaluated, and every real root of a polynomial it can't solve exactly, as x^5 - x - 1.
+    /// A family of solutions, as sin(x) = 1/2 has, is too many to list and stays
+    /// <see cref="NumericSolutionSet{T}.Unsolved"/>; the overload with a range lists those in it.
     /// </summary>
     /// <param name="variable">The unknown.</param>
     /// <param name="assumptions">

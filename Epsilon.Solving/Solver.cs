@@ -21,6 +21,9 @@ internal sealed partial class Solver(
 
     internal SolutionSet Solve(Expr left, Expr right)
     {
+        if (outer is null)
+            _index = FreeIndex(variable, left, right);
+
         // Strict, so that no step enlarges the domain: x/x = 1 isn't 1 = 1 at x = 0.
         left = left.Simplify(assumptions, SimplifyMode.Strict);
         right = right.Simplify(assumptions, SimplifyMode.Strict);
@@ -46,11 +49,10 @@ internal sealed partial class Solver(
         }
 
         // Where the factor is defined holds by how its solutions were found.
-        List<Solution> solutions = [
-            .. candidates.SelectMany(candidate => Admitted(candidate, [], conditions)),
-            .. isolated.SelectMany(item => Admitted(item.Solution.Value, item.Solution.Conditions,
-                [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
-        ];
+        List<Solution> solutions = Reduced([
+            .. candidates.SelectMany(candidate => Admitted(new Solution(candidate, []), conditions)),
+            .. isolated.SelectMany(item => Admitted(item.Solution, [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
+        ]);
         if (region is var (low, high))
         {
             solutions.RemoveAll(solution => !Within(Number(solution.Value), low, high));
@@ -137,9 +139,12 @@ internal sealed partial class Solver(
     }
 
     // The number in a condition on the right and no minus in front on the left: a != 1 for
-    // a - 1 != 0, a < 0 for -a > 0.
+    // a - 1 != 0, a < 0 for -a > 0. On the index of a family, a bound: k >= 0.
     private Condition Tidied(Condition condition)
     {
+        if (OnIndex(condition) && IndexBound(condition).Bound is { } bound)
+            return bound;
+
         Expr left = (condition.Left - condition.Right).Simplify(assumptions);
         Expr right = 0;
         if (left is Add { Right: Constant term } sum && sum.Left.GetVariables().Count > 0)
@@ -149,16 +154,7 @@ internal sealed partial class Solver(
 
         if (!left.Print().StartsWith('-'))
             return new Condition(left, condition.Comparison, right);
-
-        Comparison flipped = condition.Comparison switch
-        {
-            Comparison.Less => Comparison.Greater,
-            Comparison.LessOrEqual => Comparison.GreaterOrEqual,
-            Comparison.Greater => Comparison.Less,
-            Comparison.GreaterOrEqual => Comparison.LessOrEqual,
-            var same => same,
-        };
-        return new Condition((-left).Simplify(assumptions), flipped, (-right).Simplify(assumptions));
+        return new Condition((-left).Simplify(assumptions), Flipped(condition.Comparison), (-right).Simplify(assumptions));
     }
 
     private void SolveFactor(Expr factor, List<Expr> candidates, List<Expr> unsolved)
@@ -294,33 +290,52 @@ internal sealed partial class Solver(
         return parts.All(part => Polynomials.Coefficients(part, variable, MaxDegree)?.Length - 1 < degree) ? parts : null;
     }
 
-    // The value as a solution, with the conditions on it that aren't decided; nothing where one
-    // fails.
-    private IEnumerable<Solution> Admitted(Expr value, IReadOnlyList<Condition> given, List<Condition> conditions)
+    // The candidate as a solution, with the conditions on it that aren't decided; nothing where
+    // one fails. Of a family, the values that meet them: π * k with x != 0 leaves k != 0.
+    private IEnumerable<Solution> Admitted(Solution candidate, IReadOnlyList<Condition> conditions)
     {
-        var open = new List<Condition>(given);
-        foreach (Condition condition in conditions)
+        var open = new List<Condition>(candidate.Conditions);
+        for (int i = 0; i < conditions.Count; i++)
         {
+            Condition condition = conditions[i];
             var at = new Condition(
-                condition.Left.Substitute(variable, value).Simplify(assumptions),
+                condition.Left.Substitute(variable, candidate.Value).Simplify(assumptions),
                 condition.Comparison,
-                condition.Right.Substitute(variable, value).Simplify(assumptions));
-            switch (Decide(at))
+                condition.Right.Substitute(variable, candidate.Value).Simplify(assumptions));
+            bool? holds = Decide(at);
+            if (holds == false)
+                yield break;
+            if (holds == true)
+                continue;
+
+            // A family split into the parts that meet the condition, which take the rest.
+            if (candidate.Index is not null && OnIndex(at) && IndexBound(at) is (null, null)
+                && (Residues(condition, candidate, open) ?? Partitioned(condition, candidate, open)) is { } parts)
             {
-                case false:
-                    yield break;
-                case null:
-                    open.Add(Tidied(at));
-                    break;
+                foreach (Solution part in parts)
+                {
+                    foreach (Solution solution in Admitted(part, [.. conditions.Skip(i + 1)]))
+                        yield return solution;
+                }
+
+                yield break;
             }
+
+            Condition tidied = Tidied(at);
+            if (!open.Contains(tidied))
+                open.Add(tidied);
         }
 
-        yield return new Solution(value, open);
+        if (candidate.Index is null)
+            yield return candidate.With(open);
+        else if (Normalized(candidate.Start, candidate.Period!, open) is { } family)
+            yield return family;
     }
 
+    // An equation inside another leaves them to the outer one.
     private IEnumerable<Condition> SignAssumed()
     {
-        if (complex)
+        if (complex || outer is not null)
             yield break;
 
         var x = new Variable(variable);
@@ -339,6 +354,9 @@ internal sealed partial class Solver(
     // Whether the condition holds, fails, or isn't known to do either.
     private bool? Decide(Condition condition)
     {
+        if (OnIndex(condition) && IndexBound(condition) is (var holds, var bound) && (holds is not null || bound is not null))
+            return holds;
+
         Expr difference = (condition.Left - condition.Right).Simplify(assumptions);
         if (SignOf(difference) is int sign)
         {

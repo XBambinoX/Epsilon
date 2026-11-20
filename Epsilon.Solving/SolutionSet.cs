@@ -3,8 +3,9 @@ using Epsilon.Core;
 namespace Epsilon.Solving;
 
 /// <summary>
-/// The solutions of an equation in one unknown: exact values, each with the conditions it
-/// holds under, or every value; and the parts of the equation that weren't solved, if any.
+/// The solutions of an equation in one unknown: exact values and families of them that repeat
+/// with a period, each with the conditions it holds under, or every value; and the parts of the
+/// equation that weren't solved, if any.
 /// </summary>
 public sealed class SolutionSet
 {
@@ -25,7 +26,8 @@ public sealed class SolutionSet
 
     /// <summary>
     /// The exact solutions, each once: ordered by value where they are numbers (complex ones by
-    /// the real part, then the imaginary part), otherwise in the order they were found.
+    /// the real part, then the imaginary part, families by their value at index 0), otherwise in
+    /// the order they were found.
     /// </summary>
     public IReadOnlyList<Solution> Solutions { get; }
 
@@ -57,17 +59,20 @@ public sealed class SolutionSet
     /// <summary>
     /// The set as text: <c>{2, 3}</c>, <c>{-b / a} if a != 0</c>, <c>{}</c> for no solution,
     /// <c>(-inf, inf)</c> for every real value (<c>C</c> for every complex one), and <c>...</c> for solutions that weren't found:
-    /// <c>{1, ...}</c>.
+    /// <c>{1, ...}</c>. Families of solutions name their index after a bar, with the conditions
+    /// on it: <c>{π / 6 + 2 * π * k, 5 * π / 6 + 2 * π * k | k in Z}</c>, <c>{π * k | k in Z, k != 0}</c>.
     /// </summary>
     public string Print()
     {
         if (IsEveryValue)
             return (_complex ? "C" : "(-inf, inf)") + ConditionsText(Conditions);
 
-        var (items, shared) = Items(solution => solution.Value.Print(), solution => solution.Print());
+        var (items, shared) = Items(solution => solution.ValueText(value => value.Print()), solution => solution.Print());
         if (!IsComplete)
             items.Add("...");
-        return "{" + string.Join(", ", items) + "}" + ConditionsText(shared);
+        var (onIndex, rest) = ByIndex(shared);
+        string index = Index is { } k ? " | " + k + " in Z" + string.Concat(onIndex.Select(condition => ", " + condition.Print())) : "";
+        return "{" + string.Join(", ", items) + index + "}" + ConditionsText(rest);
     }
 
     /// <summary>The set in LaTeX: <c>\left\{2, 3\right\}</c>, <c>\emptyset</c> for no solution.</summary>
@@ -78,10 +83,26 @@ public sealed class SolutionSet
         if (IsEmpty)
             return "\\emptyset";
 
-        var (items, shared) = Items(solution => solution.Value.ToLatex(), solution => solution.ToLatex());
+        var (items, shared) = Items(solution => solution.ValueText(value => value.ToLatex()), solution => solution.ToLatex());
         if (!IsComplete)
             items.Add("\\ldots");
-        return "\\left\\{" + string.Join(", ", items) + "\\right\\}" + ConditionsLatex(shared);
+        var (onIndex, rest) = ByIndex(shared);
+        string index = Index is { } k
+            ? " \\mid " + k + " \\in \\mathbb{Z}" + string.Concat(onIndex.Select(condition => ", " + condition.ToLatex()))
+            : "";
+        return "\\left\\{" + string.Join(", ", items) + index + "\\right\\}" + ConditionsLatex(rest);
+    }
+
+    // The index of the families, the same for all of them.
+    private string? Index => Solutions.Select(solution => solution.Index).FirstOrDefault(index => index is not null);
+
+    // The conditions shared by all the solutions that are on the index go with it inside the braces.
+    private (List<Condition> OnIndex, List<Condition> Others) ByIndex(IReadOnlyList<Condition> conditions)
+    {
+        if (Index is not { } k)
+            return ([], [.. conditions]);
+        bool On(Condition condition) => condition.Left.DependsOn(k) || condition.Right.DependsOn(k);
+        return ([.. conditions.Where(On)], [.. conditions.Where(condition => !On(condition))]);
     }
 
     /// <inheritdoc/>
@@ -130,9 +151,9 @@ public sealed class SolutionSet
         var values = new List<ComplexNumber>();
         foreach (Solution solution in solutions)
         {
-            if (solution.Value.GetVariables().Count > 0)
+            if (solution.Start.GetVariables().Count > 0)
                 return solutions;
-            ComplexNumber value = solution.Value.EvaluateComplex();
+            ComplexNumber value = solution.Start.EvaluateComplex();
             if (!double.IsFinite(value.Magnitude))
                 return solutions;
             values.Add(value);

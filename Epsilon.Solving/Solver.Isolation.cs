@@ -14,7 +14,8 @@ internal sealed partial class Solver
     // function can be undone, as in x - cos(x), or the rest isn't solved completely.
     private List<Solution>? Isolated(Expr factor)
     {
-        if (Undone(factor, 0, [], inverted: false) is not { } branches)
+        // The numeric solver lists numbers, which a family has too many of.
+        if (Undone(factor, 0, [], inverted: false) is not { } branches || numeric && branches.Any(branch => branch.Value.DependsOn(_index)))
             return null;
 
         var solutions = new List<Solution>();
@@ -23,10 +24,23 @@ internal sealed partial class Solver
             SolutionSet rest = new Solver(variable, assumptions, complex, numeric, region, this).Solve(inner, value);
             if (!rest.IsComplete || rest.IsEveryValue)
                 return null;
-            solutions.AddRange(rest.Solutions.Select(solution => new Solution(solution.Value, [.. solution.Conditions, .. given])));
+
+            // A periodic function undone leaves the index in the solutions, as a parameter.
+            foreach (Solution solution in rest.Solutions)
+            {
+                List<Condition> conditions = [.. solution.Conditions, .. given];
+                if (!solution.Value.DependsOn(_index))
+                    solutions.Add(solution.With(conditions));
+                else if (Family(solution.Value, conditions) is not { } family)
+                    return null;
+                else
+                    solutions.AddRange(family);
+            }
         }
 
-        return solutions;
+        // Merged before the rest of the equation puts conditions on them: π * k with x != 0 is
+        // π * k for k != 0, not two families with half of it each.
+        return Reduced(solutions);
     }
 
     // The equations lhs = rhs comes to once everything that can be is undone, down to a
@@ -60,6 +74,13 @@ internal sealed partial class Solver
         bool Free(Expr e) => !e.DependsOn(variable);
         static Condition Is(Expr left, Comparison comparison, Expr right) => new(left, comparison, right);
         Expr halfPi = Expr.PI / 2;
+
+        // A periodic function's inverse gives each value once a period, and the index numbers the
+        // periods; one already in the other side would need a second index.
+        if (lhs is Sin or Cos or Tan or Cot or Sec or Csc && rhs.DependsOn(_index))
+            return null;
+        Expr k = new Variable(_index), turns = 2 * Expr.PI * k, halfTurns = Expr.PI * k;
+        Condition[] unit = [Is(rhs, Comparison.GreaterOrEqual, -1), Is(rhs, Comparison.LessOrEqual, 1)];
 
         switch (lhs)
         {
@@ -109,6 +130,21 @@ internal sealed partial class Solver
                 return [new(f.Argument, new Cos(rhs), [Is(rhs, Comparison.GreaterOrEqual, 0), Is(rhs, Comparison.LessOrEqual, Expr.PI)], true)];
             case Atan f:
                 return [new(f.Argument, new Tan(rhs), [Is(rhs, Comparison.Greater, -halfPi), Is(rhs, Comparison.Less, halfPi)], true)];
+
+            case Sin f:
+                return [new(f.Argument, new Asin(rhs) + turns, unit, true), new(f.Argument, Expr.PI - new Asin(rhs) + turns, unit, true)];
+            case Cos f:
+                return [new(f.Argument, new Acos(rhs) + turns, unit, true), new(f.Argument, -new Acos(rhs) + turns, unit, true)];
+            case Tan f:
+                return [new(f.Argument, new Atan(rhs) + halfTurns, [], true)];
+            case Cot f:
+                return [new(f.Argument, halfPi - new Atan(rhs) + halfTurns, [], true)];
+            case Sec f:
+                Condition[] sec = [Is(new Abs(rhs), Comparison.GreaterOrEqual, 1)];
+                return [new(f.Argument, new Acos(1 / rhs) + turns, sec, true), new(f.Argument, -new Acos(1 / rhs) + turns, sec, true)];
+            case Csc f:
+                Condition[] csc = [Is(new Abs(rhs), Comparison.GreaterOrEqual, 1)];
+                return [new(f.Argument, new Asin(1 / rhs) + turns, csc, true), new(f.Argument, Expr.PI - new Asin(1 / rhs) + turns, csc, true)];
 
             case Sinh f:
                 return [new(f.Argument, new Asinh(rhs), [], true)];

@@ -2,17 +2,47 @@ using Epsilon.Core;
 
 namespace Epsilon.Solving;
 
-/// <summary>One solution of an equation: an exact value, and the conditions it holds under.</summary>
+/// <summary>
+/// One solution of an equation, an exact value, or a family of them that repeats with a period,
+/// as π / 6 + 2 * π * k for every integer k; and the conditions it holds under.
+/// </summary>
 public sealed class Solution
 {
     internal Solution(Expr value, IReadOnlyList<Condition> conditions)
     {
         Value = value;
+        Start = value;
         Conditions = conditions;
     }
 
-    /// <summary>The value of the unknown, exact. It may contain the other variables.</summary>
+    // The family start + period * index.
+    internal Solution(Expr start, Expr period, string index, IReadOnlyList<Condition> conditions)
+    {
+        Term = (period * new Variable(index)).Simplify();
+        Value = start is Constant { Value.IsZero: true } ? Term : new Add(start, Term);
+        Start = start;
+        Period = period;
+        Index = index;
+        Conditions = conditions;
+    }
+
+    /// <summary>
+    /// The value of the unknown, exact. It may contain the other variables, and for a family,
+    /// <see cref="Index"/>: π / 6 + 2 * π * k.
+    /// </summary>
     public Expr Value { get; }
+
+    /// <summary>
+    /// For a family, how far apart its values are, positive: 2 * π for π / 6 + 2 * π * k. Null
+    /// for a single value.
+    /// </summary>
+    public Expr? Period { get; }
+
+    /// <summary>
+    /// For a family, the variable in <see cref="Value"/> that takes every integer value (and in
+    /// <see cref="Conditions"/>, where only some do: <c>k &gt;= 0</c>). Null for a single value.
+    /// </summary>
+    public string? Index { get; }
 
     /// <summary>
     /// The conditions the value is a solution under, empty if it always is: <c>a != 0</c> for
@@ -20,14 +50,26 @@ public sealed class Solution
     /// </summary>
     public IReadOnlyList<Condition> Conditions { get; }
 
+    // The value at index 0.
+    internal Expr Start { get; }
+
+    private Expr? Term { get; }
+
     /// <summary>The value, and its conditions after <c>if</c>: <c>-b / a if a != 0</c>.</summary>
-    public string Print() => Value.Print() + SolutionSet.ConditionsText(Conditions);
+    public string Print() => ValueText(value => value.Print()) + SolutionSet.ConditionsText(Conditions);
 
     /// <summary>The value and its conditions in LaTeX.</summary>
-    public string ToLatex() => Value.ToLatex() + SolutionSet.ConditionsLatex(Conditions);
+    public string ToLatex() => ValueText(value => value.ToLatex()) + SolutionSet.ConditionsLatex(Conditions);
 
     /// <inheritdoc/>
     public override string ToString() => Print();
+
+    // A family prints its start first, as it is usually written: π / 6 + 2 * π * k.
+    internal string ValueText(Func<Expr, string> print) =>
+        Term is null || Start is Constant { Value.IsZero: true } ? print(Value) : print(Start) + " + " + print(Term);
+
+    internal Solution With(IReadOnlyList<Condition> conditions) =>
+        Index is null ? new Solution(Value, conditions) : new Solution(Start, Period!, Index, conditions);
 
     internal bool SameAs(Solution other) =>
         Value.Equals(other.Value) && Conditions.SequenceEqual(other.Conditions);
