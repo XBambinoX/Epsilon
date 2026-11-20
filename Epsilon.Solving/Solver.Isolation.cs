@@ -14,14 +14,16 @@ internal sealed partial class Solver
     // function can be undone, as in x - cos(x), or the rest isn't solved completely.
     private List<Solution>? Isolated(Expr factor)
     {
-        // The numeric solver lists numbers, which a family has too many of.
-        if (Undone(factor, 0, [], inverted: false) is not { } branches || numeric && branches.Any(branch => branch.Value.DependsOn(_index)))
+        // The numeric solver lists numbers, which a family has too many of outside a range.
+        if (Undone(factor, 0, [], inverted: false) is not { } branches || numeric && region is null && branches.Any(branch => branch.Value.DependsOn(_index)))
             return null;
 
         var solutions = new List<Solution>();
         foreach (var (inner, value, given) in branches)
         {
-            SolutionSet rest = new Solver(variable, assumptions, complex, numeric, region, this).Solve(inner, value);
+            // The range is for the values of the family, which this one has only with k in them.
+            var range = value.DependsOn(_index) ? null : region;
+            SolutionSet rest = new Solver(variable, assumptions, complex, numeric, range, this).Solve(inner, value);
             if (!rest.IsComplete || rest.IsEveryValue)
                 return null;
 

@@ -182,9 +182,9 @@ public class PeriodicEquationTests
     public void Latex_names_the_index_after_a_bar() =>
         Assert.Equal("\\left\\{\\pi \\cdot k \\mid k \\in \\mathbb{Z}, k \\neq 0\\right\\}", Equation.Parse("sin(x)/x = 0").Solve().ToLatex());
 
-    // A family has too many values to list as numbers; in a range, the scan finds them.
+    // A family has too many values to list as numbers, but in a range it has a few.
     [Fact]
-    public void Numerically_a_family_is_left_to_the_scan()
+    public void Numerically_a_family_is_listed_in_a_range()
     {
         Assert.Equal("{...}", Equation.Parse("sin(x) = 1/2").SolveNumerically().Print());
         Assert.Equal([Math.PI / 6, 5 * Math.PI / 6, 13 * Math.PI / 6, 17 * Math.PI / 6],

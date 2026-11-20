@@ -66,12 +66,60 @@ internal static class RealRoots
         return null;
     }
 
-    private static double Polished(Expr f, Expr slope, string variable, double x, double fx)
+    private static double Polished(Expr f, Expr slope, string variable, double x, double fx) =>
+        Polished(x => At(f, variable, x), x => At(slope, variable, x), x, fx, double.PositiveInfinity);
+
+    // Polishes values next to roots of f, a few ulps at most, so that one worked out from an exact
+    // value, as π / 6, becomes the double nearest the root. Compiled for many values: compiling
+    // takes longer than evaluating a few times.
+    internal static Func<double, double> Polisher(Expr f, string variable, bool many)
+    {
+        Func<double, double> F, slope;
+        try
+        {
+            F = many ? Compiled(f, variable) : Function(f, variable);
+            slope = many ? Compiled(f.Differentiate(variable), variable) : Function(f.Differentiate(variable), variable);
+        }
+        catch (Exception e) when (e is NotSupportedException or NotImplementedException)
+        {
+            return x => x;
+        }
+
+        return x => Polished(F, slope, x, F(x), 1e-12 * Math.Max(1, Math.Abs(x)));
+    }
+
+    // What Function gives, bit for bit, faster.
+    private static Func<double, double> Compiled(Expr f, string variable)
+    {
+        Func<double, double> compiled;
+        try
+        {
+            compiled = f.Compile(variable);
+        }
+        catch (Exception e) when (e is InvalidOperationException or ArgumentException or NotSupportedException)
+        {
+            return Function(f, variable);
+        }
+
+        return x =>
+        {
+            try
+            {
+                return compiled(x);
+            }
+            catch
+            {
+                return double.NaN;
+            }
+        };
+    }
+
+    private static double Polished(Func<double, double> f, Func<double, double> slope, double x, double fx, double maxStep)
     {
         for (int i = 0; i < 3 && fx != 0; i++)
         {
-            double next = x - fx / At(slope, variable, x), fNext = At(f, variable, next);
-            if (!(Math.Abs(fNext) < Math.Abs(fx)))
+            double next = x - fx / slope(x), fNext = f(next);
+            if (!(Math.Abs(fNext) < Math.Abs(fx)) || !(Math.Abs(next - x) <= maxStep))
                 break;
             (x, fx) = (next, fNext);
         }

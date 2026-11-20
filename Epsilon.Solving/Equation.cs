@@ -55,7 +55,7 @@ public sealed class Equation
     /// other variables are parameters, real numbers that the solutions may contain. A periodic
     /// function gives families of solutions, one value a period: sin(x) = 1/2 at
     /// π / 6 + 2 * π * k and 5 * π / 6 + 2 * π * k for every integer k (see <see cref="Solution.Period"/>;
-    /// <see cref="Solution.At"/> gives one of the values).
+    /// <see cref="Solution.At"/> gives one of the values, <see cref="SolutionSet.Within"/> those in a range).
     /// </summary>
     /// <param name="variable">The unknown.</param>
     /// <param name="assumptions">
@@ -114,14 +114,15 @@ public sealed class Equation
 
     /// <summary>
     /// The real solutions for <paramref name="variable"/> in [<paramref name="from"/>, <paramref name="to"/>]
-    /// as numbers: those of <see cref="SolveNumerically(string, Assumptions?)"/> in the range, and
-    /// those of the parts it doesn't solve, as sin(x) or x - cos(x), found by scanning the range.
-    /// Points where the equation is undefined are never solutions.
+    /// as numbers: those of <see cref="SolveNumerically(string, Assumptions?)"/> in the range, the
+    /// values of each family of solutions in it, and those of the parts it doesn't solve, as
+    /// x - cos(x), found by scanning the range. Points where the equation is undefined are never solutions.
     /// </summary>
     /// <remarks>
     /// The scan steps through the range on a grid, finer where the equation oscillates through
     /// sines and cosines; solutions closer together than a step can be missed. An infinite limit
-    /// is scanned through a change of variable, with steps that get longer far from 0.
+    /// is scanned through a change of variable, with steps that get longer far from 0. A family
+    /// with more than a million values in the range, or infinitely many, is scanned for too.
     /// </remarks>
     /// <param name="variable">The unknown.</param>
     /// <param name="from">The lower end of the range; may be -infinity.</param>

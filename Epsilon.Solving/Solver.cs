@@ -55,15 +55,31 @@ internal sealed partial class Solver(
         ]);
         if (region is var (low, high))
         {
-            solutions.RemoveAll(solution => !Within(Number(solution.Value), low, high));
-            if (unsolved.Count > 0)
+            // A family the range can't list, as one in an infinite range, is left to the scan.
+            bool scan = unsolved.Count > 0;
+            var inRegion = new List<Solution>();
+            foreach (Solution solution in solutions)
+            {
+                if (solution.Index is null)
+                {
+                    if (Within(Number(solution.Value), low, high))
+                        inRegion.Add(solution);
+                }
+                else if (Numbers(solution, low.Real, high.Real, difference) is { } values)
+                    inRegion.AddRange(values);
+                else
+                    scan = true;
+            }
+
+            solutions = inRegion;
+            if (scan)
             {
                 solutions.AddRange(Searched(difference, low, high, [.. solutions.Select(solution => Number(solution.Value))]));
                 unsolved.Clear();
             }
         }
 
-        return SolutionSet.Of(variable, solutions, unsolved, complex);
+        return SolutionSet.Of(variable, solutions, unsolved, complex, this);
     }
 
     private bool Within(ComplexNumber z, ComplexNumber low, ComplexNumber high) =>
@@ -88,9 +104,26 @@ internal sealed partial class Solver(
             ? ComplexRoots.InRectangle(difference, variable, low, high)
             : RealRoots.InRange(difference, variable, low.Real, high.Real).Select(root => new ComplexNumber(root));
         List<Condition> signs = [.. SignAssumed()];
+
+        // By the real part, as a family listed in the range can have found many.
+        ComplexNumber[] sorted = [.. found.OrderBy(number => number.Real)];
+        double[] reals = [.. sorted.Select(number => number.Real)];
+        bool Found(ComplexNumber root)
+        {
+            double tolerance = 1e-6 * Math.Max(1, root.Magnitude);
+            int i = Array.BinarySearch(reals, root.Real - tolerance);
+            for (i = i < 0 ? ~i : i; i < reals.Length && reals[i] <= root.Real + tolerance; i++)
+            {
+                if ((sorted[i] - root).Magnitude <= tolerance)
+                    return true;
+            }
+
+            return false;
+        }
+
         foreach (ComplexNumber root in roots)
         {
-            if (found.Any(number => (number - root).Magnitude <= 1e-6 * Math.Max(1, root.Magnitude)))
+            if (Found(root))
                 continue;
 
             Expr value = root.Imaginary == 0 ? root.Real : (new Constant(root.Real) + new Constant(root.Imaginary) * Expr.I).Simplify();
@@ -105,10 +138,10 @@ internal sealed partial class Solver(
     private SolutionSet WithoutUnknown(Expr difference, Expr left, Expr right)
     {
         if (difference is Constant { Value.IsZero: true })
-            return SolutionSet.EveryValue(variable, [.. InRange()], complex);
+            return SolutionSet.EveryValue(variable, [.. InRange()], complex, this);
         if (IsNonZero(difference))
-            return SolutionSet.Empty(variable, complex);
-        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right), .. InRange()], complex);
+            return SolutionSet.Empty(variable, complex, this);
+        return SolutionSet.EveryValue(variable, [new Condition(left, Comparison.Equal, right), .. InRange()], complex, this);
     }
 
     // The numerator doesn't depend on the unknown: if it is 0, every value where the equation is
@@ -118,7 +151,7 @@ internal sealed partial class Solver(
         if (numerator is not Constant { Value.IsZero: true })
         {
             if (IsNonZero(numerator))
-                return SolutionSet.Empty(variable, complex);
+                return SolutionSet.Empty(variable, complex, this);
             conditions.Insert(0, new Condition(numerator, Comparison.Equal, 0));
         }
 
@@ -128,14 +161,14 @@ internal sealed partial class Solver(
             switch (Decide(condition))
             {
                 case false:
-                    return SolutionSet.Empty(variable, complex);
+                    return SolutionSet.Empty(variable, complex, this);
                 case null:
                     open.Add(Tidied(condition));
                     break;
             }
         }
 
-        return SolutionSet.EveryValue(variable, [.. open, .. InRange()], complex);
+        return SolutionSet.EveryValue(variable, [.. open, .. InRange()], complex, this);
     }
 
     // The number in a condition on the right and no minus in front on the left: a != 1 for

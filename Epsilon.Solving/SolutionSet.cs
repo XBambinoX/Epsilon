@@ -11,9 +11,14 @@ public sealed class SolutionSet
 {
     private readonly bool _complex;
 
-    private SolutionSet(string variable, IReadOnlyList<Solution> solutions, bool isEveryValue, IReadOnlyList<Condition> conditions, IReadOnlyList<Expr> unsolved, bool complex)
+    // The solver that found the solutions, with the assumptions and the index they were found with.
+    private readonly Solver? _source;
+
+    private SolutionSet(
+        string variable, IReadOnlyList<Solution> solutions, bool isEveryValue, IReadOnlyList<Condition> conditions, IReadOnlyList<Expr> unsolved, bool complex, Solver? source)
     {
         _complex = complex;
+        _source = source;
         Variable = variable;
         Solutions = solutions;
         IsEveryValue = isEveryValue;
@@ -105,6 +110,34 @@ public sealed class SolutionSet
         return ([.. conditions.Where(On)], [.. conditions.Where(condition => !On(condition))]);
     }
 
+    /// <summary>
+    /// The solutions in [<paramref name="from"/>, <paramref name="to"/>], with the values of each
+    /// family there listed one by one: sin(x) = 1/2 in [0, 10] is
+    /// <c>{π / 6, 5 * π / 6, 13 * π / 6, 17 * π / 6}</c>. A value too close to an end to tell
+    /// from it counts as in the range, so 2 * π is in [0, 2 * Math.PI].
+    /// </summary>
+    /// <param name="from">The lower end, a real number: 0, 1.5, -2 * Expr.PI.</param>
+    /// <param name="to">The upper end.</param>
+    /// <exception cref="ArgumentException">An end isn't a finite real number, or <paramref name="from"/> isn't below <paramref name="to"/>.</exception>
+    /// <exception cref="InvalidOperationException">The solutions are complex ones, of <see cref="Equation.SolveComplex()"/>.</exception>
+    public SolutionSet Within(Expr from, Expr to)
+    {
+        ArgumentNullException.ThrowIfNull(from);
+        ArgumentNullException.ThrowIfNull(to);
+        if (_complex)
+            throw new InvalidOperationException("A range of the real line keeps real solutions; these are complex.");
+        if (!(End(from) < End(to)))
+            throw new ArgumentException($"Expected the lower end below the upper one, got [{from.Print()}, {to.Print()}].");
+
+        return (_source ?? new Solver(Variable, Assumptions.None, complex: false)).SolutionsWithin(this, from, to);
+    }
+
+    private static double End(Expr end)
+    {
+        double value = end.GetVariables().Count == 0 ? end.Evaluate() : double.NaN;
+        return double.IsFinite(value) ? value : throw new ArgumentException($"An end of the range isn't a finite real number: {end.Print()}.");
+    }
+
     /// <inheritdoc/>
     public override string ToString() => Print();
 
@@ -123,7 +156,7 @@ public sealed class SolutionSet
     internal static string ConditionsLatex(IReadOnlyList<Condition> conditions) =>
         conditions.Count == 0 ? "" : " \\text{ if } " + string.Join(" \\text{ and } ", conditions.Select(condition => condition.ToLatex()));
 
-    internal static SolutionSet Of(string variable, IEnumerable<Solution> solutions, IReadOnlyList<Expr> unsolved, bool complex = false)
+    internal static SolutionSet Of(string variable, IEnumerable<Solution> solutions, IReadOnlyList<Expr> unsolved, bool complex = false, Solver? source = null)
     {
         var distinct = new List<Solution>();
         var byValue = new Dictionary<Expr, List<Solution>>();
@@ -138,13 +171,13 @@ public sealed class SolutionSet
             }
         }
 
-        return new SolutionSet(variable, Ordered(distinct), false, [], unsolved, complex);
+        return new SolutionSet(variable, Ordered(distinct), false, [], unsolved, complex, source);
     }
 
-    internal static SolutionSet EveryValue(string variable, IReadOnlyList<Condition> conditions, bool complex = false) =>
-        new(variable, [], true, conditions, [], complex);
+    internal static SolutionSet EveryValue(string variable, IReadOnlyList<Condition> conditions, bool complex = false, Solver? source = null) =>
+        new(variable, [], true, conditions, [], complex, source);
 
-    internal static SolutionSet Empty(string variable, bool complex = false) => new(variable, [], false, [], [], complex);
+    internal static SolutionSet Empty(string variable, bool complex = false, Solver? source = null) => new(variable, [], false, [], [], complex, source);
 
     private static List<Solution> Ordered(List<Solution> solutions)
     {
