@@ -20,12 +20,14 @@ internal sealed partial class Solver
     private bool OnIndex(Condition condition) => condition.Left.DependsOn(_index) || condition.Right.DependsOn(_index);
 
     // A solution with the index in it as a parameter, as the family it stands for. Null where the
-    // value isn't linear in the index with a number for the slope, as sqrt(π * k); empty where no
-    // value of the index meets the conditions.
+    // value isn't linear in the index, as sqrt(π * k), or its slope is a number of no known sign;
+    // empty where no value of the index meets the conditions. A slope with parameters, 2 * π / a,
+    // may have either sign.
     private List<Solution>? Family(Expr value, IReadOnlyList<Condition> conditions)
     {
         Expr period = value.Differentiate(_index).Simplify(assumptions);
-        if (period.GetVariables().Count > 0 || SignOf(period) is not int sign || sign == 0)
+        int? sign = SignOf(period);
+        if (period.DependsOn(_index) || sign == 0 || sign is null && period.GetVariables().Count == 0)
             return null;
 
         Expr start = value.Substitute(_index, 0).Simplify(assumptions);

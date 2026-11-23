@@ -88,9 +88,61 @@ public class ParameterEquationTests
     [InlineData("exp(a*x) = b", "x", "{ln(b) / a} if a != 0 and b > 0")]
     [InlineData("a^x = b", "x", "{ln(b) / ln(a)} if a != 1 and b > 0 and a > 0")]
     [InlineData("abs(x) = a", "x", "{-a, a} if a >= 0")]
-    [InlineData("1/x + 1/y = 1/f", "x", "{-f * y / (f - y)} if f != y and f * y != 0")]
+    [InlineData("1/x + 1/y = 1/f", "x", "{-f * y / (f - y)} if f != y and f != 0 and y != 0")]
+    [InlineData("N = M*exp(-l*t)", "t", "{-ln(N / M) / l} if l != 0 and M != 0 and N / M > 0")]
     public void Functions_of_the_unknown_with_parameters(string equation, string variable, string expected) =>
         Assert.Equal(expected, Printed(equation, variable));
+
+    // Where the parts of the equation without the unknown are defined.
+    [Theory]
+    [InlineData("x = ln(a)", "{ln(a)} if a > 0")]
+    [InlineData("x = sqrt(a)", "{sqrt(a)} if a >= 0")]
+    [InlineData("x + 1/a = 0", "{-1 / a} if a != 0")]
+    [InlineData("x = ln(a) - ln(b)", "{ln(a) - ln(b)} if b > 0 and a > 0")]
+    public void Parameters_are_where_the_equation_is_defined(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
+    [Theory]
+    [InlineData("sin(x) = ln(a)", "{asin(ln(a)) + 2 * π * k, -asin(ln(a)) + π + 2 * π * k | k in Z} if a >= exp(-1) and a <= e")]
+    [InlineData("exp(x) = ln(a)", "{ln(ln(a))} if a > 1")]
+    public void Conditions_on_logarithms_are_on_their_arguments(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
+    // u^p, with p not a whole number, is defined for u > 0 only.
+    [Theory]
+    [InlineData("x^a = 8", "x", "{8^(1 / a)} if a != 0")]
+    [InlineData("A = P*(1 + r)^n", "r", "{(A / P)^(1 / n) - 1} if P != 0 and A / P > 0 and n != 0")]
+    [InlineData("A = P*(1 + r)^n", "n", "{ln(A / P) / ln(r + 1)} if r != 0 and P != 0 and A / P > 0 and r > -1")]
+    public void Powers_of_any_degree(string equation, string variable, string expected) =>
+        Assert.Equal(expected, Printed(equation, variable));
+
+    [Theory]
+    [InlineData("sin(a*x) = 1/2", "{π / (6a) + 2 * π * k / a, 5 * π / (6a) + 2 * π * k / a | k in Z} if a != 0")]
+    [InlineData("sin(a*x) = 0", "{π * k / a | k in Z} if a != 0")]
+    [InlineData("cos(x/a) = 1", "{2 * π * a * k | k in Z} if a != 0")]
+    [InlineData("sin(a*x + b) = 1", "{(-b + π / 2) / a + 2 * π * k / a | k in Z} if a != 0")]
+    [InlineData("sin(a*x)/x = 0", "{π * k / a | k in Z, k != 0} if a != 0")]
+    public void Families_with_a_period_of_parameters(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
+    [Fact]
+    public void A_period_of_parameters_has_either_sign()
+    {
+        Solution family = Equation.Parse("sin(a*x) = 1/2").Solve("x").Solutions[0];
+
+        Assert.Equal("2 * π / a", family.Period!.Print());
+        Assert.Equal("13 * π / (6a) if a != 0", family.At(1)!.Print());
+    }
+
+    // Which values fall in the range depends on a, so the family stays one, with conditions.
+    [Fact]
+    public void A_range_keeps_a_family_with_a_period_of_parameters()
+    {
+        SolutionSet within = Equation.Parse("sin(a*x) = 0").Solve("x").Within(0, 10);
+
+        Assert.Equal("k", Assert.Single(within.Solutions).Index);
+        Assert.Equal("{π * k / a | k in Z, k / a >= 0, π * k / a <= 10} if a != 0", within.Print());
+    }
 
     // Where the parameters meet the conditions, each solution makes both sides equal.
     [Theory]
@@ -102,13 +154,21 @@ public class ParameterEquationTests
     [InlineData("x^4 = a", "x", "a=16")]
     [InlineData("T = 2*pi*sqrt(L/g)", "g", "T=2 L=1")]
     [InlineData("a^x = b", "x", "a=0.5 b=3")]
+    [InlineData("x^a = 8", "x", "a=1.5")]
+    [InlineData("A = P*(1 + r)^n", "r", "A=200 P=100 n=5")]
+    [InlineData("A = P*(1 + r)^n", "n", "A=200 P=100 r=0.05")]
+    [InlineData("sin(a*x) = 1/2", "x", "a=3")]
+    [InlineData("sin(a*x)/x = 0", "x", "a=-2")]
     public void Solutions_make_both_sides_equal(string text, string variable, string values)
     {
         (string, double)[] at = [.. values.Split(' ').Select(pair => pair.Split('=')).Select(pair => (pair[0], double.Parse(pair[1], System.Globalization.CultureInfo.InvariantCulture)))];
         Equation equation = Equation.Parse(text);
         SolutionSet solutions = equation.Solve(variable);
 
-        List<Solution> met = [.. solutions.Solutions.Where(solution => solution.Conditions.All(condition => Holds(condition, at)))];
+        // A family by a few of its values.
+        List<Solution> met = [.. solutions.Solutions
+            .SelectMany(solution => solution.Index is null ? [solution] : new[] { -1, 0, 2 }.Select(solution.At).OfType<Solution>())
+            .Where(solution => solution.Conditions.All(condition => Holds(condition, at)))];
         Assert.NotEmpty(met);
         foreach (Solution solution in met)
         {

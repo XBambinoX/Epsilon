@@ -24,7 +24,7 @@ internal sealed partial class Solver
         var solutions = new List<Solution>();
         foreach (Solution solution in set.Solutions)
         {
-            if (solution.Start.GetVariables().Count > 0)
+            if (solution.Start.GetVariables().Count > 0 || solution.Period?.GetVariables().Count > 0)
                 solutions.AddRange(Admitted(solution, range));
             else if (solution.Index is not null)
                 solutions.AddRange(Listed(solution, from, to));

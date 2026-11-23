@@ -4,23 +4,23 @@ namespace Epsilon.Solving;
 
 internal static class Domain
 {
-    // Where the parts of expr that depend on the variable are defined: denominators that aren't 0,
-    // logarithms of positive numbers, even roots of numbers that aren't negative. Over the complex
-    // numbers only the denominators.
-    internal static List<Condition> Conditions(Expr expr, string variable, bool complex)
+    // Where the parts of expr that depend on the variable are defined, or with parameters, those
+    // that depend on any: denominators that aren't 0, logarithms of positive numbers, even roots of
+    // numbers that aren't negative. Over the complex numbers only the denominators.
+    internal static List<Condition> Conditions(Expr expr, string variable, bool complex, bool parameters = false)
     {
         var conditions = new List<Condition>();
-        Collect(expr, variable, complex, conditions);
+        Collect(expr, variable, complex, parameters, conditions);
         return [.. conditions.Distinct()];
     }
 
-    private static void Collect(Expr expr, string variable, bool complex, List<Condition> conditions)
+    private static void Collect(Expr expr, string variable, bool complex, bool parameters, List<Condition> conditions)
     {
-        if (!expr.DependsOn(variable))
+        if (!expr.DependsOn(variable) && !(parameters && HasVariables(expr)))
             return;
 
         foreach (Expr child in expr.Children)
-            Collect(child, variable, complex, conditions);
+            Collect(child, variable, complex, parameters, conditions);
 
         switch (expr)
         {
@@ -32,6 +32,9 @@ internal static class Domain
                 break;
             case Power { Exponent: Constant { Value: var q } } power when !q.IsInteger && !complex:
                 Add(power.Base, q.Sign < 0 ? Comparison.Greater : Comparison.GreaterOrEqual, 0);
+                break;
+            case Power { Exponent: not Constant } power when !complex:
+                Add(power.Base, Comparison.Greater, 0);
                 break;
             case Sqrt root when !complex:
                 Add(root.Argument, Comparison.GreaterOrEqual, 0);
@@ -66,4 +69,6 @@ internal static class Domain
 
         void Add(Expr left, Comparison comparison, Expr right) => conditions.Add(new Condition(left, comparison, right));
     }
+
+    private static bool HasVariables(Expr expr) => expr is Variable || expr.Children.Any(HasVariables);
 }

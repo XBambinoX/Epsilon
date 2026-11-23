@@ -113,6 +113,10 @@ internal sealed partial class Solver
                 return n.Numerator.IsEven
                     ? [new(power.Base, -root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true), new(power.Base, root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true)]
                     : [new(power.Base, root, [], true)];
+            // u^p = c for a power of no fixed degree, defined for u > 0 only.
+            case Power { Exponent: not Constant } power when Free(power.Exponent):
+                return [new(power.Base, new Power(rhs, 1 / power.Exponent),
+                    [Is(rhs, Comparison.Greater, 0), Is(power.Exponent, Comparison.NotEqual, 0)], true)];
             case Power power when Free(power.Base):
                 return [new(power.Exponent, new Ln(rhs) / new Ln(power.Base),
                     [Is(rhs, Comparison.Greater, 0), Is(power.Base, Comparison.Greater, 0), Is(power.Base, Comparison.NotEqual, 1)], true)];

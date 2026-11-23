@@ -32,7 +32,9 @@ internal sealed partial class Solver(
         if (!difference.DependsOn(variable))
             return WithoutUnknown(difference, left, right);
 
-        List<Condition> conditions = [.. Domain.Conditions(difference, variable, complex), .. SignAssumed()];
+        // The parameters' own, as a > 0 for x = ln(a), once: an equation inside another is built
+        // by steps whose needs already keep the values they are undefined at out.
+        List<Condition> conditions = [.. Domain.Conditions(difference, variable, complex, parameters: outer is null), .. SignAssumed()];
         Expr numerator = Together(difference).Numerator.Simplify(assumptions, SimplifyMode.Strict);
         if (!numerator.DependsOn(variable))
             return EveryValueWhere(numerator, conditions);
@@ -201,15 +203,25 @@ internal sealed partial class Solver(
         for (Expr? peeled = left; peeled is not null; peeled = Peeled(left, ref comparison))
             left = peeled;
 
-        Expr right = 0;
-        if (left is Add { Right: Constant term } sum && sum.Left.GetVariables().Count > 0)
-            (left, right) = (sum.Left, new Constant(-term.Value));
-        else if (left is Subtract { Right: Constant subtracted } difference && difference.Left.GetVariables().Count > 0)
-            (left, right) = (difference.Left, subtracted);
-        else if (left is Subtract { Left: var minuend, Right: var subtrahend } && minuend.GetVariables().Count > 0 && comparison is Comparison.Equal or Comparison.NotEqual)
-            (left, right) = (minuend, subtrahend);
-        else if (left is Ln { Argument: var argument } && comparison is Comparison.Equal or Comparison.NotEqual)
-            (left, right) = (argument, 1);
+        bool equality = comparison is Comparison.Equal or Comparison.NotEqual;
+        (Expr Left, Expr Right) Moved(Expr l, Expr r) => l switch
+        {
+            Add sum when sum.Right.GetVariables().Count == 0 && sum.Left.GetVariables().Count > 0 =>
+                (sum.Left, (r - sum.Right).Simplify(assumptions)),
+            Subtract difference when difference.Right.GetVariables().Count == 0 && difference.Left.GetVariables().Count > 0 =>
+                (difference.Left, (r + difference.Right).Simplify(assumptions)),
+            Subtract difference when equality && r is Constant { Value.IsZero: true } && difference.Left.GetVariables().Count > 0 =>
+                (difference.Left, difference.Right),
+            _ => (l, r),
+        };
+
+        Expr right;
+        (left, right) = Moved(left, 0);
+
+        // The logarithm grows with its argument, which is positive by the domain: a != 1 for
+        // ln(a) != 0, a <= e for ln(a) <= 1.
+        if (left is Ln { Argument: var argument } && right.GetVariables().Count == 0)
+            (left, right) = Moved(argument, right is Constant { Value.IsOne: true } ? Expr.E : new Exp(right).Simplify(assumptions));
 
         if (left.Print().StartsWith('-'))
             (left, right, comparison) = ((-left).Simplify(assumptions), (-right).Simplify(assumptions), Flipped(comparison));
@@ -221,8 +233,8 @@ internal sealed partial class Solver(
     }
 
     // e compared with 0 as something simpler compared with 0, or null: a for 2a or a / 2 (b for
-    // -2b, the comparison flipped), a for a^3, a > 0 for 1 / a >= 0 and for sqrt(a) > 0, a != 0 for
-    // a^2 > 0.
+    // -2b, the comparison flipped), a for a^3, a > 0 for 1 / a >= 0, sqrt(a) > 0 and a^p > 0, a != 0
+    // for a^2 > 0.
     private Expr? Peeled(Expr e, ref Comparison comparison)
     {
         bool equality = comparison is Comparison.Equal or Comparison.NotEqual;
@@ -250,6 +262,8 @@ internal sealed partial class Solver(
                 return quotient.Numerator;
             case Power { Exponent: Constant { Value: { IsInteger: true } n } } power when n.Sign > 0:
                 return Powered(power.Base, n.Numerator.IsEven, root: false, ref comparison);
+            case Power { Exponent: not Constant { Value.IsInteger: true } } power when comparison is Comparison.Greater or Comparison.NotEqual:
+                return power.Base;
             case Sqrt root:
                 return Powered(root.Argument, even: true, root: true, ref comparison);
             case NthRoot { Degree: Constant { Value: { IsInteger: true } n } } root when n.Sign > 0:
@@ -285,20 +299,46 @@ internal sealed partial class Solver(
         }
     }
 
-    // The conditions once each, those with the same two sides combined: a > 0 for a >= 0 and a != 0.
-    private static List<Condition> Merged(IEnumerable<Condition> conditions)
+    // The conditions once each, a product that isn't 0 as factors that aren't, those with the
+    // same two sides combined, a > 0 for a >= 0 and a != 0, and of two bounds on one side by
+    // numbers the tighter, a > 1 for a > 1 and a > 0.
+    private List<Condition> Merged(IEnumerable<Condition> conditions)
     {
+        IEnumerable<Condition> Split(Condition condition) =>
+            condition is { Left: Multiply product, Comparison: Comparison.NotEqual, Right: Constant { Value.IsZero: true } }
+                ? Factors(product).Select(factor => new Condition(factor, Comparison.NotEqual, 0)).Where(part => Decide(part) is null).Select(Tidied)
+                : [condition];
+
         var merged = new List<Condition>();
-        foreach (Condition condition in conditions)
+        foreach (Condition condition in conditions.SelectMany(Split))
         {
             int i = merged.FindIndex(other => other.Left.Equals(condition.Left) && other.Right.Equals(condition.Right));
             if (i >= 0 && Combined(merged[i].Comparison, condition.Comparison) is { } both)
+            {
                 merged[i] = new Condition(condition.Left, both, condition.Right);
-            else
+                continue;
+            }
+
+            int direction = Direction(condition.Comparison);
+            double bound = direction == 0 ? double.NaN : Bound(condition);
+            int j = merged.FindIndex(other => other.Left.Equals(condition.Left) && direction != 0 && Direction(other.Comparison) == direction
+                && double.IsFinite(bound) && double.IsFinite(Bound(other)));
+            if (j < 0)
                 merged.Add(condition);
+            else if (direction * bound.CompareTo(Bound(merged[j])) is var tighter && (tighter > 0 || tighter == 0 && condition.Comparison is Comparison.Greater or Comparison.Less))
+                merged[j] = condition;
         }
 
         return merged;
+
+        static int Direction(Comparison comparison) => comparison switch
+        {
+            Comparison.Greater or Comparison.GreaterOrEqual => 1,
+            Comparison.Less or Comparison.LessOrEqual => -1,
+            _ => 0,
+        };
+
+        static double Bound(Condition condition) => condition.Right.GetVariables().Count == 0 ? condition.Right.Evaluate() : double.NaN;
     }
 
     private static Comparison? Combined(Comparison a, Comparison b)
@@ -564,7 +604,15 @@ internal sealed partial class Solver(
                 yield break;
             }
 
+            // Tidied, the assumptions may decide it: sqrt(a) > 0 is a > 0, which a positive a meets.
             Condition tidied = Tidied(at);
+            if (Decide(tidied) is { } decided)
+            {
+                if (!decided)
+                    yield break;
+                continue;
+            }
+
             if (!open.Contains(tidied))
                 open.Add(tidied);
         }

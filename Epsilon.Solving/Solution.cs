@@ -37,8 +37,8 @@ public sealed class Solution
     public Expr Value { get; }
 
     /// <summary>
-    /// For a family, how far apart its values are, positive: 2 * π for π / 6 + 2 * π * k. Null
-    /// for a single value.
+    /// For a family, how far apart its values are: 2 * π for π / 6 + 2 * π * k, positive where it
+    /// is a number; with other variables in it, as 2 * π / a, of either sign. Null for a single value.
     /// </summary>
     public Expr? Period { get; }
 
