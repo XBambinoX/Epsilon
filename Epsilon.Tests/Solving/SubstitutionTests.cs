@@ -28,6 +28,40 @@ public class SubstitutionTests
     public void Polynomials_in_a_periodic_function_give_families(string equation, string expected) =>
         Assert.Equal(expected, Printed(equation));
 
+    // exp(2x) is exp(x)^2, 4^x is (2^x)^2, 2^(x + 1) is 2 * 2^x and exp(-x) is 1 / exp(x).
+    [Theory]
+    [InlineData("exp(2*x) - 3*exp(x) + 2 = 0", "{0, ln(2)}")]
+    [InlineData("exp(2*x) = exp(x) + 1", "{ln(sqrt(5) / 2 + 1/2)}")]
+    [InlineData("exp(x) - exp(x/2) - 2 = 0", "{2ln(2)}")]
+    [InlineData("4^x - 3*2^x + 2 = 0", "{0, 1}")]
+    [InlineData("9^x - 4*3^x + 3 = 0", "{0, 1}")]
+    [InlineData("2^(x + 1) + 2^x = 12", "{2}")]
+    [InlineData("8^x = 4^(x + 1)", "{2}")]
+    [InlineData("2^x + 2^(-x) = 5/2", "{-1, 1}")]
+    [InlineData("(1/2)^x + 2^x = 5/2", "{-1, 1}")]
+    public void Exponentials_of_one_base_are_powers_of_one(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
+    // In t = nthroot(x, 3), x^(2/3) is t^2 and x is t^3; x^(2/3) is defined for x >= 0 only,
+    // which keeps out -8 of t = -2.
+    [Theory]
+    [InlineData("x - 3*sqrt(x) + 2 = 0", "{1, 4}")]
+    [InlineData("x^(2/3) + x^(1/3) = 2", "{1}")]
+    [InlineData("x^(2/3) - 3*x^(1/3) + 2 = 0", "{1, 8}")]
+    [InlineData("x^(-1/2) + x^(1/2) = 5/2", "{1/4, 4}")]
+    [InlineData("sqrt(x) + nthroot(x, 4) = 6", "{16}")]
+    [InlineData("nthroot(x, 3)^2 + nthroot(x, 3) = x", "{2 - sqrt(5), 0, sqrt(5) + 2}")]
+    [InlineData("sqrt(x + 1) + x = 5", "{3}")]
+    [InlineData("x^2 + sqrt(x) = 18", "{4}")]
+    public void Roots_of_one_radicand_are_powers_of_one(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
+    // sqrt(x + a) is t at x = t^2 - a, which is where it is defined.
+    [Theory]
+    [InlineData("sqrt(x + a) = x", "{-sqrt(a + 1/4) + 1/2 if a <= 0 and a >= -1/4, sqrt(a + 1/4) + 1/2 if a >= -1/4}")]
+    [InlineData("a^(2*x) - 3*a^x + 2 = 0", "{0 if a > 0 and a != 1, ln(2) / ln(a) if a != 1 and a > 0}")]
+    public void With_parameters(string equation, string expected) => Assert.Equal(expected, Printed(equation));
+
     [Fact]
     public void Parameters_in_the_polynomial_give_conditions()
     {
@@ -39,6 +73,9 @@ public class SubstitutionTests
     [InlineData("sin(x)^2 + sin(x) = x")]
     [InlineData("exp(x)^5 - exp(x) - 1 = 0")]
     [InlineData("sin(x)^2 + cos(x) = 0")]
+    [InlineData("exp(x) = 2^x")]
+    [InlineData("x*exp(x) = 1")]
+    [InlineData("sqrt(x) + nthroot(x, 3) = x")]
     public void Otherwise_unsolved(string equation) => Assert.Equal("{...}", Printed(equation));
 
     [Fact]
@@ -57,6 +94,9 @@ public class SubstitutionTests
     [InlineData("tan(x)^2 - 1 = 0")]
     [InlineData("ln(x)^2 = ln(x) + 2")]
     [InlineData("nthroot(x, 3)^2 + nthroot(x, 3) = 2")]
+    [InlineData("exp(x) + exp(-x) = 4")]
+    [InlineData("nthroot(x, 3)^2 + nthroot(x, 3) = x")]
+    [InlineData("x^(-1/2) + x^(1/2) = 5/2")]
     public void Solutions_make_both_sides_equal(string text)
     {
         Equation equation = Equation.Parse(text);
