@@ -11,16 +11,17 @@
 </div>
 
 **Symbolic math for .NET.** An exact core for formulas - parsing, simplification,
-derivatives, factoring and roots - and a family of packages built on it, with no
-dependencies beyond the .NET base library.
+derivatives and factoring - and a family of packages built on it, with no dependencies beyond
+the .NET base library.
 
 ## Packages
 
 | Package | What it does | NuGet |
 |---|---|---|
-| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
+| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular value decompositions and least squares for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 | [Epsilon.Calculus](Epsilon.Calculus/README.md) | Gradients, divergence, curl and potentials, Hessians, Laplacians and the second-derivative test; series and exact limits; exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by the substitutions for trigonometric functions and square roots of quadratics; exact definite integrals, improper ones and classic integrals without an antiderivative included; line integrals; numeric definite integrals over infinite intervals and through singularities, with divergent integrals detected | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Calculus)](https://www.nuget.org/packages/Epsilon.Calculus) |
+| [Epsilon.Solving](Epsilon.Solving/README.md) | Equations in one unknown: exact solutions of polynomial and rational equations, in radicals up to the fourth degree, of equations with roots, exponentials, logarithms, trigonometric and hyperbolic functions, periodic ones as families of solutions, and of polynomials in one function of the unknown, with the other variables as parameters and the conditions on them; numeric solutions where there is no formula, in a range of the real line or a rectangle of the complex plane | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Solving)](https://www.nuget.org/packages/Epsilon.Solving) |
 
 Every package targets .NET 10, and the packages built on the core bring it with them:
 
@@ -28,6 +29,7 @@ Every package targets .NET 10, and the packages built on the core bring it with 
 dotnet add package Epsilon
 dotnet add package Epsilon.LinearAlgebra
 dotnet add package Epsilon.Calculus
+dotnet add package Epsilon.Solving
 ```
 
 ## Core
@@ -82,6 +84,22 @@ ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1);             // -4
 The [package README](Epsilon.Calculus/README.md) shows every feature; the
 [guides](Epsilon.Calculus/docs/README.md) and the
 [API reference](Epsilon.Calculus/docs/api-reference.md) cover it in detail.
+
+## Equation solving
+
+```csharp
+using Epsilon.Solving;
+
+Equation.Parse("x^2 - 5x + 6 = 0").Solve().Print();               // {2, 3}
+Equation.Parse("sin(x) = 1/2").Solve().Print();                   // {π / 6 + 2 * π * k, 5 * π / 6 + 2 * π * k | k in Z}
+Equation.Parse("4^x - 3*2^x + 2 = 0").Solve().Print();            // {0, 1}
+Equation.Parse("E = m*v^2/2").Solve("v").Print();                 // {-sqrt(2E / m), sqrt(2E / m)} if m != 0 and E / m >= 0
+Equation.Parse("x = cos(x)").SolveNumerically(-10, 10).Print();   // {0.7390851332151607}
+```
+
+The [package README](Epsilon.Solving/README.md) shows every feature; the
+[guides](Epsilon.Solving/docs/README.md) and the
+[API reference](Epsilon.Solving/docs/api-reference.md) cover it in detail.
 
 ## Design principles
 

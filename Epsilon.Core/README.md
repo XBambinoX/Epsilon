@@ -172,13 +172,13 @@ changes are listed in the [changelog](https://github.com/XBambinoX/Epsilon/blob/
 
 Planned for the core:
 
-- **Equation solver** — symbolic solutions of `f(x) = g(x)` with every branch:
-  `sin(x) = 1/2` → `π/6 + 2πk, 5π/6 + 2πk`, verified by substitution, with a clearly
-  marked numeric fallback.
 - Piecewise expressions (derivatives of `floor`, `min`, `max`).
 
-This package is the core of a family: linear algebra, calculus and transforms are built on
-it as separate packages. The order is in the
+This package is the core of a family: linear algebra, calculus and equation solving are built
+on it as separate packages, and transforms are planned. Equations, and the roots of
+polynomials and other expressions, are solved by
+[Epsilon.Solving](https://www.nuget.org/packages/Epsilon.Solving), which took over the root
+finding of this package in 1.4.0. The order is in the
 [repository roadmap](https://github.com/XBambinoX/Epsilon#roadmap).
 
 ## License
