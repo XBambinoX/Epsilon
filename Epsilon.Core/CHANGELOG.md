@@ -5,7 +5,7 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-11-23
 
 Root finding moves out of the core into the new package `Epsilon.Solving`, which solves
 equations both exactly and numerically. This release removes public members: code that calls
@@ -314,7 +314,8 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.3.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.4.0...HEAD
+[1.4.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.4.0
 [1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.2.0
 [1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.1

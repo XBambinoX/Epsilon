@@ -5,9 +5,9 @@ All notable changes to the `Epsilon.Solving` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-23
 
-The first release, 1.0.0. It needs `Epsilon` 1.4.0 or later, whose root finding it takes over.
+The first release. It needs `Epsilon` 1.4.0 or later, whose root finding it takes over.
 
 ### Added
 
@@ -46,11 +46,12 @@ The first release, 1.0.0. It needs `Epsilon` 1.4.0 or later, whose root finding 
   line, infinite limits allowed, or a rectangle of the complex plane, the values of each family
   there and the solutions of the rest, found by a scan or by Newton's method from a grid.
   `FindRoot` and `FindComplexRoot` look near a guess. They take over the root finding of
-  `Epsilon` 1.3.0; the [core changelog](../Epsilon.Core/CHANGELOG.md#unreleased) has the
+  `Epsilon` 1.3.0; the [core changelog](../Epsilon.Core/CHANGELOG.md#140---2026-11-23) has the
   replacement of each method.
 
 ### Known limitations
 
 See [Known limitations](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/commits/main/Epsilon.Solving
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/solving-v1.0.0...HEAD
+[1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/solving-v1.0.0
