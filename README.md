@@ -1,3 +1,5 @@
+<div align="center">
+
 ![Epsilon](assets/icon.png)
 
 # Epsilon
@@ -6,17 +8,20 @@
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE.txt)
 
+</div>
+
 **Symbolic math for .NET.** An exact core for formulas - parsing, simplification,
-derivatives, factoring and roots - and a family of packages built on it, with no
-dependencies beyond the .NET base library.
+derivatives and factoring - and a family of packages built on it, with no dependencies beyond
+the .NET base library.
 
 ## Packages
 
 | Package | What it does | NuGet |
 |---|---|---|
-| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, real and complex roots, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
+| [Epsilon](Epsilon.Core/README.md) | The core: expressions, parsing, exact simplification, differentiation, polynomial factoring, LaTeX output, compilation to fast delegates | [![NuGet](https://img.shields.io/nuget/v/Epsilon)](https://www.nuget.org/packages/Epsilon) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | Matrices and vectors of expressions, exact rationals or doubles: exact symbolic determinant, inverse and solve, exact elimination for rationals, LU, QR, Cholesky, eigenvalue and singular value decompositions and least squares for doubles, vector geometry; fixed-size vectors, matrices and quaternions with camera matrices for games and graphics; symbolic matrices compiled to fast delegates or C# source, Jacobians for kinematics | [![NuGet](https://img.shields.io/nuget/v/Epsilon.LinearAlgebra)](https://www.nuget.org/packages/Epsilon.LinearAlgebra) |
 | [Epsilon.Calculus](Epsilon.Calculus/README.md) | Gradients, divergence, curl and potentials, Hessians, Laplacians and the second-derivative test; series and exact limits; exact antiderivatives from a table of integrals, by substitution, by parts, by partial fractions and by the substitutions for trigonometric functions and square roots of quadratics; exact definite integrals, improper ones and classic integrals without an antiderivative included; line integrals; numeric definite integrals over infinite intervals and through singularities, with divergent integrals detected | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Calculus)](https://www.nuget.org/packages/Epsilon.Calculus) |
+| [Epsilon.Solving](Epsilon.Solving/README.md) | Equations in one unknown: exact solutions of polynomial and rational equations, in radicals up to the fourth degree, of equations with roots, exponentials, logarithms, trigonometric and hyperbolic functions, periodic ones as families of solutions, and of polynomials in one function of the unknown, with the other variables as parameters and the conditions on them; numeric solutions where there is no formula, in a range of the real line or a rectangle of the complex plane | [![NuGet](https://img.shields.io/nuget/v/Epsilon.Solving)](https://www.nuget.org/packages/Epsilon.Solving) |
 
 Every package targets .NET 10, and the packages built on the core bring it with them:
 
@@ -24,6 +29,7 @@ Every package targets .NET 10, and the packages built on the core bring it with 
 dotnet add package Epsilon
 dotnet add package Epsilon.LinearAlgebra
 dotnet add package Epsilon.Calculus
+dotnet add package Epsilon.Solving
 ```
 
 ## Core
@@ -35,7 +41,6 @@ Expr f = ExprParser.Parse("x^3 - 2x^2 + x", "x");
 
 f.Differentiate("x").Print();                        // 3x^2 - 4x + 1
 f.TryFactorReal("x").Factored.Print();               // x * (x - 1)^2
-f.FindRealRoots(-10, 10);                            // [0, 1]
 ExprParser.Parse("cos(3pi/4)").Simplify().Print();   // -sqrt(2) / 2
 ```
 
@@ -80,6 +85,22 @@ The [package README](Epsilon.Calculus/README.md) shows every feature; the
 [guides](Epsilon.Calculus/docs/README.md) and the
 [API reference](Epsilon.Calculus/docs/api-reference.md) cover it in detail.
 
+## Equation solving
+
+```csharp
+using Epsilon.Solving;
+
+Equation.Parse("x^2 - 5x + 6 = 0").Solve().Print();               // {2, 3}
+Equation.Parse("sin(x) = 1/2").Solve().Print();                   // {π / 6 + 2 * π * k, 5 * π / 6 + 2 * π * k | k in Z}
+Equation.Parse("4^x - 3*2^x + 2 = 0").Solve().Print();            // {0, 1}
+Equation.Parse("E = m*v^2/2").Solve("v").Print();                 // {-sqrt(2E / m), sqrt(2E / m)} if m != 0 and E / m >= 0
+Equation.Parse("x = cos(x)").SolveNumerically(-10, 10).Print();   // {0.7390851332151607}
+```
+
+The [package README](Epsilon.Solving/README.md) shows every feature; the
+[guides](Epsilon.Solving/docs/README.md) and the
+[API reference](Epsilon.Solving/docs/api-reference.md) cover it in detail.
+
 ## Design principles
 
 - **Exact first.** Rationals instead of doubles; exact factoring or none at all.
@@ -94,21 +115,21 @@ The [package README](Epsilon.Calculus/README.md) shows every feature; the
 
 The areas built on the core as separate packages, in this order:
 
-1. **Linear algebra** - available as `Epsilon.LinearAlgebra`, with fixed-size vectors,
-   matrices, quaternions and camera matrices for games and real-time code since 1.2 and 1.3,
-   symbolic matrices compiled to fast delegates or C# source since 1.4, and least squares
-   with QR, Cholesky, eigenvalue and singular value decompositions since 1.5.
-2. **Calculus** - available as `Epsilon.Calculus`: gradients, vector fields, Hessians and
-   Laplacians, symbolic and numeric integration (improper integrals included), and since 1.1
-   series, limits, exact definite integrals and line integrals. Planned next, as far as time
-   and energy allow: multivariable limits in 2D and 3D, double and triple integrals, surface
-   integrals, residues and contour integrals, Lebesgue integration and more.
-3. **Transforms** - Fourier, wavelets and more.
-4. **Probability theory** - under consideration.
-5. Further areas as the library grows.
+1. **Equation solving** - available as `Epsilon.Solving`: exact solutions of equations in
+   one unknown, with the families of solutions of periodic ones and the conditions on the
+   other variables, and numeric solutions in a range or a rectangle of the complex plane.
+   Planned next: inequalities and systems of equations.
+2. **Calculus** - next in `Epsilon.Calculus`: Fourier series, double integrals over a region
+   and triple integrals over a body, surface integrals of the first and second kind, and
+   contour integrals.
+3. **Measure theory** - `Epsilon.Calculus.Measure`: measures from length up to the Jordan
+   and Lebesgue measures, signed measures and the Lebesgue integral.
+4. **Transforms** - Fourier, Laplace, wavelets and more.
+5. **Probability theory** - under consideration.
+6. Further areas as the library grows.
 
-Alongside them the core keeps improving: a symbolic equation solver and piecewise
-expressions (see the [core roadmap](Epsilon.Core/README.md#roadmap)).
+Alongside them the core keeps improving, with piecewise expressions next (see the
+[core roadmap](Epsilon.Core/README.md#roadmap)).
 
 ## Building from source
 

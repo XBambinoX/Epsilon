@@ -70,5 +70,6 @@ success;             // false
 factored.Print();    // x^3 - 2
 ```
 
-For numeric roots of any expression use [root finding](root-finding.md). For what may come
+Equations, numeric roots of any expression included, are solved by the Epsilon.Solving
+package. For what may come
 later, see [limitations](limitations.md#factoring-is-exact-but-limited).

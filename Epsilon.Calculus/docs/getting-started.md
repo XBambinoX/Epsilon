@@ -6,8 +6,8 @@
 dotnet add package Epsilon.Calculus
 ```
 
-It requires .NET 10, and brings the core and `Epsilon.LinearAlgebra` with it. Three namespaces
-cover everything:
+It requires .NET 10, and brings the core, `Epsilon.LinearAlgebra` and `Epsilon.Solving` with
+it. Three namespaces cover everything:
 
 ```csharp
 using Epsilon.Core;            // Expr, ExprParser

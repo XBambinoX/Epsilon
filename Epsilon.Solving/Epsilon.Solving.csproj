@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- Ships the /// docs with the package so IntelliSense shows them to library users. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet package. It depends on Epsilon at the <Version> of Epsilon.Core.csproj, so that must
+       name a released version with everything this project uses. -->
+  <PropertyGroup>
+    <PackageId>Epsilon.Solving</PackageId>
+    <!-- Not passed as -p:Version when packing: a global Version would reach the core project
+         too. publish.yml checks the tag against it instead. -->
+    <Version>1.0.0</Version>
+    <Authors>Max Zakharov</Authors>
+    <Description>Equation solving for the Epsilon symbolic math library. Exact solutions of equations in one unknown: polynomial and rational equations, with cubics and quartics in radicals; equations with roots of the unknown, raised to powers with the solutions that adds kept out; exponentials, logarithms, powers, absolute values, inverse trigonometric and hyperbolic functions undone by their inverses with every branch; trigonometric equations as families of solutions, with their values one by one and in a range; and polynomials in one function of the unknown, by substitution. The other variables are parameters, with the conditions on them each solution needs, and no step enlarges the domain. Numeric solutions where there is no formula: every real and complex root of a polynomial, the solutions in a range of the real line, infinite ones included, by a scan that is finer where the equation oscillates, in a rectangle of the complex plane, and near a guess by Newton's method.</Description>
+    <PackageTags>math;symbolic;cas;computer-algebra;algebra;equation;equation-solver;solve;roots;root-finding;polynomial;radicals;cubic;quartic;trigonometric-equations;complex-roots;newton-method;parameters</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/XBambinoX/Epsilon</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/XBambinoX/Epsilon</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- Symbols (.snupkg) and Source Link, so users can step into the library's source. -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\assets\icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Epsilon.Core\Epsilon.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Epsilon.Tests" />
+  </ItemGroup>
+
+</Project>

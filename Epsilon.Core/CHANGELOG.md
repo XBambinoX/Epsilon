@@ -5,7 +5,35 @@ All notable changes to the `Epsilon` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-11-23
+
+Root finding moves out of the core into the new package `Epsilon.Solving`, which solves
+equations both exactly and numerically. This release removes public members: code that calls
+them moves to `Epsilon.Solving`. `Epsilon.Calculus` 1.1.x calls them too, so update it to 1.2.0
+together with this version.
+
+### Added
+
+- `Condition` and `Comparison`: two expressions compared, such as `a != 0` or `x <= 1`, with
+  `Print` and `ToLatex`. `Epsilon.Solving` gives the conditions its solutions hold under as
+  these.
+
+### Removed
+
+- `RootFindingExtensions` and `RootFinder`, with all their members. In `Epsilon.Solving`:
+
+  | Epsilon 1.3 | Epsilon.Solving |
+  |---|---|
+  | `expr.FindRealRoots(from, to)` | `new Equation(expr, 0).SolveNumerically(from, to).Values` |
+  | `left.SolveNumerically(right, from, to)` | `new Equation(left, right).SolveNumerically(from, to).Values` |
+  | `expr.FindComplexRoots(reMin, reMax, imMin, imMax)` | `new Equation(expr, 0).SolveComplexNumerically(new(reMin, imMin), new(reMax, imMax)).Values` |
+  | `left.SolveComplexNumerically(right, reMin, reMax, imMin, imMax)` | `new Equation(left, right).SolveComplexNumerically(new(reMin, imMin), new(reMax, imMax)).Values` |
+  | `expr.TryFindRoot(guess)` | `new Equation(expr, 0).FindRoot(near: guess)`, null if not found |
+  | `expr.TryFindComplexRoot(guess)` | `new Equation(expr, 0).FindComplexRoot(near: guess)` |
+
+  Values for the other variables, `fixedBindings` before, are substituted first:
+  `expr.Substitute("a", 2)`. `scanSteps`, `gridSteps`, `tolerance` and `maxIterations` are
+  gone: the grids are chosen from the expression, and roots come to about full double precision.
 
 ## [1.3.0] - 2026-11-19
 
@@ -286,7 +314,8 @@ First public release of the core library, published on NuGet as `Epsilon` (names
 
 See [docs/limitations.md](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.3.0...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/core-v1.4.0...HEAD
+[1.4.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.4.0
 [1.3.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.3.0
 [1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.2.0
 [1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/core-v1.1.1

@@ -1,6 +1,6 @@
 # API reference
 
-Every public type and member of the `Epsilon` package, version 1.3.0, grouped by topic. All
+Every public type and member of the `Epsilon` package, version 1.4.0, grouped by topic. All
 types are in the namespace `Epsilon.Core`. Each entry has a one-line description; the linked
 guides explain the details, and your IDE shows the full XML documentation for every member.
 
@@ -12,7 +12,6 @@ A test (`ApiReferenceDocTests`) checks that every public type and member is list
 [Simplification](#simplification) ·
 [Assumptions](#assumptions) ·
 [Factoring](#factoring) ·
-[Root finding](#root-finding) ·
 [Output](#output) ·
 [Node types](#node-types) ·
 [Rational](#rational) ·
@@ -216,6 +215,25 @@ Conservative proofs about whole expressions: `false` means "not proven", not "fa
 | `bool IsProvablyNonNegative(this Expr expr, Assumptions assumptions)` | Proves expr ≥ 0. |
 | `bool IsProvablyNonPositive(this Expr expr, Assumptions assumptions)` | Proves expr ≤ 0. |
 
+### `Condition` (sealed record)
+
+Two expressions compared, such as `a != 0` or `x <= 1`. Equal when both sides and the
+comparison are.
+
+| Member | Description |
+|---|---|
+| `Condition(Expr left, Comparison comparison, Expr right)` | The condition `left comparison right`. |
+| `Expr Left` | The left side. |
+| `Comparison Comparison` | How the sides compare. |
+| `Expr Right` | The right side. |
+| `string Print()` | As text: `a != 0`, `x <= 1`. |
+| `string ToLatex()` | In LaTeX: `a \neq 0`, `x \leq 1`. |
+
+### `Comparison` (enum)
+
+`Equal` (`=`), `NotEqual` (`!=`), `Less` (`<`), `LessOrEqual` (`<=`), `Greater` (`>`),
+`GreaterOrEqual` (`>=`).
+
 ---
 
 ## Factoring
@@ -228,39 +246,6 @@ Guide: [Factoring](factoring.md).
 |---|---|
 | `(Expr Factored, bool Success) TryFactorReal(this Expr expr, string variable)` | Exact factoring over the reals: rational roots and square roots. Returns the original and `false` if nothing could be factored. |
 | `(Expr Factored, bool Success) TryFactorComplex(this Expr expr, string variable)` | The same, also splitting with `i`; succeeds only if the polynomial splits into linear factors. |
-
----
-
-## Root finding
-
-Guide: [Root finding](root-finding.md).
-
-### `RootFindingExtensions` (static class)
-
-| Member | Description |
-|---|---|
-| `IReadOnlyList<double> FindRealRoots(this Expr expr, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | All real roots of `expr = 0` for its only variable, ascending. Undefined points are never roots. |
-| `IReadOnlyList<double> FindRealRoots(this Expr expr, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -∞, double rightLimit = +∞, int scanSteps = 200)` | The same for a named variable, with values for the others. |
-| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | Real solutions of `left = right`, ascending. `right` may be a plain number. |
-| `IReadOnlyList<double> SolveNumerically(this Expr left, Expr right, string variable, IReadOnlyDictionary<string, double>? fixedBindings = null, double leftLimit = -inf, double rightLimit = +inf, int scanSteps = 200)` | The same for a named variable. |
-| `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex roots in a rectangle, by Newton's method from a grid of starting points. |
-| `IReadOnlyList<ComplexNumber> FindComplexRoots(this Expr expr, string variable, IReadOnlyDictionary<string, ComplexNumber>? fixedBindings, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | The same for a named variable. |
-| `IReadOnlyList<ComplexNumber> SolveComplexNumerically(this Expr left, Expr right, double reMin, double reMax, double imMin, double imMax, int gridSteps = 12)` | Complex solutions of `left = right`. `right` may be a plain number. |
-
-Obsolete since 1.1: `FindRealRoots(this Expr left, Expr right, ...)` and
-`FindComplexRoots(this Expr left, Expr right, ...)`, the old names of `SolveNumerically` and
-`SolveComplexNumerically`. A plain number as `right` made them pick the range overload instead.
-
-### `RootFinder` (static class)
-
-Newton's method from one starting point. Returns `(null, false)` if it doesn't converge.
-
-| Member | Description |
-|---|---|
-| `(double? Root, bool Found) TryFindRoot(this Expr expr, double initialGuess, double tolerance = 1e-10, int maxIterations = 100)` | A real root near the guess, for the only variable. |
-| `(double? Root, bool Found) TryFindRoot(this Expr expr, string variable, double initialGuess, IReadOnlyDictionary<string, double>? fixedBindings = null, double tolerance = 1e-10, int maxIterations = 100)` | The same for a named variable. |
-| `(ComplexNumber? Root, bool Found) TryFindComplexRoot(this Expr expr, ComplexNumber initialGuess, double tolerance = 1e-10, int maxIterations = 100)` | A complex root near the guess. |
-| `(ComplexNumber? Root, bool Found) TryFindComplexRoot(this Expr expr, string variable, ComplexNumber initialGuess, IReadOnlyDictionary<string, ComplexNumber>? fixedBindings = null, double tolerance = 1e-10, int maxIterations = 100)` | The same for a named variable. |
 
 ---
 

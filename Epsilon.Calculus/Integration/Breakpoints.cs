@@ -1,4 +1,5 @@
 using Epsilon.Core;
+using Epsilon.Solving;
 
 namespace Epsilon.Calculus;
 
@@ -18,8 +19,6 @@ internal readonly record struct IntegrationPoint(double Value, Expr Exact, bool 
 internal static class Breakpoints
 {
     private const int MaxJumps = 10_000;
-    private const int MinScanSteps = 200;
-    private const int MaxScanSteps = 100_000;
 
     public static List<IntegrationPoint> Find(Expr expr, string variable, double a, double b)
     {
@@ -133,7 +132,7 @@ internal static class Breakpoints
 
     // A polynomial that comes close to 0 without vanishing peaks the integrand where it turns:
     // 1/(1 + 1e10 (x - 1000)^2) is 1e-5 wide at 1000, which the nodes over [-1e300, 1e300]
-    // passed by, and FindRealRoots took 1000 for a root only where its grid happened to bracket
+    // passed by, and a scan for roots took 1000 for one only where its grid happened to bracket
     // it, on [-1e6, 1e6] but not on [0, 1e6].
     private static Expr? Turn(Expr part, string variable) =>
         RationalPolynomial.Of(part, variable) is { Degree: >= 2 } polynomial
@@ -172,9 +171,10 @@ internal static class Breakpoints
         if (part is Sin or Cos && WaveZeros((UnaryExpr)part, variable, a, b) is { } zeros)
             return zeros.SelectMany(zero => Zeros(zero, variable, a, b));
 
+        // With other variables, as in an exact integral with parameters, there are no numbers to find.
         var (low, high) = RootRange(part, variable, a, b);
-        var found = low < high
-            ? part.FindRealRoots(variable, null, low, high, ScanSteps(part, variable, low, high))
+        var found = low < high && part.GetVariables().Count == 1
+            ? new Equation(part, 0).SolveNumerically(variable, low, high).Values
                 .Where(value => a < value && value < b)
                 .Select(value => new IntegrationPoint(value, new Constant(value), Approximate: true))
             : [];
@@ -309,28 +309,6 @@ internal static class Breakpoints
 
     private static Expr Replaced(Expr e, Expr target, Expr by) =>
         e.Equals(target) ? by : e.Children.Length == 0 ? e : e.WithChildren([.. e.Children.Select(child => Replaced(child, target, by))]);
-
-    // The roots are looked for on a grid, which misses two of them in one of its steps: on
-    // [0, 1000] the 200 steps FindRealRoots takes by default found 82 of the 318 zeros of sin(x).
-    // Where the part oscillates through trigonometric functions of linear arguments, the grid
-    // gets 16 steps per pi of the fastest of them.
-    private static int ScanSteps(Expr part, string variable, double a, double b)
-    {
-        double fastest = Frequencies(part, variable).DefaultIfEmpty(0).Max();
-        double steps = Math.Ceiling(16 * (b - a) * fastest / Math.PI);
-        return double.IsFinite(steps) ? (int)Math.Clamp(steps, MinScanSteps, MaxScanSteps) : MinScanSteps;
-    }
-
-    private static IEnumerable<double> Frequencies(Expr expr, string variable)
-    {
-        if (expr is Sin or Cos or Tan or Cot or Sec or Csc
-            && Slope(((UnaryExpr)expr).Argument, variable) is { } slope && !slope.DependsOn(variable))
-            yield return Math.Abs(slope.Evaluate());
-
-        foreach (Expr child in expr.Children)
-            foreach (double frequency in Frequencies(child, variable))
-                yield return frequency;
-    }
 
     // -u(0) / u' when u' is a nonzero constant.
     private static Expr? LinearRoot(Expr u, string variable)

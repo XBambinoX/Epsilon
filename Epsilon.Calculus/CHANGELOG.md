@@ -5,7 +5,16 @@ All notable changes to the `Epsilon.Calculus` package are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the
 project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.0] - 2026-11-23
+
+The release for `Epsilon` 1.4.0, which moved root finding to the new package `Epsilon.Solving`.
+It depends on `Epsilon` 1.4.0 or later, `Epsilon.LinearAlgebra` 1.5.0 or later and
+`Epsilon.Solving` 1.0.0 or later. Version 1.1.1 calls the root finding `Epsilon` 1.4.0 no longer
+has, and numeric integrals can throw `MissingMethodException` with it; update both.
+
+### Changed
+
+- Depends on `Epsilon.Solving`, which now finds the points numeric integrals are split at.
 
 ## [1.1.1] - 2026-11-19
 
@@ -220,7 +229,8 @@ later.
 
 See [Known limitations](docs/limitations.md).
 
-[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/calculus-v1.1.1...HEAD
+[Unreleased]: https://github.com/XBambinoX/Epsilon/compare/calculus-v1.2.0...HEAD
+[1.2.0]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.2.0
 [1.1.1]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.1.1
 [1.1.0]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.1.0
 [1.0.0]: https://github.com/XBambinoX/Epsilon/releases/tag/calculus-v1.0.0

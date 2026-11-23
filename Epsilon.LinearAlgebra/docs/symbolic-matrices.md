@@ -51,20 +51,20 @@ Matrix<Expr>.Parse("[[x + 1, x - 1], [x - 1, x - 3]]").Determinant().Print();   
 rotation.Determinant().Print();                                                 // 1
 
 var p = Matrix<Expr>.Parse("[[2, 1], [1, 2]]").CharacteristicPolynomial("t");
-p.Print();           // t^2 - 4t + 3
-p.FindRealRoots();   // [1, 3]
+p.Print();                         // t^2 - 4t + 3
+new Equation(p, 0).Solve().Print();   // {1, 3}
 ```
 
-`CharacteristicPolynomial(t)` is det(t I - A); its roots are the eigenvalues. The variable
-must not occur in the matrix: `m.CharacteristicPolynomial("a")` throws `ArgumentException`.
-For a matrix of numbers, factoring gives the eigenvalues exactly, where root finding rounds:
+`CharacteristicPolynomial(t)` is det(t I - A); its roots are the eigenvalues, and `Equation`
+from the Epsilon.Solving package finds them. The variable must not occur in the matrix:
+`m.CharacteristicPolynomial("a")` throws `ArgumentException`. For a matrix of numbers,
+factoring gives the eigenvalues exactly too:
 
 ```csharp
 var s = Matrix<Expr>.Parse("[[2, 0, 0], [0, 3, 4], [0, 4, 9]]");
 var cp = s.CharacteristicPolynomial("t");
 cp.Print();                           // t^3 - 14t^2 + 35t - 22
 cp.TryFactorReal("t").Factored.Print();   // (t - 1) * (t - 2) * (t - 11)
-cp.FindRealRoots();                   // [1, 1.9999999999999993, 11]
 ```
 
 Both come from Berkowitz's algorithm. It builds the characteristic polynomial from the ones

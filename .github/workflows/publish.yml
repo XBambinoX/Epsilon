@@ -1,14 +1,15 @@
 name: Publish
 
 # Pushing a tag publishes one package to nuget.org at the version after the prefix: core-v*
-# publishes Epsilon, linalg-v* Epsilon.LinearAlgebra and calculus-v* Epsilon.Calculus. Every
-# package gets its own tag prefix; v1.0.0 is the only release tagged before this scheme.
+# publishes Epsilon, linalg-v* Epsilon.LinearAlgebra, calculus-v* Epsilon.Calculus and
+# solving-v* Epsilon.Solving. Every package gets its own tag prefix; v1.0.0 is the only release
+# tagged before this scheme.
 # Uses nuget.org Trusted Publishing: no stored API key - the NuGet/login step exchanges
 # GitHub's OIDC token for a short-lived key, allowed by the trusted publishing policy for
 # this repository and workflow file.
 on:
   push:
-    tags: ["core-v*", "linalg-v*", "calculus-v*"]
+    tags: ["core-v*", "linalg-v*", "calculus-v*", "solving-v*"]
 
 permissions:
   contents: read
@@ -41,6 +42,7 @@ jobs:
               ;;
             linalg-v*) project=Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj ;;
             calculus-v*) project=Epsilon.Calculus/Epsilon.Calculus.csproj ;;
+            solving-v*) project=Epsilon.Solving/Epsilon.Solving.csproj ;;
           esac
           version=$(dotnet msbuild $project -getProperty:Version)
           if [ "$version" != "${GITHUB_REF_NAME#*-v}" ]; then

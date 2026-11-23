@@ -2,6 +2,7 @@ using Xunit;
 using Epsilon.Calculus;
 using Epsilon.Core;
 using Epsilon.LinearAlgebra;
+using Epsilon.Solving;
 
 namespace Epsilon.Tests;
 
@@ -15,7 +16,6 @@ public class RepositoryReadmeExamplesTests
 
         Assert.Equal("3x^2 - 4x + 1", f.Differentiate("x").Print());
         Assert.Equal("x * (x - 1)^2", f.TryFactorReal("x").Factored.Print());
-        Assert.Equal([0.0, 1.0], f.FindRealRoots(-10, 10));
         Assert.Equal("-sqrt(2) / 2", ExprParser.Parse("cos(3pi/4)").Simplify().Print());
     }
 
@@ -43,5 +43,15 @@ public class RepositoryReadmeExamplesTests
         Assert.Equal("e", ExprParser.Parse("(1 + 1/x)^x").Limit("x", double.PositiveInfinity).Print());
         Assert.Equal("sqrt(π)", ExprParser.Parse("exp(-x^2)").IntegrateExact("x", double.NegativeInfinity, double.PositiveInfinity).Print());
         Assert.Equal(-4, ExprParser.Parse("ln(x)/sqrt(x)").Integrate(0, 1));
+    }
+
+    [Fact]
+    public void Equation_solving()
+    {
+        Assert.Equal("{2, 3}", Equation.Parse("x^2 - 5x + 6 = 0").Solve().Print());
+        Assert.Equal("{π / 6 + 2 * π * k, 5 * π / 6 + 2 * π * k | k in Z}", Equation.Parse("sin(x) = 1/2").Solve().Print());
+        Assert.Equal("{0, 1}", Equation.Parse("4^x - 3*2^x + 2 = 0").Solve().Print());
+        Assert.Equal("{-sqrt(2E / m), sqrt(2E / m)} if m != 0 and E / m >= 0", Equation.Parse("E = m*v^2/2").Solve("v").Print());
+        Assert.Equal("{0.7390851332151607}", Equation.Parse("x = cos(x)").SolveNumerically(-10, 10).Print());
     }
 }
