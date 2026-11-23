@@ -42,6 +42,7 @@ internal sealed partial class Solver(
         var candidates = new List<Solution>();
         var isolated = new List<(Solution Solution, Expr Factor)>();
         var rationalized = new List<(Solution Solution, List<Condition> Needs)>();
+        var substituted = new List<Solution>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
         {
@@ -59,6 +60,8 @@ internal sealed partial class Solver(
                     unsolved.Add(part);
                 else if (Isolated(part) is { } found)
                     isolated.AddRange(found.Select(solution => (solution, part)));
+                else if (!polynomial && Substituted(part) is { } values)
+                    substituted.AddRange(values);
                 else if (!polynomial && Rationalized(part) is { } squared)
                     rationalized.AddRange(squared);
                 else
@@ -71,6 +74,7 @@ internal sealed partial class Solver(
             .. candidates.SelectMany(candidate => Admitted(candidate, conditions)),
             .. isolated.SelectMany(item => Admitted(item.Solution, [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
             .. rationalized.SelectMany(item => Admitted(item.Solution, [.. conditions, .. item.Needs])),
+            .. substituted.SelectMany(solution => Admitted(solution, conditions)),
         ]);
         if (region is var (low, high))
         {

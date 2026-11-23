@@ -52,7 +52,7 @@ public class RadicalEquationTests
 
     [Theory]
     [InlineData("sqrt(x) + sin(x) = 0")]
-    [InlineData("nthroot(x, 3)^2 + nthroot(x, 3) = 2")]
+    [InlineData("nthroot(x, 3)^2 + nthroot(x, 3) = x")]
     [InlineData("sqrt(x) + sqrt(x + 1) + sqrt(x + 2) = 5")]
     public void Roots_that_cant_be_taken_out_or_leave_an_unsolved_polynomial_stay_unsolved(string equation) =>
         Assert.Equal("{...}", Printed(equation));
