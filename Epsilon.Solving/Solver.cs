@@ -199,7 +199,7 @@ internal sealed partial class Solver(
             return bound;
 
         Comparison comparison = condition.Comparison;
-        Expr left = (condition.Left - condition.Right).Simplify(assumptions);
+        Expr left = Shortest(condition.Left - condition.Right, comparison is Comparison.Equal or Comparison.NotEqual);
         for (Expr? peeled = left; peeled is not null; peeled = Peeled(left, ref comparison))
             left = peeled;
 
@@ -215,21 +215,88 @@ internal sealed partial class Solver(
             _ => (l, r),
         };
 
-        Expr right;
-        (left, right) = Moved(left, 0);
+        Expr right = 0;
+        Settle(Moved(left, 0));
 
         // The logarithm grows with its argument, which is positive by the domain: a != 1 for
         // ln(a) != 0, a <= e for ln(a) <= 1.
         if (left is Ln { Argument: var argument } && right.GetVariables().Count == 0)
-            (left, right) = Moved(argument, right is Constant { Value.IsOne: true } ? Expr.E : new Exp(right).Simplify(assumptions));
+            Settle(Moved(argument, right is Constant { Value.IsOne: true } ? Expr.E : new Exp(right).Simplify(assumptions)));
 
-        if (left.Print().StartsWith('-'))
-            (left, right, comparison) = ((-left).Simplify(assumptions), (-right).Simplify(assumptions), Flipped(comparison));
+        // The root of a square is its absolute value; another root, compared with a number that
+        // isn't negative, is the argument compared with the square: a <= 4 for sqrt(a) <= 2.
+        if (left is Sqrt { Argument: var radicand } && right.GetVariables().Count == 0)
+        {
+            if (SquareRoot(radicand) is { } root)
+                left = new Abs(root);
+            else if (SignOf(right) >= 0)
+                Settle(Moved(radicand, (right * right).Simplify(assumptions)));
+        }
 
-        // 4a <= 4 as a <= 1.
-        if (left is Multiply { Left: Constant { Value: var factor } } scaled && factor.Sign > 0 && scaled.Right.GetVariables().Count > 0)
-            (left, right) = (scaled.Right, (right / factor).Simplify(assumptions));
+        // abs(a) <= 2 for a^2 <= 4; abs(a) >= 1 for abs(1 / a) <= 1, abs(a) <= 1 for abs(2a) <= 2.
+        if (left is Power { Exponent: Constant { Value: var exponent } } square && exponent == 2 && right.GetVariables().Count == 0 && SignOf(right) > 0)
+            (left, right) = (new Abs(square.Base), new Sqrt(right).Simplify(assumptions));
+        while (left is Abs { Argument: var inside } && right.GetVariables().Count == 0 && Unscaled(inside) is { } unscaled)
+            left = new Abs(unscaled);
+
         return new Condition(left, comparison, right);
+
+        // No minus in front, nor a number's factor: a <= 1 for -a >= -1, 4a <= 4 and a / 2 <= 1/2.
+        void Settle((Expr Left, Expr Right) moved)
+        {
+            (left, right) = moved;
+            if (left.Print().StartsWith('-'))
+                (left, right, comparison) = ((-left).Simplify(assumptions), (-right).Simplify(assumptions), Flipped(comparison));
+            if (left is Multiply { Left: Constant { Value: var factor } } scaled && factor.Sign > 0 && scaled.Right.GetVariables().Count > 0)
+                (left, right) = (scaled.Right, (right / factor).Simplify(assumptions));
+            else if (left is Divide { Denominator: Constant { Value: var divisor } } divided && divisor.Sign > 0)
+                (left, right) = (divided.Numerator, (right * divisor).Simplify(assumptions));
+        }
+
+        Expr? Unscaled(Expr inside)
+        {
+            Expr Size(Expr number) => new Abs(number).Simplify(assumptions);
+            int? SignOfNumber(Expr number) => number.GetVariables().Count == 0 && SignOf(number) is int s and not 0 ? s : null;
+            switch (inside)
+            {
+                case Negate negation:
+                    return negation.Argument;
+                case Multiply product when SignOfNumber(product.Left) is not null:
+                    right = (right / Size(product.Left)).Simplify(assumptions);
+                    return product.Right;
+                case Multiply product when SignOfNumber(product.Right) is not null:
+                    right = (right / Size(product.Right)).Simplify(assumptions);
+                    return product.Left;
+                case Divide quotient when SignOfNumber(quotient.Denominator) is not null:
+                    right = (right * Size(quotient.Denominator)).Simplify(assumptions);
+                    return quotient.Numerator;
+                case Divide quotient when SignOfNumber(quotient.Numerator) is not null && SignOf(right) > 0 && comparison is not (Comparison.Equal or Comparison.NotEqual):
+                    (right, comparison) = ((Size(quotient.Numerator) / right).Simplify(assumptions), Flipped(comparison));
+                    return quotient.Denominator;
+                default:
+                    return null;
+            }
+        }
+    }
+
+    // The shortest of e simplified, expanded and, where only whether it is 0 matters, its
+    // numerator over a common denominator: 4a + 1 for -4a^2 + (2a + 1)^2, 1 for (a b + 1) / b - a.
+    private Expr Shortest(Expr e, bool numerator = false)
+    {
+        Expr shortest = e.Simplify(assumptions);
+        if (shortest.GetVariables().Count == 0)
+            return shortest;
+
+        Expr[] others = numerator
+            ? [e.Expand(SimplifyMode.Strict).Simplify(assumptions), Together(shortest).Numerator.Simplify(assumptions)]
+            : [e.Expand(SimplifyMode.Strict).Simplify(assumptions)];
+        foreach (Expr other in others)
+        {
+            if (other.Print().Length < shortest.Print().Length)
+                shortest = other;
+        }
+
+        return shortest;
     }
 
     // e compared with 0 as something simpler compared with 0, or null: a for 2a or a / 2 (b for
@@ -268,8 +335,10 @@ internal sealed partial class Solver(
                 return Powered(root.Argument, even: true, root: true, ref comparison);
             case NthRoot { Degree: Constant { Value: { IsInteger: true } n } } root when n.Sign > 0:
                 return Powered(root.Argument, n.Numerator.IsEven, root: true, ref comparison);
+            case Abs absolute:
+                return Powered(absolute.Argument, even: true, root: false, ref comparison);
             default:
-                return null;
+                return e.GetVariables().Count > 0 && SquareRoot(e) is { } square ? Powered(square, even: true, root: false, ref comparison) : null;
         }
 
         static Expr Signed(Expr inner, int sign, ref Comparison comparison)
@@ -299,15 +368,27 @@ internal sealed partial class Solver(
         }
     }
 
-    // The conditions once each, a product that isn't 0 as factors that aren't, those with the
-    // same two sides combined, a > 0 for a >= 0 and a != 0, and of two bounds on one side by
-    // numbers the tighter, a > 1 for a > 1 and a > 0.
+    // The conditions once each, a product that isn't 0 as factors that aren't and abs(a - 1) <= 2
+    // as a >= -1 and a <= 3, those with the same two sides combined, a > 0 for a >= 0 and a != 0,
+    // of two bounds on one side by numbers the tighter, a > 1 for a > 1 and a > 0, and without
+    // those others imply, a != 0 next to abs(a) >= 1.
     private List<Condition> Merged(IEnumerable<Condition> conditions)
     {
-        IEnumerable<Condition> Split(Condition condition) =>
-            condition is { Left: Multiply product, Comparison: Comparison.NotEqual, Right: Constant { Value.IsZero: true } }
-                ? Factors(product).Select(factor => new Condition(factor, Comparison.NotEqual, 0)).Where(part => Decide(part) is null).Select(Tidied)
-                : [condition];
+        IEnumerable<Condition> Split(Condition condition)
+        {
+            IEnumerable<Condition> parts = condition switch
+            {
+                { Left: Multiply product, Comparison: Comparison.NotEqual, Right: Constant { Value.IsZero: true } } =>
+                    Factors(product).Select(factor => new Condition(factor, Comparison.NotEqual, 0)),
+                { Left: Abs absolute, Comparison: Comparison.LessOrEqual or Comparison.Less, Right: var bound } when bound.GetVariables().Count == 0 =>
+                    [
+                        new(absolute.Argument, condition.Comparison == Comparison.Less ? Comparison.Greater : Comparison.GreaterOrEqual, (-bound).Simplify(assumptions)),
+                        new(absolute.Argument, condition.Comparison, bound),
+                    ],
+                _ => [],
+            };
+            return parts.Any() ? parts.Where(part => Decide(part) != true).Select(Tidied) : [condition];
+        }
 
         var merged = new List<Condition>();
         foreach (Condition condition in conditions.SelectMany(Split))
@@ -329,7 +410,32 @@ internal sealed partial class Solver(
                 merged[j] = condition;
         }
 
+        // Over the complex numbers there are no bounds, and a number like i has no double.
+        if (!complex)
+            merged.RemoveAll(condition => condition is { Comparison: Comparison.NotEqual } && condition.Right.GetVariables().Count == 0
+                && merged.Any(other => !ReferenceEquals(other, condition) && Excludes(other, condition.Left, condition.Right.Evaluate())));
         return merged;
+
+        // Whether the condition fails where u = c.
+        static bool Excludes(Condition other, Expr u, double c)
+        {
+            if (other.Comparison == Comparison.NotEqual || other.Right.GetVariables().Count > 0)
+                return false;
+            if (other.Left is Abs absolute && absolute.Argument.Equals(u))
+                c = Math.Abs(c);
+            else if (!other.Left.Equals(u))
+                return false;
+
+            double bound = other.Right.Evaluate();
+            return !(other.Comparison switch
+            {
+                Comparison.Equal => c == bound,
+                Comparison.Less => c < bound,
+                Comparison.LessOrEqual => c <= bound,
+                Comparison.Greater => c > bound,
+                _ => c >= bound,
+            });
+        }
 
         static int Direction(Comparison comparison) => comparison switch
         {
@@ -490,7 +596,7 @@ internal sealed partial class Solver(
 
         // The centre and the distance to each root apart, so that their numbers cancel:
         // -1 + sqrt(2), not (-2 + 2sqrt(2)) / 2.
-        Expr discriminant = (b * b - 4 * a * c).Simplify(assumptions);
+        Expr discriminant = Shortest(b * b - 4 * a * c);
         Expr centre = (-b / (2 * a)).Simplify(assumptions);
         Expr Half(Expr d) => (new Sqrt(d) / (2 * a)).Simplify(assumptions);
         List<Solution> Pair(Expr low, Expr high, List<Condition> conditions) =>
@@ -526,7 +632,7 @@ internal sealed partial class Solver(
 
         // The formula as it is written, or the centre and the root of what is left, whichever is
         // shorter: 1 - sqrt(1 - a) for x^2 - 2x + a = 0, sqrt(2E / m) for E = m v^2 / 2.
-        Expr reduced = (centre * centre - c / a).Simplify(assumptions);
+        Expr reduced = Shortest(centre * centre - c / a);
         Expr formula = ((-b - new Sqrt(discriminant)) / (2 * a)).Simplify(assumptions);
         bool centred = (centre - new Sqrt(reduced)).Simplify(assumptions).Print().Length < formula.Print().Length;
         Expr radicand = centred ? reduced : discriminant;
@@ -617,10 +723,32 @@ internal sealed partial class Solver(
                 open.Add(tidied);
         }
 
+        List<Condition> merged = Merged(open);
         if (candidate.Index is null)
-            yield return candidate.With(Merged(open));
-        else if (Normalized(candidate.Start, candidate.Period!, Merged(open)) is { } family)
+            yield return new Solution(Plain(candidate.Value, merged), merged);
+        else if (Normalized(candidate.Start, candidate.Period!, merged) is { } family)
             yield return family;
+    }
+
+    // A value with what a condition sets a parameter to put in, 0 for sqrt(-a^2) if a = 0, and
+    // as a square where that is shorter: (a - 1)^2 / 4 for (a^2 - 2a + 1) / 4.
+    private Expr Plain(Expr value, List<Condition> conditions)
+    {
+        foreach (Condition condition in conditions)
+        {
+            if (condition is { Left: Variable { Name: var name }, Comparison: Comparison.Equal } && condition.Right.GetVariables().Count == 0)
+                value = value.Substitute(name, condition.Right).Simplify(assumptions);
+        }
+
+        if (value.GetVariables().Count == 0 || value is Power || SquareRoot(value) is not { } root)
+            return value;
+        Expr square = (root switch
+        {
+            Divide { Denominator: Constant } quotient => new Power(quotient.Numerator, 2) / (quotient.Denominator * quotient.Denominator),
+            Multiply { Left: Constant } product => product.Left * product.Left * new Power(product.Right, 2),
+            _ => new Power(root, 2),
+        }).Simplify(assumptions);
+        return square.Print().Length < value.Print().Length ? square : value;
     }
 
     // An equation inside another leaves them to the outer one.
@@ -667,7 +795,7 @@ internal sealed partial class Solver(
             {
                 Comparison.Equal when IsNonZero(difference) => false,
                 Comparison.NotEqual when IsNonZero(difference) => true,
-                _ => null,
+                _ => ByForm(difference, condition.Comparison),
             };
 
         return condition.Comparison switch
@@ -682,8 +810,27 @@ internal sealed partial class Solver(
             Comparison.Greater when difference.IsProvablyNonPositive(assumptions) => false,
             Comparison.GreaterOrEqual when difference.IsProvablyNonNegative(assumptions) => true,
             Comparison.GreaterOrEqual when difference.IsProvablyNegative(assumptions) => false,
-            _ => null,
+            _ => ByForm(difference, condition.Comparison),
         };
+    }
+
+    // What the form of a difference with parameters decides: (a b + 1) / b - a, 1 / b over a
+    // common denominator, is never 0, and a^2 - 2a + 1, a square, never negative.
+    private bool? ByForm(Expr difference, Comparison comparison)
+    {
+        if (difference.GetVariables().Count == 0)
+            return null;
+        if (comparison is Comparison.Equal or Comparison.NotEqual)
+        {
+            Expr numerator = Together(difference).Numerator.Simplify(assumptions);
+            return !numerator.Equals(difference) && IsNonZero(numerator) ? comparison == Comparison.NotEqual : null;
+        }
+
+        if (comparison is Comparison.GreaterOrEqual or Comparison.Less && SquareRoot(difference) is not null)
+            return comparison == Comparison.GreaterOrEqual;
+        if (comparison is Comparison.LessOrEqual or Comparison.Greater && SquareRoot((-difference).Simplify(assumptions)) is not null)
+            return comparison == Comparison.LessOrEqual;
+        return null;
     }
 
     // The sign of a real number, by its value where the assumptions alone don't decide it (pi - 3);

@@ -82,7 +82,7 @@ internal sealed partial class Solver
         if (lhs is Sin or Cos or Tan or Cot or Sec or Csc && rhs.DependsOn(_index))
             return null;
         Expr k = new Variable(_index), turns = 2 * Expr.PI * k, halfTurns = Expr.PI * k;
-        Condition[] unit = [Is(rhs, Comparison.GreaterOrEqual, -1), Is(rhs, Comparison.LessOrEqual, 1)];
+        Condition[] unit = [Is(new Abs(rhs), Comparison.LessOrEqual, 1)];
 
         switch (lhs)
         {
@@ -159,7 +159,7 @@ internal sealed partial class Solver
             case Cosh f:
                 return [new(f.Argument, new Acosh(rhs), [Is(rhs, Comparison.GreaterOrEqual, 1)], true), new(f.Argument, -new Acosh(rhs), [Is(rhs, Comparison.GreaterOrEqual, 1)], true)];
             case Tanh f:
-                return [new(f.Argument, new Atanh(rhs), [Is(rhs, Comparison.Greater, -1), Is(rhs, Comparison.Less, 1)], true)];
+                return [new(f.Argument, new Atanh(rhs), [Is(new Abs(rhs), Comparison.Less, 1)], true)];
             case Coth f:
                 return [new(f.Argument, new Atanh(1 / rhs), [Is(new Abs(rhs), Comparison.Greater, 1)], true)];
             case Sech f:

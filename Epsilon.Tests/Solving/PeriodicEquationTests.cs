@@ -96,7 +96,7 @@ public class PeriodicEquationTests
 
     [Fact]
     public void The_index_is_a_name_the_equation_doesnt_use() =>
-        Assert.Equal("{-asin(k) + 2 * π * n, asin(k) + π + 2 * π * n | n in Z} if k <= 1 and k >= -1", Printed("sin(x) + k = 0"));
+        Assert.Equal("{-asin(k) + 2 * π * n, asin(k) + π + 2 * π * n | n in Z} if k >= -1 and k <= 1", Printed("sin(x) + k = 0"));
 
     [Theory]
     [InlineData("sin(x^2) = 0", "x")]

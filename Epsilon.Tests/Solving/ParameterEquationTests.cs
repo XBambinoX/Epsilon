@@ -26,7 +26,7 @@ public class ParameterEquationTests
     [InlineData("x^2 + 1 = a", "x", "{-sqrt(a - 1), sqrt(a - 1)} if a >= 1")]
     [InlineData("a*x^2 = 1", "x", "{-1 / sqrt(a), 1 / sqrt(a)} if a > 0")]
     [InlineData("E = m*v^2/2", "v", "{-sqrt(2E / m), sqrt(2E / m)} if m != 0 and E / m >= 0")]
-    [InlineData("x^2 - 2*a*x + 1 = 0", "x", "{a - sqrt(a^2 - 1), a + sqrt(a^2 - 1)} if a^2 >= 1")]
+    [InlineData("x^2 - 2*a*x + 1 = 0", "x", "{a - sqrt(a^2 - 1), a + sqrt(a^2 - 1)} if abs(a) >= 1")]
     [InlineData("x^2 + p*x + q = 0", "x", "{(-p - sqrt(p^2 - 4q)) / 2, (-p + sqrt(p^2 - 4q)) / 2} if p^2 - 4q >= 0")]
     [InlineData("a*x^2 + b*x + c = 0", "x",
         "{(-b - sqrt(b^2 - 4a * c)) / (2a), (-b + sqrt(b^2 - 4a * c)) / (2a)} if a != 0 and b^2 - 4a * c >= 0")]
@@ -144,6 +144,19 @@ public class ParameterEquationTests
         Assert.Equal("{π * k / a | k in Z, k / a >= 0, π * k / a <= 10} if a != 0", within.Print());
     }
 
+    // Bounds rather than roots and absolute values where they say the same, without squares,
+    // which are never negative, and without what the other conditions imply.
+    [Theory]
+    [InlineData("sqrt(x) + sqrt(x + a) = 1", "{(a - 1)^2 / 4} if a >= -1 and a <= 1")]
+    [InlineData("cos(x) = 1/a", "{acos(1 / a) + 2 * π * k, -acos(1 / a) + 2 * π * k | k in Z} if abs(a) >= 1")]
+    [InlineData("x = asin(1/a)", "{asin(1 / a)} if abs(a) >= 1")]
+    [InlineData("sin(x) = a - 1", "{asin(a - 1) + 2 * π * k, -asin(a - 1) + π + 2 * π * k | k in Z} if a >= 0 and a <= 2")]
+    [InlineData("sqrt(x^2 + a^2) = 2", "{-sqrt(-a^2 + 4), sqrt(-a^2 + 4)} if a >= -2 and a <= 2")]
+    [InlineData("1/(x - a) = b", "{(a * b + 1) / b} if b != 0")]
+    [InlineData("x^2 + a^2 = 0", "{0} if a = 0")]
+    public void Conditions_are_as_simple_as_found(string equation, string expected) =>
+        Assert.Equal(expected, Printed(equation));
+
     // Where the parameters meet the conditions, each solution makes both sides equal.
     [Theory]
     [InlineData("a*x^2 + b*x + c = 0", "x", "a=2 b=-7 c=3")]
@@ -159,6 +172,10 @@ public class ParameterEquationTests
     [InlineData("A = P*(1 + r)^n", "n", "A=200 P=100 r=0.05")]
     [InlineData("sin(a*x) = 1/2", "x", "a=3")]
     [InlineData("sin(a*x)/x = 0", "x", "a=-2")]
+    [InlineData("sqrt(x) + sqrt(x + a) = 1", "x", "a=0.5")]
+    [InlineData("sqrt(x) = x - a", "x", "a=2")]
+    [InlineData("sqrt(x) = x - a", "x", "a=-0.2")]
+    [InlineData("cos(x) = 1/a", "x", "a=-2")]
     public void Solutions_make_both_sides_equal(string text, string variable, string values)
     {
         (string, double)[] at = [.. values.Split(' ').Select(pair => pair.Split('=')).Select(pair => (pair[0], double.Parse(pair[1], System.Globalization.CultureInfo.InvariantCulture)))];

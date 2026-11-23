@@ -54,6 +54,11 @@ internal static class Domain
             case Coth or Csch:
                 Add(((UnaryExpr)expr).Argument, Comparison.NotEqual, 0);
                 break;
+            // A parameter's as one condition, abs(1 / a) <= 1 tidied to abs(a) >= 1; the unknown's
+            // as bounds, which split a family into runs of its index.
+            case Asin or Acos when !complex && !expr.DependsOn(variable):
+                Add(new Abs(((UnaryExpr)expr).Argument), Comparison.LessOrEqual, 1);
+                break;
             case Asin or Acos when !complex:
                 Add(((UnaryExpr)expr).Argument, Comparison.GreaterOrEqual, -1);
                 Add(((UnaryExpr)expr).Argument, Comparison.LessOrEqual, 1);
