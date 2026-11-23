@@ -37,7 +37,7 @@ public class HigherDegreeEquationTests
     [InlineData("x^4 - 2x^3 - x + 3 = 0", "x^4 - 2x^3 - x + 3")]
     [InlineData("x^4 + x + 1 = 0", "x^4 + x + 1")]
     [InlineData("pi*x^3 + x - 1 = 0", "π * x^3 + x - 1")]
-    [InlineData("x^3 + a = 0", "x^3 + a")]
+    [InlineData("x^3 + a*x + 1 = 0", "x^3 + a * x + 1")]
     public void Polynomials_without_radicals_are_unsolved(string equation, string unsolved)
     {
         SolutionSet solutions = Equation.Parse(equation).Solve("x");

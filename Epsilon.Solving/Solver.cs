@@ -37,25 +37,36 @@ internal sealed partial class Solver(
         if (!numerator.DependsOn(variable))
             return EveryValueWhere(numerator, conditions);
 
-        var candidates = new List<Expr>();
+        var candidates = new List<Solution>();
         var isolated = new List<(Solution Solution, Expr Factor)>();
         var rationalized = new List<(Solution Solution, List<Condition> Needs)>();
         var unsolved = new List<Expr>();
         foreach (Expr factor in Factors(numerator).Where(factor => factor.DependsOn(variable)))
         {
-            if (complex || Polynomials.Coefficients(factor, variable, MaxDegree) is not null)
-                SolveFactor(factor, candidates, unsolved);
-            else if (Isolated(factor) is { } found)
-                isolated.AddRange(found.Select(solution => (solution, factor)));
-            else if (Rationalized(factor) is { } squared)
-                rationalized.AddRange(squared);
+            // A polynomial left unsolved may still be undone: x^3 = a.
+            bool polynomial = Polynomials.Coefficients(factor, variable, MaxDegree) is not null;
+            var rest = new List<Expr>();
+            if (complex || polynomial)
+                SolveFactor(factor, candidates, rest);
             else
-                SolveFactor(factor, candidates, unsolved);
+                rest.Add(factor);
+
+            foreach (Expr part in rest)
+            {
+                if (complex)
+                    unsolved.Add(part);
+                else if (Isolated(part) is { } found)
+                    isolated.AddRange(found.Select(solution => (solution, part)));
+                else if (!polynomial && Rationalized(part) is { } squared)
+                    rationalized.AddRange(squared);
+                else
+                    unsolved.Add(part);
+            }
         }
 
         // Where the factor is defined holds by how isolated solutions were found.
         List<Solution> solutions = Reduced([
-            .. candidates.SelectMany(candidate => Admitted(new Solution(candidate, []), conditions)),
+            .. candidates.SelectMany(candidate => Admitted(candidate, conditions)),
             .. isolated.SelectMany(item => Admitted(item.Solution, [.. conditions.Except(Domain.Conditions(item.Factor, variable, complex))])),
             .. rationalized.SelectMany(item => Admitted(item.Solution, [.. conditions, .. item.Needs])),
         ]);
@@ -178,25 +189,133 @@ internal sealed partial class Solver(
     }
 
     // The number in a condition on the right and no minus in front on the left: a != 1 for
-    // a - 1 != 0, a < 0 for -a > 0. On the index of a family, a bound: k >= 0.
+    // a - 1 != 0, a < 0 for -a > 0; without what doesn't change it: a != 0 for a^2 / 2 != 0,
+    // a > 0 for 1 / a >= 0. On the index of a family, a bound: k >= 0.
     private Condition Tidied(Condition condition)
     {
         if (OnIndex(condition) && IndexBound(condition).Bound is { } bound)
             return bound;
 
+        Comparison comparison = condition.Comparison;
         Expr left = (condition.Left - condition.Right).Simplify(assumptions);
+        for (Expr? peeled = left; peeled is not null; peeled = Peeled(left, ref comparison))
+            left = peeled;
+
         Expr right = 0;
         if (left is Add { Right: Constant term } sum && sum.Left.GetVariables().Count > 0)
             (left, right) = (sum.Left, new Constant(-term.Value));
         else if (left is Subtract { Right: Constant subtracted } difference && difference.Left.GetVariables().Count > 0)
             (left, right) = (difference.Left, subtracted);
+        else if (left is Subtract { Left: var minuend, Right: var subtrahend } && minuend.GetVariables().Count > 0 && comparison is Comparison.Equal or Comparison.NotEqual)
+            (left, right) = (minuend, subtrahend);
+        else if (left is Ln { Argument: var argument } && comparison is Comparison.Equal or Comparison.NotEqual)
+            (left, right) = (argument, 1);
 
-        if (!left.Print().StartsWith('-'))
-            return new Condition(left, condition.Comparison, right);
-        return new Condition((-left).Simplify(assumptions), Flipped(condition.Comparison), (-right).Simplify(assumptions));
+        if (left.Print().StartsWith('-'))
+            (left, right, comparison) = ((-left).Simplify(assumptions), (-right).Simplify(assumptions), Flipped(comparison));
+
+        // 4a <= 4 as a <= 1.
+        if (left is Multiply { Left: Constant { Value: var factor } } scaled && factor.Sign > 0 && scaled.Right.GetVariables().Count > 0)
+            (left, right) = (scaled.Right, (right / factor).Simplify(assumptions));
+        return new Condition(left, comparison, right);
     }
 
-    private void SolveFactor(Expr factor, List<Expr> candidates, List<Expr> unsolved)
+    // e compared with 0 as something simpler compared with 0, or null: a for 2a or a / 2 (b for
+    // -2b, the comparison flipped), a for a^3, a > 0 for 1 / a >= 0 and for sqrt(a) > 0, a != 0 for
+    // a^2 > 0.
+    private Expr? Peeled(Expr e, ref Comparison comparison)
+    {
+        bool equality = comparison is Comparison.Equal or Comparison.NotEqual;
+        int? SignOfNumber(Expr number) => number.GetVariables().Count == 0 && SignOf(number) is int s and not 0 ? s : null;
+
+        switch (e)
+        {
+            case Negate negation:
+                comparison = Flipped(comparison);
+                return negation.Argument;
+            case Multiply product when SignOfNumber(product.Left) is int sign:
+                return Signed(product.Right, sign, ref comparison);
+            case Multiply product when SignOfNumber(product.Right) is int sign:
+                return Signed(product.Left, sign, ref comparison);
+            case Divide quotient when SignOfNumber(quotient.Denominator) is int sign:
+                return Signed(quotient.Numerator, sign, ref comparison);
+            case Divide { Numerator: Multiply product } quotient when SignOfNumber(product.Left) is int sign:
+                return Signed(product.Right / quotient.Denominator, sign, ref comparison);
+            case Divide { Denominator: Multiply product } quotient when SignOfNumber(product.Left) is int sign:
+                return Signed(quotient.Numerator / product.Right, sign, ref comparison);
+            case Divide quotient when !equality && SignOfNumber(quotient.Numerator) is int sign:
+                comparison = comparison switch { Comparison.GreaterOrEqual => Comparison.Greater, Comparison.LessOrEqual => Comparison.Less, var same => same };
+                return Signed(quotient.Denominator, sign, ref comparison);
+            case Divide quotient when equality && quotient.Numerator.GetVariables().Count > 0:
+                return quotient.Numerator;
+            case Power { Exponent: Constant { Value: { IsInteger: true } n } } power when n.Sign > 0:
+                return Powered(power.Base, n.Numerator.IsEven, root: false, ref comparison);
+            case Sqrt root:
+                return Powered(root.Argument, even: true, root: true, ref comparison);
+            case NthRoot { Degree: Constant { Value: { IsInteger: true } n } } root when n.Sign > 0:
+                return Powered(root.Argument, n.Numerator.IsEven, root: true, ref comparison);
+            default:
+                return null;
+        }
+
+        static Expr Signed(Expr inner, int sign, ref Comparison comparison)
+        {
+            if (sign < 0)
+                comparison = Flipped(comparison);
+            return inner;
+        }
+
+        // An odd power or root has the sign of its base. An even one is 0 where the base is, and
+        // positive elsewhere: where the base is defined for a root, anywhere else for a power.
+        static Expr? Powered(Expr inner, bool even, bool root, ref Comparison comparison)
+        {
+            if (!even)
+                return inner;
+            Comparison? replaced = comparison switch
+            {
+                Comparison.Equal or Comparison.LessOrEqual => Comparison.Equal,
+                Comparison.NotEqual => Comparison.NotEqual,
+                Comparison.Greater => root ? Comparison.Greater : Comparison.NotEqual,
+                _ => null,
+            };
+            if (replaced is not { } kept)
+                return null;
+            comparison = kept;
+            return inner;
+        }
+    }
+
+    // The conditions once each, those with the same two sides combined: a > 0 for a >= 0 and a != 0.
+    private static List<Condition> Merged(IEnumerable<Condition> conditions)
+    {
+        var merged = new List<Condition>();
+        foreach (Condition condition in conditions)
+        {
+            int i = merged.FindIndex(other => other.Left.Equals(condition.Left) && other.Right.Equals(condition.Right));
+            if (i >= 0 && Combined(merged[i].Comparison, condition.Comparison) is { } both)
+                merged[i] = new Condition(condition.Left, both, condition.Right);
+            else
+                merged.Add(condition);
+        }
+
+        return merged;
+    }
+
+    private static Comparison? Combined(Comparison a, Comparison b)
+    {
+        if (a == b)
+            return a;
+        return (a, b) switch
+        {
+            (Comparison.GreaterOrEqual or Comparison.Greater, Comparison.NotEqual or Comparison.Greater or Comparison.GreaterOrEqual)
+                or (Comparison.NotEqual, Comparison.GreaterOrEqual or Comparison.Greater) => Comparison.Greater,
+            (Comparison.LessOrEqual or Comparison.Less, Comparison.NotEqual or Comparison.Less or Comparison.LessOrEqual)
+                or (Comparison.NotEqual, Comparison.LessOrEqual or Comparison.Less) => Comparison.Less,
+            _ => null,
+        };
+    }
+
+    private void SolveFactor(Expr factor, List<Solution> candidates, List<Expr> unsolved)
     {
         if (Polynomials.Coefficients(factor, variable, MaxDegree) is not { Length: >= 2 } coefficients)
         {
@@ -204,16 +323,24 @@ internal sealed partial class Solver(
             return;
         }
 
+        // x a + b as x (a x + b), so that 0 doesn't take the condition a != 0.
+        if (coefficients.Length > 2 && coefficients[0] is Constant { Value.IsZero: true })
+        {
+            candidates.Add(new Solution(0, []));
+            SolveFactor(Polynomials.Of(coefficients[1..], variable), candidates, unsolved);
+            return;
+        }
+
         switch (coefficients.Length - 1)
         {
-            case 1 when IsNonZero(coefficients[1]):
-                candidates.Add((-coefficients[0] / coefficients[1]).Simplify(assumptions));
+            case 1 when Needed(new Condition(coefficients[1], Comparison.NotEqual, 0)) is { } needs:
+                candidates.Add(new Solution((-coefficients[0] / coefficients[1]).Simplify(assumptions), needs));
                 return;
             case 2 when Quadratic(coefficients[0], coefficients[1], coefficients[2]) is { } roots:
                 candidates.AddRange(roots);
-                if (numeric && roots.Count == 2)
-                    foreach (Expr root in roots)
-                        _quadratics[root] = [.. coefficients.Select(coefficient => coefficient.EvaluateComplex())];
+                if (numeric && roots.Count == 2 && coefficients.All(coefficient => coefficient.GetVariables().Count == 0))
+                    foreach (Solution root in roots)
+                        _quadratics[root.Value] = [.. coefficients.Select(coefficient => coefficient.EvaluateComplex())];
                 return;
             case > 2 when Split(factor, coefficients.Length - 1) is { } parts:
                 foreach (Expr part in parts)
@@ -232,15 +359,32 @@ internal sealed partial class Solver(
 
             if (!numeric && InRadicals(rationals) is { } roots)
             {
-                candidates.AddRange(roots);
+                candidates.AddRange(roots.Select(root => new Solution(root, [])));
                 return;
             }
         }
 
         if (numeric && Approximately(coefficients) is { } approximations)
-            candidates.AddRange(approximations);
+            candidates.AddRange(approximations.Select(root => new Solution(root, [])));
         else
             unsolved.Add(factor);
+    }
+
+    // What a step of solving needs that isn't decided, tidied; null where a need fails, or where a
+    // number can't be told to meet it.
+    private List<Condition>? Needed(params Condition[] needs)
+    {
+        var open = new List<Condition>();
+        foreach (Condition need in needs)
+        {
+            bool? holds = Decide(need);
+            if (holds == false || holds is null && need.Left.GetVariables().Count == 0 && need.Right.GetVariables().Count == 0)
+                return null;
+            if (holds is null && Tidied(need) is var tidied && !open.Contains(tidied))
+                open.Add(tidied);
+        }
+
+        return open;
     }
 
     // A solution found in numeric mode, as a number to about full double precision.
@@ -263,7 +407,7 @@ internal sealed partial class Solver(
         {
             if (Quadratic(c, b, 1) is not { } pair)
                 return null;
-            roots.AddRange(pair);
+            roots.AddRange(pair.Select(root => root.Value));
         }
 
         return roots;
@@ -296,25 +440,85 @@ internal sealed partial class Solver(
         return found;
     }
 
-    // a x^2 + b x + c = 0 by the discriminant, or null where its sign isn't known.
-    private List<Expr>? Quadratic(Expr c, Expr b, Expr a)
+    // a x^2 + b x + c = 0 by the discriminant, or null where a number's sign isn't known.
+    private List<Solution>? Quadratic(Expr c, Expr b, Expr a)
     {
-        if (!IsNonZero(a))
+        if (Needed(new Condition(a, Comparison.NotEqual, 0)) is not { } needs)
             return null;
+        if (a.Print().StartsWith('-'))
+            (a, b, c) = ((-a).Simplify(assumptions), (-b).Simplify(assumptions), (-c).Simplify(assumptions));
 
         // The centre and the distance to each root apart, so that their numbers cancel:
         // -1 + sqrt(2), not (-2 + 2sqrt(2)) / 2.
         Expr discriminant = (b * b - 4 * a * c).Simplify(assumptions);
         Expr centre = (-b / (2 * a)).Simplify(assumptions);
         Expr Half(Expr d) => (new Sqrt(d) / (2 * a)).Simplify(assumptions);
-        return SignOf(discriminant) switch
+        List<Solution> Pair(Expr low, Expr high, List<Condition> conditions) =>
+            [new(low.Simplify(assumptions), conditions), new(high.Simplify(assumptions), conditions)];
+        switch (SignOf(discriminant))
         {
-            > 0 => [(centre - Half(discriminant)).Simplify(assumptions), (centre + Half(discriminant)).Simplify(assumptions)],
-            0 => [centre],
-            < 0 when complex => [(centre - Expr.I * Half(-discriminant)).Simplify(assumptions), (centre + Expr.I * Half(-discriminant)).Simplify(assumptions)],
-            < 0 => [],
-            null => null,
-        };
+            case > 0:
+                return Pair(centre - Half(discriminant), centre + Half(discriminant), needs);
+            case 0:
+                return [new(centre, needs)];
+            case < 0 when complex:
+                return Pair(centre - Expr.I * Half(-discriminant), centre + Expr.I * Half(-discriminant), needs);
+            case < 0:
+                return [];
+        }
+
+        if (discriminant.GetVariables().Count == 0)
+            return null;
+
+        // With parameters, a discriminant that is a square needs no abs: x^2 - (a + b) x + a b = 0
+        // at a and b, expanded where Simplify leaves (a + b) / 2 - (a - b) / 2.
+        if (SquareRoot(discriminant) is { } root)
+        {
+            Expr half = (root / (2 * a)).Simplify(assumptions);
+            Expr Shortest(Expr value)
+            {
+                Expr simplified = value.Simplify(assumptions), expanded = value.Expand(SimplifyMode.Strict).Simplify(assumptions);
+                return expanded.Print().Length < simplified.Print().Length ? expanded : simplified;
+            }
+
+            return [new(Shortest(centre - half), needs), new(Shortest(centre + half), needs)];
+        }
+
+        // The formula as it is written, or the centre and the root of what is left, whichever is
+        // shorter: 1 - sqrt(1 - a) for x^2 - 2x + a = 0, sqrt(2E / m) for E = m v^2 / 2.
+        Expr reduced = (centre * centre - c / a).Simplify(assumptions);
+        Expr formula = ((-b - new Sqrt(discriminant)) / (2 * a)).Simplify(assumptions);
+        bool centred = (centre - new Sqrt(reduced)).Simplify(assumptions).Print().Length < formula.Print().Length;
+        Expr radicand = centred ? reduced : discriminant;
+
+        Condition nonNegative = new(radicand, Comparison.GreaterOrEqual, 0);
+        if (!complex && Decide(nonNegative) == false)
+            return [];
+        List<Condition>? real = complex ? [] : Needed(nonNegative);
+        if (real is null)
+            return null;
+        return centred
+            ? Pair(centre - new Sqrt(radicand), centre + new Sqrt(radicand), [.. needs, .. real])
+            : Pair((-b - new Sqrt(radicand)) / (2 * a), (-b + new Sqrt(radicand)) / (2 * a), [.. needs, .. real]);
+    }
+
+    // s with s^2 = d, by d as a square of a polynomial in one of its variables, the coefficient of
+    // its square a square too: a - b for a^2 - 2a b + b^2; null if it isn't seen to be one.
+    private Expr? SquareRoot(Expr d)
+    {
+        if (d.GetVariables().Count == 0)
+            return SignOf(d) >= 0 && new Sqrt(d).Simplify(assumptions) is Constant root ? root : null;
+
+        foreach (string name in d.GetVariables().Order(StringComparer.Ordinal))
+        {
+            if (Polynomials.Coefficients(d, name, 2) is not { Length: 3 } k
+                || (k[1] * k[1] - 4 * k[2] * k[0]).Expand(SimplifyMode.Strict) is not Constant { Value.IsZero: true }
+                || SquareRoot(k[2]) is not { } leading)
+                continue;
+            return (leading * (new Variable(name) + k[1] / (2 * k[2]))).Simplify(assumptions);
+        }
+
+        return null;
     }
 
     // The factors of a polynomial of higher degree with rational coefficients, each of a lower
@@ -366,8 +570,8 @@ internal sealed partial class Solver(
         }
 
         if (candidate.Index is null)
-            yield return candidate.With(open);
-        else if (Normalized(candidate.Start, candidate.Period!, open) is { } family)
+            yield return candidate.With(Merged(open));
+        else if (Normalized(candidate.Start, candidate.Period!, Merged(open)) is { } family)
             yield return family;
     }
 

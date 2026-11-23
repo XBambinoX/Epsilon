@@ -30,7 +30,7 @@ internal sealed partial class Solver
             // A periodic function undone leaves the index in the solutions, as a parameter.
             foreach (Solution solution in rest.Solutions)
             {
-                List<Condition> conditions = [.. solution.Conditions, .. given];
+                List<Condition> conditions = Merged([.. solution.Conditions, .. given]);
                 if (!solution.Value.DependsOn(_index))
                     solutions.Add(solution.With(conditions));
                 else if (Family(solution.Value, conditions) is not { } family)
@@ -102,14 +102,16 @@ internal sealed partial class Solver
                 return [new(product.Left, rhs / product.Right, [Is(product.Right, Comparison.NotEqual, 0)], false)];
             case Divide quotient when Free(quotient.Denominator):
                 return [new(quotient.Numerator, rhs * quotient.Denominator, [Is(quotient.Denominator, Comparison.NotEqual, 0)], false)];
+            // a / u = c at u = a / c, which is 0 where a is: L / g = c needs L != 0.
             case Divide quotient when Free(quotient.Numerator):
-                return [new(quotient.Denominator, quotient.Numerator / rhs, [Is(rhs, Comparison.NotEqual, 0)], true)];
+                return [new(quotient.Denominator, quotient.Numerator / rhs,
+                    [Is(rhs, Comparison.NotEqual, 0), Is(quotient.Numerator, Comparison.NotEqual, 0)], true)];
 
             // u^n = c: an odd n has one real root of c, an even n two, if c >= 0.
             case Power { Exponent: Constant { Value: { IsInteger: true } n } } power when n.Sign > 0:
                 Expr root = n == 2 ? new Sqrt(rhs) : new NthRoot(rhs, (int)n.Numerator);
                 return n.Numerator.IsEven
-                    ? [new(power.Base, root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true), new(power.Base, -root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true)]
+                    ? [new(power.Base, -root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true), new(power.Base, root, [Is(rhs, Comparison.GreaterOrEqual, 0)], true)]
                     : [new(power.Base, root, [], true)];
             case Power power when Free(power.Base):
                 return [new(power.Exponent, new Ln(rhs) / new Ln(power.Base),
@@ -124,7 +126,7 @@ internal sealed partial class Solver
             case NthRoot { Degree: Constant { Value: { IsInteger: true } n } } r when n.Sign > 0:
                 return [new(r.Argument, new Power(rhs, n), n.Numerator.IsEven ? [Is(rhs, Comparison.GreaterOrEqual, 0)] : [], true)];
             case Abs a:
-                return [new(a.Argument, rhs, [Is(rhs, Comparison.GreaterOrEqual, 0)], true), new(a.Argument, -rhs, [Is(rhs, Comparison.GreaterOrEqual, 0)], true)];
+                return [new(a.Argument, -rhs, [Is(rhs, Comparison.GreaterOrEqual, 0)], true), new(a.Argument, rhs, [Is(rhs, Comparison.GreaterOrEqual, 0)], true)];
 
             case Asin f:
                 return [new(f.Argument, new Sin(rhs), [Is(rhs, Comparison.GreaterOrEqual, -halfPi), Is(rhs, Comparison.LessOrEqual, halfPi)], true)];
