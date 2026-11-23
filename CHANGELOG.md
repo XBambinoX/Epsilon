@@ -6,7 +6,8 @@ Every package keeps its own changelog:
 |---|---|
 | [Epsilon](Epsilon.Core/README.md), the core | [Epsilon.Core/CHANGELOG.md](Epsilon.Core/CHANGELOG.md) |
 | [Epsilon.LinearAlgebra](Epsilon.LinearAlgebra/README.md) | [Epsilon.LinearAlgebra/CHANGELOG.md](Epsilon.LinearAlgebra/CHANGELOG.md) |
-| Epsilon.Calculus | [Epsilon.Calculus/CHANGELOG.md](Epsilon.Calculus/CHANGELOG.md) |
+| [Epsilon.Calculus](Epsilon.Calculus/README.md) | [Epsilon.Calculus/CHANGELOG.md](Epsilon.Calculus/CHANGELOG.md) |
+| [Epsilon.Solving](Epsilon.Solving/README.md) | [Epsilon.Solving/CHANGELOG.md](Epsilon.Solving/CHANGELOG.md) |
 
 Releases are tagged per package, with the package version after the prefix: `core-v1.1.0`,
-`linalg-v1.0.0`, `calculus-v1.0.0`.
+`linalg-v1.0.0`, `calculus-v1.0.0`, `solving-v1.0.0`.

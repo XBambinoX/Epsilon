@@ -16,7 +16,7 @@ public class SolvingDocsLinksTests
 {
     [Fact]
     public void Relative_links_resolve() =>
-        Assert.Empty(LinearAlgebra.MarkdownLinks.Broken(Path.Combine("Epsilon.Solving", "docs")));
+        Assert.Empty(LinearAlgebra.MarkdownLinks.Broken(Path.Combine("Epsilon.Solving", "docs"), Path.Combine("Epsilon.Solving", "CHANGELOG.md")));
 }
 
 internal static class Docs
