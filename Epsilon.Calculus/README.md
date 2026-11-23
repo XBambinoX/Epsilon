@@ -32,8 +32,8 @@ ExprParser.Parse("1/(1 + x^2)").IntegrateExact("x", 0, 1).Print();  // π / 4
 dotnet add package Epsilon.Calculus
 ```
 
-Requires .NET 10. The core package `Epsilon` and `Epsilon.LinearAlgebra` come with it; the
-namespaces are `Epsilon.Calculus`, `Epsilon.Core` and `Epsilon.LinearAlgebra`.
+Requires .NET 10. The core package `Epsilon`, `Epsilon.LinearAlgebra` and `Epsilon.Solving`
+come with it; the namespaces are `Epsilon.Calculus`, `Epsilon.Core` and `Epsilon.LinearAlgebra`.
 
 ## Quick start
 

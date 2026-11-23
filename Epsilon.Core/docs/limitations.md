@@ -10,7 +10,7 @@ and protection against deep nesting. The only exception is
 `min`/`max` over the complex numbers, which can't exist mathematically. See the
 [roadmap](../README.md#roadmap) for the order.
 
-Everything here reflects version 1.3.0. Each example is checked by a test
+Everything here reflects version 1.4.0. Each example is checked by a test
 (in `Epsilon.Tests/Core/DocsExamplesTests.cs`), so when a limitation is lifted this page is
 updated with it.
 

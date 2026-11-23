@@ -26,6 +26,7 @@ jobs:
       - run: dotnet pack Epsilon.Core/Epsilon.Core.csproj -c Release --no-build -o artifacts
       - run: dotnet pack Epsilon.LinearAlgebra/Epsilon.LinearAlgebra.csproj -c Release --no-build -o artifacts
       - run: dotnet pack Epsilon.Calculus/Epsilon.Calculus.csproj -c Release --no-build -o artifacts
+      - run: dotnet pack Epsilon.Solving/Epsilon.Solving.csproj -c Release --no-build -o artifacts
 
       - uses: actions/upload-artifact@v4
         with:
