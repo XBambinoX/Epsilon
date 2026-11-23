@@ -1,3 +1,5 @@
+<div align="center">
+
 ![Epsilon](assets/icon.png)
 
 # Epsilon
@@ -5,6 +7,8 @@
 [![CI](https://github.com/XBambinoX/Epsilon/actions/workflows/ci.yml/badge.svg)](https://github.com/XBambinoX/Epsilon/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)](https://dotnet.microsoft.com/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE.txt)
+
+</div>
 
 **Symbolic math for .NET.** An exact core for formulas - parsing, simplification,
 derivatives, factoring and roots - and a family of packages built on it, with no
@@ -93,21 +97,21 @@ The [package README](Epsilon.Calculus/README.md) shows every feature; the
 
 The areas built on the core as separate packages, in this order:
 
-1. **Linear algebra** - available as `Epsilon.LinearAlgebra`, with fixed-size vectors,
-   matrices, quaternions and camera matrices for games and real-time code since 1.2 and 1.3,
-   symbolic matrices compiled to fast delegates or C# source since 1.4, and least squares
-   with QR, Cholesky, eigenvalue and singular value decompositions since 1.5.
-2. **Calculus** - available as `Epsilon.Calculus`: gradients, vector fields, Hessians and
-   Laplacians, symbolic and numeric integration (improper integrals included), and since 1.1
-   series, limits, exact definite integrals and line integrals. Planned next, as far as time
-   and energy allow: multivariable limits in 2D and 3D, double and triple integrals, surface
-   integrals, residues and contour integrals, Lebesgue integration and more.
-3. **Transforms** - Fourier, wavelets and more.
-4. **Probability theory** - under consideration.
-5. Further areas as the library grows.
+1. **Equation solving** - available as `Epsilon.Solving`: exact solutions of equations in
+   one unknown, with the families of solutions of periodic ones and the conditions on the
+   other variables, and numeric solutions in a range or a rectangle of the complex plane.
+   Planned next: inequalities and systems of equations.
+2. **Calculus** - next in `Epsilon.Calculus`: Fourier series, double integrals over a region
+   and triple integrals over a body, surface integrals of the first and second kind, and
+   contour integrals.
+3. **Measure theory** - `Epsilon.Calculus.Measure`: measures from length up to the Jordan
+   and Lebesgue measures, signed measures and the Lebesgue integral.
+4. **Transforms** - Fourier, Laplace, wavelets and more.
+5. **Probability theory** - under consideration.
+6. Further areas as the library grows.
 
-Alongside them the core keeps improving: a symbolic equation solver and piecewise
-expressions (see the [core roadmap](Epsilon.Core/README.md#roadmap)).
+Alongside them the core keeps improving, with piecewise expressions next (see the
+[core roadmap](Epsilon.Core/README.md#roadmap)).
 
 ## Building from source
 
